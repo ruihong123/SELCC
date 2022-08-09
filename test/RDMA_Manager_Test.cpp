@@ -1,0 +1,37 @@
+//
+// Created by wang4996 on 8/1/22.
+//
+#include "util/rdma.h"
+#include "gmock/gmock.h"
+#include "gtest/gtest.h"
+//#include "third_party/googletest/googletest/include/gtest/gtest.h"
+namespace DSMEngine {
+    class RDMA_Manager_Test : public testing::Test {
+    public:
+    protected:
+        void SetUp() override {
+            uint32_t tcp_port = 19843;
+            uint32_t size = 8*1024;
+            struct DSMEngine::config_t config = {
+                    NULL,  /* dev_name */
+                    NULL,  /* server_name */
+                    tcp_port, /* tcp_port */
+                    1,	 /* ib_port */
+                    1, /* gid_idx */
+                    0};
+            rdma_mg = new RDMA_Manager(config,size);
+            rdma_mg->Mempool_initialize(DataChunk, INDEX_BLOCK, 0);
+        }
+
+
+
+        DSMEngine::RDMA_Manager* rdma_mg;
+    };
+
+    TEST_F(RDMA_Manager_Test, Allocation) {
+        ibv_mr mr{};
+        rdma_mg->Allocate_Local_RDMA_Slot(mr, DataChunk);
+        ASSERT_EQ(rdma_mg->name_to_mem_pool.at(DataChunk).size(), 1);
+    }
+}
+
