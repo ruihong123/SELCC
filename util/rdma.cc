@@ -3359,6 +3359,8 @@ ibv_mr remote_mr;
   return ret;
 }
 // A function try to allocate RDMA registered local memory
+// TODO: implement sharded allocators by cpu_core_id, when allocate a memory use the core
+// id to reduce the contention, when deallocate a memory search the allocator to deallocate.
 void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
                                             Chunk_type pool_name) {
 

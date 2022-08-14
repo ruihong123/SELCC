@@ -75,7 +75,7 @@ class HandleTable {
   LRUHandle* Lookup(const Slice& key, uint32_t hash) {
     return *FindPointer(key, hash);
   }
-
+    //
   LRUHandle* Insert(LRUHandle* h) {
     LRUHandle** ptr = FindPointer(h->key(), h->hash);
     LRUHandle* old = *ptr;
@@ -85,7 +85,7 @@ class HandleTable {
     *ptr = h;
     if (old == nullptr) {
       ++elems_;
-      if (elems_ > length_) {
+      if (elems_ > length_) { // length_ is the size limit for current cache.
         // Since each table_cache entry is fairly large, we aim for a small
         // average linked list length (<= 1).
         Resize();
@@ -98,7 +98,8 @@ class HandleTable {
     LRUHandle** ptr = FindPointer(key, hash);
     LRUHandle* result = *ptr;
     if (result != nullptr) {
-      *ptr = result->next_hash;
+        //*ptr belongs to the Handle previous to the result.
+      *ptr = result->next_hash;// ptr is the "next_hash" in the handle previous to the result
       --elems_;
     }
     return result;
@@ -119,17 +120,21 @@ class HandleTable {
     while (*ptr != nullptr && ((*ptr)->hash != hash || key != (*ptr)->key())) {
       ptr = &(*ptr)->next_hash;
     }
+    // This iterator will stop at the LRUHandle whose next_hash is nullptr or its nexthash's
+    // key and hash value is the target.
     return ptr;
   }
 
   void Resize() {
-    uint32_t new_length = 4;
+    uint32_t new_length = 4;// it originally is 4
     while (new_length < elems_) {
       new_length *= 2;
     }
     LRUHandle** new_list = new LRUHandle*[new_length];
     memset(new_list, 0, sizeof(new_list[0]) * new_length);
     uint32_t count = 0;
+    //TOTHINK: will each element in list_ be supposed to have only one element?
+    // Probably yes.
     for (uint32_t i = 0; i < length_; i++) {
       LRUHandle* h = list_[i];
       while (h != nullptr) {
@@ -271,7 +276,8 @@ void LRUCache::Release(Cache::Handle* handle) {
   SpinLock l(&mutex_);
   Unref(reinterpret_cast<LRUHandle*>(handle));
 }
-
+//If the inserted key has already existed, then the old LRU handle will be removed from
+// the cache, but it may not garbage-collected right away.
 Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
                                 size_t charge,
                                 void (*deleter)(const Slice& key,
@@ -295,16 +301,14 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
     LRU_Append(&in_use_, e);// Finally it will be pushed into LRU list
     usage_ += charge;
     FinishErase(table_.Insert(e));//table_.Insert(e) will return LRUhandle with duplicate key as e, and then delete it by FinishErase
-  } else {  // don't table_cache. (capacity_==0 is supported and turns off caching.)
+  } else {  // don't do caching. (capacity_==0 is supported and turns off caching.)
     // next is read by key() in an assert, so it must be initialized
     e->next = nullptr;
   }
-//  printf("Cache capacity is %zu, usage is %zu", capacity_, usage_);
   // This will remove some entry from LRU if the table_cache over size.
   while (usage_ > capacity_ && lru_.next != &lru_) {
     LRUHandle* old = lru_.next;
     assert(old->refs == 1);
-//    printf("Remove entry whose key is %s", old->key().data());
     bool erased = FinishErase(table_.Remove(old->key(), old->hash));
     if (!erased) {  // to avoid unused variable when compiled NDEBUG
       assert(erased);
@@ -314,8 +318,8 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
   return reinterpret_cast<Cache::Handle*>(e);
 }
 
-// If e != nullptr, finish removing *e from the table_cache; it has already been
-// removed from the hash table.  Return whether e != nullptr.
+// If e != nullptr, finish removing *e from the table_cache;
+// it must have already been removed from the hash table.  Return whether e != nullptr.
 // Remove the handle from LRU and change the usage.
 bool LRUCache::FinishErase(LRUHandle* e) {
   if (e != nullptr) {
@@ -323,7 +327,10 @@ bool LRUCache::FinishErase(LRUHandle* e) {
     LRU_Remove(e);
     e->in_cache = false;
     usage_ -= e->charge;
+  // decrease the reference of cache, making it not pinned by cache, but it
+  // can still be pinned outside the cache.
     Unref(e);
+
   }
   return e != nullptr;
 }

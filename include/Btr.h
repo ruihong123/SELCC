@@ -106,12 +106,9 @@ private:
 
   bool try_lock_addr(GlobalAddress lock_addr, uint64_t tag, ibv_mr *buf,
                      CoroContext *cxt, int coro_id);
-  void unlock_addr(GlobalAddress lock_addr, uint64_t tag, uint64_t *buf,
-                   CoroContext *cxt, int coro_id, bool async);
-  void write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr,
-                             int page_size, uint64_t *cas_buffer,
-                             GlobalAddress lock_addr, uint64_t tag,
-                             CoroContext *cxt, int coro_id, bool async);
+  void unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro_id, bool async);
+  void write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, uint64_t *cas_buffer,
+                             GlobalAddress lock_addr, CoroContext *cxt, int coro_id, bool async);
   void lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
                           int page_size, ibv_mr *cas_buffer,
                           GlobalAddress lock_addr, uint64_t tag,
@@ -120,20 +117,20 @@ private:
     // THis funciton will get the page by the page addr and search the pointer for the
     // next level if it is not leaf page. If it is a leaf page, just put the value in the
     // result. this funciton = fetch the page + internal page serach + leafpage search + re-read
-    bool page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, CoroContext *cxt, int coro_id,
-                     bool isroot);
+    bool internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int level, bool isroot,
+                              CoroContext *cxt, int coro_id);
+    bool leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int level, CoroContext *cxt,
+                          int coro_id);
 //        void internal_page_search(const Key &k, SearchResult &result);
 
 //    void leaf_page_search(LeafPage *page, const Key &k, SearchResult &result);
     // store a key and a pointer to an known internal node.
     // Note: node range [barrer1, barrer2)
-  void internal_page_store(GlobalAddress page_addr, const Key &k,
-                           GlobalAddress value, GlobalAddress root, int level,
-                           CoroContext *cxt, int coro_id);
+        bool internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int level, CoroContext *cxt,
+                                 int coro_id);
   //store a key and value to a leaf page
-  bool leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
-                       GlobalAddress root, int level, CoroContext *cxt,
-                       int coro_id, bool from_cache = false);
+  bool leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v, Key &split_key, GlobalAddress sibling_addr,
+                       GlobalAddress root, int level, CoroContext *cxt, int coro_id, bool from_cache);
   void leaf_page_del(GlobalAddress page_addr, const Key &k, int level,
                      CoroContext *cxt, int coro_id);
 

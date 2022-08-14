@@ -160,6 +160,9 @@ public:
     operator uint64_t() {
         return val;
     }
+    //TODO: How to distinguish the page at node 0 offest 0, and null_ptr.
+    // May be we should put compute node as even number so that the global address will never
+    // hase GlobalAddress::Null()
 
     static GlobalAddress Null() {
         static GlobalAddress zero{0, 0};
