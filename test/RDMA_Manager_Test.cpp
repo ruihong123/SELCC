@@ -4,7 +4,6 @@
 #include "util/rdma.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-//#include "third_party/googletest/googletest/include/gtest/gtest.h"
 namespace DSMEngine {
     class RDMA_Manager_Test : public testing::Test {
     public:
@@ -19,7 +18,7 @@ namespace DSMEngine {
                     1,	 /* ib_port */
                     1, /* gid_idx */
                     0};
-            rdma_mg = new RDMA_Manager(config,size);
+            rdma_mg = RDMA_Manager::Get_Instance(config);
             rdma_mg->Mempool_initialize(DataChunk, INDEX_BLOCK, 0);
         }
 
@@ -33,5 +32,9 @@ namespace DSMEngine {
         rdma_mg->Allocate_Local_RDMA_Slot(mr, DataChunk);
         ASSERT_EQ(rdma_mg->name_to_mem_pool.at(DataChunk).size(), 1);
     }
+}
+int main(int argc, char** argv) {
+    testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }
 

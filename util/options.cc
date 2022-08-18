@@ -21,7 +21,7 @@ Options::Options() : comparator(BytewiseComparator()), env(Env::Default()) {
     ibv_mr* mr;
     char* buff;
 
-    env->rdma_mg->Local_Memory_Register(&buff, &mr, 1024*1024*1024, DataChunk);
+//    env->rdma_mg->Local_Memory_Register(&buff, &mr, 1024*1024*1024, DataChunk);
 
   }
 

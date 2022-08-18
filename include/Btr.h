@@ -17,23 +17,25 @@
 //// InternalPagePadding is 7 for key 20 bytes value 400 bytes
 //#define LeafPagePadding (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2)%sizeof(LeafEntry)
 //// LeafPagePadding is 143 for key 20 bytes value 400 bytes.
-namespace DSMEngine {
-
 class IndexCache;
 
 struct Request {
-  bool is_search;
-  Key k;
-  Value v;
+    bool is_search;
+    Key k;
+    Value v;
 };
 
 class RequstGen {
 public:
-  RequstGen() = default;
-  virtual Request next() { return Request{}; }
+    RequstGen() = default;
+    virtual Request next() { return Request{}; }
 };
+using CoroFunc = std::function<RequstGen *(int, DSMEngine::RDMA_Manager *, int)>;
 
-using CoroFunc = std::function<RequstGen *(int, RDMA_Manager *, int)>;
+namespace DSMEngine {
+
+
+
 
 
 
@@ -53,8 +55,8 @@ public:
               int coro_id = 0);
   void del(const Key &k, CoroContext *cxt = nullptr, int coro_id = 0);
 
-  uint64_t range_query(const Key &from, const Key &to, Value *buffer,
-                       CoroContext *cxt = nullptr, int coro_id = 0);
+//  uint64_t range_query(const Key &from, const Key &to, Value *buffer,
+//                       CoroContext *cxt = nullptr, int coro_id = 0);
 
   void print_and_check_tree(CoroContext *cxt = nullptr, int coro_id = 0);
 
@@ -63,7 +65,7 @@ public:
 //  void lock_bench(const Key &k, CoroContext *cxt = nullptr, int coro_id = 0);
 
   GlobalAddress query_cache(const Key &k);
-  void index_cache_statistics();
+//  void index_cache_statistics();
   void clear_statistics();
         static RDMA_Manager * rdma_mg;
 private:
@@ -92,7 +94,7 @@ private:
   GlobalAddress get_root_ptr();
 
   void coro_worker(CoroYield &yield, RequstGen *gen, int coro_id);
-  void coro_master(CoroYield &yield, int coro_cnt);
+//  void coro_master(CoroYield &yield, int coro_cnt);
   // broadcast the new root to all other memroy servers, if memory server and compute
   // servers are the same then the new root is know by all the compute nodes, However,
   // when we seperate the compute from the memory, the memroy node will not get notified.
@@ -101,8 +103,8 @@ private:
                        int level, GlobalAddress old_root, CoroContext *cxt,
                        int coro_id);
   // Insert a key and a point at a particular level (level != 0), the node is unknown
-  void insert_internal(const Key &k, GlobalAddress v, CoroContext *cxt,
-                       int coro_id, int level);
+  void insert_internal(Key &k, GlobalAddress &v, CoroContext *cxt,
+                       int coro_id, int target_level);
 
   bool try_lock_addr(GlobalAddress lock_addr, uint64_t tag, ibv_mr *buf,
                      CoroContext *cxt, int coro_id);
@@ -129,9 +131,9 @@ private:
         bool internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int level, CoroContext *cxt,
                                  int coro_id);
   //store a key and value to a leaf page
-  bool leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v, Key &split_key, GlobalAddress sibling_addr,
-                       GlobalAddress root, int level, CoroContext *cxt, int coro_id, bool from_cache);
-  void leaf_page_del(GlobalAddress page_addr, const Key &k, int level,
+  bool leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v, Key &split_key,
+                       GlobalAddress &sibling_addr, GlobalAddress root, int level, CoroContext *cxt, int coro_id);
+  bool leaf_page_del(GlobalAddress page_addr, const Key &k, int level,
                      CoroContext *cxt, int coro_id);
 
   bool acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
@@ -142,6 +144,10 @@ private:
                                    int coro_id);
   bool can_hand_over(GlobalAddress lock_addr);
   void releases_local_lock(GlobalAddress lock_addr);
+};
+
+class Btr_iter{
+    // TODO: implement btree iterator for range query.
 };
     static void Deallocate_MR(const Slice& key, void* value) {
         auto mr = (ibv_mr*) value;

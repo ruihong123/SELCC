@@ -25,7 +25,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include "util/thread_local.h"
-#include "HugePageAlloc.h"
+//#include "HugePageAlloc.h"
 #include "Common.h"
 #include "port/port_posix.h"
 #include "mutexlock.h"
@@ -246,7 +246,7 @@ class In_Use_Array {
       return false;
     }
   }
-  size_t get_chunk_number() { return chunk_size_; }
+  size_t get_chunk_size() { return chunk_size_; }
   ibv_mr* get_mr_ori() { return mr_ori_; }
   size_t get_element_size() { return element_size_; }
 //  std::atomic<bool>* get_inuse_table() { return in_use_; }
@@ -321,6 +321,7 @@ class RDMA_Manager {
   //  }
   //  RDMA_Manager()=delete;
   ~RDMA_Manager();
+  static RDMA_Manager *Get_Instance(config_t config);
   /**
    *
    */
@@ -343,6 +344,7 @@ class RDMA_Manager {
   void sync_with_computes_Mside();
   void broadcast_to_computes_through_socket();
   ibv_mr* create_index_table();
+  ibv_mr* create_lock_table();
   // client function to retrieve serialized data.
   //  bool client_retrieve_serialized_data(const std::string& db_name, char*& buff,
   //                                       size_t& buff_size, ibv_mr*& local_data_mr,
@@ -374,7 +376,7 @@ class RDMA_Manager {
   // The RPC to bulk deallocation.
   void Memory_Deallocation_RPC(uint16_t target_node_id);
   //TODO: Make it register not per 1GB, allocate and register the memory all at once.
-  bool Preregister_Memory(int gb_number); //Pre register the memroy do not allocate bit map
+  ibv_mr * Preregister_Memory(int gb_number); //Pre register the memroy do not allocate bit map
   // Remote Memory registering will call RDMA send and receive to the remote memory it also push the new SST bit map to the Remote_Leaf_Node_Bitmap
   bool Remote_Memory_Register(size_t size, uint16_t target_node_id, Chunk_type pool_name);
   int Remote_Memory_Deregister();
@@ -462,13 +464,14 @@ class RDMA_Manager {
 //TODO: seperate the remote registered memory as different chunk types. similar to name_to_mem_pool
   std::map<uint16_t, std::map<void*, In_Use_Array*>*> Remote_Leaf_Node_Bitmap;
     std::map<uint16_t, std::map<void*, In_Use_Array*>*> Remote_Inner_Node_Bitmap;
-  std::map<uint16_t, uint32_t> rkey_map_main;
+    std::map<uint16_t, ibv_mr*> mr_map_data;
+    std::map<uint16_t, uint32_t> rkey_map_data;
+    std::map<uint16_t, uint64_t> base_addr_map_data;
 
-    std::map<uint16_t, uint64_t> base_addr_map_main;
-
+    std::map<uint16_t, ibv_mr*> mr_map_lock;
     std::map<uint16_t, uint32_t> rkey_map_lock;
     std::map<uint16_t, uint64_t> base_addr_map_lock;
-    std::map<uint16_t, uint32_t> rkey_map_lock_area_size;
+//    std::map<uint16_t, uint32_t> rkey_map_lock_area_size;
   size_t total_registered_size;
   //  std::shared_mutex remote_pool_mutex;
   //  std::map<void*, In_Use_Array>* Write_Local_Mem_Bitmap = nullptr;
@@ -509,10 +512,10 @@ class RDMA_Manager {
   //  thread_local static std::unique_ptr<ibv_cq, CQ_Deleter> cq_local_write_flush;
   std::unordered_map<Chunk_type, std::map<void*, In_Use_Array*>>
       name_to_mem_pool;
-  std::unordered_map<Chunk_type, size_t> name_to_chunknum;
+  std::unordered_map<Chunk_type, size_t> name_to_chunksize;
   std::unordered_map<Chunk_type, size_t> name_to_allocated_size;
   std::shared_mutex local_mem_mutex;
-  //Compute node is odd, memory node is even.
+  //Compute node is even, memory node is odd.
   static uint16_t node_id;
   std::unordered_map<uint16_t, ibv_mr*> comm_thread_recv_mrs;
   std::unordered_map<uint16_t , int> comm_thread_buffer;
@@ -540,6 +543,7 @@ class RDMA_Manager {
   std::map<std::string, registered_qp_config*> qp_main_connection_info_Mside;
   // This global index table is in the node 0;
   ibv_mr* global_index_table = nullptr;
+    ibv_mr* global_lock_table = nullptr;
 #ifdef PROCESSANALYSIS
   static std::atomic<uint64_t> RDMAReadTimeElapseSum;
   static std::atomic<uint64_t> ReadCount;

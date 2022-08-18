@@ -12,7 +12,7 @@ include_directories(
 #        "${PROJECT_SOURCE_DIR}/third_party/googletest/googletest"
         )
 
-add_library(DSMEngine test/RDMA_Manager_Test.cpp util/locks.cpp util/locks.h util/page.cpp util/page.h)
+add_library(DSMEngine util/locks.cpp util/locks.h util/page.cpp util/page.h btr/btr_itr.cpp)
 target_sources(DSMEngine
         PRIVATE
         "btr/Btr.cpp"
@@ -57,6 +57,7 @@ target_sources(DSMEngine
         "util/thread_local.cc"
         "util/thread_local.h"
         "util/status.cc"
+        "test/zipf.h"
 
         # Only CMake 3.3+ supports PUBLIC sources in targets exported by "install".
         $<$<VERSION_GREATER:CMAKE_VERSION,3.2>:PUBLIC>
@@ -64,6 +65,7 @@ target_sources(DSMEngine
         "include/Common.h"
         "include/Config.h"
         "include/HugePageAlloc.h"
+        "include/Timer.h"
         )
 
 target_include_directories(DSMEngine
@@ -72,6 +74,9 @@ target_include_directories(DSMEngine
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 
         )
+enable_testing()
+# This project is tested using GoogleTest.
+add_subdirectory("third_party/googletest")
 find_package(ibverbs REQUIRED)
 target_link_libraries(DSMEngine ibverbs::ibverbs)
 if(WITH_NUMA)
@@ -81,19 +86,25 @@ if(WITH_NUMA)
     target_link_libraries(TimberSaw NUMA::NUMA)
 endif()
 add_executable(MemoryEngine_Compute main.cpp)
-add_executable(MemoryEngine_Memory "server.cc"
+add_executable(memory_server "server.cc"
         "memory_node/memory_node_keeper.h"
         "memory_node/memory_node_keeper.cpp")
+add_executable(btree_bench test/benchmark.cpp)
 target_link_libraries(MemoryEngine_Compute DSMEngine)
-target_link_libraries(MemoryEngine_Memory DSMEngine)
+target_link_libraries(memory_server DSMEngine)
+target_link_libraries(btree_bench DSMEngine)
 
-# This project is tested using GoogleTest.
-add_subdirectory("third_party/googletest")
 
+#add_subdirectory("third_party/googlemock")
 function(TimberSaw_test test_file)
     get_filename_component(test_target_name "${test_file}" NAME_WE)
 
     add_executable("${test_target_name}" "")
+#    target_include_directories("${test_target_name}"
+#            PUBLIC
+#            ${PROJECT_SOURCE_DIR}/third_party/googletest/googletest/include
+#            ${PROJECT_SOURCE_DIR}/third_party/googletest/googlemock/include
+#            )
     target_sources("${test_target_name}"
             PRIVATE
 #            "${PROJECT_BINARY_DIR}/${TimberSaw_PORT_CONFIG_DIR}/port_config.h"
@@ -101,7 +112,9 @@ function(TimberSaw_test test_file)
 #            "util/testutil.h"
             "${test_file}"
             )
+
     target_link_libraries("${test_target_name}" DSMEngine gmock gtest)
+
 #    target_compile_definitions("${test_target_name}"
 #            PRIVATE
 #            ${TimberSaw_PLATFORM_NAME}=1

@@ -3,7 +3,7 @@
 //#include "IndexCache.h"
 
 //#include "RdmaBuffer.h"
-//#include "Timer.h"
+#include "Timer.h"
 #include <algorithm>
 #include <city.h>
 #include <iostream>
@@ -305,7 +305,7 @@ inline bool Btr::try_lock_addr(GlobalAddress lock_addr, uint64_t tag,
       exit(0);
     }
       *(uint64_t *)buf->addr = 0;
-    rdma_mg->RDMA_CAS(lock_addr, buf, 0, tag, 1,1, Default);
+    rdma_mg->RDMA_CAS(lock_addr, buf, 0, tag, 1,1, LockTable);
     if ((*(uint64_t*) buf->addr) == 0){
         conflict_tag = *(uint64_t*)buf->addr;
         if (conflict_tag != pre_tag) {
@@ -447,37 +447,78 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
 //  try_lock_addr(lock_addr, 1, cas_buffer, cxt, coro_id);
 //  unlock_addr(lock_addr, 1, cas_buffer, cxt, coro_id, true);
 //}
-// You need to make sure it is not the root level
-void Btr::insert_internal(const Key &k, GlobalAddress v, CoroContext *cxt,
-                           int coro_id, int level) {
+// You need to make sure it is not the root level, this function will make sure the
+// the insertion to this target level succcessful
+// the target level can not be the root level.
+void Btr::insert_internal(Key &k, GlobalAddress &v, CoroContext *cxt,
+                          int coro_id, int target_level) {
 
     //TODO: You need to acquire a lock when you write a page
-  auto root = get_root_ptr();
-  SearchResult result;
+    auto root = get_root_ptr();
+    SearchResult result;
 
-  GlobalAddress p = root;
+    GlobalAddress p = root;
     //TODO: ADD support for root invalidate and update.
-next:
 
-  if (!internal_page_search(p, k, result, 0, false, cxt, coro_id)) {
-    std::cout << "SEARCH WARNING insert" << std::endl;
-    p = get_root_ptr();
-    sleep(1);
-    goto next;
-  }
 
-  assert(result.level != 0);
-  if (result.slibing != GlobalAddress::Null()) {
-    p = result.slibing;
-    goto next;
-  }
+    bool isroot = true;
+    // this is root is to help the tree to refresh the root node because the
+    // new root broadcast is not usable if physical disaggregated.
+    int level = -1;
+    //TODO: What if we ustilize the cache tree height for the root level?
 
-  p = result.next_level;
-  if (result.level != level + 1) {
-    goto next;
-  }
+next: // Internal page search
+    //TODO: What if the target_level is equal to the root level.
+    if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
+        if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
+            p = get_root_ptr();
+            level = -1;
+        }else{
+            // fall back to upper level
+            assert(level == result.level);
+            p = path_stack[coro_id][result.level +1];
+            level = result.level +1;
+        }
+        goto next;
+    }else{
+        assert(level == result.level);
+        isroot = false;
+        // if the root and sibling are the same, it is also okay because the
+        // p will not be changed
+        if (result.slibing != GlobalAddress::Null()) { // turn right
+            p = result.slibing;
 
-        internal_page_store(p, k, v, level, cxt, coro_id);
+        }else if (result.next_level != GlobalAddress::Null()){
+            assert(result.next_level != GlobalAddress::Null());
+            p = result.next_level;
+            level = result.level - 1;
+        }else{
+
+        }
+
+        if (level != target_level){
+
+            goto next;
+        }
+
+    }
+    //Insert to leaf level
+    Key split_key;
+    GlobalAddress sibling_prt;
+    if (!internal_page_store(p, k, v, level, cxt, coro_id)){
+        if (path_stack[coro_id][level + 1] != GlobalAddress::Null()){
+            p = path_stack[coro_id][level + 1];
+            level = level + 1;
+        }
+        else{
+            // re-search the tree from the scratch. (only happen when root and leaf are the same.)
+            p = get_root_ptr();
+            level = -1;
+        }
+        goto next;
+    }
+
+//    internal_page_store(p, k, v, level, cxt, coro_id);
 }
 
 void Btr::insert(const Key &k, const Value &v, CoroContext *cxt, int coro_id) {
@@ -494,62 +535,105 @@ void Btr::insert(const Key &k, const Value &v, CoroContext *cxt, int coro_id) {
     bool isroot = true;
   // this is root is to help the tree to refresh the root node because the
   // new root broadcast is not usable if physical disaggregated.
-    int next_level = -1;
-//TODO: What if we ustilize the cache tree height for the root next_level?
-
+    int level = -1;
+//TODO: What if we ustilize the cache tree height for the root level?
+    int target_level = 0;
 next: // Internal page search
-    if (!internal_page_search(p, k, result, next_level, isroot, cxt, coro_id)) {
+    if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
             p = get_root_ptr();
+            level = -1;
         }else{
-            // fall back to upper next_level
+            // fall back to upper level
+            assert(level == result.level);
             p = path_stack[coro_id][result.level +1];
+            level = result.level +1;
         }
         goto next;
     }
     else{
-        assert(next_level == result.level);
+        assert(level == result.level);
         isroot = false;
+        // if the root and sibling are the same, it is also okay because the
+        // p will not be changed
         if (result.slibing != GlobalAddress::Null()) { // turn right
             p = result.slibing;
 
-        }else{
+        }else if (result.next_level != GlobalAddress::Null()){
+            assert(result.next_level != GlobalAddress::Null());
             p = result.next_level;
-            next_level = result.level - 1;
-        }
+            level = result.level - 1;
+        }else{}
 
-        if (next_level > 0){
+        if (level != target_level){
 
             goto next;
         }
 
     }
+    //Insert to leaf level
     Key split_key;
     GlobalAddress sibling_prt;
-    if (!leaf_page_store(p, k, v, split_key, sibling_prt, root, 0, cxt, coro_id, false)){
-        if (path_stack[coro_id][1] != GlobalAddress::Null())
+//    if (target_level == 0){
+//
+//    }
+    if (!leaf_page_store(p, k, v, split_key, sibling_prt, root, 0, cxt, coro_id)){
+        if (path_stack[coro_id][1] != GlobalAddress::Null()){
             p = path_stack[coro_id][1];
+            level = 1;
+        }
         else{
+            // re-search the tree from the scratch. (only happen when root and leaf are the same.)
             p = get_root_ptr();
+            level = -1;
         }
         goto next;
     }
 
-    int level = 0;
-store:
-    if (sibling_prt != GlobalAddress::Null()){
-        if (!internal_page_store(path_stack[coro_id][level + 1], split_key, sibling_prt, 0, nullptr, 0)){
-            if ( path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
+    assert(level == 0);
+    level = level +1;
+    p = path_stack[coro_id][level];
+//internal_store:
+    // Insert to internal level if needed.
+    // the level here is equals to the current insertion level
+    while(sibling_prt != GlobalAddress::Null()){
+        if (!internal_page_store(p, split_key, sibling_prt, level, cxt, coro_id)){
+            // insertion failed, retry
+            if ( path_stack[coro_id][level + 1] == GlobalAddress::Null()){
+                // THis path should only happen at roof level happen.
+                // TODO: What if the node is not the root node.
+//                level = level + 1;
+//                 insert_internal(split_key,sibling_prt, cxt, coro_id, level);
+
                 p = get_root_ptr();
-                // TODO: Re-search the last level and insert to the right place.
-                // (bypassing the leaf node insert)
-                goto  next;
+                level = -1;
             }else{
-                // fall back to upper next_level
-                p = path_stack[coro_id][result.level +1];
-                goto store;
+                // fall back to upper level to search for the right node at this level
+                p = path_stack[coro_id][level +1];
+                //TODO: Change it into while style.
+re_search:
+                if(!internal_page_search(p, k, result, level + 1, isroot, cxt, coro_id)){
+                    // retranverse the tree by insert_internal.
+                    insert_internal(split_key,sibling_prt, cxt, coro_id, level);
+                    level = level + 1; // move to upper level
+                    p = path_stack[coro_id][level];// move the pointer to upper level
+                }else{
+                    if (result.slibing != GlobalAddress::Null()) { // turn right
+                        // continue searching the sibling
+                        p = result.slibing;
+                        goto re_search;
+                    }else{
+                        // do not need to chanve level.
+                        p = result.next_level;
+//                    level = result.level - 1;
+                    }
+                }
+
             }
 
+        }else{
+            level = level + 1;
+            p = path_stack[coro_id][level];
         }
 
     }
@@ -582,42 +666,53 @@ bool Btr::search(const Key &k, Value &v, CoroContext *cxt, int coro_id) {
 ////      cache_miss[rdma_mg->getMyThreadID()][0]++;
 //    }
 //  }
-int next_level = -1;
-//TODO: What if we ustilize the cache tree height for the root next_level?
+int level = -1;
+//TODO: What if we ustilize the cache tree height for the root level?
+//TODO: Change it into while style code.
 
 next: // Internal page search
-    if (!internal_page_search(p, k, result, next_level, isroot, cxt, coro_id)) {
-        if (isroot || path_stack[coro_id][result.level -1] == GlobalAddress::Null()){
+    if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
+        if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
             p = get_root_ptr();
+            level = -1;
         }else{
-            // fall back to upper next_level
-            p = path_stack[coro_id][result.level -1];
+            // fall back to upper level
+            assert(level == result.level);
+            p = path_stack[coro_id][result.level +1];
+            level = result.level + 1;
         }
         goto next;
     }
     else{
-        assert(next_level == result.level);
+        assert(level == result.level);
         isroot = false;
+        // Do not need to
         if (result.slibing != GlobalAddress::Null()) { // turn right
             p = result.slibing;
 
-        }else{
+        }else if (result.next_level != GlobalAddress::Null()){
+            assert(result.next_level != GlobalAddress::Null());
             p = result.next_level;
-            next_level = result.level - 1;
-        }
+            level = result.level - 1;
+        }else{}
 
-        if (next_level > 0){
+        if (level > 0){
 
             goto next;
         }
 
     }
+
 leaf_next:// Leaf page search
-    if (!leaf_page_search(p, k, result, next_level, cxt, coro_id)){
-        if (path_stack[coro_id][1] != GlobalAddress::Null())
+    if (!leaf_page_search(p, k, result, level, cxt, coro_id)){
+        if (path_stack[coro_id][1] != GlobalAddress::Null()){
             p = path_stack[coro_id][1];
+            level = 1;
+
+        }
         else{
             p = get_root_ptr();
+            level = -1;
         }
         goto next;
     }else{
@@ -648,124 +743,164 @@ leaf_next:// Leaf page search
 //        return false; // not found
 //    } else {        // internal
 //        p = result.slibing != GlobalAddress::Null() ? result.slibing
-//                                                    : result.next_level;
+//                                                    : result.level;
 //        goto next;
 //    }
 }
 
-// TODO: Need Fix
-uint64_t Btr::range_query(const Key &from, const Key &to, Value *value_buffer,
-                           CoroContext *cxt, int coro_id) {
-
-  const int kParaFetch = 32;
-  thread_local std::vector<InternalPage *> result;
-  thread_local std::vector<GlobalAddress> leaves;
-
-  result.clear();
-  leaves.clear();
-  page_cache->search_range_from_cache(from, to, result);
-
-  if (result.empty()) {
-    return 0;
-  }
-
-  uint64_t counter = 0;
-  for (auto page : result) {
-    auto cnt = page->hdr.last_index + 1;
-    auto addr = page->hdr.leftmost_ptr;
-
-    // [from, to]
-    // [lowest, page->records[0].key);
-    bool no_fetch = from > page->records[0].key || to < page->hdr.lowest;
-    if (!no_fetch) {
-      leaves.push_back(addr);
-    }
-    for (int i = 1; i < cnt; ++i) {
-      no_fetch = from > page->records[i].key || to < page->records[i - 1].key;
-      if (!no_fetch) {
-        leaves.push_back(page->records[i - 1].ptr);
-      }
-    }
-
-    no_fetch = from > page->hdr.highest || to < page->records[cnt - 1].key;
-    if (!no_fetch) {
-      leaves.push_back(page->records[cnt - 1].ptr);
-    }
-  }
-
-  // printf("---- %d ----\n", leaves.size());
-  // sleep(1);
-
-  int cq_cnt = 0;
-  char *range_buffer = (rdma_mg->get_rbuf(coro_id)).get_range_buffer();
-  for (size_t i = 0; i < leaves.size(); ++i) {
-    if (i > 0 && i % kParaFetch == 0) {
-      rdma_mg->poll_rdma_cq(kParaFetch);
-      cq_cnt -= kParaFetch;
-      for (int k = 0; k < kParaFetch; ++k) {
-        auto page = (LeafPage *)(range_buffer + k * kLeafPageSize);
-        for (int i = 0; i < kLeafCardinality; ++i) {
-          auto &r = page->records[i];
-          if (r.value != kValueNull && r.f_version == r.r_version) {
-            if (r.key >= from && r.key <= to) {
-              value_buffer[counter++] = r.value;
-            }
-          }
-        }
-      }
-    }
-    rdma_mg->read(range_buffer + kLeafPageSize * (i % kParaFetch), leaves[i],
-                  kLeafPageSize, true);
-    cq_cnt++;
-  }
-
-  if (cq_cnt != 0) {
-    rdma_mg->poll_rdma_cq(cq_cnt);
-    for (int k = 0; k < cq_cnt; ++k) {
-      auto page = (LeafPage *)(range_buffer + k * kLeafPageSize);
-      for (int i = 0; i < kLeafCardinality; ++i) {
-        auto &r = page->records[i];
-        if (r.value != kValueNull && r.f_version == r.r_version) {
-          if (r.key >= from && r.key <= to) {
-            value_buffer[counter++] = r.value;
-          }
-        }
-      }
-    }
-  }
-
-  return counter;
-}
+// TODO: Need Fix range query
+//uint64_t Btr::range_query(const Key &from, const Key &to, Value *value_buffer,
+//                           CoroContext *cxt, int coro_id) {
+//
+//  const int kParaFetch = 32;
+//  thread_local std::vector<InternalPage *> result;
+//  thread_local std::vector<GlobalAddress> leaves;
+//
+//  result.clear();
+//  leaves.clear();
+//  page_cache->search_range_from_cache(from, to, result);
+//
+//  if (result.empty()) {
+//    return 0;
+//  }
+//
+//  uint64_t counter = 0;
+//  for (auto page : result) {
+//    auto cnt = page->hdr.last_index + 1;
+//    auto addr = page->hdr.leftmost_ptr;
+//
+//    // [from, to]
+//    // [lowest, page->records[0].key);
+//    bool no_fetch = from > page->records[0].key || to < page->hdr.lowest;
+//    if (!no_fetch) {
+//      leaves.push_back(addr);
+//    }
+//    for (int i = 1; i < cnt; ++i) {
+//      no_fetch = from > page->records[i].key || to < page->records[i - 1].key;
+//      if (!no_fetch) {
+//        leaves.push_back(page->records[i - 1].ptr);
+//      }
+//    }
+//
+//    no_fetch = from > page->hdr.highest || to < page->records[cnt - 1].key;
+//    if (!no_fetch) {
+//      leaves.push_back(page->records[cnt - 1].ptr);
+//    }
+//  }
+//
+//  // printf("---- %d ----\n", leaves.size());
+//  // sleep(1);
+//
+//  int cq_cnt = 0;
+//  char *range_buffer = (rdma_mg->get_rbuf(coro_id)).get_range_buffer();
+//  for (size_t i = 0; i < leaves.size(); ++i) {
+//    if (i > 0 && i % kParaFetch == 0) {
+//      rdma_mg->poll_rdma_cq(kParaFetch);
+//      cq_cnt -= kParaFetch;
+//      for (int k = 0; k < kParaFetch; ++k) {
+//        auto page = (LeafPage *)(range_buffer + k * kLeafPageSize);
+//        for (int i = 0; i < kLeafCardinality; ++i) {
+//          auto &r = page->records[i];
+//          if (r.value != kValueNull && r.f_version == r.r_version) {
+//            if (r.key >= from && r.key <= to) {
+//              value_buffer[counter++] = r.value;
+//            }
+//          }
+//        }
+//      }
+//    }
+//    rdma_mg->read(range_buffer + kLeafPageSize * (i % kParaFetch), leaves[i],
+//                  kLeafPageSize, true);
+//    cq_cnt++;
+//  }
+//
+//  if (cq_cnt != 0) {
+//    rdma_mg->poll_rdma_cq(cq_cnt);
+//    for (int k = 0; k < cq_cnt; ++k) {
+//      auto page = (LeafPage *)(range_buffer + k * kLeafPageSize);
+//      for (int i = 0; i < kLeafCardinality; ++i) {
+//        auto &r = page->records[i];
+//        if (r.value != kValueNull && r.f_version == r.r_version) {
+//          if (r.key >= from && r.key <= to) {
+//            value_buffer[counter++] = r.value;
+//          }
+//        }
+//      }
+//    }
+//  }
+//
+//  return counter;
+//}
 
 // Del needs to be rewritten
 void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
-  assert(rdma_mg->is_register());
-  before_operation(cxt, coro_id);
+//  assert(rdma_mg->is_register());
+    before_operation(cxt, coro_id);
 
-  auto root = get_root_ptr();
-  SearchResult result;
 
-  GlobalAddress p = root;
 
-next:
-  if (!internal_page_search(p, k, result, 0, false, cxt, coro_id)) {
-    std::cout << "SEARCH WARNING" << std::endl;
-    goto next;
-  }
-
-  if (!result.is_leaf) {
-    assert(result.level != 0);
-    if (result.slibing != GlobalAddress::Null()) {
-      p = result.slibing;
-      goto next;
+    auto root = get_root_ptr();
+//  std::cout << "The root now is " << root << std::endl;
+    SearchResult result;
+    GlobalAddress p = root;
+    bool isroot = true;
+    // this is root is to help the tree to refresh the root node because the
+    // new root broadcast is not usable if physical disaggregated.
+    int level = -1;
+//TODO: What if we ustilize the cache tree height for the root level?
+    int target_level = 0;
+    next: // Internal page search
+    if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
+        if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
+            p = get_root_ptr();
+            level = -1;
+        }else{
+            // fall back to upper level
+            assert(level == result.level);
+            p = path_stack[coro_id][result.level +1];
+            level = result.level +1;
+        }
+        goto next;
     }
+    else{
+        assert(level == result.level);
+        isroot = false;
+        // if the root and sibling are the same, it is also okay because the
+        // p will not be changed
+        if (result.slibing != GlobalAddress::Null()) { // turn right
+            p = result.slibing;
 
-    p = result.next_level;
-    if (result.level != 1) {
+        }else if (result.next_level != GlobalAddress::Null()){
+            assert(result.next_level != GlobalAddress::Null());
+            p = result.next_level;
+            level = result.level - 1;
+        }else{}
 
-      goto next;
+        if (level != target_level){
+
+            goto next;
+        }
+
     }
-  }
+    //Insert to leaf level
+    Key split_key;
+    GlobalAddress sibling_prt;
+//    if (target_level == 0){
+//
+//    }
+    //The node merge may triggered by background thread on the memory node only.
+    if (!leaf_page_del(p, k,   0, cxt, coro_id)){
+        if (path_stack[coro_id][1] != GlobalAddress::Null()){
+            p = path_stack[coro_id][1];
+            level = 1;
+        }
+        else{
+            // re-search the tree from the scratch. (only happen when root and leaf are the same.)
+            p = get_root_ptr();
+            level = -1;
+        }
+        goto next;
+    }
 
   leaf_page_del(p, k, 0, cxt, coro_id);
 }
@@ -836,12 +971,6 @@ next:
         result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
         result.level = header->level;
         path_stack[coro_id][result.level] = page_addr;
-        if (result.level == 0){
-            // if the root node is the leaf node this path will happen.
-            assert(level = -1);
-            rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Default);
-            return leaf_page_search(page_addr, k, result, 0, cxt, coro_id);
-        }
         // This consistent check should be in the path of RDMA read only.
         if (!page->check_consistent()) {
             //TODO: What is the other thread is modifying this page but you overwrite the buffer by a reread.
@@ -853,6 +982,14 @@ next:
             //If this page read from the
             goto rdma_refetch;
         }
+        if (result.level == 0){
+            // if the root node is the leaf node this path will happen.
+            assert(level = -1);
+            rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Default);
+            // TODO: return true is okay.
+            return leaf_page_search(page_addr, k, result, 0, cxt, coro_id);
+        }
+
         // if there has already been a cache entry with the same key, the old one will be
         // removed from the cache, but it may not be garbage collected right away
         handle = page_cache->Insert(page_id, new_mr, 1, Deallocate_MR);
@@ -976,6 +1113,7 @@ re_read:
         return true;
     }
     page->leaf_page_search(k, result);
+    return true;
 }
 
 bool
@@ -1177,8 +1315,8 @@ Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int 
 //  }
 }
 
-bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v, Key &split_key, GlobalAddress sibling_addr,
-                     GlobalAddress root, int level, CoroContext *cxt, int coro_id, bool from_cache) {
+bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v, Key &split_key, GlobalAddress &sibling_addr,
+                     GlobalAddress root, int level, CoroContext *cxt, int coro_id) {
 
   uint64_t lock_index =
       CityHash64((char *)&page_addr, sizeof(page_addr)) % define::kNumOfLock;
@@ -1186,7 +1324,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
   GlobalAddress lock_addr;
 
 
-    char padding[VALUE_PADDING];
+//    char padding[VALUE_PADDING];
 #ifdef CONFIG_ENABLE_EMBEDDING_LOCK
   lock_addr = page_addr;
 #else
@@ -1219,7 +1357,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     assert(page->hdr.sibling_ptr != GlobalAddress::Null());
 
     return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt,
-                                 coro_id, false);
+                                 coro_id);
   }
     if (k < page->hdr.lowest ) {
         // if key is smaller than the lower bound, the insert has to be restart from the
@@ -1249,7 +1387,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
       if (r.key == k) {
         r.value = v;
         // ADD MORE weight for write.
-        memcpy(r.value_padding, padding, VALUE_PADDING);
+//        memcpy(r.value_padding, padding, VALUE_PADDING);
 
         r.f_version++;
         r.r_version = r.f_version;
@@ -1272,7 +1410,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     auto &r = page->records[empty_index];
     r.key = k;
     r.value = v;
-    memcpy(r.value_padding, padding, VALUE_PADDING);
+//    memcpy(r.value_padding, padding, VALUE_PADDING);
     r.f_version++;
     r.r_version = r.f_version;
 
@@ -1334,6 +1472,8 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
       page->hdr.sibling_ptr = sibling_addr;
     sibling->set_consistent();
     rdma_mg->RDMA_Write(sibling_addr, sibling_mr,kLeafPageSize, 1,1,Default);
+  }else{
+      sibling_addr = GlobalAddress::Null();
   }
 
   page->set_consistent();
@@ -1341,83 +1481,72 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     write_page_and_unlock(rbuf, page_addr, kLeafPageSize, (uint64_t*)cas_mr->addr,
                           lock_addr, cxt, coro_id, need_split);
 
-  if (!need_split)
-    return true;
-
-  if (root == page_addr) { // update root
-    if (update_new_root(page_addr, split_key, sibling_addr, level + 1, root,
-                        cxt, coro_id)) {
-      return true;
-    }
-  }
-
-  auto up_level = path_stack[coro_id][level + 1];
-
-  if (up_level != GlobalAddress::Null()) {
-      // It is possible that two compute nodes update the same inner node without a lock.
-      // we need to acquire the lock first.
-      internal_page_store(up_level, split_key, sibling_addr, level + 1, cxt,
-                          coro_id);
-  } else {
-    assert(from_cache);
-    //If the program comes here, then it could be dangerous
-    insert_internal(split_key, sibling_addr, cxt, coro_id, level + 1);
-  }
-
   return true;
 }
 
 // Need BIG FIX
-void Btr::leaf_page_del(GlobalAddress page_addr, const Key &k, int level,
+    bool Btr::leaf_page_del(GlobalAddress page_addr, const Key &k, int level,
                          CoroContext *cxt, int coro_id) {
-  uint64_t lock_index =
-      CityHash64((char *)&page_addr, sizeof(page_addr)) % define::kNumOfLock;
+    uint64_t lock_index =
+    CityHash64((char *)&page_addr, sizeof(page_addr)) % define::kNumOfLock;
 
-  GlobalAddress lock_addr;
-  lock_addr.nodeID = page_addr.nodeID;
-  lock_addr.offset = lock_index * sizeof(uint64_t);
+    GlobalAddress lock_addr;
+    lock_addr.nodeID = page_addr.nodeID;
+    lock_addr.offset = lock_index * sizeof(uint64_t);
 
-  uint64_t *cas_buffer = rdma_mg->get_rbuf(coro_id).get_cas_buffer();
+    auto rbuf = rdma_mg->Get_local_read_mr();
+    ibv_mr* cas_mr = rdma_mg->Get_local_CAS_mr();
+    auto page_buffer = rbuf->addr;
+    //        auto cas_buffer
+    bool insert_success;
 
-  auto tag = DSMEngine::RDMA_Manager::node_id;
-  try_lock_addr(lock_addr, tag, cas_buffer, cxt, coro_id);
+    auto tag = 1;
+    try_lock_addr(lock_addr, tag, cas_mr, cxt, coro_id);
 
-  auto page_buffer = rdma_mg->get_rbuf(coro_id).get_page_buffer();
-  rdma_mg->read_sync(page_buffer, page_addr, kLeafPageSize, cxt);
-  auto page = (LeafPage *)page_buffer;
+    //  auto page_buffer = rdma_mg->get_rbuf(coro_id).get_page_buffer();
+    rdma_mg->RDMA_Read(page_addr, rbuf, kLeafPageSize, 1, 1, Default);
+    auto page = (LeafPage *)page_buffer;
 
-  assert(page->hdr.level == level);
-  assert(page->check_consistent());
-  if (k >= page->hdr.highest) {
-      this->unlock_addr(lock_addr, cxt, coro_id, true);
+    assert(page->hdr.level == level);
+    assert(page->check_consistent());
+    if (k >= page->hdr.highest) {
+        this->unlock_addr(lock_addr, cxt, coro_id, true);
 
-    assert(page->hdr.sibling_ptr != GlobalAddress::Null());
+        assert(page->hdr.sibling_ptr != GlobalAddress::Null());
 
-    this->leaf_page_del(page->hdr.sibling_ptr, k, level, cxt, coro_id);
-  }
-
-  auto cnt = page->hdr.last_index + 1;
-
-  int del_index = -1;
-  for (int i = 0; i < cnt; ++i) {
-    if (page->records[i].key == k) { // find and update
-      del_index = i;
-      break;
+        return this->leaf_page_del(page->hdr.sibling_ptr, k, level, cxt, coro_id);
     }
-  }
+    if (k < page->hdr.lowest) {
+        this->unlock_addr(lock_addr, cxt, coro_id, true);
 
-  if (del_index != -1) { // remove and shift
-    for (int i = del_index + 1; i < cnt; ++i) {
-      page->records[i - 1].key = page->records[i].key;
-      page->records[i - 1].value = page->records[i].value;
+        assert(page->hdr.sibling_ptr != GlobalAddress::Null());
+
+        return false;
     }
 
-    page->hdr.last_index--;
+    auto cnt = page->hdr.last_index + 1;
 
-    page->set_consistent();
-    rdma_mg->write_sync(page_buffer, page_addr, kLeafPageSize, cxt);
-  }
-        this->unlock_addr(lock_addr, cxt, coro_id, false);
+    int del_index = -1;
+    for (int i = 0; i < cnt; ++i) {
+        if (page->records[i].key == k) { // find and update
+          del_index = i;
+          break;
+        }
+    }
+
+    if (del_index != -1) { // remove and shift
+        for (int i = del_index + 1; i < cnt; ++i) {
+          page->records[i - 1].key = page->records[i].key;
+          page->records[i - 1].value = page->records[i].value;
+        }
+
+        page->hdr.last_index--;
+
+        page->set_consistent();
+        rdma_mg->RDMA_Write(page_addr, rbuf, kLeafPageSize, 1,1, Default);
+    }
+    this->unlock_addr(lock_addr, cxt, coro_id, false);
+    return true;
   // TODO: Merge page after the node is too small.
 }
 
@@ -1431,7 +1560,7 @@ void Btr::run_coroutine(CoroFunc func, int id, int coro_cnt) {
     worker[i] = CoroCall(std::bind(&Btr::coro_worker, this, _1, gen, i));
   }
 
-  master = CoroCall(std::bind(&Btr::coro_master, this, _1, coro_cnt));
+//  master = CoroCall(std::bind(&Btr::coro_master, this, _1, coro_cnt));
 
   master();
 }
@@ -1464,36 +1593,36 @@ void Btr::coro_worker(CoroYield &yield, RequstGen *gen, int coro_id) {
   }
 }
 
-void Btr::coro_master(CoroYield &yield, int coro_cnt) {
-
-  for (int i = 0; i < coro_cnt; ++i) {
-    yield(worker[i]);
-  }
-
-  while (true) {
-
-    uint64_t next_coro_id;
-
-    if (rdma_mg->poll_rdma_cq_once(next_coro_id)) {
-      yield(worker[next_coro_id]);
-    }
-
-    if (!hot_wait_queue.empty()) {
-      next_coro_id = hot_wait_queue.front();
-      hot_wait_queue.pop();
-      yield(worker[next_coro_id]);
-    }
-
-    if (!deadline_queue.empty()) {
-      auto now = timer.get_time_ns();
-      auto task = deadline_queue.top();
-      if (now > task.deadline) {
-        deadline_queue.pop();
-        yield(worker[task.coro_id]);
-      }
-    }
-  }
-}
+//void Btr::coro_master(CoroYield &yield, int coro_cnt) {
+//
+//  for (int i = 0; i < coro_cnt; ++i) {
+//    yield(worker[i]);
+//  }
+//
+//  while (true) {
+//
+//    uint64_t next_coro_id;
+//
+//    if (rdma_mg->poll_rdma_cq_once(next_coro_id)) {
+//      yield(worker[next_coro_id]);
+//    }
+//
+//    if (!hot_wait_queue.empty()) {
+//      next_coro_id = hot_wait_queue.front();
+//      hot_wait_queue.pop();
+//      yield(worker[next_coro_id]);
+//    }
+//
+//    if (!deadline_queue.empty()) {
+//      auto now = timer.get_time_ns();
+//      auto task = deadline_queue.top();
+//      if (now > task.deadline) {
+//        deadline_queue.pop();
+//        yield(worker[task.coro_id]);
+//      }
+//    }
+//  }
+//}
 
 // Local Locks
 /**
@@ -1566,10 +1695,10 @@ inline void Btr::releases_local_lock(GlobalAddress lock_addr) {
   node.ticket_lock.fetch_add((1ull << 32));
 }
 
-void Btr::index_cache_statistics() {
-  page_cache->statistics();
-  page_cache->bench();
-}
+//void Btr::index_cache_statistics() {
+//  page_cache->statistics();
+//  page_cache->bench();
+//}
 
 void Btr::clear_statistics() {
   for (int i = 0; i < MAX_APP_THREAD; ++i) {

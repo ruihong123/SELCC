@@ -1,10 +1,10 @@
 #include <fstream>
 #include <util/rdma.h>
-
+#include "HugePageAlloc.h"
 #include "DSMEngine/env.h"
 
 namespace DSMEngine {
-uint16_t RDMA_Manager::node_id = 1;
+uint16_t RDMA_Manager::node_id = 0;
 #ifdef PROCESSANALYSIS
 std::atomic<uint64_t> RDMA_Manager::RDMAReadTimeElapseSum = 0;
 std::atomic<uint64_t> RDMA_Manager::ReadCount = 0;
@@ -224,6 +224,19 @@ RDMA_Manager::~RDMA_Manager() {
   }
 
 }
+    RDMA_Manager *RDMA_Manager::Get_Instance(config_t config) {
+        static RDMA_Manager * rdma_mg = nullptr;
+        static std::mutex lock;
+
+        lock.lock();
+        if (!rdma_mg) {
+            rdma_mg = new RDMA_Manager(config, kLeafPageSize);
+            rdma_mg->Client_Set_Up_Resources();
+        } else {
+        }
+        lock.unlock();
+
+        return rdma_mg;    }
 
 size_t RDMA_Manager::GetMemoryNodeNum() {
     return memory_nodes.size();
@@ -516,7 +529,7 @@ void RDMA_Manager::ConnectQPThroughSocket(std::string qp_type, int socket_fd,
   std::unique_lock<std::shared_mutex> l(qp_cq_map_mutex);
   res->qp_map[target_node_id] = qp;
   res->cq_map.insert({target_node_id, std::make_pair(cq1, cq2)});
-  assert(qp_type != "read_local");
+  assert(qp_type != "default");
   assert(qp_type != "write_local_compact");
   assert(qp_type != "write_local_flush");
 //  if (qp_type == "read_local" )
@@ -581,9 +594,9 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
 
     int placeholder_num =
         (*p2mrpointer)->length /
-        (name_to_chunknum.at(
+        (name_to_chunksize.at(
             pool_name));  // here we supposing the SSTables are 4 megabytes
-    auto* in_use_array = new In_Use_Array(placeholder_num, name_to_chunknum.at(pool_name),
+    auto* in_use_array = new In_Use_Array(placeholder_num, name_to_chunksize.at(pool_name),
                                           *p2mrpointer);
     // TODO: Modify it to allocate the memory according to the memory chunk types
 
@@ -621,7 +634,7 @@ void RDMA_Manager::Memory_Deallocation_RPC(uint16_t target_node_id) {
 //  Allocate_Local_RDMA_Slot(send_mr_ve, "version_edit");
   Allocate_Local_RDMA_Slot(receive_mr, Message);
   send_pointer = (RDMA_Request*)send_mr.addr;
-  send_pointer->command = SSTable_gc;
+//  send_pointer->command = SSTable_gc;
   send_pointer->content.gc.buffer_size = top.at(target_node_id) * sizeof(uint64_t);
   send_pointer->buffer = receive_mr.addr;
   send_pointer->rkey = receive_mr.rkey;
@@ -676,20 +689,19 @@ void RDMA_Manager::Memory_Deallocation_RPC(uint16_t target_node_id) {
   top[target_node_id] = 0;
   dealloc_cv.at(target_node_id)->notify_all();
 }
-bool RDMA_Manager::Preregister_Memory(int gb_number) {
+ibv_mr * RDMA_Manager::Preregister_Memory(int gb_number) {
   int mr_flags = 0;
-  size_t size = 1024*1024*1024;
-  if (node_id == 2){
-    void* dummy = malloc(size*2);
-  }
-  for (int i = 0; i < gb_number; ++i) {
-    total_registered_size = total_registered_size + size;
-    std::fprintf(stderr, "Pre allocate registered memory %d GB %30s\r", i, "");
+  size_t size = gb_number*1024*1024*1024;
+//  if (node_id == 2){
+//    void* dummy = malloc(size*2);
+//  }
+
+    std::fprintf(stderr, "Pre allocate registered memory %d GB %30s\r", size, "");
     std::fflush(stderr);
-    char* buff_pointer = new char[size];
+    void* buff_pointer = hugePageAlloc(size);
     if (!buff_pointer) {
-      fprintf(stderr, "failed to malloc bytes to memory buffer\n");
-      return false;
+        fprintf(stderr, "failed to malloc bytes to memory buffer\n");
+        return nullptr;
     }
     memset(buff_pointer, 0, size);
 
@@ -703,12 +715,18 @@ bool RDMA_Manager::Preregister_Memory(int gb_number) {
           stderr,
           "ibv_reg_mr failed with mr_flags=0x%x, size = %zu, region num = %zu\n",
           mr_flags, size, local_mem_pool.size());
-      return false;
+      return nullptr;
     }
     local_mem_pool.push_back(mrpointer);
-    pre_allocated_pool.push_back(mrpointer);
-  }
-  return true;
+    ibv_mr* mrs = new ibv_mr[gb_number];
+    for (int i = 0; i < gb_number; ++i) {
+        mrs[i] = *mrpointer;
+        mrs[i].addr = (char*)mrs[i].addr + i*1024*1024*1024;
+
+        pre_allocated_pool.push_back(&mrs[i]);
+    }
+
+  return mrpointer;
 }
 
 /******************************************************************************
@@ -900,27 +918,11 @@ int RDMA_Manager::resources_create() {
     rc = 1;
   }
 
-  /* computing node allocate local buffers */
-  //  if (rdma_config.server_name) {
-  //    ibv_mr* mr;
-  //    char* buff;
-  //    if (!Local_Memory_Register(&buff, &mr, rdma_config.init_local_buffer_size,
-  //                               0)) {
-  //      fprintf(stderr, "memory registering failed by size of 0x%x\n",
-  //              static_cast<unsigned>(rdma_config.init_local_buffer_size));
-  //    } else {
-  //      fprintf(stdout, "memory registering succeed by size of 0x%x\n",
-  //              static_cast<unsigned>(rdma_config.init_local_buffer_size));
-  //    }
-  //  }
-  //todo: shrink this size.
-  Local_Memory_Register(&(res->send_buf), &(res->mr_send), 2500*4096, Message);
-  Local_Memory_Register(&(res->receive_buf), &(res->mr_receive), 2500*4096,
-                        Message);
-  //        if(condition){
-  //          fprintf(stderr, "Local memory registering failed\n");
-  //
-  //        }
+
+//  Local_Memory_Register(&(res->send_buf), &(res->mr_send), 2500*4096, Message);
+//  Local_Memory_Register(&(res->receive_buf), &(res->mr_receive), 2500*4096,
+//                        Message);
+
   int mr_flags =
       IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
   //  auto start = std::chrono::high_resolution_clock::now();
@@ -957,8 +959,8 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
   struct registered_qp_config* remote_con_data = new registered_qp_config();
   struct registered_qp_config tmp_con_data;
   std::string qp_type = "main";
-  char temp_receive[8];
-  char temp_send[8] = "Q";
+  char temp_receive[2* sizeof(ibv_mr)];
+  char temp_send[2* sizeof(ibv_mr)] = "Q";
 
   union ibv_gid my_gid;
   if (rdma_config.gid_idx >= 0) {
@@ -990,7 +992,7 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
   fprintf(stdout, "Remote QP number = 0x%x\n", remote_con_data->qp_num);
   fprintf(stdout, "Remote LID = 0x%x\n", remote_con_data->lid);
   std::unique_lock<std::shared_mutex> l(qp_cq_map_mutex);
-  if (qp_type == "read_local" ){
+  if (qp_type == "default" ){
     assert(local_read_qp_info.at(target_node_id) != nullptr);
     local_read_qp_info.at(target_node_id)->Reset(remote_con_data);
   }
@@ -1021,13 +1023,25 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
     rc = 1;
     }
     printf("Finish the connection with node %d\n", target_node_id);
+    auto* global_data_mr = new ibv_mr();
+    *global_data_mr = ((ibv_mr*) temp_receive)[0];
+    mr_map_data.insert({target_node_id, global_data_mr});
+    base_addr_map_data.insert({target_node_id, (uint64_t)global_data_mr->addr});
+    rkey_map_data.insert({target_node_id, (uint64_t)global_data_mr->rkey});
+    auto* global_lock_mr = new ibv_mr();
+    *global_lock_mr = ((ibv_mr*) temp_receive)[1];
+    mr_map_lock.insert({target_node_id, global_lock_mr});
+    base_addr_map_lock.insert({target_node_id, (uint64_t)global_lock_mr->addr});
+    rkey_map_lock.insert({target_node_id, (uint64_t)global_lock_mr->rkey});
+    assert(global_lock_table->addr != nullptr);
     // Set the remote address for the index table.
-    if (target_node_id == 0){
+    if (target_node_id == 1){
 
         global_index_table = new ibv_mr();
-        *global_index_table= *(ibv_mr*) temp_receive;
+        *global_index_table= ((ibv_mr*) temp_receive)[2];
         assert(global_index_table->addr != nullptr);
     }
+
 
   // sync the communication by rdma.
 
@@ -1063,6 +1077,25 @@ ibv_mr *RDMA_Manager::create_index_table() {
     return global_index_table;
 
 }
+ibv_mr *RDMA_Manager::create_lock_table() {
+    int mr_flags = 0;
+    size_t size = 256*1024;
+    char* buff = new char[size];
+//      *p2buffpointer = (char*)hugePageAlloc(size);
+    if (!*buff) {
+        fprintf(stderr, "failed to malloc bytes to memory buffer\n");
+        return nullptr;
+    }
+    memset(buff, 0, size);
+
+    /* register the memory buffer */
+    mr_flags =
+            IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
+    //  auto start = std::chrono::high_resolution_clock::now();
+    global_lock_table  = ibv_reg_mr(res->pd, buff, size, mr_flags);
+    return global_lock_table;
+
+}
 
 
     void RDMA_Manager::sync_with_computes_Cside() {
@@ -1080,11 +1113,11 @@ ibv_mr* RDMA_Manager::Get_local_read_mr() {
   ibv_mr* ret;
   ret = (ibv_mr*)read_buffer->Get();
   if (ret == nullptr){
-    char* buffer = new char[name_to_chunknum.at(Default)];
+    char* buffer = new char[name_to_chunksize.at(Default)];
     auto mr_flags =
         IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
     //  auto start = std::chrono::high_resolution_clock::now();
-    ret = ibv_reg_mr(res->pd, buffer, name_to_chunknum.at(DataChunk), mr_flags);
+    ret = ibv_reg_mr(res->pd, buffer, name_to_chunksize.at(DataChunk), mr_flags);
     read_buffer->Reset(ret);
   }
   return ret;
@@ -1098,7 +1131,7 @@ ibv_mr* RDMA_Manager::Get_local_read_mr() {
             auto mr_flags =
                     IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
             //  auto start = std::chrono::high_resolution_clock::now();
-            ret = ibv_reg_mr(res->pd, buffer, name_to_chunknum.at(DataChunk), mr_flags);
+            ret = ibv_reg_mr(res->pd, buffer, name_to_chunksize.at(DataChunk), mr_flags);
             read_buffer->Reset(ret);
         }
         return ret;
@@ -1248,7 +1281,7 @@ ibv_qp* RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq,
   if (!qp) {
     fprintf(stderr, "failed to create QP\n");
   }
-  if (qp_type == "read_local" ){
+  if (qp_type == "default" ){
     assert(qp_data_default[target_node_id] != nullptr);
     qp_data_default[target_node_id]->Reset(qp);
   }
@@ -1369,7 +1402,7 @@ int RDMA_Manager::connect_qp(ibv_qp* qp, std::string& qp_type,
   registered_qp_config* remote_con_data;
   std::shared_lock<std::shared_mutex> l(qp_cq_map_mutex);
 
-  if (qp_type == "read_local" )
+  if (qp_type == "default" )
     remote_con_data = (registered_qp_config*)local_read_qp_info[target_node_id]->Get();
 
 //    remote_con_data = ((QP_Info_Map*)local_read_qp_info->Get())->at(shard_target_node_id);
@@ -1664,8 +1697,8 @@ End of socket operations
         if (send_flag != 0) sr.send_flags = send_flag;
         switch (pool_name) {
             case Default:{
-                sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_main[remote_ptr.nodeID]);
-                sr.wr.rdma.rkey = rkey_map_main[remote_ptr.nodeID];
+                sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
+                sr.wr.rdma.rkey = rkey_map_data[remote_ptr.nodeID];
                 break;
             }
             case LockTable:{
@@ -1873,8 +1906,8 @@ End of socket operations
         if (send_flag != 0) sr.send_flags = send_flag;
         switch (pool_name) {
             case Default:{
-                sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_main[remote_ptr.nodeID]);
-                sr.wr.rdma.rkey = rkey_map_main[remote_ptr.nodeID];
+                sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
+                sr.wr.rdma.rkey = rkey_map_data[remote_ptr.nodeID];
                 break;
             }
             case LockTable:{
@@ -2217,8 +2250,8 @@ int RDMA_Manager::RDMA_CAS(GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t 
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
         case Default:{
-            sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_main[remote_ptr.nodeID]);
-            sr.wr.rdma.rkey = rkey_map_main[remote_ptr.nodeID];
+            sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
+            sr.wr.rdma.rkey = rkey_map_data[remote_ptr.nodeID];
             break;
         }
         case LockTable:{
@@ -2308,8 +2341,8 @@ void RDMA_Manager::Prepare_WR_CAS(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress r
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
         case Default:{
-            sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_main[remote_ptr.nodeID]);
-            sr.wr.rdma.rkey = rkey_map_main[remote_ptr.nodeID];
+            sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
+            sr.wr.rdma.rkey = rkey_map_data[remote_ptr.nodeID];
             break;
         }
         case LockTable:{
@@ -2340,8 +2373,8 @@ void RDMA_Manager::Prepare_WR_Read(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress 
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
         case Default:{
-            sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_main[remote_ptr.nodeID]);
-            sr.wr.rdma.rkey = rkey_map_main[remote_ptr.nodeID];
+            sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
+            sr.wr.rdma.rkey = rkey_map_data[remote_ptr.nodeID];
             break;
         }
         case LockTable:{
@@ -2373,8 +2406,8 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
         case Default:{
-            sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_main[remote_ptr.nodeID]);
-            sr.wr.rdma.rkey = rkey_map_main[remote_ptr.nodeID];
+            sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
+            sr.wr.rdma.rkey = rkey_map_data[remote_ptr.nodeID];
             break;
         }
         case LockTable:{
@@ -3128,7 +3161,7 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
       temp_pointer);  // push the new pointer for the new ibv_mr (different from the receive buffer) to remote_mem_pool
 
     //put the rkey in the rkey map
-    rkey_map_main[pool_name] = temp_pointer->rkey;
+//    rkey_map_data[pool_name] = temp_pointer->rkey;
   // push the bitmap of the new registed buffer to the bitmap vector in resource.
   int placeholder_num =
       static_cast<int>(temp_pointer->length) /
@@ -3204,7 +3237,7 @@ bool RDMA_Manager::Remote_Query_Pair_Connection(std::string& qp_type,
   poll_reply_buffer(receive_pointer); // poll the receive for 2 entires
   registered_qp_config* temp_buff = new registered_qp_config(receive_pointer->content.qp_config);
   std::shared_lock<std::shared_mutex> l1(qp_cq_map_mutex);
-  if (qp_type == "read_local" )
+  if (qp_type == "default" )
     local_read_qp_info.at(target_node_id)->Reset(temp_buff);
 //    ((QP_Info_Map*)local_read_qp_info->Get())->insert({shard_target_node_id, temp_buff});
 //    local_read_qp_info->Reset(temp_buff);
@@ -3322,7 +3355,7 @@ ibv_mr remote_mr;
       remote_mr.length = Table_Size;
       ret.nodeID = target_node_id;
       ret.offset = static_cast<char*>(remote_mr.addr) +
-                                     sst_index * Table_Size - (char*)base_addr_map_main[target_node_id];
+                                     sst_index * Table_Size - (char*)base_addr_map_data[target_node_id];
 
 //        remote_data_mrs->fname = file_name;
 //        remote_data_mrs->map_pointer =
@@ -3352,7 +3385,7 @@ ibv_mr remote_mr;
   remote_mr.length = Table_Size;
     ret.nodeID = target_node_id;
     ret.offset = static_cast<char*>(remote_mr.addr) +
-                 sst_index * Table_Size - (char*)base_addr_map_main[target_node_id];
+                 sst_index * Table_Size - (char*)base_addr_map_data[target_node_id];
   //    remote_data_mrs->fname = file_name;
   //    remote_data_mrs->map_pointer = mr_last;
 //  DEBUG_arg("Allocate Remote pointer %p",  remote_mr.addr);
@@ -3366,9 +3399,9 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
 
     //TODO: Make a sharded allocator to reduce the competion on the allocator.
   // allocate the RDMA slot is seperate into two situation, read and write.
-  size_t chunk_number;
+  size_t chunk_size;
   std::shared_lock<std::shared_mutex> mem_read_lock(local_mem_mutex);
-        chunk_number = name_to_chunknum.at(pool_name);
+        chunk_size = name_to_chunksize.at(pool_name);
   if (name_to_mem_pool.at(pool_name).empty()) {
     mem_read_lock.unlock();
     std::unique_lock<std::shared_mutex> mem_write_lock(local_mem_mutex);
@@ -3390,8 +3423,8 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
   auto ptr = name_to_mem_pool.at(pool_name).begin();
 
   while (ptr != name_to_mem_pool.at(pool_name).end()) {
-    size_t region_chunk_size = ptr->second->get_chunk_number();
-    if ( region_chunk_size != chunk_number) {
+    size_t region_chunk_size = ptr->second->get_chunk_size();
+    if (region_chunk_size != chunk_size) {
         assert(false);
       ptr++;
       continue;
@@ -3402,8 +3435,8 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
       //      map_pointer = (ptr->second).get_mr_ori();
       mr_input = *((ptr->second)->get_mr_ori());
       mr_input.addr = static_cast<void*>(static_cast<char*>(mr_input.addr) +
-                                         block_index * chunk_number);
-      mr_input.length = chunk_number;
+                                         block_index * chunk_size);
+      mr_input.length = chunk_size;
 //      DEBUG_arg("Allocate pointer %p", mr_input.addr);
       return;
     } else
@@ -3415,7 +3448,7 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
   // TODO:: It could happen that the local buffer size is not enough, need to reallocate a new buff again,
   // TODO:: Because there are two many thread going on at the same time.
   ibv_mr* mr_to_allocate = new ibv_mr();
-  char* buff = new char[chunk_number];
+  char* buff = new char[chunk_size];
 
   std::unique_lock<std::shared_mutex> mem_write_lock(local_mem_mutex);
 
@@ -3435,8 +3468,8 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
     //    map_pointer = mr_to_allocate;
     mr_input = *(mr_to_allocate);
     mr_input.addr = static_cast<void*>(static_cast<char*>(mr_input.addr) +
-                                       block_index * chunk_number);
-    mr_input.length = chunk_number;
+                                       block_index * chunk_size);
+    mr_input.length = chunk_size;
 //    DEBUG_arg("Allocate pointer %p", mr_input.addr);
     //  mr_input.fname = file_name;
     return;
@@ -3467,7 +3500,7 @@ bool RDMA_Manager::Deallocate_Local_RDMA_Slot(ibv_mr* mr, ibv_mr* map_pointer,
                                               Chunk_type buffer_type) {
   size_t buff_offset =
       static_cast<char*>(mr->addr) - static_cast<char*>(map_pointer->addr);
-  size_t chunksize = name_to_chunknum.at(buffer_type);
+  size_t chunksize = name_to_chunksize.at(buffer_type);
   assert(buff_offset % chunksize == 0);
   std::shared_lock<std::shared_mutex> read_lock(local_mem_mutex);
   return name_to_mem_pool.at(buffer_type)
@@ -3488,10 +3521,10 @@ bool RDMA_Manager::Deallocate_Local_RDMA_Slot(void* p, Chunk_type buff_type) {
         static_cast<char*>(p) - static_cast<char*>(mr_iter->first);
     //      assert(buff_offset>=0);
     if (buff_offset < mr_iter->second->get_mr_ori()->length){
-      assert(buff_offset % mr_iter->second->get_chunk_number() == 0);
-      assert(buff_offset / mr_iter->second->get_chunk_number() <= std::numeric_limits<int>::max());
+      assert(buff_offset % mr_iter->second->get_chunk_size() == 0);
+      assert(buff_offset / mr_iter->second->get_chunk_size() <= std::numeric_limits<int>::max());
       bool status = mr_iter->second->deallocate_memory_slot(
-          buff_offset / mr_iter->second->get_chunk_number());
+          buff_offset / mr_iter->second->get_chunk_size());
       assert(status);
       return status;
     }
@@ -3503,10 +3536,10 @@ bool RDMA_Manager::Deallocate_Local_RDMA_Slot(void* p, Chunk_type buff_type) {
         static_cast<char*>(p) - static_cast<char*>(mr_iter->first);
     //      assert(buff_offset>=0);
     if (buff_offset < mr_iter->second->get_mr_ori()->length){
-      assert(buff_offset % mr_iter->second->get_chunk_number() == 0);
+      assert(buff_offset % mr_iter->second->get_chunk_size() == 0);
 
       bool status = mr_iter->second->deallocate_memory_slot(
-          buff_offset / mr_iter->second->get_chunk_number());
+          buff_offset / mr_iter->second->get_chunk_size());
       assert(status);
       return status;
     }
@@ -3531,9 +3564,9 @@ bool RDMA_Manager::Deallocate_Remote_RDMA_Slot(void* p,
         static_cast<char*>(p) - static_cast<char*>(mr_iter->first);
     //      assert(buff_offset>=0);
     if (buff_offset < mr_iter->second->get_mr_ori()->length){
-      assert(buff_offset % mr_iter->second->get_chunk_number() == 0);
+      assert(buff_offset % mr_iter->second->get_chunk_size() == 0);
       bool status = mr_iter->second->deallocate_memory_slot(
-          buff_offset / mr_iter->second->get_chunk_number());
+          buff_offset / mr_iter->second->get_chunk_size());
       assert(status);
       return status;
     }
@@ -3545,9 +3578,9 @@ bool RDMA_Manager::Deallocate_Remote_RDMA_Slot(void* p,
         static_cast<char*>(p) - static_cast<char*>(mr_iter->first);
     //      assert(buff_offset>=0);
     if (buff_offset < mr_iter->second->get_mr_ori()->length){
-      assert(buff_offset % mr_iter->second->get_chunk_number() == 0);
+      assert(buff_offset % mr_iter->second->get_chunk_size() == 0);
       bool status = mr_iter->second->deallocate_memory_slot(
-          buff_offset / mr_iter->second->get_chunk_number());
+          buff_offset / mr_iter->second->get_chunk_size());
       assert(status);
       return status;
     }else{
@@ -3613,7 +3646,7 @@ bool RDMA_Manager::CheckInsideRemoteBuff(void* p, uint16_t target_node_id) {
         static_cast<char*>(p) - static_cast<char*>(mr_iter->first);
     //      assert(buff_offset>=0);
     if (buff_offset < mr_iter->second->get_mr_ori()->length){
-      assert(buff_offset % mr_iter->second->get_chunk_number() == 0);
+      assert(buff_offset % mr_iter->second->get_chunk_size() == 0);
       return true;
     }
     else
@@ -3624,7 +3657,7 @@ bool RDMA_Manager::CheckInsideRemoteBuff(void* p, uint16_t target_node_id) {
         static_cast<char*>(p) - static_cast<char*>(mr_iter->first);
     //      assert(buff_offset>=0);
     if (buff_offset < mr_iter->second->get_mr_ori()->length){
-      assert(buff_offset % mr_iter->second->get_chunk_number() == 0);
+      assert(buff_offset % mr_iter->second->get_chunk_size() == 0);
       return true;
     }else{
       return false;
@@ -3642,7 +3675,7 @@ bool RDMA_Manager::Mempool_initialize(Chunk_type pool_name, size_t size,
   // check whether pool name has already exist.
   name_to_mem_pool.insert(std::pair<Chunk_type, std::map<void*, In_Use_Array*>>(
       {pool_name, mem_sub_pool}));
-  name_to_chunknum.insert({pool_name, size});
+  name_to_chunksize.insert({pool_name, size});
   name_to_allocated_size.insert({pool_name, allocated_size});
   return true;
 }
@@ -3840,6 +3873,7 @@ void RDMA_Manager::fs_deserilization(
   ibv_dereg_mr(local_mr);
   free(buff);
 }
+
 
 
 

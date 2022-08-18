@@ -26,10 +26,10 @@ int main(int argc,char* argv[])
     strValue3 << value;
     strValue3 >> Memory_server_id;
      mn_keeper = new DSMEngine::Memory_Node_Keeper(true, tcp_port, pr_size);
-     DSMEngine::RDMA_Manager::node_id = 2* Memory_server_id;
+     DSMEngine::RDMA_Manager::node_id = 2* Memory_server_id + 1;
   }else{
     mn_keeper = new DSMEngine::Memory_Node_Keeper(true, 19843, 88);
-    DSMEngine::RDMA_Manager::node_id = 0;
+    DSMEngine::RDMA_Manager::node_id = 1;
   }
 
   mn_keeper->SetBackgroundThreads(12, DSMEngine::ThreadPoolType::CompactionThreadPool);

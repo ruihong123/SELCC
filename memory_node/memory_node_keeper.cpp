@@ -95,8 +95,8 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
                                                  int socket_fd) {
     printf("A new shared memory thread start\n");
     printf("checkpoint1");
-    char temp_receive[sizeof(ibv_mr)];
-    char temp_send[sizeof(ibv_mr)] = "Q";
+    char temp_receive[3*sizeof(ibv_mr)];
+    char temp_send[3*sizeof(ibv_mr)] = "Q";
     int rc = 0;
     uint16_t compute_node_id;
     rdma_mg->ConnectQPThroughSocket(client_ip, socket_fd, compute_node_id);
@@ -134,13 +134,23 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
     if(rdma_mg->pre_allocated_pool.size() < pr_size)
     {
       std::unique_lock<std::shared_mutex> lck(rdma_mg->local_mem_mutex);
-      rdma_mg->Preregister_Memory(pr_size);
+        ibv_mr* mr_data = rdma_mg->Preregister_Memory(pr_size);
+
     }
+      ibv_mr* mr_data = rdma_mg->local_mem_pool[0];
+      assert(mr_data->length == (uint64_t)pr_size*1024*1024*1024);
+      memcpy(temp_send, mr_data, sizeof(ibv_mr));
+
+      rdma_mg->global_lock_table = rdma_mg->create_lock_table();
+      memcpy(temp_send + sizeof(ibv_mr), rdma_mg->global_lock_table, sizeof(ibv_mr));
+    //TODO: ALLocate space for the lock table
         // If this is the node 0 then it need to broad cast the index table mr.
-      if (rdma_mg->node_id == 0){
-          ibv_mr* mr_prt = rdma_mg->create_index_table();
-          memcpy(temp_send, mr_prt, sizeof(ibv_mr));
+      if (rdma_mg->node_id == 1){
+          rdma_mg->global_index_table = rdma_mg->create_index_table();
+          memcpy(temp_send+ 2*sizeof(ibv_mr), rdma_mg->global_index_table, sizeof(ibv_mr));
       }
+
+
     if (rdma_mg->sock_sync_data(socket_fd, sizeof(ibv_mr), temp_send,
                        temp_receive)) /* just send a dummy char back and forth */
       {
@@ -243,6 +253,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
       } else if (receive_msg_buf->command == qp_reset_) {// depracated functions
         //THis should not be called because the recevei mr will be reset and the buffer
         // counter will be reset as 0
+          assert(false);
         rdma_mg->post_receive<RDMA_Request>(&recv_mr[buffer_position],
                                             compute_node_id,
                                             client_ip);
@@ -256,7 +267,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
           rdma_mg->post_receive<RDMA_Request>(&recv_mr[buffer_position],
                                               compute_node_id,
                                               client_ip);
-          broadcast_new_root(receive_msg_buf, client_ip, compute_node_id);
+//          rdma_mg->broadcast_new_root(receive_msg_buf, client_ip, compute_node_id);
           //        rdma_mg_->post_send<registered_qp_config>(send_mr, client_ip);
 //        rdma_mg_->poll_completion(wc, 1, client_ip, true);
 
