@@ -11,3 +11,4 @@ release/
 debug/
 out/
 /cmake-build-debug/include/
+/cmake-build-debug/
