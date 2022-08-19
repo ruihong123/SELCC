@@ -215,15 +215,7 @@ RDMA_Manager::~RDMA_Manager() {
   for(auto iter :local_read_qp_info ){
     delete iter.second;
   }
-  for(auto iter : deallocation_buffers){
-    delete iter.second;
-  }
-  for(auto iter : dealloc_mtx){
-    delete iter.second;
-  }
-  for(auto iter : dealloc_cv){
-    delete iter.second;
-  }
+
 
 }
     RDMA_Manager *RDMA_Manager::Get_Instance(config_t config) {
@@ -612,86 +604,7 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
 
   return true;
 };
-bool RDMA_Manager::Remote_Memory_Deallocation_Fetch_Buff(
-    uint64_t** ptr, size_t size, uint16_t target_node_id) {
-  std::unique_lock<std::mutex> lck(*dealloc_mtx.at(target_node_id));
-//  memcpy(deallocation_buffers + top * sizeof(uint64_t), ptr, size);
-  while(top.at(target_node_id) >= REMOTE_DEALLOC_BUFF_SIZE / sizeof(uint64_t) - 128){
-    dealloc_cv.at(target_node_id)->wait(lck);
-  }
-  *ptr = deallocation_buffers.at(target_node_id) + top.at(target_node_id);
-  top[target_node_id] += size;
-  if (top.at(target_node_id) >= REMOTE_DEALLOC_BUFF_SIZE / sizeof(uint64_t) - 128)
-    return true;
-  else
-    return false;
 
-}
-void RDMA_Manager::Memory_Deallocation_RPC(uint16_t target_node_id) {
-  RDMA_Request* send_pointer;
-  ibv_mr send_mr = {};
-//  ibv_mr send_mr_ve = {};
-
-  ibv_mr receive_mr = {};
-  Allocate_Local_RDMA_Slot(send_mr, Message);
-//  Allocate_Local_RDMA_Slot(send_mr_ve, "version_edit");
-  Allocate_Local_RDMA_Slot(receive_mr, Message);
-  send_pointer = (RDMA_Request*)send_mr.addr;
-//  send_pointer->command = SSTable_gc;
-  send_pointer->content.gc.buffer_size = top.at(target_node_id) * sizeof(uint64_t);
-  send_pointer->buffer = receive_mr.addr;
-  send_pointer->rkey = receive_mr.rkey;
-  send_pointer->imm_num = 0;
-  RDMA_Reply* receive_pointer;
-  receive_pointer = (RDMA_Reply*)receive_mr.addr;
-  //Clear the reply buffer for the polling.
-  *receive_pointer = {};
-  asm volatile ("sfence\n" : : );
-  asm volatile ("lfence\n" : : );
-  asm volatile ("mfence\n" : : );
-  post_send<RDMA_Request>(&send_mr, target_node_id, std::string("main"));
-  ibv_wc wc[2] = {};
-  if (poll_completion(wc, 1, std::string("main"), true, target_node_id)){
-    fprintf(stderr, "failed to poll send for edit version edit sync\n");
-    return;
-  }
-  asm volatile ("sfence\n" : : );
-  asm volatile ("lfence\n" : : );
-  asm volatile ("mfence\n" : : );
-  if(!poll_reply_buffer(receive_pointer)) // poll the receive for 2 entires
-  {
-    printf("Reply buffer is %p", receive_pointer->buffer);
-    printf("Received is %d", receive_pointer->received);
-    printf("receive structure size is %lu", sizeof(RDMA_Reply));
-    exit(0);
-  }
-  //  end = std::chrono::high_resolution_clock::now();
-  //  duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-  //  printf("Sync version edit time elapse: %ld us part 5 receive the reply\n", duration.count());
-
-  //Note: here multiple threads will RDMA_Write the "main" qp at the same time,
-  // which means the polling result may not belongs to this thread, but it does not
-  // matter in our case because we do not care when will the message arrive at the other side.
-  asm volatile ("sfence\n" : : );
-  asm volatile ("lfence\n" : : );
-  asm volatile ("mfence\n" : : );
-  RDMA_Write(receive_pointer->buffer_large, receive_pointer->rkey_large,
-             dealloc_mr.at(target_node_id), top.at(target_node_id) * sizeof(uint64_t), "main", IBV_SEND_SIGNALED, 1,
-             target_node_id);
-  //TODO: implement a wait function for the received bit. THe problem is when to
-  // reset the buffer to zero (we may need different buffer for the compaction reply)
-  // and how to make sure that the reply will wake up this waiting thread. The
-  // signal may comes befoer the thread go to sleep.
-  //
-  //  start = std::chrono::high_resolution_clock::now();
-  Deallocate_Local_RDMA_Slot(send_mr.addr,Message);
-  Deallocate_Local_RDMA_Slot(receive_mr.addr,Message);
-  // Notify all the other deallocation threads that the buffer has been cleared.
-  std::unique_lock<std::mutex> lck(*dealloc_mtx.at(target_node_id));
-  assert(top.find(target_node_id) != top.end());
-  top[target_node_id] = 0;
-  dealloc_cv.at(target_node_id)->notify_all();
-}
 ibv_mr * RDMA_Manager::Preregister_Memory(int gb_number) {
   int mr_flags = 0;
   size_t size = gb_number*1024*1024*1024;
@@ -827,9 +740,7 @@ void RDMA_Manager::Initialize_threadlocal_map(){
     cq_data_default.insert({target_node_id, new ThreadLocalPtr(&UnrefHandle_cq)});
     local_read_qp_info.insert({target_node_id, new ThreadLocalPtr(&General_Destroy<registered_qp_config*>)});
     Remote_Leaf_Node_Bitmap.insert({target_node_id, new std::map<void*, In_Use_Array*>()});
-    deallocation_buffers.insert({target_node_id, new uint64_t[REMOTE_DEALLOC_BUFF_SIZE / sizeof(uint64_t)]});
-    dealloc_mtx.insert({target_node_id, new std::mutex});
-    dealloc_cv.insert({target_node_id, new std::condition_variable});
+
     dealloc_mr.insert({target_node_id, nullptr});
     top.insert({target_node_id,0});
     mtx_imme_map.insert({target_node_id, new std::mutex});
@@ -926,18 +837,6 @@ int RDMA_Manager::resources_create() {
 //  Local_Memory_Register(&(res->receive_buf), &(res->mr_receive), 2500*4096,
 //                        Message);
 
-  int mr_flags =
-      IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
-  //  auto start = std::chrono::high_resolution_clock::now();
-  // Register the deallocation buffers.
-  for(auto iter : deallocation_buffers){
-    dealloc_mr[iter.first] = ibv_reg_mr(res->pd, iter.second,
-                            REMOTE_DEALLOC_BUFF_SIZE, mr_flags);
-    if (dealloc_mr[iter.first] == nullptr){
-      fprintf(stdout, "dealloc_mr registration failed\n");
-
-    }
-  }
 
 
   fprintf(stdout, "SST buffer, send&receive buffer were registered with a\n");
