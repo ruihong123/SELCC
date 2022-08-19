@@ -25,7 +25,7 @@ namespace DSMEngine{
 
         if (res == MAP_FAILED) {
             assert(is_mmap_work == true);
-            printf("%s mmap failed!\n");
+            printf("mmap failed!\n");
             is_mmap_work = false;
             res = malloc(size);
             return res;
