@@ -45,9 +45,9 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
 //    ClipToRange(&opts->write_buffer_size, 64 << 10, 1 << 30);
 //    ClipToRange(&opts->max_file_size, 1 << 20, 1 << 30);
 //    ClipToRange(&opts->block_size, 1 << 10, 4 << 20);
-    Compactor_pool_.SetBackgroundThreads(opts->max_background_compactions);
-    Message_handler_pool_.SetBackgroundThreads(2);
-    Persistency_bg_pool_.SetBackgroundThreads(1);
+    Compactor_pool_.SetBackgroundThreads(4);
+//    Message_handler_pool_.SetBackgroundThreads(2);
+//    Persistency_bg_pool_.SetBackgroundThreads(1);
 
     // Set up the connection information.
     std::string connection_conf;
