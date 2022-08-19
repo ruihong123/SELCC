@@ -50,7 +50,7 @@ class SequentialFile;
 class Slice;
 class WritableFile;
 
-static uint32_t tcp_port;
+//static uint32_t tcp_port;
 class DSMEngine_EXPORT Env {
  public:
   Env();
