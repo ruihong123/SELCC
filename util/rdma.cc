@@ -127,10 +127,7 @@ RDMA_Manager::~RDMA_Manager() {
     }
     //    local_mem_pool.clear();
   }
-  for(auto iter : dealloc_mr){
-    ibv_dereg_mr(iter.second);
-    //The mr will be deleted in the end.
-  }
+
   if (!remote_mem_pool.empty()) {
     for (auto p : remote_mem_pool) {
       delete p;  // remote buffer is not registered on this machine so just delete the structure
@@ -740,8 +737,6 @@ void RDMA_Manager::Initialize_threadlocal_map(){
     cq_data_default.insert({target_node_id, new ThreadLocalPtr(&UnrefHandle_cq)});
     local_read_qp_info.insert({target_node_id, new ThreadLocalPtr(&General_Destroy<registered_qp_config*>)});
     Remote_Leaf_Node_Bitmap.insert({target_node_id, new std::map<void*, In_Use_Array*>()});
-
-    dealloc_mr.insert({target_node_id, nullptr});
     top.insert({target_node_id,0});
     mtx_imme_map.insert({target_node_id, new std::mutex});
     imm_gen_map.insert({target_node_id, new std::atomic<uint32_t>{0}});

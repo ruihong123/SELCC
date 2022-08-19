@@ -13,7 +13,7 @@
 #include <byteswap.h>
 #include <cassert>
 #include <algorithm>
-
+#include <condition_variable>
 #include <thread>
 #include <chrono>
 #include <memory>
@@ -524,7 +524,7 @@ class RDMA_Manager {
 
   std::atomic<uint64_t> main_comm_thread_ready_num = 0;
 //  uint64_t deallocation_buffers[REMOTE_DEALLOC_BUFF_SIZE / sizeof(uint64_t)];
-  std::map<uint16_t, ibv_mr*>  dealloc_mr;
+//  std::map<uint16_t, ibv_mr*>  dealloc_mr;
   std::map<uint16_t, size_t>  top;
 
   // The variables for immutable notification RPC.
