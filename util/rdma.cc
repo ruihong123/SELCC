@@ -930,7 +930,6 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
     mr_map_lock.insert({target_node_id, global_lock_mr});
     base_addr_map_lock.insert({target_node_id, (uint64_t)global_lock_mr->addr});
     rkey_map_lock.insert({target_node_id, (uint64_t)global_lock_mr->rkey});
-    assert(global_lock_table->addr != nullptr);
     // Set the remote address for the index table.
     if (target_node_id == 1){
 
