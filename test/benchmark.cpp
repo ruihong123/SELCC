@@ -2,7 +2,7 @@
 #include "Btr.h"
 #include "zipf.h"
 #include "util/random.h"
-#include "util/rdma.h"
+//#include "util/rdma.h"
 
 #include <city.h>
 #include <stdlib.h>
@@ -18,14 +18,14 @@ const int kCoroCnt = 3;
 
 const int kTthreadUpper = 23;
 
-extern uint64_t cache_miss[MAX_APP_THREAD][8];
-extern uint64_t cache_hit[MAX_APP_THREAD][8];
-extern uint64_t invalid_counter[MAX_APP_THREAD][8];
-extern uint64_t lock_fail[MAX_APP_THREAD][8];
-extern uint64_t pattern[MAX_APP_THREAD][8];
-extern uint64_t hot_filter_count[MAX_APP_THREAD][8];
-extern uint64_t hierarchy_lock[MAX_APP_THREAD][8];
-extern uint64_t handover_count[MAX_APP_THREAD][8];
+uint64_t cache_miss[MAX_APP_THREAD][8];
+uint64_t cache_hit[MAX_APP_THREAD][8];
+uint64_t invalid_counter[MAX_APP_THREAD][8];
+uint64_t lock_fail[MAX_APP_THREAD][8];
+uint64_t pattern[MAX_APP_THREAD][8];
+uint64_t hot_filter_count[MAX_APP_THREAD][8];
+uint64_t hierarchy_lock[MAX_APP_THREAD][8];
+uint64_t handover_count[MAX_APP_THREAD][8];
 
 const int kMaxThread = 32;
 
@@ -46,8 +46,8 @@ double zipfan = 0;
 std::thread th[kMaxThread];
 uint64_t tp[kMaxThread][8];
 
-extern volatile bool need_stop;
-extern uint64_t latency[MAX_APP_THREAD][LATENCY_WINDOWS];
+volatile bool need_stop;
+uint64_t latency[MAX_APP_THREAD][LATENCY_WINDOWS];
 uint64_t latency_th_all[LATENCY_WINDOWS];
 
 DSMEngine::Btr *tree;
@@ -96,7 +96,7 @@ RequstGen *coro_func(int coro_id, DSMEngine::RDMA_Manager *dsm, int id) {
 Timer bench_timer;
 std::atomic<int64_t> warmup_cnt{0};
 std::atomic_bool ready{false};
-extern bool enable_cache;
+//extern bool enable_cache;
 void thread_run(int id) {
     DSMEngine::Random64 rand(id);
 
@@ -115,7 +115,7 @@ void thread_run(int id) {
   }
 
   uint64_t end_warm_key = kKeySpace;
-    enable_cache = true;
+//    enable_cache = true;
   //kWarmRatio *
   for (uint64_t i = 1; i < end_warm_key; ++i) {
       // we can not sequentially pop up the data. Otherwise there will be a bug.

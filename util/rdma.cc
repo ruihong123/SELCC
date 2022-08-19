@@ -1,7 +1,7 @@
 #include <fstream>
 #include <util/rdma.h>
 #include "HugePageAlloc.h"
-#include "DSMEngine/env.h"
+//#include "DSMEngine/env.h"
 
 namespace DSMEngine {
 uint16_t RDMA_Manager::node_id = 0;
@@ -119,9 +119,11 @@ RDMA_Manager::~RDMA_Manager() {
   printf("RDMA Manager get destroyed\n");
   if (!local_mem_pool.empty()) {
     for (ibv_mr* p : local_mem_pool) {
+        size_t size = p->length;
       ibv_dereg_mr(p);
       //       local buffer is registered on this machine need deregistering.
-      delete (char*)p->addr;
+//      delete (char*)p->addr;
+        hugePageDealloc(p,size);
     }
     //    local_mem_pool.clear();
   }
@@ -555,8 +557,9 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
                                          Chunk_type pool_name) {
   int mr_flags = 0;
   if (node_id%2 == 1 || pre_allocated_pool.empty()){
+      printf("Note: Allocate memory from OS, not allocate in the user space.\n");
 
-    *p2buffpointer = new char[size];
+    *p2buffpointer = (char*)hugePageAlloc(size);
 //      *p2buffpointer = (char*)hugePageAlloc(size);
     if (!*p2buffpointer) {
       fprintf(stderr, "failed to malloc bytes to memory buffer\n");

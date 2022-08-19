@@ -134,7 +134,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
     if(rdma_mg->pre_allocated_pool.size() < pr_size)
     {
       std::unique_lock<std::shared_mutex> lck(rdma_mg->local_mem_mutex);
-        ibv_mr* mr_data = rdma_mg->Preregister_Memory(pr_size);
+      rdma_mg->Preregister_Memory(pr_size);
 
     }
       ibv_mr* mr_data = rdma_mg->local_mem_pool[0];

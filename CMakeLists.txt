@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DROCKSDB_SUPPORT_THREAD_LOCAL -Wall -Wextra -pthread")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DROCKSDB_SUPPORT_THREAD_LOCAL -Wall -Wextra -pthread ")
 include_directories(
         "${PROJECT_SOURCE_DIR}"
 #        "${PROJECT_SOURCE_DIR}/third_party/googletest/googlemock"
@@ -35,6 +35,7 @@ target_sources(DSMEngine
         #    "util/clock.cc"
         "util/coding.cc"
         "util/coding.h"
+        "util/Common.cpp"
         "util/comparator.cc"
         "util/crc32c.cc"
         "util/crc32c.h"
@@ -78,7 +79,7 @@ enable_testing()
 # This project is tested using GoogleTest.
 add_subdirectory("third_party/googletest")
 find_package(ibverbs REQUIRED)
-target_link_libraries(DSMEngine ibverbs::ibverbs)
+target_link_libraries(DSMEngine ibverbs::ibverbs -lcityhash -lboost_system -lboost_coroutine)
 if(WITH_NUMA)
     find_package(NUMA REQUIRED)
     add_definitions(-DNUMA)
