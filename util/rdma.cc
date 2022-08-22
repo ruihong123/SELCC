@@ -1,5 +1,6 @@
 #include <fstream>
 #include <util/rdma.h>
+#include "Common.h"
 #include "HugePageAlloc.h"
 //#include "DSMEngine/env.h"
 
@@ -975,7 +976,7 @@ ibv_mr *RDMA_Manager::create_index_table() {
 }
 ibv_mr *RDMA_Manager::create_lock_table() {
     int mr_flags = 0;
-    size_t size = 256*1024;
+    size_t size = define::kLockChipMemSize;
     char* buff = new char[size];
 //      *p2buffpointer = (char*)hugePageAlloc(size);
     if (!*buff) {

@@ -130,7 +130,8 @@ function(TimberSaw_test test_file)
     add_test(NAME "${test_target_name}" COMMAND "${test_target_name}")
 endfunction(TimberSaw_test)
 
-  TimberSaw_test("test/RDMA_Manager_Test.cpp")
+    TimberSaw_test("test/RDMA_Manager_Test.cpp")
+    TimberSaw_test("test/Btree_Test.cpp")
 #  TimberSaw_test("db/fault_injection_test.cc")
 #
 #  TimberSaw_test("issues/issue178_test.cc")
