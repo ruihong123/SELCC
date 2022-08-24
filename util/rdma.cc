@@ -552,7 +552,7 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
     *p2buffpointer = (char*)hugePageAlloc(size);
 //      *p2buffpointer = (char*)hugePageAlloc(size);
     if (!*p2buffpointer) {
-      fprintf(stderr, "failed to malloc bytes to memory buffer\n");
+      fprintf(stderr, "failed to malloc bytes to memory buffer by hugePageAllocation\n");
       return false;
     }
     memset(*p2buffpointer, 0, size);
