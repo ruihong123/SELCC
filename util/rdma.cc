@@ -545,7 +545,7 @@ void RDMA_Manager::ConnectQPThroughSocket(std::string qp_type, int socket_fd,
 bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
                                          ibv_mr** p2mrpointer, size_t size,
                                          Chunk_type pool_name) {
-        printf("Local memroy register\n");
+    printf("Local memroy register\n");
   int mr_flags = 0;
   if (node_id%2 == 1 || pre_allocated_pool.empty()){
       printf("Note: Allocate memory from OS, not allocate in the user space.\n");
@@ -582,10 +582,8 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
         "ibv_reg_mr failed with mr_flags=0x%x, size = %zu, region num = %zu\n",
         mr_flags, size, local_mem_pool.size());
     return false;
-  } else if(pool_name != Internal) {
-    // if pool name == Internal, then no bit map will be created. The registered memory is used for remote compute node RDMA read and write
-    // If chunk size equals 0, which means that this buffer should not be add to Local Bit Map, will not be regulated by the RDMA manager.
-
+  } else if(node_id %2 == 0 || pool_name == Message) {
+      // memory node does not need to create the in_use map except for the message pool.
     int placeholder_num =
         (*p2mrpointer)->length /
         (name_to_chunksize.at(pool_name));  // here we supposing the SSTables are 4 megabytes
