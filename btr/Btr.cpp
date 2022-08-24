@@ -65,10 +65,10 @@ Btr::Btr(RDMA_Manager *mg, uint16_t Btr_id) : tree_id(Btr_id){
 //  root_ptr_ptr = get_root_ptr_ptr();
 
   // try to init tree and install root pointer
-    rdma_mg->Allocate_Local_RDMA_Slot(cached_root_page_mr, Default);// local allocate
+    rdma_mg->Allocate_Local_RDMA_Slot(cached_root_page_mr, Internal);// local allocate
     if (rdma_mg->node_id == 1){
         // only the first compute node create the root node for index
-        g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Default, (round_robin_cur++)%rdma_mg->memory_nodes.size()); // remote allocation.
+        g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, (round_robin_cur++) % rdma_mg->memory_nodes.size()); // remote allocation.
         auto root_page = new (cached_root_page_mr.addr) LeafPage;
 
         root_page->set_consistent();
@@ -203,15 +203,15 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
     assert(right != GlobalAddress::Null());
   auto new_root = new (page_buffer->addr) InternalPage(left, k, right, level);
 
-  auto new_root_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Default, (round_robin_cur++)%rdma_mg->memory_nodes.size());
+  auto new_root_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, (round_robin_cur++) % rdma_mg->memory_nodes.size());
   // The code below is just for debugging
 //    new_root_addr.mark = 3;
   new_root->set_consistent();
   // set local cache for root address
   g_root_ptr = new_root_addr;
     tree_height = level;
-  rdma_mg->RDMA_Write(new_root_addr, page_buffer, kInternalPageSize,1,1, Default);
-  if (rdma_mg->RDMA_CAS(&cached_root_page_mr, cas_buffer, old_root, new_root_addr, 1,1,Default)) {
+  rdma_mg->RDMA_Write(new_root_addr, page_buffer, kInternalPageSize, 1, 1, Internal);
+  if (rdma_mg->RDMA_CAS(&cached_root_page_mr, cas_buffer, old_root, new_root_addr, 1, 1, Internal)) {
     broadcast_new_root(new_root_addr, level);
     std::cout << "new root level " << level << " " << new_root_addr
               << std::endl;
@@ -237,7 +237,7 @@ void Btr::print_and_check_tree(CoroContext *cxt, int coro_id) {
 
 next_level:
 
-  rdma_mg->RDMA_Read(p, page_buffer, kInternalPageSize, 1, 1, Default);
+  rdma_mg->RDMA_Read(p, page_buffer, kInternalPageSize, 1, 1, Internal);
   auto header = (Header *)(page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
   levels[level_cnt++] = p;
   if (header->level != 0) {
@@ -248,7 +248,7 @@ next_level:
   }
 
 next:
-    rdma_mg->RDMA_Read(leaf_head, page_buffer, kLeafPageSize, 1, 1, Default);
+    rdma_mg->RDMA_Read(leaf_head, page_buffer, kLeafPageSize, 1, 1, Internal);
 //  rdma_mg->read_sync(page_buffer, , kLeafPageSize);
   auto page = (LeafPage *)page_buffer;
   for (int i = 0; i < kLeafCardinality; ++i) {
@@ -346,7 +346,7 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
 
   bool hand_over_other = can_hand_over(lock_addr);
   if (hand_over_other) {
-    rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, 0,0,Default);
+    rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, 0, 0, Internal);
     releases_local_lock(lock_addr);
     return;
   }
@@ -354,10 +354,10 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
     struct ibv_sge sge[2];
     if (async){
 
-        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Default);
+        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal);
         ibv_mr* local_mr = rdma_mg->Get_local_CAS_mr();
 
-        rdma_mg->Prepare_WR_Write(sr[1], sge[1], lock_addr, local_mr, sizeof(uint64_t), 0, Default);
+        rdma_mg->Prepare_WR_Write(sr[1], sge[1], lock_addr, local_mr, sizeof(uint64_t), 0, Internal);
         sr[0].next = &sr[1];
 
 
@@ -365,10 +365,10 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
         assert(page_addr.nodeID == lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(sr, 0, page_addr.nodeID);
     }else{
-        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 1, Default);
+        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 1, Internal);
         ibv_mr* local_mr = rdma_mg->Get_local_CAS_mr();
 
-        rdma_mg->Prepare_WR_Write(sr[1], sge[1], lock_addr, local_mr, sizeof(uint64_t), 1, Default);
+        rdma_mg->Prepare_WR_Write(sr[1], sge[1], lock_addr, local_mr, sizeof(uint64_t), 1, Internal);
         sr[0].next = &sr[1];
 
 
@@ -393,7 +393,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
     // Can put lock and page read in a door bell batch.
     bool hand_over = acquire_local_lock(lock_addr, cxt, coro_id);
     if (hand_over) {
-        rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, 1,1, Default);
+        rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, 1, 1, Internal);
     }
 
     {
@@ -414,8 +414,8 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
 
-        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, 1, Default);
-        rdma_mg->Prepare_WR_Write(sr[1], sge[1], page_addr, page_buffer, page_size, 1, Default);
+        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, 1, Internal);
+        rdma_mg->Prepare_WR_Write(sr[1], sge[1], page_addr, page_buffer, page_size, 1, Internal);
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
@@ -960,12 +960,12 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 
         //  pattern_cnt++;
         ibv_mr* new_mr = new ibv_mr{};
-        rdma_mg->Allocate_Local_RDMA_Slot(*new_mr, Default);
+        rdma_mg->Allocate_Local_RDMA_Slot(*new_mr, Internal);
         page_buffer = new_mr->addr;
         header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
         page = (InternalPage *)page_buffer;
     rdma_refetch:
-        rdma_mg->RDMA_Read(page_addr,new_mr, kLeafPageSize, 1,1,Default);
+        rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, 1, 1, Internal);
 
         memset(&result, 0, sizeof(result));
         result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
@@ -985,7 +985,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         if (result.level == 0){
             // if the root node is the leaf node this path will happen.
             assert(level = -1);
-            rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Default);
+            rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal);
             // TODO: return true is okay.
             return leaf_page_search(page_addr, k, result, 0, cxt, coro_id);
         }
@@ -1075,7 +1075,7 @@ re_read:
     ibv_mr* local_mr = rdma_mg->Get_local_read_mr();
     page_buffer = local_mr->addr;
     header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
-    rdma_mg->RDMA_Read(page_addr,local_mr, kLeafPageSize, 1,1,Default);
+    rdma_mg->RDMA_Read(page_addr, local_mr, kLeafPageSize, 1, 1, Internal);
     memset(&result, 0, sizeof(result));
     result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
     result.level = header->level;
@@ -1145,7 +1145,7 @@ Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int 
     } else{
 
         local_buffer = new ibv_mr{};
-        rdma_mg->Allocate_Local_RDMA_Slot(*local_buffer, Default);
+        rdma_mg->Allocate_Local_RDMA_Slot(*local_buffer, Internal);
         page_buffer = local_buffer->addr;
         // you have to reread to data from the remote side to not missing update from other
         // nodes! Do not read the page from the cache!
@@ -1240,9 +1240,9 @@ Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int 
 
     //Both internal node and leaf nodes are [lowest, highest) except for the left most
   if (need_split) { // need split
-    sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Default, (round_robin_cur++)%rdma_mg->memory_nodes.size());
+    sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, (round_robin_cur++) % rdma_mg->memory_nodes.size());
     ibv_mr* sibling_buf = new ibv_mr{};
-    rdma_mg->Allocate_Local_RDMA_Slot(*sibling_buf, Default);
+    rdma_mg->Allocate_Local_RDMA_Slot(*sibling_buf, Internal);
 
     auto sibling = new (sibling_buf->addr) InternalPage(page->hdr.level);
 
@@ -1272,7 +1272,7 @@ Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int 
     //the code below is just for debugging.
 //    sibling_addr.mark = 2;
 
-    rdma_mg->RDMA_Write(sibling_addr, sibling_buf, kInternalPageSize,1,1,Default);
+    rdma_mg->RDMA_Write(sibling_addr, sibling_buf, kInternalPageSize, 1, 1, Internal);
       assert(sibling->records[sibling->hdr.last_index].ptr != GlobalAddress::Null());
       assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
       k = split_key;
@@ -1437,10 +1437,10 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 //  Key split_key;
 //  GlobalAddress sibling_addr;
   if (need_split) { // need split
-    sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Default,(round_robin_cur++)%rdma_mg->memory_nodes.size());
+    sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, (round_robin_cur++) % rdma_mg->memory_nodes.size());
     //TODO: use a thread local sibling memory region to reduce the allocator contention.
     ibv_mr* sibling_mr = new ibv_mr{};
-      rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Default);
+      rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal);
     auto sibling = new (sibling_mr->addr) LeafPage(page->hdr.level);
 
     // std::cout << "addr " <<  sibling_addr << " | level " <<
@@ -1471,7 +1471,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
       sibling->hdr.sibling_ptr = page->hdr.sibling_ptr;
       page->hdr.sibling_ptr = sibling_addr;
     sibling->set_consistent();
-    rdma_mg->RDMA_Write(sibling_addr, sibling_mr,kLeafPageSize, 1,1,Default);
+    rdma_mg->RDMA_Write(sibling_addr, sibling_mr,kLeafPageSize, 1, 1, Internal);
   }else{
       sibling_addr = GlobalAddress::Null();
   }
@@ -1504,7 +1504,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     try_lock_addr(lock_addr, tag, cas_mr, cxt, coro_id);
 
     //  auto page_buffer = rdma_mg->get_rbuf(coro_id).get_page_buffer();
-    rdma_mg->RDMA_Read(page_addr, rbuf, kLeafPageSize, 1, 1, Default);
+    rdma_mg->RDMA_Read(page_addr, rbuf, kLeafPageSize, 1, 1, Internal);
     auto page = (LeafPage *)page_buffer;
 
     assert(page->hdr.level == level);
@@ -1543,7 +1543,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
         page->hdr.last_index--;
 
         page->set_consistent();
-        rdma_mg->RDMA_Write(page_addr, rbuf, kLeafPageSize, 1,1, Default);
+        rdma_mg->RDMA_Write(page_addr, rbuf, kLeafPageSize, 1, 1, Internal);
     }
     this->unlock_addr(lock_addr, cxt, coro_id, false);
     return true;

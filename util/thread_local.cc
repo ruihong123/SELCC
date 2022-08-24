@@ -94,7 +94,7 @@ class ThreadLocalPtr::StaticMeta {
   //
   // For instance, the following function contains a function static
   // variable.  We place a dummy function call of this inside
-  // Env::Default() to ensure the construction order of the construction
+  // Env::Internal() to ensure the construction order of the construction
   // order.
   static port::Mutex* Mutex();
 
