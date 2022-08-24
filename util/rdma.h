@@ -456,7 +456,7 @@ class RDMA_Manager {
       remote_mem_pool; /* a vector for all the remote memory regions*/
  // TODO: seperate the pool for different shards
   std::vector<ibv_mr*>
-      local_mem_pool; /* a vector for all the local memory regions.*/
+      local_mem_regions; /* a vector for all the local memory regions.*/
   std::list<ibv_mr*> pre_allocated_pool;
 //  std::map<void*, In_Use_Array*>* Remote_Leaf_Node_Bitmap;
 //TODO: seperate the remote registered memory as different chunk types. similar to name_to_mem_pool

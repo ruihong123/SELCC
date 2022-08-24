@@ -130,14 +130,14 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
     }
 //    rdma_mg_->post_receive(recv_mr, client_ip, sizeof(Computing_to_memory_msg));
     // sync after send & recv buffer creation and receive request posting.
-    rdma_mg->local_mem_pool.reserve(100);
+    rdma_mg->local_mem_regions.reserve(100);
     if(rdma_mg->pre_allocated_pool.size() < pr_size)
     {
       std::unique_lock<std::shared_mutex> lck(rdma_mg->local_mem_mutex);
       rdma_mg->Preregister_Memory(pr_size);
 
     }
-      ibv_mr* mr_data = rdma_mg->local_mem_pool[0];
+      ibv_mr* mr_data = rdma_mg->local_mem_regions[0];
       assert(mr_data->length == (uint64_t)pr_size*1024*1024*1024);
       memcpy(temp_send, mr_data, sizeof(ibv_mr));
 
@@ -405,7 +405,7 @@ int Memory_Node_Keeper::server_sock_connect(const char* servername, int port) {
                 static_cast<unsigned>(request->content.mem_size));
       }
 //      printf("Now the Remote memory regularated by compute node is %zu GB",
-//             rdma_mg->local_mem_pool.size());
+//             rdma_mg->local_mem_regions.size());
   }
 
   send_pointer->content.mr = *mr;

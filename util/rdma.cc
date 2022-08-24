@@ -92,7 +92,7 @@ RDMA_Manager::RDMA_Manager(config_t config, size_t remote_block_size)
 //  local_write_compact_qp_info->Reset(new QP_Info_Map());
   //Initialize a message memory pool
   Mempool_initialize(Message,
-                     std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)), 32*std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)));
+                     std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)), R_SIZE*std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)));
   Mempool_initialize(Version_edit, 1024 * 1024, 32*1024*1024);
   Mempool_initialize(Internal, 16 * 1024, kInternalPageSize);
 
@@ -118,15 +118,15 @@ RDMA_Manager::~RDMA_Manager() {
       }
     }
   printf("RDMA Manager get destroyed\n");
-  if (!local_mem_pool.empty()) {
-    for (ibv_mr* p : local_mem_pool) {
+  if (!local_mem_regions.empty()) {
+    for (ibv_mr* p : local_mem_regions) {
         size_t size = p->length;
       ibv_dereg_mr(p);
       //       local buffer is registered on this machine need deregistering.
 //      delete (char*)p->addr;
         hugePageDealloc(p,size);
     }
-    //    local_mem_pool.clear();
+    //    local_mem_regions.clear();
   }
 
   if (!remote_mem_pool.empty()) {
@@ -565,7 +565,7 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
     *p2mrpointer = ibv_reg_mr(res->pd, *p2buffpointer, size, mr_flags);
     //  auto stop = std::chrono::high_resolution_clock::now();
     //  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start); std::printf("Memory registeration size: %zu time elapse (%ld) us\n", size, duration.count());
-    local_mem_pool.push_back(*p2mrpointer);
+    local_mem_regions.push_back(*p2mrpointer);
     fprintf(stdout,
             "New MR was registered with addr=%p, lkey=0x%x, rkey=0x%x, flags=0x%x, size=%lu, total registered size is %lu\n",
             (*p2mrpointer)->addr, (*p2mrpointer)->lkey, (*p2mrpointer)->rkey,
@@ -578,9 +578,9 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
 
   if (!*p2mrpointer) {
     fprintf(
-        stderr,
-        "ibv_reg_mr failed with mr_flags=0x%x, size = %zu, region num = %zu\n",
-        mr_flags, size, local_mem_pool.size());
+            stderr,
+            "ibv_reg_mr failed with mr_flags=0x%x, size = %zu, region num = %zu\n",
+            mr_flags, size, local_mem_regions.size());
     return false;
   } else if(node_id %2 == 0 || pool_name == Message) {
       // memory node does not need to create the in_use map except for the message pool.
@@ -608,7 +608,7 @@ ibv_mr * RDMA_Manager::Preregister_Memory(int gb_number) {
 //    void* dummy = malloc(size*2);
 //  }
 
-    std::fprintf(stderr, "Pre allocate registered memory %d GB %30s\r", size, "");
+    std::fprintf(stderr, "Pre allocate registered memory %zu GB %30s\r", size, "");
     std::fflush(stderr);
     void* buff_pointer = hugePageAlloc(size);
     if (!buff_pointer) {
@@ -624,12 +624,12 @@ ibv_mr * RDMA_Manager::Preregister_Memory(int gb_number) {
     ibv_mr* mrpointer = ibv_reg_mr(res->pd, buff_pointer, size, mr_flags);
     if (!mrpointer) {
       fprintf(
-          stderr,
-          "ibv_reg_mr failed with mr_flags=0x%x, size = %zu, region num = %zu\n",
-          mr_flags, size, local_mem_pool.size());
+              stderr,
+              "ibv_reg_mr failed with mr_flags=0x%x, size = %zu, region num = %zu\n",
+              mr_flags, size, local_mem_regions.size());
       return nullptr;
     }
-    local_mem_pool.push_back(mrpointer);
+    local_mem_regions.push_back(mrpointer);
     ibv_mr* mrs = new ibv_mr[gb_number];
     for (int i = 0; i < gb_number; ++i) {
         mrs[i] = *mrpointer;
