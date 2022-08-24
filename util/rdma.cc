@@ -697,7 +697,6 @@ void RDMA_Manager::Client_Set_Up_Resources() {
 //  std::cin >> ip_add;
 //  rdma_config.server_name = ip_add.c_str();
   /* if client side */
-  printf("Mark: valgrind socket info1\n");
   if (resources_create()) {
     fprintf(stderr, "failed to create resources\n");
     return;
@@ -960,8 +959,8 @@ ibv_mr *RDMA_Manager::create_index_table() {
     size_t size = 16*1024;
     char* buff = new char[size];
 //      *p2buffpointer = (char*)hugePageAlloc(size);
-    if (!*buff) {
-        fprintf(stderr, "failed to malloc bytes to memory buffer\n");
+    if (!buff) {
+        fprintf(stderr, "failed to malloc bytes to memory buffer create index\n");
         return nullptr;
     }
     memset(buff, 0, size);
@@ -979,8 +978,8 @@ ibv_mr *RDMA_Manager::create_lock_table() {
     size_t size = define::kLockChipMemSize;
     char* buff = new char[size];
 //      *p2buffpointer = (char*)hugePageAlloc(size);
-    if (!*buff) {
-        fprintf(stderr, "failed to malloc bytes to memory buffer\n");
+    if (!buff) {
+        fprintf(stderr, "failed to malloc bytes to memory buffer create lock table\n");
         return nullptr;
     }
     memset(buff, 0, size);
