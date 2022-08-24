@@ -84,7 +84,7 @@ if(WITH_NUMA)
     find_package(NUMA REQUIRED)
     add_definitions(-DNUMA)
     include_directories(${NUMA_INCLUDE_DIR})
-    target_link_libraries(TimberSaw NUMA::NUMA)
+    target_link_libraries(DSMEngine NUMA::NUMA)
 endif()
 add_executable(MemoryEngine_Compute main.cpp)
 add_executable(memory_server "server.cc"
