@@ -23,7 +23,7 @@ namespace DSMEngine{
 
         }
 
-        if (res == MAP_FAILED) {
+        if (res == MAP_FAILED || res == nullptr) {
             assert(is_mmap_work == true);
             printf("mmap failed!\n");
             is_mmap_work = false;
