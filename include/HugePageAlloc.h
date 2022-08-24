@@ -28,6 +28,7 @@ namespace DSMEngine{
             printf("mmap failed!\n");
             is_mmap_work = false;
             res = malloc(size);
+            assert(res != NULL);
             return res;
         }else{
             return res;
