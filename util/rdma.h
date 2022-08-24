@@ -72,8 +72,7 @@
 namespace DSMEngine {
 
 enum Chunk_type {Internal, LockTable, Message, Version_edit, IndexChunk, FilterChunk, FlushBuffer, DataChunk};
-static const char * EnumStrings[] = { "Message", "Version_edit",
-      "IndexChunk", "FilterChunk", "FlushBuffer", "Internal" };
+static const char * EnumStrings[] = { "Internal", "LockTable", "Message", "Version_edit", "IndexChunk", "FilterChunk", "FlushBuffer", "DataChunk"};
 
 static char config_file_name[100] = "../connection.conf";
 

@@ -545,6 +545,7 @@ void RDMA_Manager::ConnectQPThroughSocket(std::string qp_type, int socket_fd,
 bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
                                          ibv_mr** p2mrpointer, size_t size,
                                          Chunk_type pool_name) {
+        printf("Local memroy register\n");
   int mr_flags = 0;
   if (node_id%2 == 1 || pre_allocated_pool.empty()){
       printf("Note: Allocate memory from OS, not allocate in the user space.\n");
@@ -587,8 +588,7 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
 
     int placeholder_num =
         (*p2mrpointer)->length /
-        (name_to_chunksize.at(
-            pool_name));  // here we supposing the SSTables are 4 megabytes
+        (name_to_chunksize.at(pool_name));  // here we supposing the SSTables are 4 megabytes
     auto* in_use_array = new In_Use_Array(placeholder_num, name_to_chunksize.at(pool_name),
                                           *p2mrpointer);
     // TODO: Modify it to allocate the memory according to the memory chunk types
@@ -3305,12 +3305,11 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
       ibv_mr* mr;
       char* buff;
       // the developer can define how much memory cna one time RDMA allocation get.
-      Local_Memory_Register(&buff, &mr,
-  name_to_allocated_size.at(pool_name) == 0 ?
+      Local_Memory_Register(&buff, &mr, name_to_allocated_size.at(pool_name) == 0 ?
       1024*1024*1024:name_to_allocated_size.at(pool_name), pool_name);
-      if (node_id%2 == 1)
-        printf("Memory used up, Initially, allocate new one, memory pool is %s, total memory this pool is %lu\n",
-               EnumStrings[pool_name], name_to_mem_pool.at(pool_name).size());
+//      if (node_id%2 == 1)
+//        printf("Memory used up, Initially, allocate new one, memory pool is %s, total memory this pool is %lu\n",
+//               EnumStrings[pool_name], name_to_mem_pool.at(pool_name).size());
     }
     mem_write_lock.unlock();
     mem_read_lock.lock();
@@ -3348,16 +3347,10 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
 
   std::unique_lock<std::shared_mutex> mem_write_lock(local_mem_mutex);
 
-  Local_Memory_Register(&buff, &mr_to_allocate,name_to_allocated_size.at(pool_name) == 0 ?
+  Local_Memory_Register(&buff, &mr_to_allocate, name_to_allocated_size.at(pool_name) == 0 ?
       1024*1024*1024:name_to_allocated_size.at(pool_name), pool_name);
-//  if (node_id%2 == 0)
-//    printf("Memory used up, allocate new one, memory pool is %s, total memory is %lu\n",
-//           EnumStrings[pool_name], Calculate_size_of_pool(DataChunk)+
-//           Calculate_size_of_pool(IndexChunk)+Calculate_size_of_pool(FilterChunk)
-//           + Calculate_size_of_pool(FlushBuffer)+ Calculate_size_of_pool(Version_edit));
-  int block_index = name_to_mem_pool.at(pool_name)
-                        .at(mr_to_allocate->addr)
-                        ->allocate_memory_slot();
+
+  int block_index = name_to_mem_pool.at(pool_name).at(mr_to_allocate->addr)->allocate_memory_slot();
   mem_write_lock.unlock();
   if (block_index >= 0) {
 //    mr_input = new ibv_mr();
