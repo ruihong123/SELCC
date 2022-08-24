@@ -601,9 +601,9 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
   return true;
 };
 
-ibv_mr * RDMA_Manager::Preregister_Memory(int gb_number) {
+ibv_mr * RDMA_Manager::Preregister_Memory(size_t gb_number) {
   int mr_flags = 0;
-  size_t size = gb_number*1024*1024*1024;
+  size_t size = gb_number*1024UL*1024UL*1024UL;
 //  if (node_id == 2){
 //    void* dummy = malloc(size*2);
 //  }

@@ -374,7 +374,7 @@ class RDMA_Manager {
   // The RPC to bulk deallocation.
 //  void Memory_Deallocation_RPC(uint16_t target_node_id);
   //TODO: Make it register not per 1GB, allocate and register the memory all at once.
-  ibv_mr * Preregister_Memory(int gb_number); //Pre register the memroy do not allocate bit map
+  ibv_mr * Preregister_Memory(size_t gb_number); //Pre register the memroy do not allocate bit map
   // Remote Memory registering will call RDMA send and receive to the remote memory it also push the new SST bit map to the Remote_Leaf_Node_Bitmap
   bool Remote_Memory_Register(size_t size, uint16_t target_node_id, Chunk_type pool_name);
   int Remote_Memory_Deregister();
