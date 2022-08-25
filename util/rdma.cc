@@ -548,7 +548,7 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
     printf("Local memroy register\n");
   int mr_flags = 0;
   if (node_id%2 == 1 || pre_allocated_pool.empty()){
-      printf("Note: Allocate memory from OS, not allocate in the user space.\n");
+      printf("Note: Allocate memory from OS, not allocate from the preallocated pool.\n");
 
     *p2buffpointer = (char*)hugePageAlloc(size);
 //      *p2buffpointer = (char*)hugePageAlloc(size);
