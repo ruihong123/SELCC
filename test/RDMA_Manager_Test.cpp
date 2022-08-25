@@ -36,7 +36,6 @@ namespace DSMEngine {
     }
 
     TEST_F(RDMA_Manager_Test, RemoteAllocation) {
-//
         GlobalAddress gptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, 1);
         assert(gptr != GlobalAddress::Null());
     }
