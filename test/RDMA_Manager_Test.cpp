@@ -27,10 +27,16 @@ namespace DSMEngine {
         DSMEngine::RDMA_Manager* rdma_mg;
     };
 
-    TEST_F(RDMA_Manager_Test, Allocation) {
+    TEST_F(RDMA_Manager_Test, LocalAllocation) {
         ibv_mr mr{};
         rdma_mg->Allocate_Local_RDMA_Slot(mr, DataChunk);
         ASSERT_EQ(rdma_mg->name_to_mem_pool.at(DataChunk).size(), 1);
+        GlobalAddress gptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, 1);
+        assert(gptr != GlobalAddress::Null());
+    }
+
+    TEST_F(RDMA_Manager_Test, RemoteAllocation) {
+//
         GlobalAddress gptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, 1);
         assert(gptr != GlobalAddress::Null());
     }
