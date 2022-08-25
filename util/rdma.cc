@@ -672,7 +672,7 @@ void RDMA_Manager::Client_Set_Up_Resources() {
   uint16_t i = 0;
   uint16_t id;
   while ((pos = connection_conf.find(space_delimiter)) != std::string::npos) {
-    id = 2*i + 1;
+    id = 2*i;
     compute_nodes.insert({id, connection_conf.substr(0, pos)});
     connection_conf.erase(0, pos + space_delimiter.length());
     i++;
@@ -682,7 +682,7 @@ void RDMA_Manager::Client_Set_Up_Resources() {
   i = 0;
   std::getline(myfile,connection_conf );
   while ((pos = connection_conf.find(space_delimiter)) != std::string::npos) {
-    id = 2*i;
+    id = 2*i+1;
     memory_nodes.insert({id, connection_conf.substr(0, pos)});
     connection_conf.erase(0, pos + space_delimiter.length());
     i++;
@@ -700,7 +700,6 @@ void RDMA_Manager::Client_Set_Up_Resources() {
     return;
   }
   std::vector<std::thread> threads;
-  // The memory nodes will be modified during the thread creation
   for(int i = 0; i < memory_nodes.size(); i++){
     uint16_t target_node_id =  2*i+1;
     res->sock_map[target_node_id] =
