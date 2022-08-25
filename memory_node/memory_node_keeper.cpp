@@ -151,7 +151,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
       }
 
 
-    if (rdma_mg->sock_sync_data(socket_fd, sizeof(ibv_mr), temp_send,
+    if (rdma_mg->sock_sync_data(socket_fd, 3*sizeof(ibv_mr), temp_send,
                        temp_receive)) /* just send a dummy char back and forth */
       {
       fprintf(stderr, "sync error after QPs are were moved to RTS\n");
