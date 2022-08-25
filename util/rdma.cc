@@ -701,7 +701,7 @@ void RDMA_Manager::Client_Set_Up_Resources() {
   }
   std::vector<std::thread> threads;
   for(int i = 0; i < memory_nodes.size(); i++){
-    uint16_t target_node_id =  2*i;
+    uint16_t target_node_id =  2*i+1;
     res->sock_map[target_node_id] =
         client_sock_connect(memory_nodes[target_node_id].c_str(), rdma_config.tcp_port);
     printf("connect to node id %d", target_node_id);
@@ -3228,15 +3228,15 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
     // begginning.
     std::unique_lock<std::shared_mutex> mem_write_lock(remote_mem_mutex);
     if (Remote_Leaf_Node_Bitmap.at(target_node_id)->empty()) {
-        Remote_Memory_Register(1 * 1024 * 1024 * 1024, target_node_id, FlushBuffer);
+        Remote_Memory_Register(1 * 1024 * 1024 * 1024, target_node_id, Internal);
       //      fs_meta_save();
     }
     mem_write_lock.unlock();
   }
   std::shared_lock<std::shared_mutex> mem_read_lock(remote_mem_mutex);
   auto ptr = Remote_Leaf_Node_Bitmap.at(target_node_id)->begin();
-GlobalAddress ret;
-ibv_mr remote_mr;
+    GlobalAddress ret;
+    ibv_mr remote_mr;
   while (ptr != Remote_Leaf_Node_Bitmap.at(target_node_id)->end()) {
     // iterate among all the remote memory region
     // find the first empty SSTable Placeholder's iterator, iterator->first is ibv_mr* second is the bool vector for this ibv_mr*. Each ibv_mr is the origin block get from the remote memory. The memory was divided into chunks with size == SSTable size.
@@ -3264,7 +3264,7 @@ ibv_mr remote_mr;
   mem_read_lock.unlock();
   // If not find remote buffers are all used, allocate another remote memory region.
   std::unique_lock<std::shared_mutex> mem_write_lock(remote_mem_mutex);
-    Remote_Memory_Register(1 * 1024 * 1024 * 1024, target_node_id, FlushBuffer);
+    Remote_Memory_Register(1 * 1024 * 1024 * 1024, target_node_id, Internal);
   //  fs_meta_save();
   ibv_mr* mr_last;
   mr_last = remote_mem_pool.back();
