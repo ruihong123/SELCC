@@ -723,7 +723,7 @@ void RDMA_Manager::Client_Set_Up_Resources() {
 void RDMA_Manager::Initialize_threadlocal_map(){
   uint16_t target_node_id;
   for (int i = 0; i < memory_nodes.size(); ++i) {
-    target_node_id = 2*i;
+    target_node_id = 2*i+1;
     qp_local_write_flush.insert({target_node_id,new ThreadLocalPtr(&UnrefHandle_qp)});
     cq_local_write_flush.insert({target_node_id, new ThreadLocalPtr(&UnrefHandle_cq)});
     local_write_flush_qp_info.insert({target_node_id, new ThreadLocalPtr(&General_Destroy<registered_qp_config*>)});
