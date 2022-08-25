@@ -687,7 +687,7 @@ void RDMA_Manager::Client_Set_Up_Resources() {
     connection_conf.erase(0, pos + space_delimiter.length());
     i++;
   }
-  memory_nodes.insert({2*i, connection_conf});
+  memory_nodes.insert({2*i + 1, connection_conf});
   i++;
   Initialize_threadlocal_map();
 //  std::string ip_add;
