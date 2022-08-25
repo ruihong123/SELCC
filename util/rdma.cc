@@ -706,8 +706,7 @@ void RDMA_Manager::Client_Set_Up_Resources() {
         client_sock_connect(memory_nodes[target_node_id].c_str(), rdma_config.tcp_port);
     printf("connect to node id %d", target_node_id);
     if (res->sock_map[target_node_id] < 0) {
-      fprintf(stderr,
-              "failed to establish TCP connection to server %s, port %d\n",
+      fprintf(stderr, "failed to establish TCP connection to server %s, port %d\n",
               rdma_config.server_name, rdma_config.tcp_port);
     }
 //    assert(memory_nodes.size() == 2);
