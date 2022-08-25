@@ -700,6 +700,7 @@ void RDMA_Manager::Client_Set_Up_Resources() {
     return;
   }
   std::vector<std::thread> threads;
+  // The memory nodes will be modified during the thread creation
   for(int i = 0; i < memory_nodes.size(); i++){
     uint16_t target_node_id =  2*i+1;
     res->sock_map[target_node_id] =
@@ -853,8 +854,8 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
   struct registered_qp_config* remote_con_data = new registered_qp_config();
   struct registered_qp_config tmp_con_data;
   std::string qp_type = "main";
-  char temp_receive[2* sizeof(ibv_mr)];
-  char temp_send[2* sizeof(ibv_mr)] = "Q";
+  char temp_receive[3* sizeof(ibv_mr)];
+  char temp_send[3* sizeof(ibv_mr)] = "Q";
 
   union ibv_gid my_gid;
   if (rdma_config.gid_idx >= 0) {
