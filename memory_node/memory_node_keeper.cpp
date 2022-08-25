@@ -137,7 +137,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
       rdma_mg->Preregister_Memory(pr_size);
 
     }
-      ibv_mr* mr_data = rdma_mg->local_mem_regions[0];
+      ibv_mr* mr_data = rdma_mg->local_mem_regions[1];
       assert(mr_data->length == (uint64_t)pr_size*1024*1024*1024);
       memcpy(temp_send, mr_data, sizeof(ibv_mr));
 
@@ -271,7 +271,10 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
           //        rdma_mg_->post_send<registered_qp_config>(send_mr, client_ip);
 //        rdma_mg_->poll_completion(wc, 1, client_ip, true);
 
-
+          // TODO: We may need to implement the remote memory deallocation here, the memory node store
+          //  the metadata (which compute node does this memory chunk belongs to) for every memory chunks (1GB). THen
+          // send a message to the target compute node to deallocate. Another question is what if a compute node is crashed
+          // How to know how much has been allocated in the 1GB chunk?
       } else {
         printf("corrupt message from client. %d\n", receive_msg_buf->command);
         assert(false);
