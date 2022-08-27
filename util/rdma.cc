@@ -1017,7 +1017,7 @@ ibv_mr* RDMA_Manager::Get_local_read_mr() {
 }
     ibv_mr* RDMA_Manager::Get_local_CAS_mr() {
         ibv_mr* ret;
-        ret = (ibv_mr*)read_buffer->Get();
+        ret = (ibv_mr*)CAS_buffer->Get();
         if (ret == nullptr){
             // it is 16 bytes aligned so it can be atomic.
             char* buffer = new char[8];
@@ -1025,7 +1025,7 @@ ibv_mr* RDMA_Manager::Get_local_read_mr() {
                     IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
             //  auto start = std::chrono::high_resolution_clock::now();
             ret = ibv_reg_mr(res->pd, buffer, name_to_chunksize.at(DataChunk), mr_flags);
-            read_buffer->Reset(ret);
+            CAS_buffer->Reset(ret);
         }
         return ret;
     }
