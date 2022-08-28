@@ -74,7 +74,7 @@ private:
 //  GlobalAddress root_ptr_ptr; // the address which stores root pointer;
     ibv_mr cached_root_page_mr{};
   GlobalAddress g_root_ptr = GlobalAddress::Null();
-  static thread_local int round_robin_cur;
+  static thread_local size_t round_robin_cur;
 
   // static thread_local int coro_id;
   static thread_local CoroCall worker[define::kMaxCoro];

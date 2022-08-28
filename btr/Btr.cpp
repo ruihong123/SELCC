@@ -24,7 +24,7 @@ uint64_t handover_count[MAX_APP_THREAD][8];
 uint64_t hot_filter_count[MAX_APP_THREAD][8];
 uint64_t latency[MAX_APP_THREAD][LATENCY_WINDOWS];
 volatile bool need_stop = false;
-thread_local int Btr::round_robin_cur = 0;
+thread_local size_t Btr::round_robin_cur = 0;
 thread_local CoroCall Btr::worker[define::kMaxCoro];
 thread_local CoroCall Btr::master;
 thread_local GlobalAddress path_stack[define::kMaxCoro]
@@ -68,7 +68,10 @@ Btr::Btr(RDMA_Manager *mg, uint16_t Btr_id) : tree_id(Btr_id){
     rdma_mg->Allocate_Local_RDMA_Slot(cached_root_page_mr, Internal);// local allocate
     if (rdma_mg->node_id == 0){
         // only the first compute node create the root node for index
-        g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, (round_robin_cur++) % rdma_mg->memory_nodes.size()); // remote allocation.
+        g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, 2*round_robin_cur + 1); // remote allocation.
+        if(++round_robin_cur == rdma_mg->memory_nodes.size()){
+            round_robin_cur = 0;
+        }
         auto root_page = new (cached_root_page_mr.addr) LeafPage;
 
         root_page->set_consistent();
@@ -203,7 +206,10 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
     assert(right != GlobalAddress::Null());
   auto new_root = new (page_buffer->addr) InternalPage(left, k, right, level);
 
-  auto new_root_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, (round_robin_cur++) % rdma_mg->memory_nodes.size());
+  auto new_root_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, 2*round_robin_cur + 1);
+    if(++round_robin_cur == rdma_mg->memory_nodes.size()){
+        round_robin_cur = 0;
+    }
   // The code below is just for debugging
 //    new_root_addr.mark = 3;
   new_root->set_consistent();
@@ -1240,7 +1246,10 @@ Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int 
 
     //Both internal node and leaf nodes are [lowest, highest) except for the left most
   if (need_split) { // need split
-    sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, (round_robin_cur++) % rdma_mg->memory_nodes.size());
+    sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, 2*round_robin_cur + 1);
+      if(++round_robin_cur == rdma_mg->memory_nodes.size()){
+          round_robin_cur = 0;
+      }
     ibv_mr* sibling_buf = new ibv_mr{};
     rdma_mg->Allocate_Local_RDMA_Slot(*sibling_buf, Internal);
 
@@ -1437,7 +1446,10 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 //  Key split_key;
 //  GlobalAddress sibling_addr;
   if (need_split) { // need split
-    sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, (round_robin_cur++) % rdma_mg->memory_nodes.size());
+    sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, 2*round_robin_cur + 1);
+      if(++round_robin_cur == rdma_mg->memory_nodes.size()){
+          round_robin_cur = 0;
+      }
     //TODO: use a thread local sibling memory region to reduce the allocator contention.
     ibv_mr* sibling_mr = new ibv_mr{};
       rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal);
