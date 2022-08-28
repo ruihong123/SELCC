@@ -1637,6 +1637,7 @@ End of socket operations
 //    }
 //    rc = ibv_post_send(qp, &sr, &bad_wr);
         } else {
+            assert(false);
 //    std::shared_lock<std::shared_mutex> l(qp_cq_map_mutex);
             rc = ibv_post_send(res->qp_map.at(remote_ptr.nodeID), &sr, &bad_wr);
 //    l.unlock();
@@ -1845,6 +1846,7 @@ End of socket operations
             }
             rc = ibv_post_send(qp, &sr, &bad_wr);
         } else {
+            assert(false);
             std::shared_lock<std::shared_mutex> l(qp_cq_map_mutex);
             rc = ibv_post_send(res->qp_map.at(remote_ptr.nodeID), &sr, &bad_wr);
             l.unlock();
@@ -1861,7 +1863,7 @@ End of socket operations
             //  auto start = std::chrono::high_resolution_clock::now();
             //  while(std::chrono::high_resolution_clock::now()-start < std::chrono::nanoseconds(msg_size+200000));
             // wait until the job complete.
-            rc = poll_completion(wc, poll_num, qp_type, true, 0);
+            rc = poll_completion(wc, poll_num, qp_type, true, remote_ptr.nodeID);
             if (rc != 0) {
                 std::cout << "RDMA Write Failed" << std::endl;
                 std::cout << "q id is" << qp_type << std::endl;
@@ -1902,7 +1904,7 @@ int RDMA_Manager::RDMA_Write(ibv_mr *remote_mr, ibv_mr *local_mr, size_t msg_siz
   //  auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start); printf("RDMA Write send preparation size: %zu elapse: %ld\n", msg_size, duration.count()); start = std::chrono::high_resolution_clock::now();
   ibv_qp* qp;
   if (qp_type == "default"){
-    //    assert(false);// Never comes to here
+    //since we have make qp_data_default filled with empty queue pair during
     qp = static_cast<ibv_qp*>(qp_data_default.at(target_node_id)->Get());
     if (qp == NULL) {
       Remote_Query_Pair_Connection(qp_type,target_node_id);
@@ -1941,7 +1943,7 @@ int RDMA_Manager::RDMA_Write(ibv_mr *remote_mr, ibv_mr *local_mr, size_t msg_siz
     //  auto start = std::chrono::high_resolution_clock::now();
     //  while(std::chrono::high_resolution_clock::now()-start < std::chrono::nanoseconds(msg_size+200000));
     // wait until the job complete.
-    rc = poll_completion(wc, poll_num, qp_type, true, 0);
+    rc = poll_completion(wc, poll_num, qp_type, true, target_node_id);
     if (rc != 0) {
       std::cout << "RDMA Write Failed" << std::endl;
       std::cout << "q id is" << qp_type << std::endl;
