@@ -3282,8 +3282,7 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
                                        sst_index * Table_Size);
   remote_mr.length = Table_Size;
     ret.nodeID = target_node_id;
-    ret.offset = static_cast<char*>(remote_mr.addr) +
-                 sst_index * Table_Size - (char*)base_addr_map_data[target_node_id];
+    ret.offset = static_cast<char*>(remote_mr.addr) - (char*)base_addr_map_data[target_node_id];
   //    remote_data_mrs->fname = file_name;
   //    remote_data_mrs->map_pointer = mr_last;
 //  DEBUG_arg("Allocate Remote pointer %p",  remote_mr.addr);
