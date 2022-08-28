@@ -75,7 +75,7 @@ Btr::Btr(RDMA_Manager *mg, uint16_t Btr_id) : tree_id(Btr_id){
         auto root_page = new (cached_root_page_mr.addr) LeafPage;
 
         root_page->set_consistent();
-        rdma_mg->RDMA_Write(g_root_ptr, &cached_root_page_mr, kLeafPageSize, 1, 1, FlushBuffer);
+        rdma_mg->RDMA_Write(g_root_ptr, &cached_root_page_mr, kLeafPageSize, 1, 1, Internal);
         // TODO: create a special region to store the root_ptr for every tree id.
         auto local_mr = rdma_mg->Get_local_CAS_mr(); // remote allocation.
         ibv_mr remote_mr{};
