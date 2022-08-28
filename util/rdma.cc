@@ -225,10 +225,12 @@ RDMA_Manager::~RDMA_Manager() {
             rdma_mg = new RDMA_Manager(config, kLeafPageSize);
             rdma_mg->Client_Set_Up_Resources();
         } else {
+
         }
         lock.unlock();
-
-        return rdma_mg;    }
+        while(rdma_mg->main_comm_thread_ready_num.load() != rdma_mg->memory_nodes.size());
+        return rdma_mg;
+}
 
 size_t RDMA_Manager::GetMemoryNodeNum() {
     return memory_nodes.size();
@@ -3312,7 +3314,7 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
     mem_read_lock.lock();
   }
 //  std::shared_lock<std::shared_mutex> mem_read_lock(local_mem_mutex);
-  auto ptr = name_to_mem_pool.at(pool_name).begin();
+      auto ptr = name_to_mem_pool.at(pool_name).begin();
 
   while (ptr != name_to_mem_pool.at(pool_name).end()) {
     size_t region_chunk_size = ptr->second->get_chunk_size();
