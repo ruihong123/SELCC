@@ -24,6 +24,8 @@
 
 #define LATENCY_WINDOWS 1000000
 
+
+
 #define STRUCT_OFFSET(type, field)                                             \
   (char *)&((type *)(0))->field - (char *)((type *)(0))
 
@@ -79,7 +81,7 @@ struct CoroContext {
 };
 
 namespace define {
-
+//use the define::GB instead of 1024*1024*1024, because bydefault, the number is int which is smaller or equal than 1 GB.
 constexpr uint64_t MB = 1024ull * 1024;
 constexpr uint64_t GB = 1024ull * MB;
 constexpr uint16_t kCacheLineSize = 64;

@@ -550,34 +550,34 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
                                          Chunk_type pool_name) {
     printf("Local memroy register\n");
   int mr_flags = 0;
-  if (node_id%2 == 0 || pre_allocated_pool.empty()){
+  if (node_id%2 == 1 && !pre_allocated_pool.empty()  && pool_name != Message ){
+      *p2mrpointer = pre_allocated_pool.back();
+      pre_allocated_pool.pop_back();
+      *p2buffpointer = (char*)(*p2mrpointer)->addr;
+  }else{
       //If this node is a compute node, allocate the memory on demanding.
       printf("Note: Allocate memory from OS, not allocate from the preallocated pool.\n");
 
-    *p2buffpointer = (char*)hugePageAlloc(size);
+      *p2buffpointer = (char*)hugePageAlloc(size);
 //      *p2buffpointer = (char*)hugePageAlloc(size);
-    if (!*p2buffpointer) {
-      fprintf(stderr, "failed to malloc bytes to memory buffer by hugePageAllocation\n");
-      return false;
-    }
-    memset(*p2buffpointer, 0, size);
+      if (!*p2buffpointer) {
+          fprintf(stderr, "failed to malloc bytes to memory buffer by hugePageAllocation\n");
+          return false;
+      }
+      memset(*p2buffpointer, 0, size);
 
-    /* register the memory buffer */
-    mr_flags =
-        IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
-    //  auto start = std::chrono::high_resolution_clock::now();
-    *p2mrpointer = ibv_reg_mr(res->pd, *p2buffpointer, size, mr_flags);
-    //  auto stop = std::chrono::high_resolution_clock::now();
-    //  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start); std::printf("Memory registeration size: %zu time elapse (%ld) us\n", size, duration.count());
-    local_mem_regions.push_back(*p2mrpointer);
-    fprintf(stdout,
-            "New MR was registered with addr=%p, lkey=0x%x, rkey=0x%x, flags=0x%x, size=%lu, total registered size is %lu\n",
-            (*p2mrpointer)->addr, (*p2mrpointer)->lkey, (*p2mrpointer)->rkey,
-            mr_flags, size, total_registered_size);
-  }else{
-    *p2mrpointer = pre_allocated_pool.back();
-    pre_allocated_pool.pop_back();
-    *p2buffpointer = (char*)(*p2mrpointer)->addr;
+      /* register the memory buffer */
+      mr_flags =
+              IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
+      //  auto start = std::chrono::high_resolution_clock::now();
+      *p2mrpointer = ibv_reg_mr(res->pd, *p2buffpointer, size, mr_flags);
+      //  auto stop = std::chrono::high_resolution_clock::now();
+      //  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start); std::printf("Memory registeration size: %zu time elapse (%ld) us\n", size, duration.count());
+      local_mem_regions.push_back(*p2mrpointer);
+      fprintf(stdout,
+              "New MR was registered with addr=%p, lkey=0x%x, rkey=0x%x, flags=0x%x, size=%lu, total registered size is %lu\n",
+              (*p2mrpointer)->addr, (*p2mrpointer)->lkey, (*p2mrpointer)->rkey,
+              mr_flags, size, total_registered_size);
   }
 
   if (!*p2mrpointer) {
@@ -607,7 +607,7 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
 
 ibv_mr * RDMA_Manager::Preregister_Memory(size_t gb_number) {
   int mr_flags = 0;
-  size_t size = gb_number*1024UL*1024UL*1024UL;
+  size_t size = gb_number*define::GB;
 //  if (node_id == 2){
 //    void* dummy = malloc(size*2);
 //  }
@@ -638,7 +638,7 @@ ibv_mr * RDMA_Manager::Preregister_Memory(size_t gb_number) {
     ibv_mr* mrs = new ibv_mr[gb_number];
     for (int i = 0; i < gb_number; ++i) {
         mrs[i] = *mrpointer;
-        mrs[i].addr = (char*)mrs[i].addr + i*1024*1024*1024;
+        mrs[i].addr = (char*)mrs[i].addr + i*define::GB;
 
         pre_allocated_pool.push_back(&mrs[i]);
     }

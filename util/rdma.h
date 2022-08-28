@@ -118,7 +118,7 @@ struct New_Root {
 
 } __attribute__((packed));
 enum RDMA_Command_Type {
-  invalid_command_,
+  invalid_command_ = 0,
   create_qp_,
   create_mr_,
   near_data_compaction,
