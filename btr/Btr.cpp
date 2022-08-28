@@ -66,7 +66,7 @@ Btr::Btr(RDMA_Manager *mg, uint16_t Btr_id) : tree_id(Btr_id){
 
   // try to init tree and install root pointer
     rdma_mg->Allocate_Local_RDMA_Slot(cached_root_page_mr, Internal);// local allocate
-    if (rdma_mg->node_id == 1){
+    if (rdma_mg->node_id == 0){
         // only the first compute node create the root node for index
         g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, (round_robin_cur++) % rdma_mg->memory_nodes.size()); // remote allocation.
         auto root_page = new (cached_root_page_mr.addr) LeafPage;
@@ -79,7 +79,7 @@ Btr::Btr(RDMA_Manager *mg, uint16_t Btr_id) : tree_id(Btr_id){
         remote_mr = *rdma_mg->global_index_table;
         // find the table enty according to the id
         remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*tree_id);
-        rdma_mg->RDMA_CAS(&remote_mr, local_mr, 0, g_root_ptr, 1, 1, 0);
+        rdma_mg->RDMA_CAS(&remote_mr, local_mr, 0, g_root_ptr, 1, 1, 1);
     }else{
         get_root_ptr();
     }
@@ -144,7 +144,7 @@ GlobalAddress Btr::get_root_ptr() {
           *(GlobalAddress*)(local_mr->addr) = GlobalAddress::Null();
           // The first compute node may not have written the root ptr to root_ptr_ptr, we need to keep polling.
           while (*(GlobalAddress*)(local_mr->addr) == GlobalAddress::Null()) {
-              rdma_mg->RDMA_Read(&remote_mr, local_mr, sizeof(GlobalAddress), 1, 1, 0);
+              rdma_mg->RDMA_Read(&remote_mr, local_mr, sizeof(GlobalAddress), 1, 1, 1);
           }
           g_root_ptr = *(GlobalAddress*)local_mr->addr;
           std::cout << "Get new root" << g_root_ptr <<std::endl;
