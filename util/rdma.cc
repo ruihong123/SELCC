@@ -633,6 +633,7 @@ ibv_mr * RDMA_Manager::Preregister_Memory(size_t gb_number) {
       return nullptr;
     }
     local_mem_regions.push_back(mrpointer);
+    preregistered_region = mrpointer;
     ibv_mr* mrs = new ibv_mr[gb_number];
     for (int i = 0; i < gb_number; ++i) {
         mrs[i] = *mrpointer;

@@ -137,7 +137,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
       rdma_mg->Preregister_Memory(pr_size);
 
     }
-      ibv_mr* mr_data = rdma_mg->local_mem_regions[1];
+      ibv_mr* mr_data = rdma_mg->preregistered_region;
       assert(mr_data->length == (uint64_t)pr_size*1024*1024*1024);
       memcpy(temp_send, mr_data, sizeof(ibv_mr));
 
