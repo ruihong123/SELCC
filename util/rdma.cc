@@ -550,7 +550,8 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
                                          Chunk_type pool_name) {
     printf("Local memroy register\n");
   int mr_flags = 0;
-  if (node_id%2 == 1 || pre_allocated_pool.empty()){
+  if (node_id%2 == 0 || pre_allocated_pool.empty()){
+      //If this node is a compute node, allocate the memory on demanding.
       printf("Note: Allocate memory from OS, not allocate from the preallocated pool.\n");
 
     *p2buffpointer = (char*)hugePageAlloc(size);
