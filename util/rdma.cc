@@ -361,7 +361,6 @@ void RDMA_Manager::compute_message_handling_thread(std::string q_id, uint16_t sh
   //    RDMA_Request receive_msg_buf;
 //  {
 //    std::unique_lock<std::mutex> lck(superversion_memlist_mtx);
-    main_comm_thread_ready_num.fetch_add(1);
 //    write_stall_cv.notify_one();
 //  }
   printf("client handling thread\n");
@@ -371,7 +370,9 @@ void RDMA_Manager::compute_message_handling_thread(std::string q_id, uint16_t sh
   assert(*imme_data == 0);
   uint32_t* byte_len = byte_len_map.at(shard_target_node_id);
   std::condition_variable* cv_imme = cv_imme_map.at(shard_target_node_id);
-  while (1) {
+    main_comm_thread_ready_num.fetch_add(1);
+
+    while (1) {
     // we can only use try_poll... rather than poll_com.. because we need to
     // make sure the shutting down signal can work.
     if(try_poll_completions(wc, 1, q_id, false,

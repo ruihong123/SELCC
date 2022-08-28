@@ -86,12 +86,12 @@ if(WITH_NUMA)
     include_directories(${NUMA_INCLUDE_DIR})
     target_link_libraries(DSMEngine NUMA::NUMA)
 endif()
-add_executable(MemoryEngine_Compute main.cpp)
+add_executable(TestTrial trial_test.cpp)
 add_executable(memory_server "server.cc"
         "memory_node/memory_node_keeper.h"
         "memory_node/memory_node_keeper.cpp")
 add_executable(btree_bench test/benchmark.cpp)
-target_link_libraries(MemoryEngine_Compute DSMEngine)
+target_link_libraries(TestTrial DSMEngine)
 target_link_libraries(memory_server DSMEngine)
 target_link_libraries(btree_bench DSMEngine)
 
