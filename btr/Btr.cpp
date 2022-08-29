@@ -482,13 +482,13 @@ next: // Internal page search
             level = -1;
         }else{
             // fall back to upper level
-            assert(level == result.level);
+            assert(level == result.level|| level == -1);
             p = path_stack[coro_id][result.level +1];
             level = result.level +1;
         }
         goto next;
     }else{
-        assert(level == result.level);
+        assert(level == result.level|| level == -1);
         isroot = false;
         // if the root and sibling are the same, it is also okay because the
         // p will not be changed
@@ -552,14 +552,14 @@ next: // Internal page search
             level = -1;
         }else{
             // fall back to upper level
-            assert(level == result.level);
+            assert(level == result.level || level == -1);
             p = path_stack[coro_id][result.level +1];
             level = result.level +1;
         }
         goto next;
     }
     else{
-        assert(level == result.level);
+        assert(level == result.level || level == -1);
         isroot = false;
         // if the root and sibling are the same, it is also okay because the
         // p will not be changed
@@ -684,14 +684,14 @@ next: // Internal page search
             level = -1;
         }else{
             // fall back to upper level
-            assert(level == result.level);
+            assert(level == result.level|| level == -1);
             p = path_stack[coro_id][result.level +1];
             level = result.level + 1;
         }
         goto next;
     }
     else{
-        assert(level == result.level);
+        assert(level == result.level|| level == -1);
         isroot = false;
         // Do not need to
         if (result.slibing != GlobalAddress::Null()) { // turn right
@@ -863,14 +863,14 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             level = -1;
         }else{
             // fall back to upper level
-            assert(level == result.level);
+            assert(level == result.level|| level == -1);
             p = path_stack[coro_id][result.level +1];
             level = result.level +1;
         }
         goto next;
     }
     else{
-        assert(level == result.level);
+        assert(level == result.level|| level == -1);
         isroot = false;
         // if the root and sibling are the same, it is also okay because the
         // p will not be changed
