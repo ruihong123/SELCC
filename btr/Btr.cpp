@@ -545,7 +545,15 @@ void Btr::insert(const Key &k, const Value &v, CoroContext *cxt, int coro_id) {
     int level = -1;
 //TODO: What if we ustilize the cache tree height for the root level?
     int target_level = 0;
+#ifndef NDEBUG
+    int next_times = 0;
+#endif
 next: // Internal page search
+#ifndef NDEBUG
+    if (next_times == 1000){
+        assert(false);
+    }
+#endif
     if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
             p = get_root_ptr();
@@ -556,6 +564,9 @@ next: // Internal page search
             p = path_stack[coro_id][result.level +1];
             level = result.level +1;
         }
+#ifndef NDEBUG
+        next_times++;
+#endif
         goto next;
     }
     else{
@@ -573,7 +584,10 @@ next: // Internal page search
         }else{}
 
         if (level != target_level){
-
+            assert(!result.is_leaf);
+#ifndef NDEBUG
+            next_times++;
+#endif
             goto next;
         }
 
@@ -594,6 +608,9 @@ next: // Internal page search
             p = get_root_ptr();
             level = -1;
         }
+#ifndef NDEBUG
+        next_times++;
+#endif
         goto next;
     }
 
@@ -677,7 +694,15 @@ int level = -1;
 //TODO: What if we ustilize the cache tree height for the root level?
 //TODO: Change it into while style code.
 
-next: // Internal page search
+#ifndef NDEBUG
+    int next_times = 0;
+#endif
+    next: // Internal page search
+#ifndef NDEBUG
+    if (next_times == 1000){
+        assert(false);
+    }
+#endif
     if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
             p = get_root_ptr();
@@ -704,7 +729,9 @@ next: // Internal page search
         }else{}
 
         if (level > 0){
-
+#ifndef NDEBUG
+            next_times++;
+#endif
             goto next;
         }
 
@@ -721,6 +748,9 @@ leaf_next:// Leaf page search
             p = get_root_ptr();
             level = -1;
         }
+#ifndef NDEBUG
+        next_times++;
+#endif
         goto next;
     }else{
         if (result.val != kValueNull) { // find
