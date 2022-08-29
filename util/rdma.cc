@@ -1015,9 +1015,10 @@ ibv_mr* RDMA_Manager::Get_local_read_mr() {
     auto mr_flags =
         IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
     //  auto start = std::chrono::high_resolution_clock::now();
-    ret = ibv_reg_mr(res->pd, buffer, name_to_chunksize.at(DataChunk), mr_flags);
+    ret = ibv_reg_mr(res->pd, buffer, name_to_chunksize.at(Internal), mr_flags);
     read_buffer->Reset(ret);
   }
+    assert(ret + 0);
   return ret;
 }
     ibv_mr* RDMA_Manager::Get_local_CAS_mr() {
