@@ -978,6 +978,14 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
         result.level = header->level;
         path_stack[coro_id][result.level] = page_addr;
+        //check level first because the rearversion's position depends on the leaf node or internal node
+        if (result.level == 0){
+            // if the root node is the leaf node this path will happen.
+            assert(level = -1);
+            rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal);
+            // TODO: return true is okay.
+            return leaf_page_search(page_addr, k, result, 0, cxt, coro_id);
+        }
         // This consistent check should be in the path of RDMA read only.
         if (!page->check_consistent()) {
             //TODO: What is the other thread is modifying this page but you overwrite the buffer by a reread.
@@ -989,13 +997,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             //If this page read from the
             goto rdma_refetch;
         }
-        if (result.level == 0){
-            // if the root node is the leaf node this path will happen.
-            assert(level = -1);
-            rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal);
-            // TODO: return true is okay.
-            return leaf_page_search(page_addr, k, result, 0, cxt, coro_id);
-        }
+
 
         // if there has already been a cache entry with the same key, the old one will be
         // removed from the cache, but it may not be garbage collected right away
