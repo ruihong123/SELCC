@@ -583,7 +583,7 @@ next: // Internal page search
             level = result.level - 1;
         }else{}
 
-        if (level != target_level){
+        if (level != target_level && level != -1){
             assert(!result.is_leaf);
 #ifndef NDEBUG
             next_times++;
@@ -704,6 +704,7 @@ int level = -1;
     }
 #endif
     if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
+        //The traverser failed to move to the next level
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
             p = get_root_ptr();
             level = -1;
@@ -716,6 +717,7 @@ int level = -1;
         goto next;
     }
     else{
+        // The traversing moving the the next level correctly
         assert(level == result.level|| level == -1);
         isroot = false;
         // Do not need to
@@ -728,7 +730,9 @@ int level = -1;
             level = result.level - 1;
         }else{}
 
-        if (level > 0){
+        if (level != 0 && level != -1){
+            // If Level is 1 then the leaf node and root node are the same.
+            assert(!result.is_leaf);
 #ifndef NDEBUG
             next_times++;
 #endif
@@ -913,11 +917,13 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             level = result.level - 1;
         }else{}
 
-        if (level != target_level){
-
+        if (level != target_level && level != -1){
+            assert(!result.is_leaf);
+//#ifndef NDEBUG
+//            next_times++;
+//#endif
             goto next;
         }
-
     }
     //Insert to leaf level
     Key split_key;
