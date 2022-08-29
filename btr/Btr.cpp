@@ -971,7 +971,15 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         page_buffer = new_mr->addr;
         header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
         page = (InternalPage *)page_buffer;
+#ifndef NDEBUG
+        int rdma_refetch_times = 0;
+#endif
     rdma_refetch:
+#ifndef NDEBUG
+        if (rdma_refetch_times >= 1000){
+            assert(false);
+        }
+#endif
         rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal);
 
         memset(&result, 0, sizeof(result));
@@ -995,6 +1003,10 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             //If this page is fetch from the remote memory, discard the page before insert to the cache,
             // then refetch the page by RDMA.
             //If this page read from the
+
+#ifndef NDEBUG
+            rdma_refetch_times++;
+#endif
             goto rdma_refetch;
         }
 
