@@ -421,8 +421,8 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
 
-        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, 1, Internal);
-        rdma_mg->Prepare_WR_Write(sr[1], sge[1], page_addr, page_buffer, page_size, 1, Internal);
+        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED, Internal);
+        rdma_mg->Prepare_WR_Write(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal);
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
