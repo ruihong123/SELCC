@@ -1698,7 +1698,7 @@ void Btr::coro_worker(CoroYield &yield, RequstGen *gen, int coro_id) {
  */
 inline bool Btr::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
                                      int coro_id) {
-  auto &node = local_locks[lock_addr.nodeID][lock_addr.offset / 8];
+  auto &node = local_locks[(lock_addr.nodeID -1)/2][lock_addr.offset / 8];
   bool is_local_locked = false;
 
   uint64_t lock_val = node.ticket_lock.fetch_add(1);
