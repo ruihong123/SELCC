@@ -217,7 +217,7 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
   g_root_ptr = new_root_addr;
     tree_height = level;
   rdma_mg->RDMA_Write(new_root_addr, page_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal);
-  if (rdma_mg->RDMA_CAS(&cached_root_page_mr, cas_buffer, old_root, new_root_addr, 1, 1, Internal)) {
+  if (rdma_mg->RDMA_CAS(&cached_root_page_mr, cas_buffer, old_root, new_root_addr, IBV_SEND_SIGNALED, 1, LockTable)) {
     broadcast_new_root(new_root_addr, level);
     std::cout << "new root level " << level << " " << new_root_addr
               << std::endl;
