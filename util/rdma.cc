@@ -1856,7 +1856,10 @@ End of socket operations
         }
 
         //  start = std::chrono::high_resolution_clock::now();
-        if (rc) fprintf(stderr, "failed to post SR, return is %d\n", rc);
+        if (rc) {
+            fprintf(stderr, "failed to post SR, return is %d\n", rc);
+            assert(false);
+        }
         //  else
         //  {
 //      fprintf(stdout, "RDMA Write Request was posted, OPCODE is %d\n", sr.opcode);
