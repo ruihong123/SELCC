@@ -2223,6 +2223,7 @@ int RDMA_Manager::RDMA_CAS(GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t 
     //  duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start); printf("RDMA Write post send and poll size: %zu elapse: %ld\n", msg_size, duration.count());
     return rc;
 }
+//No need to add fense for this RDMA wr.
 void RDMA_Manager::Prepare_WR_CAS(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress remote_ptr, ibv_mr *local_mr,
                                   uint64_t compare,
                                   uint64_t swap, size_t send_flag, Chunk_type pool_name) {
@@ -2303,7 +2304,7 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
     sr.wr_id = 0;
     sr.sg_list = &sge;
     sr.num_sge = 1;
-    sr.opcode = IBV_WR_ATOMIC_CMP_AND_SWP;
+    sr.opcode = IBV_WR_RDMA_WRITE;
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
         case Internal:{
