@@ -422,14 +422,14 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         struct ibv_sge sge[2];
 
         rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED, LockTable);
-//        rdma_mg->Prepare_WR_Write(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal);
+        rdma_mg->Prepare_WR_Write(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal);
 //        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal);
 
-//        sr[0].next = &sr[1];
+        sr[0].next = &sr[1];
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
-//        rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
-        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+        rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
+//        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
 
         if ((*(uint64_t*) cas_buffer->addr) == 0){
             conflict_tag = *(uint64_t*)cas_buffer->addr;
@@ -1735,7 +1735,7 @@ inline bool Btr::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
 
 inline bool Btr::can_hand_over(GlobalAddress lock_addr) {
 
-  auto &node = local_locks[lock_addr.nodeID][lock_addr.offset / 8];
+  auto &node = local_locks[(lock_addr.nodeID-1)/2][lock_addr.offset / 8];
   uint64_t lock_val = node.ticket_lock.load(std::memory_order_relaxed);
 // only when unlocking, it need to check whether it can handover to the next, so that it do not need to UNLOCK the global lock.
 // It is possible that the handover is set as false but this server is still holding the lock.
