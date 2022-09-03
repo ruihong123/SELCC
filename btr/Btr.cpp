@@ -361,10 +361,10 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
     struct ibv_sge sge[2];
     if (async){
 
-        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal);
+        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal);
         ibv_mr* local_mr = rdma_mg->Get_local_CAS_mr();
 
-        rdma_mg->Prepare_WR_Write(sr[1], sge[1], lock_addr, local_mr, sizeof(uint64_t), IBV_SEND_SIGNALED, Internal);
+        rdma_mg->Prepare_WR_Write(sr[1], sge[1], lock_addr, local_mr, sizeof(uint64_t), 0, Internal);
         sr[0].next = &sr[1];
 
 
@@ -372,10 +372,10 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
         assert(page_addr.nodeID == lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(sr, 0, page_addr.nodeID);
     }else{
-        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 1, Internal);
+        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal);
         ibv_mr* local_mr = rdma_mg->Get_local_CAS_mr();
 
-        rdma_mg->Prepare_WR_Write(sr[1], sge[1], lock_addr, local_mr, sizeof(uint64_t), 1, Internal);
+        rdma_mg->Prepare_WR_Write(sr[1], sge[1], lock_addr, local_mr, sizeof(uint64_t), IBV_SEND_SIGNALED, Internal);
         sr[0].next = &sr[1];
 
 
