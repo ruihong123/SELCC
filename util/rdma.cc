@@ -2151,13 +2151,17 @@ int RDMA_Manager::RDMA_CAS(GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t 
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
         case Internal:{
-            sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
-            sr.wr.rdma.rkey = rkey_map_data[remote_ptr.nodeID];
+            sr.wr.atomic.rkey = rkey_map_data[remote_ptr.nodeID];
+            sr.wr.atomic.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
+            sr.wr.atomic.compare_add = compare; /* expected value in remote address */
+            sr.wr.atomic.swap        = swap;
             break;
         }
         case LockTable:{
-            sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_lock[remote_ptr.nodeID]);
-            sr.wr.rdma.rkey = rkey_map_lock[remote_ptr.nodeID];
+            sr.wr.atomic.rkey = rkey_map_data[remote_ptr.nodeID];
+            sr.wr.atomic.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_lock[remote_ptr.nodeID]);
+            sr.wr.atomic.compare_add = compare; /* expected value in remote address */
+            sr.wr.atomic.swap        = swap;
             break;
         }
         default:
@@ -2243,13 +2247,17 @@ void RDMA_Manager::Prepare_WR_CAS(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress r
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
         case Internal:{
-            sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
-            sr.wr.rdma.rkey = rkey_map_data[remote_ptr.nodeID];
+            sr.wr.atomic.rkey = rkey_map_data[remote_ptr.nodeID];
+            sr.wr.atomic.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
+            sr.wr.atomic.compare_add = compare; /* expected value in remote address */
+            sr.wr.atomic.swap        = swap;
             break;
         }
         case LockTable:{
-            sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_lock[remote_ptr.nodeID]);
-            sr.wr.rdma.rkey = rkey_map_lock[remote_ptr.nodeID];
+            sr.wr.atomic.rkey = rkey_map_data[remote_ptr.nodeID];
+            sr.wr.atomic.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_lock[remote_ptr.nodeID]);
+            sr.wr.atomic.compare_add = compare; /* expected value in remote address */
+            sr.wr.atomic.swap        = swap;
             break;
         }
         default:
