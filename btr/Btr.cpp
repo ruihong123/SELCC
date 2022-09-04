@@ -10,6 +10,7 @@
 #include <queue>
 #include <utility>
 #include <vector>
+#include "port/likely.h"
 namespace DSMEngine {
 bool enter_debug = false;
 
@@ -594,6 +595,8 @@ next: // Internal page search
             next_times++;
 #endif
             goto next;
+        }else{
+            level = target_level;
         }
 
     }
@@ -618,7 +621,9 @@ next: // Internal page search
 #endif
         goto next;
     }
-
+    if(UNLIKELY(level == -1))// this track means root is the leaves
+        return;
+    // TODO: Check this logic again.
     assert(level == 0);
     level = level +1;
     p = path_stack[coro_id][level];
@@ -637,21 +642,26 @@ next: // Internal page search
                 p = get_root_ptr();
                 level = -1;
             }else{
-                // fall back to upper level to search for the right node at this level
+                // fall back to upper level in the cache to search for the right node at this level
                 p = path_stack[coro_id][level +1];
                 //TODO: Change it into while style.
+                // the main idea below is that when the cached internal page is stale, try to retrieve the page
+                // from remote memory from a higher level. if the higher level is still stale, then start from root.
+                // (top down)
 re_search:
                 if(!internal_page_search(p, k, result, level + 1, isroot, cxt, coro_id)){
-                    // retranverse the tree by insert_internal.
+                    // if the upper level is still a stale node, just insert the node by top down method.
                     insert_internal(split_key,sibling_prt, cxt, coro_id, level);
                     level = level + 1; // move to upper level
                     p = path_stack[coro_id][level];// move the pointer to upper level
                 }else{
-                    if (result.slibing != GlobalAddress::Null()) { // turn right
+
+                    if (result.slibing != GlobalAddress::Null()) { // turn right for the correct node search
                         // continue searching the sibling
                         p = result.slibing;
                         goto re_search;
                     }else{
+                        // the page was found successful by one step back, then we can set the p as new node.
                         // do not need to chanve level.
                         p = result.next_level;
 //                    level = result.level - 1;
