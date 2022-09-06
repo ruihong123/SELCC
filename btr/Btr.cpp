@@ -70,6 +70,7 @@ Btr::Btr(RDMA_Manager *mg, uint16_t Btr_id) : tree_id(Btr_id){
     if (rdma_mg->node_id == 0){
         // only the first compute node create the root node for index
         g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, 2*round_robin_cur + 1); // remote allocation.
+        printf("root pointer is %d, %lu", g_root_ptr.nodeID, g_root_ptr.offset);
         if(++round_robin_cur == rdma_mg->memory_nodes.size()){
             round_robin_cur = 0;
         }
@@ -1433,7 +1434,8 @@ Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int 
 bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v, Key &split_key, GlobalAddress &sibling_addr,
                      GlobalAddress root, int level, CoroContext *cxt, int coro_id) {
 
-  uint64_t lock_index =
+    assert(level == 0);
+        uint64_t lock_index =
       CityHash64((char *)&page_addr, sizeof(page_addr)) % define::kNumOfLock;
 
   GlobalAddress lock_addr;
@@ -1455,26 +1457,28 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 //  assert(tag != 0);
 
   lock_and_read_page(rbuf, page_addr, kLeafPageSize, cas_mr,
-
                      lock_addr, 1, cxt, coro_id);
 
-  auto page = (LeafPage *)page_buffer;
+    auto page = (LeafPage *)page_buffer;
 
-  assert(page->hdr.level == level);
-  assert(page->check_consistent());
-  path_stack[coro_id][page->hdr.level] = page_addr;
+    assert(page->hdr.level == level);
+    assert(page->check_consistent());
+    path_stack[coro_id][page->hdr.level] = page_addr;
+    // It is possible that the key is larger than the highest key
+    // The range of a page is [lowest,largest).
+    if (k >= page->hdr.highest) {
+        if (page->hdr.sibling_ptr != GlobalAddress::Null()){
+            this->unlock_addr(lock_addr, cxt, coro_id, true);
+            if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
+                page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
+            }
+            return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt, coro_id);
+        }else{
+            assert(false);
+        }
 
-  if (k >= page->hdr.highest) {
-      if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
-          page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
-      }
-      this->unlock_addr(lock_addr, cxt, coro_id, true);
+    }
 
-    assert(page->hdr.sibling_ptr != GlobalAddress::Null());
-
-    return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt,
-                                 coro_id);
-  }
     if (k < page->hdr.lowest ) {
         // if key is smaller than the lower bound, the insert has to be restart from the
         // upper level. because the sibling pointer only points to larger one.
@@ -1488,7 +1492,8 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
         return insert_success;// result in fall back search on the higher level.
     }
   assert(k >= page->hdr.lowest);
-// TODO: Check whether the key is larger than thelargest key of this node.
+    assert(k < page->hdr.highest);
+// TODO: Check whether the key is larger than the largest key of this node.
 //  if yes, update the header.
   int cnt = 0;
   int empty_index = -1;
