@@ -463,12 +463,13 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
 // You need to make sure it is not the root level, this function will make sure the
 // the insertion to this target level succcessful
 // the target level can not be the root level.
+//TODO: update insert_internal according to insert.
 void Btr::insert_internal(Key &k, GlobalAddress &v, CoroContext *cxt,
                           int coro_id, int target_level) {
 
     //TODO: You need to acquire a lock when you write a page
     auto root = get_root_ptr();
-    SearchResult result;
+    SearchResult result{0};
 
     GlobalAddress p = root;
     //TODO: ADD support for root invalidate and update.
@@ -494,7 +495,7 @@ next: // Internal page search
         }
         goto next;
     }else{
-        assert(level == result.level|| level == -1);
+        assert(level == result.level);
         isroot = false;
         // if the root and sibling are the same, it is also okay because the
         // p will not be changed
@@ -508,6 +509,7 @@ next: // Internal page search
         }else{
 
         }
+
 
         if (level != target_level){
 
@@ -543,14 +545,16 @@ void Btr::insert(const Key &k, const Value &v, CoroContext *cxt, int coro_id) {
 
   auto root = get_root_ptr();
 //  std::cout << "The root now is " << root << std::endl;
-  SearchResult result;
+  SearchResult result{0};
   GlobalAddress p = root;
     bool isroot = true;
   // this is root is to help the tree to refresh the root node because the
   // new root broadcast is not usable if physical disaggregated.
     int level = -1;
+    int fall_back_level = 0;
 //TODO: What if we ustilize the cache tree height for the root level?
-    int target_level = 0;
+
+//    int target_level = 0;
 #ifndef NDEBUG
     int next_times = 0;
 #endif
@@ -576,7 +580,7 @@ next: // Internal page search
         goto next;
     }
     else{
-        assert(level == result.level || level == -1);
+        assert(level == result.level);
         isroot = false;
         // if the root and sibling are the same, it is also okay because the
         // p will not be changed
@@ -589,17 +593,17 @@ next: // Internal page search
             level = result.level - 1;
         }else{}
 
-        if (level != target_level && level != -1){
+        if (level != 0){
+            // level ==0 is corresponding to the corner case where the leaf node and root node are the same.
             assert(!result.is_leaf);
 #ifndef NDEBUG
             next_times++;
 #endif
             goto next;
-        }else{
-            level = target_level;
         }
 
     }
+    assert(level == 0);
     //Insert to leaf level
     Key split_key;
     GlobalAddress sibling_prt;
@@ -621,35 +625,64 @@ next: // Internal page search
 #endif
         goto next;
     }
-    if(UNLIKELY(level == -1))// this track means root is the leaves
-        return;
-    // TODO: Check this logic again.
+
+    //======================== below is about nested node split ============================//
     assert(level == 0);
+    // this track means root is the leaves
+    // TODO: Check this logic again.
+//    assert(level == 0);
     level = level +1;
     p = path_stack[coro_id][level];
+    if (UNLIKELY(p == GlobalAddress::Null() )){
+        //TODO: we probably need a update root lock for the code below.
+        g_root_ptr = GlobalAddress::Null();
+        p = get_root_ptr();
+
+        if (path_stack[coro_id][level-1] == p){
+            update_new_root(path_stack[coro_id][level-1],  split_key, sibling_prt,level,path_stack[coro_id][level-1], cxt, coro_id);
+            return;
+        }
+
+
+    }
 //internal_store:
     // Insert to internal level if needed.
     // the level here is equals to the current insertion level
     while(sibling_prt != GlobalAddress::Null()){
+
+        // insert splitted key to upper level.
+//        level = level + 1;
+//        p = path_stack[coro_id][level];
+
         if (!internal_page_store(p, split_key, sibling_prt, level, cxt, coro_id)){
             // insertion failed, retry
             if ( path_stack[coro_id][level + 1] == GlobalAddress::Null()){
                 // THis path should only happen at roof level happen.
                 // TODO: What if the node is not the root node.
-//                level = level + 1;
-//                 insert_internal(split_key,sibling_prt, cxt, coro_id, level);
 
+                // TODO: we need a root create lock to make sure there will be only on new root created. (Probably not needed)
+
+                //if we found it is on the top, Fetch the new root again to see whether there is a need for root update.
+                g_root_ptr = GlobalAddress::Null();
                 p = get_root_ptr();
+                if (p == path_stack[coro_id][level]){
+                    update_new_root(path_stack[coro_id][level-1],  split_key, sibling_prt,level,path_stack[coro_id][level-1], cxt, coro_id);
+                    break;
+                }
+                // TODO: we need to use insert internal. since the higher level is not cached.
                 level = -1;
+                insert_internal(split_key,sibling_prt, cxt, coro_id, level);
             }else{
                 // fall back to upper level in the cache to search for the right node at this level
-                p = path_stack[coro_id][level +1];
+                 fall_back_level = level + 1;
+
+                p = path_stack[coro_id][fall_back_level];
                 //TODO: Change it into while style.
                 // the main idea below is that when the cached internal page is stale, try to retrieve the page
                 // from remote memory from a higher level. if the higher level is still stale, then start from root.
                 // (top down)
 re_search:
-                if(!internal_page_search(p, k, result, level + 1, isroot, cxt, coro_id)){
+                if(!internal_page_search(p, k, result, fall_back_level, isroot, cxt, coro_id)){
                     // if the upper level is still a stale node, just insert the node by top down method.
                     insert_internal(split_key,sibling_prt, cxt, coro_id, level);
                     level = level + 1; // move to upper level
@@ -660,21 +693,19 @@ re_search:
                         // continue searching the sibling
                         p = result.slibing;
                         goto re_search;
-                    }else{
+                    }else if (result.next_level != GlobalAddress::Null()){
                         // the page was found successful by one step back, then we can set the p as new node.
                         // do not need to chanve level.
                         p = result.next_level;
 //                    level = result.level - 1;
+                    }else{
+                        assert(false);
                     }
                 }
 
             }
 
-        }else{
-            level = level + 1;
-            p = path_stack[coro_id][level];
         }
-
     }
 
 
@@ -976,7 +1007,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
  * @param isroot
  * @return
  */
-    bool Btr::internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int level, bool isroot,
+    bool Btr::internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int &level, bool isroot,
                                    CoroContext *cxt, int coro_id) {
 
 // tothink: How could I know whether this level before I actually access this page.
@@ -1010,10 +1041,18 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         memset(&result, 0, sizeof(result));
         result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
         result.level = header->level;
+#ifndef NDEBUG
+        if (level != -1){
+            assert(level ==result.level );
+        }
+
+#endif
+        level = result.level;
 //  if(!result.is_leaf)
 //      assert(result.level !=0);
         assert(result.is_leaf == (level == 0));
         path_stack[coro_id][result.level] = page_addr;
+
     }else {
 
         //  pattern_cnt++;
@@ -1036,14 +1075,15 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         memset(&result, 0, sizeof(result));
         result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
         result.level = header->level;
+        level = result.level;
         path_stack[coro_id][result.level] = page_addr;
         //check level first because the rearversion's position depends on the leaf node or internal node
         if (result.level == 0){
             // if the root node is the leaf node this path will happen.
-            assert(level = -1);
+//            assert(level = -1);
             rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal);
-            // TODO: return true is okay.
-            return leaf_page_search(page_addr, k, result, 0, cxt, coro_id);
+            // return true and let the outside code figure out that the leaf node is the root node
+            return true;
         }
         // This consistent check should be in the path of RDMA read only.
         if (!page->check_consistent()) {
@@ -1234,7 +1274,7 @@ Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int 
 
     assert(page->hdr.level == level);
     assert(page->check_consistent());
-
+    path_stack[coro_id][page->hdr.level] = page_addr;
     // This is the result that we do not lock the btree when search for the key.
     // Not sure whether this will still work if we have node merge
     // Why this node can not be the right most node
@@ -1422,6 +1462,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 
   assert(page->hdr.level == level);
   assert(page->check_consistent());
+  path_stack[coro_id][page->hdr.level] = page_addr;
 
   if (k >= page->hdr.highest) {
       if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
@@ -1587,6 +1628,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 
     assert(page->hdr.level == level);
     assert(page->check_consistent());
+    path_stack[coro_id][page->hdr.level] = page_addr;
     if (k >= page->hdr.highest) {
         this->unlock_addr(lock_addr, cxt, coro_id, true);
 

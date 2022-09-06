@@ -119,7 +119,7 @@ private:
     // THis funciton will get the page by the page addr and search the pointer for the
     // next level if it is not leaf page. If it is a leaf page, just put the value in the
     // result. this funciton = fetch the page + internal page serach + leafpage search + re-read
-    bool internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int level, bool isroot,
+    bool internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int &level, bool isroot,
                               CoroContext *cxt, int coro_id);
     bool leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int level, CoroContext *cxt,
                           int coro_id);
