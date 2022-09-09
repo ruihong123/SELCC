@@ -149,7 +149,7 @@ GlobalAddress Btr::get_root_ptr() {
           *(GlobalAddress*)(local_mr->addr) = GlobalAddress::Null();
           // The first compute node may not have written the root ptr to root_ptr_ptr, we need to keep polling.
           while (*(GlobalAddress*)(local_mr->addr) == GlobalAddress::Null()) {
-              rdma_mg->RDMA_Read(&remote_mr, local_mr, sizeof(GlobalAddress), 1, 1, 1);
+              rdma_mg->RDMA_Read(&remote_mr, local_mr, sizeof(GlobalAddress), IBV_SEND_SIGNALED, 1, 1);
           }
           g_root_ptr = *(GlobalAddress*)local_mr->addr;
           std::cout << "Get new root" << g_root_ptr <<std::endl;
@@ -634,7 +634,8 @@ next: // Internal page search
 //    assert(level == 0);
     level = level +1;
     p = path_stack[coro_id][level];
-    if (UNLIKELY(p == GlobalAddress::Null() )){
+    //Double check the code below.
+    if (UNLIKELY(p == GlobalAddress::Null() && sibling_prt != GlobalAddress::Null())){
         //TODO: we probably need a update root lock for the code below.
         g_root_ptr = GlobalAddress::Null();
         p = get_root_ptr();
