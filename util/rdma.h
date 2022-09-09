@@ -542,7 +542,7 @@ class RDMA_Manager {
   std::map<std::string, registered_qp_config*> qp_main_connection_info_Mside;
   // This global index table is in the node 0;
   ibv_mr* global_index_table = nullptr;
-    ibv_mr* global_lock_table = nullptr;
+  ibv_mr* global_lock_table = nullptr;
 #ifdef PROCESSANALYSIS
   static std::atomic<uint64_t> RDMAReadTimeElapseSum;
   static std::atomic<uint64_t> ReadCount;

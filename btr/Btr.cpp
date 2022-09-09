@@ -70,7 +70,7 @@ Btr::Btr(RDMA_Manager *mg, uint16_t Btr_id) : tree_id(Btr_id){
     if (rdma_mg->node_id == 0){
         // only the first compute node create the root node for index
         g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, 2*round_robin_cur + 1); // remote allocation.
-        printf("root pointer is %d, %lu", g_root_ptr.nodeID, g_root_ptr.offset);
+        printf("root pointer is %d, %lu\n", g_root_ptr.nodeID, g_root_ptr.offset);
         if(++round_robin_cur == rdma_mg->memory_nodes.size()){
             round_robin_cur = 0;
         }
@@ -424,7 +424,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         struct ibv_sge sge[2];
 
         rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED, LockTable);
-        rdma_mg->Prepare_WR_Write(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal);
+        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal);
 //        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal);
 
         sr[0].next = &sr[1];
@@ -433,7 +433,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
 //        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
 
-        if ((*(uint64_t*) cas_buffer->addr) == 0){
+        if ((*(uint64_t*) cas_buffer->addr) != 0){
             conflict_tag = *(uint64_t*)cas_buffer->addr;
             if (conflict_tag != pre_tag) {
                 retry_cnt = 0;
