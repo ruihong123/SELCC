@@ -607,7 +607,7 @@ next: // Internal page search
     assert(level == 0);
     //Insert to leaf level
     Key split_key;
-    GlobalAddress sibling_prt;
+    GlobalAddress sibling_prt = GlobalAddress::Null();
 //    if (target_level == 0){
 //
 //    }
