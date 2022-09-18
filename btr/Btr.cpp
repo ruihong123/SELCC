@@ -219,7 +219,10 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
   g_root_ptr = new_root_addr;
     tree_height = level;
   rdma_mg->RDMA_Write(new_root_addr, page_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal);
-  if (rdma_mg->RDMA_CAS(&cached_root_page_mr, cas_buffer, old_root, new_root_addr, IBV_SEND_SIGNALED, 1, 1)) {
+    ibv_mr remote_mr = *rdma_mg->global_index_table;
+    // find the table enty according to the id
+    remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*tree_id);
+  if (rdma_mg->RDMA_CAS(&remote_mr, cas_buffer, old_root, new_root_addr, IBV_SEND_SIGNALED, 1, 1)) {
     broadcast_new_root(new_root_addr, level);
     std::cout << "new root level " << level << " " << new_root_addr
               << std::endl;
@@ -639,6 +642,7 @@ next: // Internal page search
         //TODO: we probably need a update root lock for the code below.
         g_root_ptr = GlobalAddress::Null();
         p = get_root_ptr();
+        //TODO: tHERE COULd be a bug in the get_root_ptr so that the CAS for update_new_root will be failed.
 
         if (path_stack[coro_id][level-1] == p){
             update_new_root(path_stack[coro_id][level-1],  split_key, sibling_prt,level,path_stack[coro_id][level-1], cxt, coro_id);
@@ -1024,17 +1028,23 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
     printf("re read too many times\n");
     sleep(1);
     }
-    // TODO: We need to implement the lock coupling. how to avoid unnecessary RDMA for lock coupling?
-    //
+    // Quetion: We need to implement the lock coupling. how to avoid unnecessary RDMA for lock coupling?
+    // Answer: No, see next question.
     Slice page_id((char*)&page_addr, sizeof(GlobalAddress));
     Cache::Handle* handle = nullptr;
     void* page_buffer;
     Header * header;
     InternalPage* page;
     handle = page_cache->Lookup(page_id);
+    // TODO: use real pointer to bypass the cache hash table. We need overwrittened function for internal page search,
+    //  given an local address (now the global address is given). Or we make it the same function with both global ptr and local ptr,
+    //  and let the function to figure out the situation.
 
-    //TODO: Shall we implement a shared-exclusive lock here for local contention. or we still
+    //
+    //Question: Shall we implement a shared-exclusive lock here for local contention. or we still
     // follow the optimistic latch free design?
+    // Answer: Still optimistic latch free, the local read of internal node do not need local lock,
+    // but the local write will write through the memory node and acquire the global lock.
     if (handle != nullptr){
         auto mr = (ibv_mr*)page_cache->Value(handle);
         page_buffer = mr->addr;
