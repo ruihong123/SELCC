@@ -113,7 +113,7 @@ private:
                      CoroContext *cxt, int coro_id);
   void unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro_id, bool async);
   void write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, uint64_t *cas_buffer,
-                             GlobalAddress lock_addr, CoroContext *cxt, int coro_id, bool async);
+                             GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async);
   void lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
                           int page_size, ibv_mr *cas_buffer,
                           GlobalAddress lock_addr, uint64_t tag,

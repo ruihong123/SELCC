@@ -354,12 +354,12 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
 }
 
 void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, uint64_t *cas_buffer,
-                                GlobalAddress lock_addr, CoroContext *cxt, int coro_id, bool async) {
+                                GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
 
-  bool hand_over_other = can_hand_over(lock_addr);
+  bool hand_over_other = can_hand_over(remote_lock_addr);
   if (hand_over_other) {
     rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, 0, 0, Internal);
-    releases_local_lock(lock_addr);
+    releases_local_lock(remote_lock_addr);
     return;
   }
     struct ibv_send_wr sr[2];
@@ -367,25 +367,25 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
     if (async){
 
         rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal);
-        ibv_mr* local_mr = rdma_mg->Get_local_CAS_mr();
-
-        rdma_mg->Prepare_WR_Write(sr[1], sge[1], lock_addr, local_mr, sizeof(uint64_t), 0, Internal);
+        ibv_mr* local_CAS_mr = rdma_mg->Get_local_CAS_mr();
+//        *(uint64_t*) local_CAS_mr->addr = 0;
+        rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), 0, Internal);
         sr[0].next = &sr[1];
 
 
-        *(uint64_t *)local_mr->addr = 0;
-        assert(page_addr.nodeID == lock_addr.nodeID);
+        *(uint64_t *)local_CAS_mr->addr = 0;
+        assert(page_addr.nodeID == remote_lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(sr, 0, page_addr.nodeID);
     }else{
         rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal);
-        ibv_mr* local_mr = rdma_mg->Get_local_CAS_mr();
-
-        rdma_mg->Prepare_WR_Write(sr[1], sge[1], lock_addr, local_mr, sizeof(uint64_t), IBV_SEND_SIGNALED, Internal);
+        ibv_mr* local_CAS_mr = rdma_mg->Get_local_CAS_mr();
+//        *(uint64_t*) local_CAS_mr->addr = 0;
+        rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED, Internal);
         sr[0].next = &sr[1];
 
 
-        *(uint64_t *)local_mr->addr = 0;
-        assert(page_addr.nodeID == lock_addr.nodeID);
+        *(uint64_t *)local_CAS_mr->addr = 0;
+        assert(page_addr.nodeID == remote_lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
     }
 
@@ -395,7 +395,7 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
 //    rdma_mg->write_batch_sync(rs, 2, cxt);
 //  }
 
-  releases_local_lock(lock_addr);
+  releases_local_lock(remote_lock_addr);
 }
 
 void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
@@ -1460,14 +1460,14 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
   lock_addr.offset = lock_index * sizeof(uint64_t);
 #endif
 
-  auto rbuf = rdma_mg->Get_local_read_mr();
+  auto localbuf = rdma_mg->Get_local_read_mr();
   ibv_mr* cas_mr = rdma_mg->Get_local_CAS_mr();
-  auto page_buffer = rbuf->addr;
+  auto page_buffer = localbuf->addr;
   bool insert_success;
 //  auto tag = rdma_mg->getThreadTag();
 //  assert(tag != 0);
 
-  lock_and_read_page(rbuf, page_addr, kLeafPageSize, cas_mr,
+  lock_and_read_page(localbuf, page_addr, kLeafPageSize, cas_mr,
                      lock_addr, 1, cxt, coro_id);
   // TODO: under some situation the lock is not released
 
@@ -1558,7 +1558,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
   if (!need_split) {
     assert(update_addr);
       write_page_and_unlock(
-              rbuf, GADD(page_addr, (update_addr - (char *) page)),
+              localbuf, GADD(page_addr, (update_addr - (char *) page)),
               sizeof(LeafEntry), (uint64_t*)cas_mr->addr, lock_addr, cxt, coro_id, false);
 
     return true;
@@ -1616,7 +1616,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 
   page->set_consistent();
 
-    write_page_and_unlock(rbuf, page_addr, kLeafPageSize, (uint64_t*)cas_mr->addr,
+    write_page_and_unlock(localbuf, page_addr, kLeafPageSize, (uint64_t*)cas_mr->addr,
                           lock_addr, cxt, coro_id, need_split);
 
   return true;
