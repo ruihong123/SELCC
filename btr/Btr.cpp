@@ -1469,6 +1469,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 
   lock_and_read_page(rbuf, page_addr, kLeafPageSize, cas_mr,
                      lock_addr, 1, cxt, coro_id);
+  // TODO: under some situation the lock is not released
 
     auto page = (LeafPage *)page_buffer;
 
@@ -1483,8 +1484,10 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
             if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
                 page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
             }
+//            this->unlock_addr(lock_addr, cxt, coro_id, true);
             return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt, coro_id);
         }else{
+            // impossible because the right most leaf node 's max is KeyMax
             assert(false);
         }
 
