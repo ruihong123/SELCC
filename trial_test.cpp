@@ -27,10 +27,12 @@ int main() {
         in_memory_records.insert({k,v});
 
     }
+    printf("finish the insertion\n");
     for (int i = 0; i < 1000000; ++i) {
         Key k = i;
         Value v;
         tree->search(i, v);
+//        printf("")
         assert(in_memory_records.at(k) = v);
     }
 

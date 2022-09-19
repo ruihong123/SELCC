@@ -182,6 +182,10 @@ inline GlobalAddress GADD(const GlobalAddress &addr, int off) {
     ret.offset += off;
     return ret;
 }
+// THis function will directly modify the reference.
+inline void LADD(ibv_mr& mr, int off) {
+    mr.addr = (void*)((char*)mr.addr + off);
+}
 
 inline bool operator==(const GlobalAddress &lhs, const GlobalAddress &rhs) {
     return (lhs.nodeID == rhs.nodeID) && (lhs.offset == rhs.offset);

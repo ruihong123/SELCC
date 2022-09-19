@@ -54,24 +54,24 @@ namespace DSMEngine{
 
     class InternalEntry {
     public:
-        Key key;
-        char key_padding[KEY_PADDING];
-        GlobalAddress ptr;
+        Key key = {};
+        char key_padding[KEY_PADDING] = "";
+        GlobalAddress ptr = GlobalAddress::Null();
 
         InternalEntry() {
-            ptr = GlobalAddress::Null();
+//            ptr = GlobalAddress::Null();
 //    key = 0;
-            key = {};
+//            key = {};
         }
     } __attribute__((packed));
 
     class LeafEntry {
     public:
         uint8_t f_version : 4;
-        Key key;
-        char key_padding[KEY_PADDING];
-        Value value;
-        char value_padding[VALUE_PADDING];
+        Key key = {};
+        char key_padding[KEY_PADDING] = "";
+        Value value = {};
+        char value_padding[VALUE_PADDING] = "";
         uint8_t r_version : 4;
 
         LeafEntry() {
@@ -101,7 +101,7 @@ namespace DSMEngine{
 
         uint8_t front_version;
         Header hdr;
-        InternalEntry records[kInternalCardinality];
+        InternalEntry records[kInternalCardinality] = {};
 
 //  uint8_t padding[InternalPagePadding];
         uint8_t rear_version;
@@ -188,7 +188,7 @@ namespace DSMEngine{
         };
         uint8_t front_version;
         Header hdr;
-        LeafEntry records[kLeafCardinality];
+        LeafEntry records[kLeafCardinality] = {};
 
 //  uint8_t padding[LeafPagePadding];
         uint8_t rear_version;

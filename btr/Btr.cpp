@@ -67,6 +67,7 @@ Btr::Btr(RDMA_Manager *mg, uint16_t Btr_id) : tree_id(Btr_id){
 
   // try to init tree and install root pointer
     rdma_mg->Allocate_Local_RDMA_Slot(cached_root_page_mr, Internal);// local allocate
+    memset(cached_root_page_mr.addr,0,rdma_mg->name_to_chunksize.at(Internal));
     if (rdma_mg->node_id == 0){
         // only the first compute node create the root node for index
         g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, 2*round_robin_cur + 1); // remote allocation.
@@ -1024,10 +1025,10 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 
     int counter = 0;
 
-    if (++counter > 100) {
-    printf("re read too many times\n");
-    sleep(1);
-    }
+//    if (++counter > 100) {
+//    printf("re read too many times\n");
+//    sleep(1);
+//    }
     // Quetion: We need to implement the lock coupling. how to avoid unnecessary RDMA for lock coupling?
     // Answer: No, see next question.
     Slice page_id((char*)&page_addr, sizeof(GlobalAddress));
@@ -1461,6 +1462,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 #endif
 
   auto localbuf = rdma_mg->Get_local_read_mr();
+
   ibv_mr* cas_mr = rdma_mg->Get_local_CAS_mr();
   auto page_buffer = localbuf->addr;
   bool insert_success;
@@ -1514,6 +1516,9 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
   char *update_addr = nullptr;
     // It is problematic to just check whether the value is empty, because it is possible
     // that the buffer is not initialized as 0
+
+    // TODO: make the key-value stored with order, do not use this unordered page structure.
+    //  Or use the key to check whether this holder is empty.
   for (int i = 0; i < kLeafCardinality; ++i) {
 
     auto &r = page->records[i];
@@ -1557,8 +1562,12 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
   bool need_split = cnt == kLeafCardinality;
   if (!need_split) {
     assert(update_addr);
+    ibv_mr target_mr = *localbuf;
+    int offset = (update_addr - (char *) page);
+      LADD(target_mr, offset);
+    //TODO: cHANGE localbuf the write mr should not start from the beggining of the local buffer.
       write_page_and_unlock(
-              localbuf, GADD(page_addr, (update_addr - (char *) page)),
+              &target_mr, GADD(page_addr, offset),
               sizeof(LeafEntry), (uint64_t*)cas_mr->addr, lock_addr, cxt, coro_id, false);
 
     return true;
@@ -1579,6 +1588,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     //TODO: use a thread local sibling memory region to reduce the allocator contention.
     ibv_mr* sibling_mr = new ibv_mr{};
       rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal);
+//      memset(sibling_mr->addr, 0, kLeafPageSize);
     auto sibling = new (sibling_mr->addr) LeafPage(page->hdr.level);
 
     // std::cout << "addr " <<  sibling_addr << " | level " <<
