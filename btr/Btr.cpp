@@ -181,7 +181,7 @@ void Btr::broadcast_new_root(GlobalAddress new_root_addr, int root_level) {
   //TODO: When we seperate the compute from the memory, how can we broad cast the new root
   // or can we wait until the compute node detect an inconsistent.
 
-    rdma_mg->post_send<RDMA_Request>(&send_mr, 0, std::string("main"));
+    rdma_mg->post_send<RDMA_Request>(&send_mr, 1, std::string("main"));
     ibv_wc wc[2] = {};
     //  while(wc.opcode != IBV_WC_RECV){
     //    poll_completion(&wc);
