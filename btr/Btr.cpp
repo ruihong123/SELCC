@@ -192,7 +192,7 @@ void Btr::broadcast_new_root(GlobalAddress new_root_addr, int root_level) {
     //  }
     //  assert(wc.opcode == IBV_WC_RECV);
     if (rdma_mg->poll_completion(wc, 1, std::string("main"),
-                        true, 0)){
+                        true, 1)){
 //    assert(try_poll_completions(wc, 1, std::string("main"),true) == 0);
         fprintf(stderr, "failed to poll send for remote memory register\n");
     }
