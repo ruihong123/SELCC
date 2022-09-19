@@ -183,8 +183,8 @@ inline GlobalAddress GADD(const GlobalAddress &addr, int off) {
     return ret;
 }
 // THis function will directly modify the reference.
-inline void LADD(ibv_mr& mr, int off) {
-    mr.addr = (void*)((char*)mr.addr + off);
+inline void LADD(void*& addr, int off) {
+    addr = (void*)((char*)addr + off);
 }
 
 inline bool operator==(const GlobalAddress &lhs, const GlobalAddress &rhs) {

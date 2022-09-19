@@ -1564,7 +1564,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     assert(update_addr);
     ibv_mr target_mr = *localbuf;
     int offset = (update_addr - (char *) page);
-      LADD(target_mr, offset);
+      LADD(target_mr.addr, offset);
     //TODO: cHANGE localbuf the write mr should not start from the beggining of the local buffer.
       write_page_and_unlock(
               &target_mr, GADD(page_addr, offset),
