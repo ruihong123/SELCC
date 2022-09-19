@@ -146,6 +146,7 @@ GlobalAddress Btr::get_root_ptr() {
           ibv_mr remote_mr{};
           remote_mr = *rdma_mg->global_index_table;
           // find the table enty according to the id
+          //TODO: It seems we can not get the latest root node
           remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*tree_id);
           *(GlobalAddress*)(local_mr->addr) = GlobalAddress::Null();
           // The first compute node may not have written the root ptr to root_ptr_ptr, we need to keep polling.
@@ -223,6 +224,7 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
     ibv_mr remote_mr = *rdma_mg->global_index_table;
     // find the table enty according to the id
     remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*tree_id);
+    //TODO: The new root seems not cover th
   if (!rdma_mg->RDMA_CAS(&remote_mr, cas_buffer, old_root, new_root_addr, IBV_SEND_SIGNALED, 1, 1)) {
     broadcast_new_root(new_root_addr, level);
     std::cout << "new root level " << level << " " << new_root_addr
@@ -1131,13 +1133,15 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 
 
     if (k >= page->hdr.highest) { // should turn right
-    //        printf("should turn right ");
+            printf("should turn right ");
       // TODO: if this is the root node then we need to refresh the new root.
       if (isroot){
           // invalidate the root.
           g_root_ptr = GlobalAddress::Null();
-      }else{
-          assert(path_stack[coro_id][result.level+1] != GlobalAddress::Null());
+      }else if(path_stack[coro_id][result.level+1] != GlobalAddress::Null()){
+          // It is possible that a staled root will result in a reread at the same level and then the upper level is null
+          // Question: why none root tranverser will comes to here? If a stale root initial a sibling page read, then the k should
+          // not larger than the highest this time.
           page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
       }
       //TODO: What if the Erased key is still in use by other threads? THis is very likely
