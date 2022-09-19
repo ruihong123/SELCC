@@ -223,7 +223,7 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
     ibv_mr remote_mr = *rdma_mg->global_index_table;
     // find the table enty according to the id
     remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*tree_id);
-  if (rdma_mg->RDMA_CAS(&remote_mr, cas_buffer, old_root, new_root_addr, IBV_SEND_SIGNALED, 1, 1)) {
+  if (!rdma_mg->RDMA_CAS(&remote_mr, cas_buffer, old_root, new_root_addr, IBV_SEND_SIGNALED, 1, 1)) {
     broadcast_new_root(new_root_addr, level);
     std::cout << "new root level " << level << " " << new_root_addr
               << std::endl;

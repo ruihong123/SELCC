@@ -399,6 +399,7 @@ class RDMA_Manager {
   int RDMA_Write_Imme(void* addr, uint32_t rkey, ibv_mr* local_mr,
                       size_t msg_size, std::string qp_type, size_t send_flag,
                       int poll_num, unsigned int imme, uint16_t target_node_id);
+  // Return 0 mean success
   int RDMA_CAS(GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t compare,
                uint64_t swap, size_t send_flag, int poll_num,
            Chunk_type pool_name, std::string qp_type = "default");
