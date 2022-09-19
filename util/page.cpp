@@ -8,6 +8,7 @@ namespace DSMEngine{
 
         assert(k >= hdr.lowest);
         assert(k < hdr.highest);
+        // optimistically latch free.
     re_read:
         GlobalAddress target_global_ptr_buff;
         uint8_t front_v = front_version;
@@ -54,12 +55,14 @@ namespace DSMEngine{
 //    printf("next level pointer is  the last value %p \n", page->records[cnt - 1].ptr);
 
         target_global_ptr_buff = records[cnt - 1].ptr;
-        assert(result.next_level != GlobalAddress::Null());
+
         assert(records[cnt - 1].key <= k);
         uint8_t rear_v = rear_version;
         if (front_v!= rear_v)// version checking
             goto re_read;
+
         result.next_level = target_global_ptr_buff;
+        assert(result.next_level != GlobalAddress::Null());
     }
 
     void LeafPage::leaf_page_search(const Key &k, SearchResult &result) {
