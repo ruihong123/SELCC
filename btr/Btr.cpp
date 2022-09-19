@@ -1133,7 +1133,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 
 
     if (k >= page->hdr.highest) { // should turn right
-            printf("should turn right ");
+//            printf("should turn right ");
       // TODO: if this is the root node then we need to refresh the new root.
       if (isroot){
           // invalidate the root.
