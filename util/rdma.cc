@@ -2307,7 +2307,7 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
     /* prepare the scatter/gather entry */
     memset(&sge, 0, sizeof(sge));
     sge.addr = (uintptr_t)local_mr->addr;
-    sge.length = 8;
+    sge.length = msg_size;
     sge.lkey = local_mr->lkey;
     /* prepare the send work request */
     memset(&sr, 0, sizeof(sr));
