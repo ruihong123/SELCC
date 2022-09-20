@@ -24,7 +24,7 @@ namespace DSMEngine{
             asm volatile ("lfence\n" : : );
             asm volatile ("mfence\n" : : );
 //      result.upper_key = page->records[0].key;
-            assert(result.next_level != GlobalAddress::Null());
+
             uint8_t rear_v = rear_version;
             // TODO: maybe we need memory fence here either.
 
@@ -32,6 +32,7 @@ namespace DSMEngine{
                 goto re_read;
             }
             result.next_level = target_global_ptr_buff;
+            assert(result.next_level != GlobalAddress::Null());
             return;
         }
 
