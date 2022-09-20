@@ -714,7 +714,10 @@ re_search:
 
             }
 
+        }else{
+
         }
+        //check if insert success whether the split pop up to an none existing node, which means split has been propogated to the root.
     }
 
 
@@ -1247,7 +1250,8 @@ re_read:
 
 bool
 Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int level, CoroContext *cxt, int coro_id) {
-    uint64_t lock_index =
+    assert(page_addr != GlobalAddress::Null());
+        uint64_t lock_index =
       CityHash64((char *)&page_addr, sizeof(page_addr)) % define::kNumOfLock;
     bool need_split;
     bool insert_success;
