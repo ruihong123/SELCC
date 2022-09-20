@@ -1370,7 +1370,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
   cnt = page->hdr.last_index + 1;
   need_split = cnt == kInternalCardinality;
   Key split_key;
-  GlobalAddress sibling_addr;
+  GlobalAddress sibling_addr = GlobalAddress::Null();
   // THe internal node is different from leaf nodes because it has the
   // leftmost_ptr. THe internal nodes has n key but n+1 global pointers.
     // the internal node split pick the middle key as split key and the middle key
