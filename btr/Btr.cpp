@@ -1654,7 +1654,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 //  Key split_key;
 //  GlobalAddress sibling_addr;
   if (need_split) { // need split
-      printf("Node split\n");
+//      printf("Node split\n");
     sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, 2*round_robin_cur + 1);
       if(++round_robin_cur == rdma_mg->memory_nodes.size()){
           round_robin_cur = 0;
