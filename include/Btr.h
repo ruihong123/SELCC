@@ -106,7 +106,7 @@ private:
                        int level, GlobalAddress old_root, CoroContext *cxt,
                        int coro_id);
   // Insert a key and a point at a particular level (level != 0), the node is unknown
-  void insert_internal(Key &k, GlobalAddress &v, CoroContext *cxt,
+  bool insert_internal(Key &k, GlobalAddress &v, CoroContext *cxt,
                        int coro_id, int target_level);
 
   bool try_lock_addr(GlobalAddress lock_addr, uint64_t tag, ibv_mr *buf,

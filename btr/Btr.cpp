@@ -470,8 +470,8 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
 // You need to make sure it is not the root level, this function will make sure the
 // the insertion to this target level succcessful
 // the target level can not be the root level.
-//TODO: update insert_internal according to insert.
-void Btr::insert_internal(Key &k, GlobalAddress &v, CoroContext *cxt,
+//Note: this function will make sure the insert will definitely success. it willkeep retrying/
+    bool Btr::insert_internal(Key &k, GlobalAddress &v, CoroContext *cxt,
                           int coro_id, int target_level) {
 
     //TODO: You need to acquire a lock when you write a page
@@ -524,9 +524,10 @@ next: // Internal page search
         }
 
     }
-    //Insert to leaf level
+    //Insert to target level
     Key split_key;
     GlobalAddress sibling_prt;
+        assert(p != GlobalAddress::Null());
     if (!internal_page_store(p, k, v, level, cxt, coro_id)){
         if (path_stack[coro_id][level + 1] != GlobalAddress::Null()){
             p = path_stack[coro_id][level + 1];
@@ -552,7 +553,8 @@ void Btr::insert(const Key &k, const Value &v, CoroContext *cxt, int coro_id) {
 
   auto root = get_root_ptr();
 //  std::cout << "The root now is " << root << std::endl;
-  SearchResult result{0};
+  SearchResult result{};
+  memset(&result, 0, sizeof(SearchResult));
   GlobalAddress p = root;
     bool isroot = true;
   // this is root is to help the tree to refresh the root node because the
@@ -592,6 +594,8 @@ next: // Internal page search
         // if the root and sibling are the same, it is also okay because the
         // p will not be changed
         if (result.slibing != GlobalAddress::Null()) { // turn right
+            // this has been obsoleted, we nest the turn right page search inside the function.
+            assert(false);
             p = result.slibing;
 
         }else if (result.next_level != GlobalAddress::Null()){
@@ -634,12 +638,13 @@ next: // Internal page search
     }
 
     //======================== below is about nested node split ============================//
+    //TODO: Make the node split embedded into the leaf page store.
     assert(level == 0);
     // this track means root is the leaves
     // TODO: Check this logic again.
 //    assert(level == 0);
-    level = level +1;
-    p = path_stack[coro_id][level];
+
+    p = path_stack[coro_id][level+1];
     //Double check the code below.
     if (UNLIKELY(p == GlobalAddress::Null() && sibling_prt != GlobalAddress::Null())){
         //TODO: we probably need a update root lock for the code below.
@@ -647,13 +652,14 @@ next: // Internal page search
         p = get_root_ptr();
         //TODO: tHERE COULd be a bug in the get_root_ptr so that the CAS for update_new_root will be failed.
 
-        if (path_stack[coro_id][level-1] == p){
-            update_new_root(path_stack[coro_id][level-1],  split_key, sibling_prt,level,path_stack[coro_id][level-1], cxt, coro_id);
+        if (path_stack[coro_id][level] == p){
+            update_new_root(path_stack[coro_id][level],  split_key, sibling_prt,level+1,path_stack[coro_id][level], cxt, coro_id);
             return;
         }
 
 
     }
+    level = level +1;
 //internal_store:
     // Insert to internal level if needed.
     // the level here is equals to the current insertion level
@@ -666,6 +672,7 @@ next: // Internal page search
         if (!internal_page_store(p, split_key, sibling_prt, level, cxt, coro_id)){
             // insertion failed, retry
             if ( path_stack[coro_id][level + 1] == GlobalAddress::Null()){
+//                assert(false);
                 // THis path should only happen at roof level happen.
                 // TODO: What if the node is not the root node.
 
@@ -715,7 +722,9 @@ re_search:
             }
 
         }else{
-
+            if ( path_stack[coro_id][level + 1] == GlobalAddress::Null()){
+                //
+            }
         }
         //check if insert success whether the split pop up to an none existing node, which means split has been propogated to the root.
     }
@@ -1154,7 +1163,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
     //
     //          }
       result.slibing = page->hdr.sibling_ptr;
-      return true;
+      return internal_page_search(page->hdr.sibling_ptr, k, result, level, isroot, cxt, coro_id);
     }
     if (k < page->hdr.lowest) {
       if (isroot){
@@ -1247,9 +1256,8 @@ re_read:
     page->leaf_page_search(k, result);
     return true;
 }
-
-bool
-Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int level, CoroContext *cxt, int coro_id) {
+// This function will return true unless it found that the key is smaller than the lower bound of a searched node.
+bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int level, CoroContext *cxt, int coro_id) {
     assert(page_addr != GlobalAddress::Null());
         uint64_t lock_index =
       CityHash64((char *)&page_addr, sizeof(page_addr)) % define::kNumOfLock;
@@ -1425,6 +1433,65 @@ Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int 
     write_page_and_unlock(local_buffer, page_addr, kInternalPageSize, (uint64_t*)cas_mr->addr,
                           lock_addr, cxt, coro_id, need_split);
 
+    if (sibling_addr != GlobalAddress::Null()){
+        auto p = path_stack[coro_id][level+1];
+        //check whether the node split is for a root node.
+        if (UNLIKELY(p == GlobalAddress::Null() )){
+            //TODO: we probably need a update root lock for the code below.
+            g_root_ptr = GlobalAddress::Null();
+            p = get_root_ptr();
+            //TODO: tHERE COULd be a bug in the get_root_ptr so that the CAS for update_new_root will be failed.
+
+            if (path_stack[coro_id][level] == p){
+                update_new_root(path_stack[coro_id][level],  split_key, sibling_addr,level+1,path_stack[coro_id][level], cxt, coro_id);
+                return true;
+            }else{
+                //find the upper level
+                //TODO: shall I implement a function that search a ptr at particular level.
+            }
+
+
+        }
+        // if not a root split go ahead and insert in the upper level.
+        level = level +1;
+        //*****************Now it is not a root update, insert to the upper level******************
+        SearchResult result{};
+        memset(&result, 0, sizeof(SearchResult));
+        int fall_back_level = 0;
+    re_insert:
+        if (UNLIKELY(!internal_page_store(p, split_key, sibling_addr, level, cxt, coro_id))){
+            //this path should be a rare case.
+
+            // fall back to upper level in the cache to search for the right node at this level
+            fall_back_level = level + 1;
+
+            p = path_stack[coro_id][fall_back_level];
+            if ( p == GlobalAddress::Null()){
+                // insert it top-down. this function will keep searching until it is found
+                insert_internal(split_key,sibling_addr, cxt, coro_id, level);
+            }else{
+                    if(!internal_page_search(p, k, result, fall_back_level, false, cxt, coro_id)){
+                        // if the upper level is still a stale node, just insert the node by top down method.
+                        insert_internal(split_key,sibling_addr, cxt, coro_id, level);
+//                        level = level + 1; // move to upper level
+//                        p = path_stack[coro_id][level];// move the pointer to upper level
+                    }else{
+
+                        if (result.next_level != GlobalAddress::Null()){
+                            // the page was found successful by one step back, then we can set the p as new node.
+                            // do not need to chanve level.
+                            p = result.next_level;
+                            goto re_insert;
+//                    level = result.level - 1;
+                        }else{
+                            assert(false);
+                        }
+                    }
+
+            }
+
+        }
+    }
     return true;
 //  if (!need_split)
 //    return;
@@ -1637,6 +1704,67 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 
     write_page_and_unlock(localbuf, page_addr, kLeafPageSize, (uint64_t*)cas_mr->addr,
                           lock_addr, cxt, coro_id, need_split);
+
+    if (sibling_addr != GlobalAddress::Null()){
+        auto p = path_stack[coro_id][level+1];
+        //check whether the node split is for a root node.
+        if (UNLIKELY(p == GlobalAddress::Null() )){
+            //TODO: we probably need a update root lock for the code below.
+            g_root_ptr = GlobalAddress::Null();
+            p = get_root_ptr();
+            //TODO: tHERE COULd be a bug in the get_root_ptr so that the CAS for update_new_root will be failed.
+
+            if (path_stack[coro_id][level] == p){
+                update_new_root(path_stack[coro_id][level],  split_key, sibling_addr,level+1,path_stack[coro_id][level], cxt, coro_id);
+                return true;
+            }else{
+                //find the upper level
+                //TODO: shall I implement a function that search a ptr at particular level.
+            }
+
+
+        }
+        // if not a root split go ahead and insert in the upper level.
+        level = level +1;
+        //*****************Now it is not a root update, insert to the upper level******************
+        SearchResult result{};
+        memset(&result, 0, sizeof(SearchResult));
+        int fall_back_level = 0;
+        re_insert:
+        if (UNLIKELY(!internal_page_store(p, split_key, sibling_addr, level, cxt, coro_id))){
+            //this path should be a rare case.
+
+            // fall back to upper level in the cache to search for the right node at this level
+            fall_back_level = level + 1;
+
+            p = path_stack[coro_id][fall_back_level];
+            if ( p == GlobalAddress::Null()){
+                // insert it top-down. this function will keep searching until it is found
+                insert_internal(split_key,sibling_addr, cxt, coro_id, level);
+            }else{
+                if(!internal_page_search(p, k, result, fall_back_level, false, cxt, coro_id)){
+                    // if the upper level is still a stale node, just insert the node by top down method.
+                    insert_internal(split_key,sibling_addr, cxt, coro_id, level);
+//                        level = level + 1; // move to upper level
+//                        p = path_stack[coro_id][level];// move the pointer to upper level
+                }else{
+
+                    if (result.next_level != GlobalAddress::Null()){
+                        // the page was found successful by one step back, then we can set the p as new node.
+                        // do not need to chanve level.
+                        p = result.next_level;
+                        goto re_insert;
+//                    level = result.level - 1;
+                    }else{
+                        assert(false);
+                    }
+                }
+
+            }
+
+        }
+    }
+
 
   return true;
 }
