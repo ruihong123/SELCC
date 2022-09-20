@@ -1664,7 +1664,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
       rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal);
 //      memset(sibling_mr->addr, 0, kLeafPageSize);
     auto sibling = new (sibling_mr->addr) LeafPage(page->hdr.level);
-
+    //TODO: add the sibling to the local cache.
     // std::cout << "addr " <<  sibling_addr << " | level " <<
     // (int)(page->hdr.level) << std::endl;
 

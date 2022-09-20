@@ -41,7 +41,7 @@ namespace DSMEngine{
 //        printf("next level key is %lu \n", page->records[i - 1].key);
 
                 target_global_ptr_buff = records[i - 1].ptr;
-                assert(result.next_level != GlobalAddress::Null());
+
                 assert(records[i - 1].key <= k);
                 result.upper_key = records[i - 1].key;
                 uint8_t rear_v = rear_version;
@@ -50,6 +50,7 @@ namespace DSMEngine{
                 }
 
                 result.next_level = target_global_ptr_buff;
+                assert(result.next_level != GlobalAddress::Null());
                 return;
             }
         }
