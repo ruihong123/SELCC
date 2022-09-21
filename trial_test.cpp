@@ -22,14 +22,14 @@ int main() {
 
     for (int i = 0; i < 1000000; ++i) {
         Key k = i;
-        Value v = i;
+        Value v = rand()%1000000UL;
         tree->insert(k,v);
         in_memory_records.insert({k,v});
 
     }
     printf("finish the insertion\n");
     for (int i = 0; i < 1000000; ++i) {
-        Key k = i;
+        Key k = rand()%1000000UL;
         Value v;
         tree->search(i, v);
 //        printf("")
