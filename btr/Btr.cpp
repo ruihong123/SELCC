@@ -1936,7 +1936,8 @@ inline bool Btr::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
 
   uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
   uint32_t current = lock_val >> 32;// current is the former 32 bit in ticket lock
-    printf("lock offest %lu's ticket %ud current %ud, thread%u\n", lock_addr.offset,ticket, current, thread_id);
+        assert(ticket - current <=4);
+    printf("lock offest %lu's ticket %ud current %ud, thread %u\n", lock_addr.offset, ticket, current, thread_id);
 //   printf("", );
 
   while (ticket != current) { // lock failed
