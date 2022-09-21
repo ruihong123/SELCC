@@ -364,7 +364,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
 
 void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, uint64_t *cas_buffer,
                                 GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
-    printf("Release lock %lu and write page %lu", remote_lock_addr, page_addr);
+//    printf("Release lock %lu and write page %lu", remote_lock_addr, page_addr);
   bool hand_over_other = can_hand_over(remote_lock_addr);
   if (hand_over_other) {
 
@@ -1941,7 +1941,7 @@ inline bool Btr::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
   uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
   uint32_t current = lock_val >> 32;// current is the former 32 bit in ticket lock
 //        assert(ticket - current <=4);
-    printf("lock offest %lu's ticket %x current %x, thread %u\n", lock_addr.offset, ticket, current, thread_id);
+//    printf("lock offest %lu's ticket %x current %x, thread %u\n", lock_addr.offset, ticket, current, thread_id);
 //   printf("", );
 
   while (ticket != current) { // lock failed
