@@ -32,7 +32,8 @@ int main() {
         Key k = rand()%1000000UL;
         Value v;
         tree->search(i, v);
-//        printf("")
+        if(i%10000 == 0)
+            printf("Value is %lu", v);
         assert(in_memory_records.at(k) = v);
     }
 

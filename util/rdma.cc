@@ -94,7 +94,7 @@ RDMA_Manager::RDMA_Manager(config_t config, size_t remote_block_size)
   Mempool_initialize(Message,
                      std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)), R_SIZE*std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)));
   Mempool_initialize(Version_edit, 1024 * 1024, 32*1024*1024);
-  Mempool_initialize(Internal, kInternalPageSize, 1024*1024*16);
+  Mempool_initialize(Internal, kInternalPageSize, 0);
 
 }
 
