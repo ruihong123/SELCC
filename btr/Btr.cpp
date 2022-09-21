@@ -452,7 +452,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
 //      lock_fail[rdma_mg->getMyThreadID()][0]++;
             goto retry;
         }
-        std::cout << "Successfully lock the " << lock_addr << std::endl;
+//        std::cout << "Successfully lock the " << lock_addr << std::endl;
 
     }
 
@@ -1932,7 +1932,7 @@ inline bool Btr::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
 
   uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
   uint32_t current = lock_val >> 32;// current is the former 32 bit in ticket lock
-        printf("lock offest %lu's ticket is %d\n", lock_addr.offset, ticket);
+//        printf("lock offest %lu's ticket is %d\n", lock_addr.offset, ticket);
   // printf("%ud %ud\n", ticket, current);
   while (ticket != current) { // lock failed
     is_local_locked = true;
