@@ -1001,8 +1001,8 @@ ibv_mr *RDMA_Manager::create_lock_table() {
   char temp_receive[2];
   char temp_send[] = "Q";
   auto start = std::chrono::high_resolution_clock::now();
-  //Node 0 is the coordinator server
-  sock_sync_data(res->sock_map[0], 1, temp_send,
+  //Node 1 is the coordinator server
+  sock_sync_data(res->sock_map[1], 1, temp_send,
                  temp_receive);
   auto stop = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);

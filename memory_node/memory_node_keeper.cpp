@@ -164,7 +164,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
     rdma_mg->connection_counter.fetch_add(1);
 //    std::thread* thread_sync;
     if (rdma_mg->connection_counter.load() == rdma_mg->compute_nodes.size()
-        && rdma_mg->node_id == 0){
+        && rdma_mg->node_id == 1){
       std::thread thread_sync(&RDMA_Manager::sync_with_computes_Mside, rdma_mg.get());
       //Need to be detached.
       thread_sync.detach();
