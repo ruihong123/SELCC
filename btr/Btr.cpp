@@ -329,6 +329,7 @@ inline bool Btr::try_lock_addr(GlobalAddress lock_addr, uint64_t tag,
 //      lock_fail[rdma_mg->getMyThreadID()][0]++;
         goto retry;
     }
+    std::cout << "Successfully lock the " << lock_addr << std::endl;
 
   }
 
