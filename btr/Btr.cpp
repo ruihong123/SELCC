@@ -414,7 +414,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
                              GlobalAddress lock_addr, uint64_t tag,
                              CoroContext *cxt, int coro_id) {
     // Can put lock and page read in a door bell batch.
-    printf("lock %lu and read page offset %lu", lock_addr.offset, page_addr.offset);
+//    printf("lock %lu and read page offset %lu", lock_addr.offset, page_addr.offset);
     bool hand_over = acquire_local_lock(lock_addr, cxt, coro_id);
     if (hand_over) {
         rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
