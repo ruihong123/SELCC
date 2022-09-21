@@ -3309,7 +3309,7 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
 void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
                                             Chunk_type pool_name) {
 
-    //TODO: Make a sharded allocator to reduce the competion on the allocator.
+    //TODO(potential optimization): Make a thread/CPU core local allocator to reduce the competion on the allocator.
   // allocate the RDMA slot is seperate into two situation, read and write.
   size_t chunk_size;
   std::shared_lock<std::shared_mutex> mem_read_lock(local_mem_mutex);

@@ -364,10 +364,11 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
 
 void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, uint64_t *cas_buffer,
                                 GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
-
+    printf("Release lock %lu and write page %lu", remote_lock_addr, page_addr);
   bool hand_over_other = can_hand_over(remote_lock_addr);
   if (hand_over_other) {
-    rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, 0, 0, Internal_and_Leaf);
+
+    rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
     releases_local_lock(remote_lock_addr);
     return;
   }
@@ -413,6 +414,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
                              GlobalAddress lock_addr, uint64_t tag,
                              CoroContext *cxt, int coro_id) {
     // Can put lock and page read in a door bell batch.
+    printf("lock %lu and read page offset %lu", lock_addr.offset, page_addr.offset);
     bool hand_over = acquire_local_lock(lock_addr, cxt, coro_id);
     if (hand_over) {
         rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
@@ -1287,7 +1289,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         page_buffer = local_buffer->addr;
         // you have to reread to data from the remote side to not missing update from other
         // nodes! Do not read the page from the cache!
-
+        // TODO(Potential optimization): May be we can handover the cache if two writer threads modifying the same page.
+        //  saving some RDMA round trips.
         lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
                            lock_addr, 1, cxt, coro_id);
     } else{
@@ -1320,7 +1323,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
           page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
         }
-        this->unlock_addr(lock_addr, cxt, coro_id, true);
+        // This could be async.
+        this->unlock_addr(lock_addr, cxt, coro_id, false);
 
         assert(page->hdr.sibling_ptr != GlobalAddress::Null());
 
@@ -1337,7 +1341,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
             page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
         }
-        this->unlock_addr(lock_addr, cxt, coro_id, true);
+        this->unlock_addr(lock_addr, cxt, coro_id, false);
 
         insert_success = false;
         return insert_success;// result in fall back search on the higher level.
@@ -1438,7 +1442,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
     page->set_consistent();
     write_page_and_unlock(local_buffer, page_addr, kInternalPageSize, (uint64_t*)cas_mr->addr,
-                          lock_addr, cxt, coro_id, need_split);
+                          lock_addr, cxt, coro_id, false);
 
     if (sibling_addr != GlobalAddress::Null()){
         auto p = path_stack[coro_id][level+1];
@@ -1564,7 +1568,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     // The range of a page is [lowest,largest).
     if (k >= page->hdr.highest) {
         if (page->hdr.sibling_ptr != GlobalAddress::Null()){
-            this->unlock_addr(lock_addr, cxt, coro_id, true);
+            this->unlock_addr(lock_addr, cxt, coro_id, false);
             if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
                 page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
             }
@@ -1584,7 +1588,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
         if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
             page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
         }
-        this->unlock_addr(lock_addr, cxt, coro_id, true);
+        this->unlock_addr(lock_addr, cxt, coro_id, false);
 
         insert_success = false;
         return insert_success;// result in fall back search on the higher level.
@@ -1710,7 +1714,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
   page->set_consistent();
 
     write_page_and_unlock(localbuf, page_addr, kLeafPageSize, (uint64_t*)cas_mr->addr,
-                          lock_addr, cxt, coro_id, need_split);
+                          lock_addr, cxt, coro_id, false);
 
     if (sibling_addr != GlobalAddress::Null()){
         auto p = path_stack[coro_id][level+1];
@@ -1803,14 +1807,14 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     assert(page->check_consistent());
     path_stack[coro_id][page->hdr.level] = page_addr;
     if (k >= page->hdr.highest) {
-        this->unlock_addr(lock_addr, cxt, coro_id, true);
+        this->unlock_addr(lock_addr, cxt, coro_id, false);
 
         assert(page->hdr.sibling_ptr != GlobalAddress::Null());
 
         return this->leaf_page_del(page->hdr.sibling_ptr, k, level, cxt, coro_id);
     }
     if (k < page->hdr.lowest) {
-        this->unlock_addr(lock_addr, cxt, coro_id, true);
+        this->unlock_addr(lock_addr, cxt, coro_id, false);
 
         assert(page->hdr.sibling_ptr != GlobalAddress::Null());
 
@@ -1932,12 +1936,12 @@ inline bool Btr::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
   bool is_local_locked = false;
 
   uint64_t lock_val = node.ticket_lock.fetch_add(1);
-  //TOTHINK: what if the ticket out of buffer.
+  //TOTHINK(potential bug): what if the ticket out of buffer.
 
   uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
   uint32_t current = lock_val >> 32;// current is the former 32 bit in ticket lock
-        assert(ticket - current <=4);
-    printf("lock offest %lu's ticket %ud current %ud, thread %u\n", lock_addr.offset, ticket, current, thread_id);
+//        assert(ticket - current <=4);
+    printf("lock offest %lu's ticket %x current %x, thread %u\n", lock_addr.offset, ticket, current, thread_id);
 //   printf("", );
 
   while (ticket != current) { // lock failed
@@ -1985,6 +1989,7 @@ inline bool Btr::can_hand_over(GlobalAddress lock_addr) {
 }
 
 inline void Btr::releases_local_lock(GlobalAddress lock_addr) {
+
   auto &node = local_locks[(lock_addr.nodeID-1)/2][lock_addr.offset / 8];
 
   node.ticket_lock.fetch_add((1ull << 32));
