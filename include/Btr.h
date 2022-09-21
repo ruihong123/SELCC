@@ -67,8 +67,9 @@ public:
   GlobalAddress query_cache(const Key &k);
 //  void index_cache_statistics();
   void clear_statistics();
-        static RDMA_Manager * rdma_mg;
-private:
+    static RDMA_Manager * rdma_mg;
+    static thread_local int thread_id;
+    private:
   std::mutex mtx;// in case of contention
   uint64_t tree_id;
 //  GlobalAddress root_ptr_ptr; // the address which stores root pointer;
@@ -88,6 +89,8 @@ private:
 
   Cache * page_cache;
   uint8_t tree_height = 0;
+#ifndef NDEBUG
+#endif
 //    std::atomic<int> cache_invalid_counter;
   void print_verbose();
 

@@ -10,10 +10,13 @@
 #include <queue>
 #include <utility>
 #include <vector>
+
 #include "port/likely.h"
 namespace DSMEngine {
 bool enter_debug = false;
-
+#ifndef NDEBUG
+thread_local int Btr::thread_id = 0;
+#endif
 //HotBuffer hot_buf;
 uint64_t cache_miss[MAX_APP_THREAD][8];
 uint64_t cache_hit[MAX_APP_THREAD][8];
@@ -97,6 +100,7 @@ Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id),
 //  } else {
 //     std::cout << "fail\n";
 //  }
+
 }
 
 void Btr::print_verbose() {
@@ -1933,7 +1937,8 @@ inline bool Btr::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
   uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
   uint32_t current = lock_val >> 32;// current is the former 32 bit in ticket lock
     printf("lock offest %lu's \n", lock_addr.offset);
-   printf("%ud %ud\n", ticket, current);
+   printf("%ud %ud,%d\n", ticket, current, thread_id);
+
   while (ticket != current) { // lock failed
     is_local_locked = true;
 

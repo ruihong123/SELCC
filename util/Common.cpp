@@ -1,4 +1,5 @@
 #include "Common.h"
+#include "Btr.h"
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -7,6 +8,7 @@
 #include <net/if.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <thread>
 
 void bindCore(uint16_t core) {
 
@@ -17,6 +19,11 @@ void bindCore(uint16_t core) {
     if (rc != 0) {
         printf("can't bind core!");
     }
+#ifndef NDEBUG
+    std::stringstream ss;
+    ss << std::this_thread::get_id();
+    DSMEngine::Btr::thread_id = std::stoull(ss.str());
+#endif
 }
 
 char *getIP() {
