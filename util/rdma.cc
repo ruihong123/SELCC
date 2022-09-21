@@ -94,7 +94,7 @@ RDMA_Manager::RDMA_Manager(config_t config, size_t remote_block_size)
   Mempool_initialize(Message,
                      std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)), R_SIZE*std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)));
   Mempool_initialize(Version_edit, 1024 * 1024, 32*1024*1024);
-  Mempool_initialize(Internal, kInternalPageSize, 0);
+  Mempool_initialize(Internal_and_Leaf, kInternalPageSize, 0);
 
 }
 
@@ -1011,11 +1011,11 @@ ibv_mr* RDMA_Manager::Get_local_read_mr() {
   ibv_mr* ret;
   ret = (ibv_mr*)read_buffer->Get();
   if (ret == nullptr){
-    char* buffer = new char[name_to_chunksize.at(Internal)];
+    char* buffer = new char[name_to_chunksize.at(Internal_and_Leaf)];
     auto mr_flags =
         IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
     //  auto start = std::chrono::high_resolution_clock::now();
-    ret = ibv_reg_mr(res->pd, buffer, name_to_chunksize.at(Internal), mr_flags);
+    ret = ibv_reg_mr(res->pd, buffer, name_to_chunksize.at(Internal_and_Leaf), mr_flags);
     read_buffer->Reset(ret);
   }
     assert(ret + 0);
@@ -1595,7 +1595,7 @@ End of socket operations
         sr.opcode = IBV_WR_RDMA_READ;
         if (send_flag != 0) sr.send_flags = send_flag;
         switch (pool_name) {
-            case Internal:{
+            case Internal_and_Leaf:{
                 sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
                 sr.wr.rdma.rkey = rkey_map_data[remote_ptr.nodeID];
                 break;
@@ -1805,7 +1805,7 @@ End of socket operations
         sr.opcode = IBV_WR_RDMA_WRITE;
         if (send_flag != 0) sr.send_flags = send_flag;
         switch (pool_name) {
-            case Internal:{
+            case Internal_and_Leaf:{
                 sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
                 sr.wr.rdma.rkey = rkey_map_data[remote_ptr.nodeID];
                 break;
@@ -2153,7 +2153,7 @@ int RDMA_Manager::RDMA_CAS(GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t 
     sr.opcode = IBV_WR_ATOMIC_CMP_AND_SWP;
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
-        case Internal:{
+        case Internal_and_Leaf:{
             sr.wr.atomic.rkey = rkey_map_data[remote_ptr.nodeID];
             sr.wr.atomic.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
             sr.wr.atomic.compare_add = compare; /* expected value in remote address */
@@ -2249,7 +2249,7 @@ void RDMA_Manager::Prepare_WR_CAS(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress r
     sr.opcode = IBV_WR_ATOMIC_CMP_AND_SWP;
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
-        case Internal:{
+        case Internal_and_Leaf:{
             sr.wr.atomic.rkey = rkey_map_data[remote_ptr.nodeID];
             sr.wr.atomic.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
             sr.wr.atomic.compare_add = compare; /* expected value in remote address */
@@ -2285,7 +2285,7 @@ void RDMA_Manager::Prepare_WR_Read(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress 
     sr.opcode = IBV_WR_RDMA_READ;
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
-        case Internal:{
+        case Internal_and_Leaf:{
             sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
             sr.wr.rdma.rkey = rkey_map_data[remote_ptr.nodeID];
             break;
@@ -2318,7 +2318,7 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
     sr.opcode = IBV_WR_RDMA_WRITE;
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
-        case Internal:{
+        case Internal_and_Leaf:{
             sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
             sr.wr.rdma.rkey = rkey_map_data[remote_ptr.nodeID];
             break;
@@ -3247,7 +3247,7 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
     // begginning.
     std::unique_lock<std::shared_mutex> mem_write_lock(remote_mem_mutex);
     if (Remote_Leaf_Node_Bitmap.at(target_node_id)->empty()) {
-        Remote_Memory_Register(1 * 1024 * 1024 * 1024, target_node_id, Internal);
+        Remote_Memory_Register(1 * 1024 * 1024 * 1024, target_node_id, Internal_and_Leaf);
       //      fs_meta_save();
     }
     mem_write_lock.unlock();
@@ -3282,7 +3282,7 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
   mem_read_lock.unlock();
   // If not find remote buffers are all used, allocate another remote memory region.
   std::unique_lock<std::shared_mutex> mem_write_lock(remote_mem_mutex);
-    Remote_Memory_Register(1 * 1024 * 1024 * 1024, target_node_id, Internal);
+    Remote_Memory_Register(1 * 1024 * 1024 * 1024, target_node_id, Internal_and_Leaf);
   //  fs_meta_save();
   ibv_mr* mr_last;
   mr_last = remote_mem_pool.back();

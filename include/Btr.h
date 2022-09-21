@@ -154,7 +154,7 @@ class Btr_iter{
 };
     static void Deallocate_MR(const Slice& key, void* value) {
         auto mr = (ibv_mr*) value;
-        Btr::rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal);
+        Btr::rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
         delete mr;
 //        delete tf->table_compute;
 ////  delete tf->file;

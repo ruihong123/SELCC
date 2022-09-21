@@ -66,11 +66,11 @@ Btr::Btr(RDMA_Manager *mg, uint16_t Btr_id) : tree_id(Btr_id){
 //  root_ptr_ptr = get_root_ptr_ptr();
 
   // try to init tree and install root pointer
-    rdma_mg->Allocate_Local_RDMA_Slot(cached_root_page_mr, Internal);// local allocate
-    memset(cached_root_page_mr.addr,0,rdma_mg->name_to_chunksize.at(Internal));
+    rdma_mg->Allocate_Local_RDMA_Slot(cached_root_page_mr, Internal_and_Leaf);// local allocate
+    memset(cached_root_page_mr.addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
     if (rdma_mg->node_id == 0){
         // only the first compute node create the root node for index
-        g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, 2*round_robin_cur + 1); // remote allocation.
+        g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1); // remote allocation.
         printf("root pointer is %d, %lu\n", g_root_ptr.nodeID, g_root_ptr.offset);
         if(++round_robin_cur == rdma_mg->memory_nodes.size()){
             round_robin_cur = 0;
@@ -78,7 +78,7 @@ Btr::Btr(RDMA_Manager *mg, uint16_t Btr_id) : tree_id(Btr_id){
         auto root_page = new (cached_root_page_mr.addr) LeafPage;
 
         root_page->set_consistent();
-        rdma_mg->RDMA_Write(g_root_ptr, &cached_root_page_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal);
+        rdma_mg->RDMA_Write(g_root_ptr, &cached_root_page_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
         // TODO: create a special region to store the root_ptr for every tree id.
         auto local_mr = rdma_mg->Get_local_CAS_mr(); // remote allocation.
         ibv_mr remote_mr{};
@@ -107,9 +107,9 @@ void Btr::print_verbose() {
 
   if (rdma_mg->node_id == 0) {
     std::cout << "Header size: " << sizeof(Header) << std::endl;
-    std::cout << "Internal Page size: " << sizeof(InternalPage) << " ["
+    std::cout << "Internal_and_Leaf Page size: " << sizeof(InternalPage) << " ["
               << kInternalPageSize << "]" << std::endl;
-    std::cout << "Internal per Page: " << kInternalCardinality << std::endl;
+    std::cout << "Internal_and_Leaf per Page: " << kInternalCardinality << std::endl;
     std::cout << "Leaf Page size: " << sizeof(LeafPage) << " [" << kLeafPageSize
               << "]" << std::endl;
     std::cout << "Leaf per Page: " << kLeafCardinality << std::endl;
@@ -210,7 +210,7 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
     assert(right != GlobalAddress::Null());
   auto new_root = new (page_buffer->addr) InternalPage(left, k, right, level);
 
-  auto new_root_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, 2*round_robin_cur + 1);
+  auto new_root_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1);
     if(++round_robin_cur == rdma_mg->memory_nodes.size()){
         round_robin_cur = 0;
     }
@@ -220,7 +220,7 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
   // set local cache for root address
   g_root_ptr = new_root_addr;
     tree_height = level;
-  rdma_mg->RDMA_Write(new_root_addr, page_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal);
+  rdma_mg->RDMA_Write(new_root_addr, page_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
     ibv_mr remote_mr = *rdma_mg->global_index_table;
     // find the table enty according to the id
     remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*tree_id);
@@ -251,7 +251,7 @@ void Btr::print_and_check_tree(CoroContext *cxt, int coro_id) {
 
 next_level:
 
-  rdma_mg->RDMA_Read(p, page_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal);
+  rdma_mg->RDMA_Read(p, page_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
   auto header = (Header *)(page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
   levels[level_cnt++] = p;
   if (header->level != 0) {
@@ -262,7 +262,7 @@ next_level:
   }
 
 next:
-    rdma_mg->RDMA_Read(leaf_head, page_buffer, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal);
+    rdma_mg->RDMA_Read(leaf_head, page_buffer, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
 //  rdma_mg->read_sync(page_buffer, , kLeafPageSize);
   auto page = (LeafPage *)page_buffer;
   for (int i = 0; i < kLeafCardinality; ++i) {
@@ -361,7 +361,7 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
 
   bool hand_over_other = can_hand_over(remote_lock_addr);
   if (hand_over_other) {
-    rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, 0, 0, Internal);
+    rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, 0, 0, Internal_and_Leaf);
     releases_local_lock(remote_lock_addr);
     return;
   }
@@ -369,7 +369,7 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
     struct ibv_sge sge[2];
     if (async){
 
-        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal);
+        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
         ibv_mr* local_CAS_mr = rdma_mg->Get_local_CAS_mr();
 //        *(uint64_t*) local_CAS_mr->addr = 0;
         rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), 0, LockTable);
@@ -380,7 +380,7 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
         assert(page_addr.nodeID == remote_lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(sr, 0, page_addr.nodeID);
     }else{
-        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal);
+        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
         ibv_mr* local_CAS_mr = rdma_mg->Get_local_CAS_mr();
 //        *(uint64_t*) local_CAS_mr->addr = 0;
         rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED, LockTable);
@@ -408,7 +408,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
     // Can put lock and page read in a door bell batch.
     bool hand_over = acquire_local_lock(lock_addr, cxt, coro_id);
     if (hand_over) {
-        rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, 1, Internal);
+        rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
     }
 
     {
@@ -430,8 +430,8 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         struct ibv_sge sge[2];
 
         rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED, LockTable);
-        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal);
-//        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal);
+        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+//        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
 
         sr[0].next = &sr[1];
         *(uint64_t *)cas_buffer->addr = 0;
@@ -488,7 +488,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
     int level = -1;
     //TODO: What if we ustilize the cache tree height for the root level?
 
-next: // Internal page search
+next: // Internal_and_Leaf page search
     //TODO: What if the target_level is equal to the root level.
     if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
@@ -567,7 +567,7 @@ void Btr::insert(const Key &k, const Value &v, CoroContext *cxt, int coro_id) {
 #ifndef NDEBUG
     int next_times = 0;
 #endif
-next: // Internal page search
+next: // Internal_and_Leaf page search
 #ifndef NDEBUG
     if (next_times == 1000){
         assert(false);
@@ -762,7 +762,7 @@ int level = -1;
 #ifndef NDEBUG
     int next_times = 0;
 #endif
-    next: // Internal page search
+    next: // Internal_and_Leaf page search
 #ifndef NDEBUG
     if (next_times == 1000){
         assert(false);
@@ -955,7 +955,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
     int level = -1;
 //TODO: What if we ustilize the cache tree height for the root level?
     int target_level = 0;
-    next: // Internal page search
+    next: // Internal_and_Leaf page search
     if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
             p = get_root_ptr();
@@ -1082,7 +1082,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 
         //  pattern_cnt++;
         ibv_mr* new_mr = new ibv_mr{};
-        rdma_mg->Allocate_Local_RDMA_Slot(*new_mr, Internal);
+        rdma_mg->Allocate_Local_RDMA_Slot(*new_mr, Internal_and_Leaf);
         page_buffer = new_mr->addr;
         header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
         page = (InternalPage *)page_buffer;
@@ -1095,7 +1095,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             assert(false);
         }
 #endif
-        rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal);
+        rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
 
         memset(&result, 0, sizeof(result));
         result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
@@ -1106,7 +1106,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         if (result.level == 0){
             // if the root node is the leaf node this path will happen.
 //            assert(level = -1);
-            rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal);
+            rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal_and_Leaf);
             // return true and let the outside code figure out that the leaf node is the root node
             return true;
         }
@@ -1214,7 +1214,7 @@ re_read:
     ibv_mr* local_mr = rdma_mg->Get_local_read_mr();
     page_buffer = local_mr->addr;
     header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
-    rdma_mg->RDMA_Read(page_addr, local_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal);
+    rdma_mg->RDMA_Read(page_addr, local_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
     memset(&result, 0, sizeof(result));
     result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
     result.level = header->level;
@@ -1284,7 +1284,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     } else{
 
         local_buffer = new ibv_mr{};
-        rdma_mg->Allocate_Local_RDMA_Slot(*local_buffer, Internal);
+        rdma_mg->Allocate_Local_RDMA_Slot(*local_buffer, Internal_and_Leaf);
         page_buffer = local_buffer->addr;
         // you have to reread to data from the remote side to not missing update from other
         // nodes! Do not read the page from the cache!
@@ -1379,12 +1379,12 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
     //Both internal node and leaf nodes are [lowest, highest) except for the left most
   if (need_split) { // need split
-    sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, 2*round_robin_cur + 1);
+    sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1);
       if(++round_robin_cur == rdma_mg->memory_nodes.size()){
           round_robin_cur = 0;
       }
     ibv_mr* sibling_buf = new ibv_mr{};
-    rdma_mg->Allocate_Local_RDMA_Slot(*sibling_buf, Internal);
+    rdma_mg->Allocate_Local_RDMA_Slot(*sibling_buf, Internal_and_Leaf);
 
     auto sibling = new (sibling_buf->addr) InternalPage(page->hdr.level);
 
@@ -1414,7 +1414,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     //the code below is just for debugging.
 //    sibling_addr.mark = 2;
 
-    rdma_mg->RDMA_Write(sibling_addr, sibling_buf, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal);
+    rdma_mg->RDMA_Write(sibling_addr, sibling_buf, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
       assert(sibling->records[sibling->hdr.last_index].ptr != GlobalAddress::Null());
       assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
       k = split_key;
@@ -1655,13 +1655,13 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 //  GlobalAddress sibling_addr;
   if (need_split) { // need split
 //      printf("Node split\n");
-    sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal, 2*round_robin_cur + 1);
+    sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1);
       if(++round_robin_cur == rdma_mg->memory_nodes.size()){
           round_robin_cur = 0;
       }
     //TODO: use a thread local sibling memory region to reduce the allocator contention.
     ibv_mr* sibling_mr = new ibv_mr{};
-      rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal);
+      rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal_and_Leaf);
 //      memset(sibling_mr->addr, 0, kLeafPageSize);
     auto sibling = new (sibling_mr->addr) LeafPage(page->hdr.level);
     //TODO: add the sibling to the local cache.
@@ -1693,7 +1693,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
       sibling->hdr.sibling_ptr = page->hdr.sibling_ptr;
       page->hdr.sibling_ptr = sibling_addr;
     sibling->set_consistent();
-    rdma_mg->RDMA_Write(sibling_addr, sibling_mr,kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal);
+    rdma_mg->RDMA_Write(sibling_addr, sibling_mr,kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
   }else{
       sibling_addr = GlobalAddress::Null();
   }
@@ -1787,7 +1787,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     try_lock_addr(lock_addr, tag, cas_mr, cxt, coro_id);
 
     //  auto page_buffer = rdma_mg->get_rbuf(coro_id).get_page_buffer();
-    rdma_mg->RDMA_Read(page_addr, rbuf, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal);
+    rdma_mg->RDMA_Read(page_addr, rbuf, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
     auto page = (LeafPage *)page_buffer;
 
     assert(page->hdr.level == level);
@@ -1827,7 +1827,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
         page->hdr.last_index--;
 
         page->set_consistent();
-        rdma_mg->RDMA_Write(page_addr, rbuf, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal);
+        rdma_mg->RDMA_Write(page_addr, rbuf, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
     }
     this->unlock_addr(lock_addr, cxt, coro_id, false);
     return true;

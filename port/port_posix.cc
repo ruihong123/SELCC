@@ -231,7 +231,7 @@ static size_t GetPageSize() {
     return static_cast<size_t>(v);
   }
 #endif
-  // Internal assume 4KB
+  // Internal_and_Leaf assume 4KB
   return 4U * 1024U;
 }
 

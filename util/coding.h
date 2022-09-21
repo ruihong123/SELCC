@@ -154,7 +154,7 @@ inline uint64_t DecodeFixed64(const char* ptr) {
   }
 }
 
-// Internal routine for use by fallback path of GetVarint32Ptr
+// Internal_and_Leaf routine for use by fallback path of GetVarint32Ptr
 extern const char* GetVarint32PtrFallback(const char* p,
                                           const char* limit,
                                           uint32_t* value);
