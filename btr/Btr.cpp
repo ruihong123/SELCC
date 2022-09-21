@@ -355,7 +355,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
       // send flag 0 means there is no flag
     rdma_mg->RDMA_Write(lock_addr, cas_buf,  sizeof(uint64_t), 0,0,LockTable);
   } else {
-      std::cout << "Unlock the remote lock" << lock_addr << std::endl;
+//      std::cout << "Unlock the remote lock" << lock_addr << std::endl;
       rdma_mg->RDMA_Write(lock_addr, cas_buf,  sizeof(uint64_t), IBV_SEND_SIGNALED,1,LockTable);
   }
 
@@ -563,6 +563,7 @@ void Btr::insert(const Key &k, const Value &v, CoroContext *cxt, int coro_id) {
 
 
   auto root = get_root_ptr();
+    assert(root != GlobalAddress::Null());
 //  std::cout << "The root now is " << root << std::endl;
   SearchResult result{};
   memset(&result, 0, sizeof(SearchResult));
