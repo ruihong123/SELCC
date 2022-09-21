@@ -329,7 +329,7 @@ inline bool Btr::try_lock_addr(GlobalAddress lock_addr, uint64_t tag,
 //      lock_fail[rdma_mg->getMyThreadID()][0]++;
         goto retry;
     }
-    std::cout << "Successfully lock the " << lock_addr << std::endl;
+//    std::cout << "Successfully lock the " << lock_addr << std::endl;
 
   }
 
@@ -385,6 +385,7 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
         rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
         ibv_mr* local_CAS_mr = rdma_mg->Get_local_CAS_mr();
 //        *(uint64_t*) local_CAS_mr->addr = 0;
+        //TODO: WHY the remote lock is not unlocked by this function?
         rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED, LockTable);
         sr[0].next = &sr[1];
 
@@ -393,7 +394,7 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
         assert(page_addr.nodeID == remote_lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
     }
-    std::cout << "release the remote lock at " << remote_lock_addr << std::endl;
+//    std::cout << "release the remote lock at " << remote_lock_addr << std::endl;
 //  if (async) {
 //    rdma_mg->write_batch(rs, 2, false);
 //  } else {
@@ -1930,7 +1931,7 @@ inline bool Btr::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
 
   uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
   uint32_t current = lock_val >> 32;// current is the former 32 bit in ticket lock
-
+        printf("lock offest %lu's ticket is %d\n", lock_addr.offset, ticket);
   // printf("%ud %ud\n", ticket, current);
   while (ticket != current) { // lock failed
     is_local_locked = true;
