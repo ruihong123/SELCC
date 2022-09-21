@@ -63,7 +63,7 @@ Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id),
   }
 
   print_verbose();
-
+    assert(g_root_ptr.is_lock_free());
     page_cache = NewLRUCache(define::kIndexCacheSize);
 
 //  root_ptr_ptr = get_root_ptr_ptr();
@@ -74,7 +74,7 @@ Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id),
     if (rdma_mg->node_id == 0){
         // only the first compute node create the root node for index
         g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1); // remote allocation.
-        printf("root pointer is %d, %lu\n", g_root_ptr.nodeID, g_root_ptr.offset);
+        printf("root pointer is %d, %lu\n", g_root_ptr.load().nodeID, g_root_ptr.load().offset);
         if(++round_robin_cur == rdma_mg->memory_nodes.size()){
             round_robin_cur = 0;
         }
@@ -88,7 +88,7 @@ Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id),
         remote_mr = *rdma_mg->global_index_table;
         // find the table enty according to the id
         remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*tree_id);
-        rdma_mg->RDMA_CAS(&remote_mr, local_mr, 0, g_root_ptr, IBV_SEND_SIGNALED, 1, 1);
+        rdma_mg->RDMA_CAS(&remote_mr, local_mr, 0, g_root_ptr.load(), IBV_SEND_SIGNALED, 1, 1);
     }else{
         get_root_ptr();
     }
@@ -142,9 +142,9 @@ extern int g_root_level;
 extern bool enable_cache;
 GlobalAddress Btr::get_root_ptr() {
 // TODO: Use an RPC to get the root pointer from the first node.
-  if (g_root_ptr == GlobalAddress::Null()) {
+  if (g_root_ptr.load() == GlobalAddress::Null()) {
       std::unique_lock<std::mutex> l(mtx);
-      if (g_root_ptr == GlobalAddress::Null()) {
+      if (g_root_ptr.load() == GlobalAddress::Null()) {
           ibv_mr* local_mr = rdma_mg->Get_local_CAS_mr();
 
           ibv_mr remote_mr{};
@@ -158,15 +158,15 @@ GlobalAddress Btr::get_root_ptr() {
               rdma_mg->RDMA_Read(&remote_mr, local_mr, sizeof(GlobalAddress), IBV_SEND_SIGNALED, 1, 1);
           }
 
-          g_root_ptr = *(GlobalAddress*)local_mr->addr;
-          assert(g_root_ptr != GlobalAddress::Null());
+          g_root_ptr.store(*(GlobalAddress*)local_mr->addr);
+
           std::cout << "Get new root" << g_root_ptr <<std::endl;
 
       }
-
-    return g_root_ptr;
+      assert(g_root_ptr != GlobalAddress::Null());
+    return g_root_ptr.load();
   } else {
-    return g_root_ptr;
+    return g_root_ptr.load();
   }
 
   // std::cout << "root ptr " << root_ptr << std::endl;
