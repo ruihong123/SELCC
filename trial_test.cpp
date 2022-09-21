@@ -17,7 +17,8 @@ int main() {
     rdma_mg = RDMA_Manager::Get_Instance(config);
     rdma_mg->Mempool_initialize(DataChunk, INDEX_BLOCK, 0);
     rdma_mg->node_id = 0;
-    auto tree = new Btr(rdma_mg);
+    Cache* cache_ptr = DSMEngine::NewLRUCache(define::kIndexCacheSize);
+    auto tree = new Btr(rdma_mg, cache_ptr, 0);
     std::map<Key, Value> in_memory_records;
 
     for (int i = 0; i < 1000000; ++i) {
@@ -33,7 +34,7 @@ int main() {
         Value v;
         tree->search(i, v);
         if(i%10000 == 0)
-            printf("Value is %lu", v);
+            printf("Value is %lu\n", v);
         assert(in_memory_records.at(k) = v);
     }
 

@@ -45,7 +45,7 @@ struct CoroDeadline {
 thread_local std::queue<uint16_t> hot_wait_queue;
 thread_local std::priority_queue<CoroDeadline> deadline_queue;
 
-Btr::Btr(RDMA_Manager *mg, uint16_t Btr_id) : tree_id(Btr_id){
+Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id), page_cache(cache_ptr){
     if (rdma_mg == nullptr){
         rdma_mg = mg;
     }

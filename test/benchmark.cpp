@@ -10,7 +10,6 @@
 #include <time.h>
 #include <unistd.h>
 #include <vector>
-
 // #define USE_CORO
 const int kCoroCnt = 3;
 
@@ -339,9 +338,9 @@ int main(int argc, char *argv[]) {
             4*10*1024*1024 /*initial local buffer size*/
     };
     rdma_mg = DSMEngine::RDMA_Manager::Get_Instance(config);
-
+    DSMEngine::Cache* cache_ptr = DSMEngine::NewLRUCache(define::kIndexCacheSize);
 //  rdma_mg->registerThread();
-  tree = new DSMEngine::Btr(rdma_mg);
+  tree = new DSMEngine::Btr(rdma_mg, cache_ptr, 0);
 
 #ifndef BENCH_LOCK
   if (DSMEngine::RDMA_Manager::node_id == 0) {

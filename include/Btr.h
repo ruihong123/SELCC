@@ -47,7 +47,7 @@ class Btr {
 //friend class DSMEngine::InternalPage;
 
 public:
-  Btr(RDMA_Manager *mg, uint16_t tree_id = 0);
+  Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id = 0);
 
   void insert(const Key &k, const Value &v, CoroContext *cxt = nullptr,
               int coro_id = 0);

@@ -639,6 +639,7 @@ ibv_mr * RDMA_Manager::Preregister_Memory(size_t gb_number) {
     for (int i = 0; i < gb_number; ++i) {
         mrs[i] = *mrpointer;
         mrs[i].addr = (char*)mrs[i].addr + i*define::GB;
+        mrs[i].length = define::GB;
 
         pre_allocated_pool.push_back(&mrs[i]);
     }
