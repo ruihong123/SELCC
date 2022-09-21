@@ -412,6 +412,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
     bool hand_over = acquire_local_lock(lock_addr, cxt, coro_id);
     if (hand_over) {
         rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+        return;
     }
 
     {
