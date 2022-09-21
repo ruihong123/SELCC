@@ -450,6 +450,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
 //      lock_fail[rdma_mg->getMyThreadID()][0]++;
             goto retry;
         }
+        std::cout << "Successfully lock the " << lock_addr << std::endl;
 
     }
 
