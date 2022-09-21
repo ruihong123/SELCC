@@ -393,7 +393,7 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
         assert(page_addr.nodeID == remote_lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
     }
-
+    std::cout << "release the remote lock at " << remote_lock_addr << std::endl;
 //  if (async) {
 //    rdma_mg->write_batch(rs, 2, false);
 //  } else {
