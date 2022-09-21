@@ -1932,8 +1932,8 @@ inline bool Btr::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
 
   uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
   uint32_t current = lock_val >> 32;// current is the former 32 bit in ticket lock
-//        printf("lock offest %lu's ticket is %d\n", lock_addr.offset, ticket);
-  // printf("%ud %ud\n", ticket, current);
+    printf("lock offest %lu's \n", lock_addr.offset);
+   printf("%ud %ud\n", ticket, current);
   while (ticket != current) { // lock failed
     is_local_locked = true;
 
