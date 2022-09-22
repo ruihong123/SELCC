@@ -1396,7 +1396,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
     page->hdr.last_index++;
   }
-  printf("last_index of page offset %ul is %ul", page_addr.offset,  page->hdr.last_index++);
+  printf("last_index of page offset %ul is %ul", page_addr.offset,  page->hdr.last_index);
   assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
   assert(page->records[page->hdr.last_index].key != 0);
 //  assert(page->records[page->hdr.last_index] != GlobalAddress::Null());
