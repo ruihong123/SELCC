@@ -1099,9 +1099,12 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         //  pattern_cnt++;
         ibv_mr* new_mr = new ibv_mr{};
         rdma_mg->Allocate_Local_RDMA_Slot(*new_mr, Internal_and_Leaf);
+
         page_buffer = new_mr->addr;
         header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
         page = (InternalPage *)page_buffer;
+        page->front_version = 0;
+        page->rear_version = 0;
 #ifndef NDEBUG
         int rdma_refetch_times = 0;
 #endif
@@ -1131,7 +1134,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             //TODO: What is the other thread is modifying this page but you overwrite the buffer by a reread.
             // How to tell whether the inconsistent content is from local read-write conflict or remote
             // RDMA read and write conflict
-
+            // TODO: What if the records are not consistent but the page version is consistent.
             //If this page is fetch from the remote memory, discard the page before insert to the cache,
             // then refetch the page by RDMA.
             //If this page read from the
@@ -1233,6 +1236,9 @@ re_read:
     assert(level == 0);
     ibv_mr* local_mr = rdma_mg->Get_local_read_mr();
     page_buffer = local_mr->addr;
+    //clear the version so that there will be no "false consistent" page
+    ((LeafPage*)page_buffer)->front_version = 0;
+    ((LeafPage*)page_buffer)->rear_version = 0;
     header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
     rdma_mg->RDMA_Read(page_addr, local_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
     memset(&result, 0, sizeof(result));
@@ -1271,7 +1277,7 @@ re_read:
         result.slibing = page->hdr.sibling_ptr;
         return true;
     }
-    page->leaf_page_search(k, result);
+    page->leaf_page_search(k, result, *local_mr, page_addr);
     return true;
 }
 // This function will return true unless it found that the key is smaller than the lower bound of a searched node.
@@ -1388,8 +1394,9 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
   }
   assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
   assert(page->records[page->hdr.last_index].key != 0);
-
+//  assert(page->records[page->hdr.last_index] != GlobalAddress::Null());
   cnt = page->hdr.last_index + 1;
+
   need_split = cnt == kInternalCardinality;
   Key split_key;
   GlobalAddress sibling_addr = GlobalAddress::Null();
@@ -1660,7 +1667,6 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     ibv_mr target_mr = *localbuf;
     int offset = (update_addr - (char *) page);
       LADD(target_mr.addr, offset);
-    //TODO: cHANGE localbuf the write mr should not start from the beggining of the local buffer.
       write_page_and_unlock(
               &target_mr, GADD(page_addr, offset),
               sizeof(LeafEntry), (uint64_t*)cas_mr->addr, lock_addr, cxt, coro_id, false);

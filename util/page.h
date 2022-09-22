@@ -238,7 +238,7 @@ namespace DSMEngine{
             std::cout << "version: [" << (int)front_version << ", " << (int)rear_version
                       << "]" << std::endl;
         }
-        void leaf_page_search(const Key &k, SearchResult &result);
+        void leaf_page_search(const Key &k, SearchResult &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr);
     } __attribute__((packed));
 
 }

@@ -2,13 +2,16 @@
 // Created by wang4996 on 22-8-8.
 //
 
+#include <infiniband/verbs.h>
 #include "page.h"
+#include "Btr.h"
 namespace DSMEngine{
     void InternalPage::internal_page_search(const Key &k, SearchResult &result) {
 
         assert(k >= hdr.lowest);
         assert(k < hdr.highest);
         // optimistically latch free.
+        //TODO (potential bug) what will happen if the record version is not consistent?
     re_read:
         GlobalAddress target_global_ptr_buff;
         uint8_t front_v = front_version;
@@ -27,6 +30,7 @@ namespace DSMEngine{
 
             uint8_t rear_v = rear_version;
             // TODO: maybe we need memory fence here either.
+            // TOTHINK: There is no need for local reread because the data will be modified in a copy on write manner.
 
             if (front_v!= rear_v){
                 goto re_read;
@@ -67,23 +71,35 @@ namespace DSMEngine{
         assert(result.next_level != GlobalAddress::Null());
     }
 
-    void LeafPage::leaf_page_search(const Key &k, SearchResult &result) {
-    re_read:
+    void LeafPage::leaf_page_search(const Key &k, SearchResult &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr) {
+//    re_read:
         Value target_value_buff{};
-        uint8_t front_v = front_version;
+//        uint8_t front_v = front_version;
         asm volatile ("sfence\n" : : );
         asm volatile ("lfence\n" : : );
         asm volatile ("mfence\n" : : );
+        //TODO: If record verisons are not consistent, we need to reread the page.
+        // or refetch the record. or we just remove the byteaddressable write and then do not
+        // use record level version.
         for (int i = 0; i < kLeafCardinality; ++i) {
             auto &r = records[i];
-            if (r.key == k && r.value != kValueNull && r.f_version == r.r_version) {
+            while (r.f_version != r.r_version){
+//                ibv_mr target_mr = *local_mr_copied;
+                int offset = ((char*)&r - (char *) this);
+                LADD(local_mr_copied.addr, offset);
+                Btr::rdma_mg->RDMA_Read(GADD(g_page_ptr, offset), &local_mr_copied, sizeof(LeafEntry),IBV_SEND_SIGNALED,1, Internal_and_Leaf);
+
+            }
+            if (r.key == k && r.value != kValueNull ) {
+                assert(r.f_version == r.r_version);
                 target_value_buff = r.value;
                 asm volatile ("sfence\n" : : );
                 asm volatile ("lfence\n" : : );
                 asm volatile ("mfence\n" : : );
-                uint8_t rear_v = rear_version;
-                if (front_v!= rear_v)// version checking
-                    goto re_read;
+//                uint8_t rear_v = rear_version;
+//                if (front_v!= rear_v)// version checking
+//                    //TODO: reread from the remote side.
+//                    goto re _read;
 
 //                memcpy(result.value_padding, r.value_padding, VALUE_PADDING);
 //      result.value_padding = r.value_padding;
