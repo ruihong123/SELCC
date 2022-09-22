@@ -616,7 +616,9 @@ next: // Internal_and_Leaf page search
             assert(result.next_level != GlobalAddress::Null());
             p = result.next_level;
             level = result.level - 1;
-        }else{}
+        }else{
+            printf("happens when there is a only one level\n");
+        }
 
         if (level != 0){
             // level ==0 is corresponding to the corner case where the leaf node and root node are the same.
