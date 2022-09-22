@@ -141,7 +141,6 @@ extern GlobalAddress g_root_ptr;
 extern int g_root_level;
 extern bool enable_cache;
 GlobalAddress Btr::get_root_ptr() {
-// TODO: Use an RPC to get the root pointer from the first node.
   if (g_root_ptr.load() == GlobalAddress::Null()) {
       std::unique_lock<std::mutex> l(mtx);
       if (g_root_ptr.load() == GlobalAddress::Null()) {
@@ -150,7 +149,8 @@ GlobalAddress Btr::get_root_ptr() {
           ibv_mr remote_mr{};
           remote_mr = *rdma_mg->global_index_table;
           // find the table enty according to the id
-          //TODO: It seems we can not get the latest root node
+          //TODO: sometimes the page search will re invalidate the g_toot_ptr after we RDMA read the new  root.
+          // need to find a way to invalidate only once.
           remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*tree_id);
           *(GlobalAddress*)(local_mr->addr) = GlobalAddress::Null();
           // The first compute node may not have written the root ptr to root_ptr_ptr, we need to keep polling.
@@ -1160,8 +1160,12 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //            printf("should turn right ");
       // TODO: if this is the root node then we need to refresh the new root.
       if (isroot){
-          // invalidate the root.
-          g_root_ptr = GlobalAddress::Null();
+          // invalidate the root. Maybe we can omit the mtx here?
+          std::unique_lock<std::mutex> l(mtx);
+          if (page_addr == g_root_ptr.load()){
+              g_root_ptr.store(GlobalAddress::Null());
+          }
+
       }else if(path_stack[coro_id][result.level+1] != GlobalAddress::Null()){
           // It is possible that a staled root will result in a reread at the same level and then the upper level is null
           // Question: why none root tranverser will comes to here? If a stale root initial a sibling page read, then the k should
