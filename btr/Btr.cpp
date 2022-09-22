@@ -1145,7 +1145,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 
         // if there has already been a cache entry with the same key, the old one will be
         // removed from the cache, but it may not be garbage collected right away
-        handle = page_cache->Insert(page_id, new_mr, 1, Deallocate_MR);
+        handle = page_cache->Insert(page_id, new_mr, kInternalPageSize, Deallocate_MR);
 
     }
 
@@ -1313,7 +1313,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
                            lock_addr, 1, cxt, coro_id);
 
-        handle = page_cache->Insert(page_id, local_buffer, 1, Deallocate_MR);
+        handle = page_cache->Insert(page_id, local_buffer, kInternalPageSize, Deallocate_MR);
         // No need for consistence check here.
     }
 
