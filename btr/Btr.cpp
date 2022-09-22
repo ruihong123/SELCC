@@ -1300,6 +1300,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     ibv_mr* local_buffer;
     void * page_buffer;
     if (handle!= nullptr){
+        // TOTHINK: shall the writer update the old internal page or leaf page. If so, it
+        // is possible that the reader need to have a local reread, during the execution.
         local_buffer = (ibv_mr*)page_cache->Value(handle);
         page_buffer = local_buffer->addr;
         // you have to reread to data from the remote side to not missing update from other
@@ -1366,7 +1368,6 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //  assert(k >= page->hdr.lowest);
 
   auto cnt = page->hdr.last_index + 1;
-  assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
   bool is_update = false;
   uint16_t insert_index = 0;
   //TODO: Make it a binary search.
@@ -1383,6 +1384,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     }
   }
   assert(cnt != kInternalCardinality);
+  assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 
   if (!is_update) { // insert and shift
     for (int i = cnt; i > insert_index; --i) {

@@ -12,6 +12,10 @@ namespace DSMEngine{
         assert(k < hdr.highest);
         // optimistically latch free.
         //TODO (potential bug) what will happen if the record version is not consistent?
+
+        // It is necessary to have reread in this function because the interanl page cache can be
+        // updated by a concurrent writer. THe writer will pull the updates from the remote memory.
+        //
     re_read:
         GlobalAddress target_global_ptr_buff;
         uint8_t front_v = front_version;
