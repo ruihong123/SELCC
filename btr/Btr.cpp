@@ -1328,6 +1328,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
     assert(page->hdr.level == level);
     assert(page->check_consistent());
+    assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
+
     path_stack[coro_id][page->hdr.level] = page_addr;
     // This is the result that we do not lock the btree when search for the key.
     // Not sure whether this will still work if we have node merge
