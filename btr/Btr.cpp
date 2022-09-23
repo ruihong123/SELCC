@@ -1374,7 +1374,11 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
   //TODO: Make it a binary search.
   for (int i = cnt - 1; i >= 0; --i) {
     if (page->records[i].key == k) { // find and update
+        page->front_version++;
+        asm volatile ("sfence\n" : : );
       page->records[i].ptr = v;
+      asm volatile ("sfence\n" : : );
+        page->rear_version++;
       // assert(false);
       is_update = true;
       break;
@@ -1388,6 +1392,9 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
   assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 
   if (!is_update) { // insert and shift
+      // The update should mark the page version change because this will make the page state in consistent.
+      page->front_version++;
+      asm volatile ("sfence\n" : : );
     for (int i = cnt; i > insert_index; --i) {
       page->records[i].key = page->records[i - 1].key;
       page->records[i].ptr = page->records[i - 1].ptr;
@@ -1395,7 +1402,10 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     page->records[insert_index].key = k;
     page->records[insert_index].ptr = v;
 
+
     page->hdr.last_index++;
+      asm volatile ("sfence\n" : : );
+    page->rear_version++;
   }
   printf("last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
   assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
@@ -1454,6 +1464,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
       assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
       k = split_key;
       v = sibling_addr;
+      printf("page splitted last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
+
   } else{
 //      k = Key ;
     // Only set the value as null is enough

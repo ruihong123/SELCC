@@ -16,9 +16,21 @@ namespace DSMEngine{
         // It is necessary to have reread in this function because the interanl page cache can be
         // updated by a concurrent writer. THe writer will pull the updates from the remote memory.
         //
+        //TODO(Potential bug): the optimistic latch free is not fully correct because the orginal
+        // algorithm first check the lock state then check the verison again when the read operation end.
+        // the front and rear verison can guarantee the consistency between remote writer and reader but can not guarantee the
+        // consistency between local writer and reader.
+        // THe front and rear versions are necessary.
+        // choice1: Maybe the lock check is necessary (either in the page or outside)
+        // choice2: or we check whether the front verison equals the rear version to check wehther there is a
+        // concurrent writer (check lock).
     re_read:
         GlobalAddress target_global_ptr_buff;
         uint8_t front_v = front_version;
+        uint8_t rear_v = rear_version;
+        if(front_v != rear_v){
+            goto re_read;
+        }
           asm volatile ("sfence\n" : : );
           asm volatile ("lfence\n" : : );
           asm volatile ("mfence\n" : : );
@@ -31,8 +43,9 @@ namespace DSMEngine{
             asm volatile ("lfence\n" : : );
             asm volatile ("mfence\n" : : );
 //      result.upper_key = page->records[0].key;
-
-            uint8_t rear_v = rear_version;
+            // check front verison here because a writer will change the front version at the beggining of a write op
+            // if this has not changed, we can guarntee that there is not writer interfere.
+            front_v = front_version;
             // TODO: maybe we need memory fence here either.
             // TOTHINK: There is no need for local reread because the data will be modified in a copy on write manner.
 
@@ -52,7 +65,7 @@ namespace DSMEngine{
 
                 assert(records[i - 1].key <= k);
                 result.upper_key = records[i - 1].key;
-                uint8_t rear_v = rear_version;
+                front_v = front_version;
                 if (front_v!= rear_v){
                     goto re_read;
                 }
@@ -67,7 +80,7 @@ namespace DSMEngine{
         target_global_ptr_buff = records[cnt - 1].ptr;
 
         assert(records[cnt - 1].key <= k);
-        uint8_t rear_v = rear_version;
+        front_v = front_version;
         if (front_v!= rear_v)// version checking
             goto re_read;
 
