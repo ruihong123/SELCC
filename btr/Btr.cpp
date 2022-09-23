@@ -1115,6 +1115,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             assert(false);
         }
 #endif
+        //TODO: Why the internal page read some times read an empty page?
         rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
 
         memset(&result, 0, sizeof(result));

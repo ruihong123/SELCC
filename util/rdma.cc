@@ -1660,8 +1660,9 @@ End of socket operations
         //  {
 //      fprintf(stdout, "RDMA Read Request was posted, OPCODE is %d\n", sr.opcode);
         //  }
+        ibv_wc* wc;
         if (poll_num != 0) {
-            ibv_wc* wc = new ibv_wc[poll_num]();
+            wc = new ibv_wc[poll_num]();
             //  auto start = std::chrono::high_resolution_clock::now();
             //  while(std::chrono::high_resolution_clock::now
             //  ()-start < std::chrono::nanoseconds(msg_size+200000));
@@ -1673,8 +1674,11 @@ End of socket operations
             }
             delete[] wc;
         }
-        ibv_wc wc;
+//        ibv_wc wc;
+#ifndef NDEBUG
 
+        assert(try_poll_completions(wc, poll_num, qp_type, true, remote_ptr.nodeID) == 0);
+#endif
         return rc;
 }
 // return 0 means success
