@@ -1093,6 +1093,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //      assert(result.level !=0);
         assert(result.is_leaf == (level == 0));
         path_stack[coro_id][result.level] = page_addr;
+        printf("Page offest %lu last index is %d", page_addr.offset, page->hdr.last_index);
 
     }else {
 
@@ -1121,6 +1122,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         result.level = header->level;
         level = result.level;
         path_stack[coro_id][result.level] = page_addr;
+        printf("Page offest %lu last index is %d", page_addr.offset, page->hdr.last_index);
         //check level first because the rearversion's position depends on the leaf node or internal node
         if (result.level == 0){
             // if the root node is the leaf node this path will happen.
@@ -1299,7 +1301,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
     ibv_mr* local_buffer;
     void * page_buffer;
-    int flag = 3;
+//    int flag = 3;
     if (handle!= nullptr){
         // TOTHINK: shall the writer update the old internal page or leaf page. If so, it
         // is possible that the reader need to have a local reread, during the execution.
@@ -1312,7 +1314,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
                            lock_addr, 1, cxt, coro_id);
         printf("Read page %lu over address %p, version is %u  \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
-        flag = 1;
+//        flag = 1;
     } else{
 
         local_buffer = new ibv_mr{};
@@ -1326,7 +1328,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         printf("Read page %lu over address %p, version is %u \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
         handle = page_cache->Insert(page_id, local_buffer, kInternalPageSize, Deallocate_MR);
         // No need for consistence check here.
-        flag = 0;
+//        flag = 0;
     }
 
 
