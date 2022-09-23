@@ -1299,6 +1299,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
     ibv_mr* local_buffer;
     void * page_buffer;
+    int flag = 3;
     if (handle!= nullptr){
         // TOTHINK: shall the writer update the old internal page or leaf page. If so, it
         // is possible that the reader need to have a local reread, during the execution.
@@ -1311,6 +1312,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
                            lock_addr, 1, cxt, coro_id);
         printf("Read page %lu over address %p \n", page_addr.offset, local_buffer->addr);
+        flag = 1;
     } else{
 
         local_buffer = new ibv_mr{};
@@ -1324,6 +1326,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         printf("Read page %lu over address %p \n", page_addr.offset, local_buffer->addr);
         handle = page_cache->Insert(page_id, local_buffer, kInternalPageSize, Deallocate_MR);
         // No need for consistence check here.
+        flag = 0;
     }
 
 
