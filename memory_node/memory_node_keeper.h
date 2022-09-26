@@ -69,6 +69,11 @@ class Memory_Node_Keeper {
 #endif
 
   int server_sock_connect(const char* servername, int port);
+  /***
+   * RPC handling threads, every connection to the compute node should have at least one RPC handling threads.
+   * @param client_ip
+   * @param socket_fd
+   */
   void server_communication_thread(std::string client_ip, int socket_fd);
   void create_mr_handler(RDMA_Request* request, std::string& client_ip,
                          uint8_t target_node_id);
