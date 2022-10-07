@@ -235,6 +235,13 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
     broadcast_new_root(new_root_addr, level);
     std::cout << "new root level " << level << " " << new_root_addr
               << std::endl;
+
+#ifndef NDEBUG
+      usleep(10);
+      ibv_wc wc[2];
+      auto qp_type = std::string("default");
+      assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, 1)== 0);
+#endif
     return true;
   } else {
     std::cout << "cas root fail " << std::endl;
@@ -1118,7 +1125,12 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         //TODO: Why the internal page read some times read an empty page?
         rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
         //
-
+#ifndef NDEBUG
+        usleep(10);
+        ibv_wc wc[2];
+        auto qp_type = std::string("default");
+        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID)== 0);
+#endif
         memset(&result, 0, sizeof(result));
         result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
         result.level = header->level;
@@ -1220,11 +1232,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
   page_cache->Release(handle);
 
 
-#ifndef NDEBUG
-        ibv_wc wc[2];
-        auto qp_type = std::string("default");
-        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID)== 0);
-#endif
+
   return true;
 }
 
@@ -1760,7 +1768,12 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 
     write_page_and_unlock(localbuf, page_addr, kLeafPageSize, (uint64_t*)cas_mr->addr,
                           lock_addr, cxt, coro_id, false);
-
+#ifndef NDEBUG
+    usleep(10);
+    ibv_wc wc[2];
+    auto qp_type = std::string("default");
+    assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID)== 0);
+#endif
     if (sibling_addr != GlobalAddress::Null()){
         auto p = path_stack[coro_id][level+1];
         //check whether the node split is for a root node.
