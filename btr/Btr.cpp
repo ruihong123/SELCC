@@ -1118,11 +1118,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         //TODO: Why the internal page read some times read an empty page?
         rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
         //
-#ifndef NDEBUG
-        ibv_wc wc[2];
-        auto qp_type = std::string("default");
-        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID)== 0);
-#endif
+
         memset(&result, 0, sizeof(result));
         result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
         result.level = header->level;
@@ -1224,7 +1220,11 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
   page_cache->Release(handle);
 
 
-
+#ifndef NDEBUG
+        ibv_wc wc[2];
+        auto qp_type = std::string("default");
+        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID)== 0);
+#endif
   return true;
 }
 
