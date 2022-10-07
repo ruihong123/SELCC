@@ -1760,6 +1760,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
       page->hdr.sibling_ptr = sibling_addr;
     sibling->set_consistent();
     rdma_mg->RDMA_Write(sibling_addr, sibling_mr,kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+      rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
   }else{
       sibling_addr = GlobalAddress::Null();
   }
