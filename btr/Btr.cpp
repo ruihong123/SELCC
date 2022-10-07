@@ -1101,7 +1101,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         assert(result.is_leaf == (level == 0));
         path_stack[coro_id][result.level] = page_addr;
         printf("Page offest %lu last index is %d", page_addr.offset, page->hdr.last_index);
-
+        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
     }else {
 
         //  pattern_cnt++;
@@ -1140,8 +1140,8 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         //check level first because the rearversion's position depends on the leaf node or internal node
         if (result.level == 0){
             // if the root node is the leaf node this path will happen.
-//            assert(level = -1);
 
+            // No need for reread.
             rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal_and_Leaf);
             // return true and let the outside code figure out that the leaf node is the root node
             return true;
@@ -1166,7 +1166,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         // if there has already been a cache entry with the same key, the old one will be
         // removed from the cache, but it may not be garbage collected right away
         handle = page_cache->Insert(page_id, new_mr, kInternalPageSize, Deallocate_MR);
-
+        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
     }
 
     assert(result.level != 0);
