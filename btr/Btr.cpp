@@ -1427,7 +1427,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
       asm volatile ("sfence\n" : : );
     page->rear_version++;
   }
-  printf("last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
+//  printf("last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
   assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
   assert(page->records[page->hdr.last_index].key != 0);
 //  assert(page->records[page->hdr.last_index] != GlobalAddress::Null());
@@ -1484,7 +1484,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
       assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
       k = split_key;
       v = sibling_addr;
-      printf("page splitted last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
+//      printf("page splitted last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
 
   } else{
 //      k = Key ;
