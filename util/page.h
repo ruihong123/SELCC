@@ -135,14 +135,14 @@ namespace DSMEngine{
             embedding_lock = 0;
         }
 
-        void set_consistent() {
-            front_version++;
-            rear_version = front_version;
-#ifdef CONFIG_ENABLE_CRC
-            this->crc =
-        CityHash32((char *)&front_version, (&rear_version) - (&front_version));
-#endif
-        }
+//        void set_consistent() {
+//            front_version++;
+//            rear_version = front_version;
+//#ifdef CONFIG_ENABLE_CRC
+//            this->crc =
+//        CityHash32((char *)&front_version, (&rear_version) - (&front_version));
+//#endif
+//        }
 
 
         bool check_consistent() const {
@@ -206,14 +206,14 @@ namespace DSMEngine{
             embedding_lock = 0;
         }
 
-        void set_consistent() {
-            front_version++;
-            rear_version = front_version;
-#ifdef CONFIG_ENABLE_CRC
-            this->crc =
-        CityHash32((char *)&front_version, (&rear_version) - (&front_version));
-#endif
-        }
+//        void set_consistent() {
+//            front_version++;
+//            rear_version = front_version;
+//#ifdef CONFIG_ENABLE_CRC
+//            this->crc =
+//        CityHash32((char *)&front_version, (&rear_version) - (&front_version));
+//#endif
+//        }
 
         bool check_consistent() const {
 

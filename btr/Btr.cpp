@@ -80,7 +80,8 @@ Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id),
         }
         auto root_page = new (cached_root_page_mr.addr) LeafPage;
 
-        root_page->set_consistent();
+        root_page->front_version++;
+        root_page->rear_version = root_page->front_version;
         rdma_mg->RDMA_Write(g_root_ptr, &cached_root_page_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
         // TODO: create a special region to store the root_ptr for every tree id.
         auto local_mr = rdma_mg->Get_local_CAS_mr(); // remote allocation.
@@ -222,7 +223,8 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
     }
   // The code below is just for debugging
 //    new_root_addr.mark = 3;
-  new_root->set_consistent();
+    new_root->front_version++;
+    new_root->rear_version = new_root->front_version;
   // set local cache for root address
   g_root_ptr = new_root_addr;
     tree_height = level;
@@ -1123,6 +1125,8 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         }
 #endif
         //TODO: Why the internal page read some times read an empty page?
+        // THe bug could be resulted from the concurrent access by multiple threads.
+        // why the last_index is always greater than the records number?
         rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
         //
 #ifndef NDEBUG
@@ -1425,7 +1429,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
     page->hdr.last_index++;
       asm volatile ("sfence\n" : : );
-    page->rear_version++;
+
   }
 //  printf("last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
   assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
@@ -1475,7 +1479,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
       // link
       sibling->hdr.sibling_ptr = page->hdr.sibling_ptr;
       page->hdr.sibling_ptr = sibling_addr;
-    sibling->set_consistent();
+//    sibling->set_consistent();
     //the code below is just for debugging.
 //    sibling_addr.mark = 2;
 
@@ -1491,10 +1495,10 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     // Only set the value as null is enough
       v = GlobalAddress::Null();
   }
-//  assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
-
-
-    page->set_consistent();
+        // Set the rear_version for the concurrent reader. The reader can tell whether
+        // there is intermidated writer during its execution.
+        page->rear_version++;
+//    page->set_consistent();
     write_page_and_unlock(local_buffer, page_addr, kInternalPageSize, (uint64_t*)cas_mr->addr,
                           lock_addr, cxt, coro_id, false);
 
@@ -1659,6 +1663,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 
     // TODO: make the key-value stored with order, do not use this unordered page structure.
     //  Or use the key to check whether this holder is empty.
+    page->front_version++;
   for (int i = 0; i < kLeafCardinality; ++i) {
 
     auto &r = page->records[i];
@@ -1733,7 +1738,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     //TODO: add the sibling to the local cache.
     // std::cout << "addr " <<  sibling_addr << " | level " <<
     // (int)(page->hdr.level) << std::endl;
-
+      sibling->front_version ++;
       int m = cnt / 2;
       split_key = page->records[m].key;
       assert(split_key > page->hdr.lowest);
@@ -1758,14 +1763,16 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
       // link
       sibling->hdr.sibling_ptr = page->hdr.sibling_ptr;
       page->hdr.sibling_ptr = sibling_addr;
-    sibling->set_consistent();
+      sibling->rear_version =  sibling->front_version;
+//    sibling->set_consistent();
     rdma_mg->RDMA_Write(sibling_addr, sibling_mr,kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
       rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
+
   }else{
       sibling_addr = GlobalAddress::Null();
   }
-
-  page->set_consistent();
+    page->rear_version = page->front_version;
+//  page->set_consistent();
 
     write_page_and_unlock(localbuf, page_addr, kLeafPageSize, (uint64_t*)cas_mr->addr,
                           lock_addr, cxt, coro_id, false);
@@ -1879,7 +1886,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 
         return false;
     }
-
+        page->front_version++;
     auto cnt = page->hdr.last_index + 1;
 
     int del_index = -1;
@@ -1897,8 +1904,8 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
         }
 
         page->hdr.last_index--;
-
-        page->set_consistent();
+        page->rear_version = page->front_version;
+//        page->set_consistent();
         rdma_mg->RDMA_Write(page_addr, rbuf, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
     }
     this->unlock_addr(lock_addr, cxt, coro_id, false);
