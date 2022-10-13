@@ -1103,7 +1103,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         assert(result.is_leaf == (level == 0));
         path_stack[coro_id][result.level] = page_addr;
         printf("From cache, Page offest %lu last index is %d, page pointer is %p\n", page_addr.offset, page->hdr.last_index, page);
-        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
+//        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
     }else {
 
         //  pattern_cnt++;
@@ -1170,7 +1170,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         // if there has already been a cache entry with the same key, the old one will be
         // removed from the cache, but it may not be garbage collected right away
         handle = page_cache->Insert(page_id, new_mr, kInternalPageSize, Deallocate_MR);
-        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
+//        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
     }
 
     assert(result.level != 0);
@@ -1196,6 +1196,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
           // It is possible that a staled root will result in a reread at the same level and then the upper level is null
           // Question: why none root tranverser will comes to here? If a stale root initial a sibling page read, then the k should
           // not larger than the highest this time.
+          //TODO(potential bug): Erase need to acquire the lock for the page
           page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
       }
       //TODO: What if the Erased key is still in use by other threads? THis is very likely
@@ -1328,6 +1329,12 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         page_buffer = local_buffer->addr;
         // you have to reread to data from the remote side to not missing update from other
         // nodes! Do not read the page from the cache!
+#ifndef NDEBUG
+        usleep(10);
+        ibv_wc wc[2];
+        auto qp_type = std::string("default");
+        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID)== 0);
+#endif
         // TODO(Potential optimization): May be we can handover the cache if two writer threads modifying the same page.
         //  saving some RDMA round trips.
         lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
@@ -1341,7 +1348,12 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         page_buffer = local_buffer->addr;
         // you have to reread to data from the remote side to not missing update from other
         // nodes! Do not read the page from the cache!
-
+#ifndef NDEBUG
+        usleep(10);
+        ibv_wc wc[2];
+        auto qp_type = std::string("default");
+        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID)== 0);
+#endif
         lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
                            lock_addr, 1, cxt, coro_id);
         printf("Read page %lu over address %p, version is %u \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
