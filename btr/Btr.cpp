@@ -1197,6 +1197,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
           // Question: why none root tranverser will comes to here? If a stale root initial a sibling page read, then the k should
           // not larger than the highest this time.
           //TODO(potential bug): Erase need to acquire the lock for the page
+
           page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
       }
       //TODO: What if the Erased key is still in use by other threads? THis is very likely
@@ -1279,6 +1280,8 @@ re_read:
         // erase the upper node from the cache and refetch the upper node to continue.
         int last_level = 1;
         if (path_stack[coro_id][last_level] != GlobalAddress::Null()){
+            //TODO(POTENTIAL bug): add a lock for the page when erase it. other wise other threads may
+            // modify the page based on a stale cached page.
             page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
 
         }
