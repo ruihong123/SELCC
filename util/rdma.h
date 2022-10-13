@@ -510,6 +510,8 @@ class RDMA_Manager {
 //  ThreadLocalPtr* local_read_qp_info;
   //  thread_local static std::unique_ptr<ibv_qp, QP_Deleter> qp_local_write_flush;
   //  thread_local static std::unique_ptr<ibv_cq, CQ_Deleter> cq_local_write_flush;
+  // TODO: replace the std::map<void*, In_Use_Array*> as a thread local vector of In_Use_Array*, so that
+  // the conflict can be minimized.
   std::unordered_map<Chunk_type, std::map<void*, In_Use_Array*>>
       name_to_mem_pool;
   std::unordered_map<Chunk_type, size_t> name_to_chunksize;

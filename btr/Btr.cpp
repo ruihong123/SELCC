@@ -1102,7 +1102,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //      assert(result.level !=0);
         assert(result.is_leaf == (level == 0));
         path_stack[coro_id][result.level] = page_addr;
-//        printf("Page offest %lu last index is %d\n", page_addr.offset, page->hdr.last_index);
+        printf("Page offest %lu last index is %d\n", page_addr.offset, page->hdr.last_index);
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
     }else {
 
@@ -1140,7 +1140,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         result.level = header->level;
         level = result.level;
         path_stack[coro_id][result.level] = page_addr;
-//        printf("Page offest %lu last index is %d\n", page_addr.offset, page->hdr.last_index);
+        printf("Page offest %lu last index is %d\n", page_addr.offset, page->hdr.last_index);
         //check level first because the rearversion's position depends on the leaf node or internal node
         if (result.level == 0){
             // if the root node is the leaf node this path will happen.
@@ -1332,7 +1332,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         //  saving some RDMA round trips.
         lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
                            lock_addr, 1, cxt, coro_id);
-//        printf("Read page %lu over address %p, version is %u  \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
+        printf("Read page %lu over address %p, version is %u  \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
 //        flag = 1;
     } else{
 
@@ -1344,7 +1344,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
         lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
                            lock_addr, 1, cxt, coro_id);
-//        printf("Read page %lu over address %p, version is %u \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
+        printf("Read page %lu over address %p, version is %u \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
         handle = page_cache->Insert(page_id, local_buffer, kInternalPageSize, Deallocate_MR);
         // No need for consistence check here.
 //        flag = 0;
@@ -1414,7 +1414,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
   }
   assert(cnt != kInternalCardinality);
   assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
-
+    Key split_key;
+    GlobalAddress sibling_addr = GlobalAddress::Null();
   if (!is_update) { // insert and shift
       // The update should mark the page version change because this will make the page state in consistent.
       page->front_version++;
@@ -1429,79 +1430,80 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
     page->hdr.last_index++;
       asm volatile ("sfence\n" : : );
-
-  }
-//  printf("last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
-  assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
-  assert(page->records[page->hdr.last_index].key != 0);
+      //  printf("last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
+      assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
+      assert(page->records[page->hdr.last_index].key != 0);
 //  assert(page->records[page->hdr.last_index] != GlobalAddress::Null());
-  cnt = page->hdr.last_index + 1;
+      cnt = page->hdr.last_index + 1;
 
-  need_split = cnt == kInternalCardinality;
-  Key split_key;
-  GlobalAddress sibling_addr = GlobalAddress::Null();
-  // THe internal node is different from leaf nodes because it has the
-  // leftmost_ptr. THe internal nodes has n key but n+1 global pointers.
-    // the internal node split pick the middle key as split key and the middle key
-    // will not existed in either of the splited node
-    // THe data under this internal node [lowest, highest)
+      need_split = cnt == kInternalCardinality;
 
-    //Both internal node and leaf nodes are [lowest, highest) except for the left most
-  if (need_split) { // need split
-    sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1);
-      if(++round_robin_cur == rdma_mg->memory_nodes.size()){
-          round_robin_cur = 0;
-      }
-    ibv_mr* sibling_buf = new ibv_mr{};
-    rdma_mg->Allocate_Local_RDMA_Slot(*sibling_buf, Internal_and_Leaf);
+      // THe internal node is different from leaf nodes because it has the
+      // leftmost_ptr. THe internal nodes has n key but n+1 global pointers.
+      // the internal node split pick the middle key as split key and the middle key
+      // will not existed in either of the splited node
+      // THe data under this internal node [lowest, highest)
 
-    auto sibling = new (sibling_buf->addr) InternalPage(page->hdr.level);
+      //Both internal node and leaf nodes are [lowest, highest) except for the left most
+      if (need_split) { // need split
+          sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1);
+          if(++round_robin_cur == rdma_mg->memory_nodes.size()){
+              round_robin_cur = 0;
+          }
+          ibv_mr* sibling_buf = new ibv_mr{};
+          rdma_mg->Allocate_Local_RDMA_Slot(*sibling_buf, Internal_and_Leaf);
 
-    //    std::cout << "addr " <<  sibling_addr << " | level " <<
-    //    (int)(page->hdr.level) << std::endl;
-      int m = cnt / 2;
-      split_key = page->records[m].key;
-      assert(split_key > page->hdr.lowest);
-      assert(split_key < page->hdr.highest);
-      for (int i = m + 1; i < cnt; ++i) { // move
-          sibling->records[i - m - 1].key = page->records[i].key;
-          sibling->records[i - m - 1].ptr = page->records[i].ptr;
-      }
-      page->hdr.last_index -= (cnt - m); // this is correct.
-      assert(page->hdr.last_index == m-1);
-      sibling->hdr.last_index += (cnt - m - 1);
-      assert(sibling->hdr.last_index == cnt - m - 1 - 1);
-      sibling->hdr.leftmost_ptr = page->records[m].ptr;
-      sibling->hdr.lowest = page->records[m].key;
-      sibling->hdr.highest = page->hdr.highest;
-      page->hdr.highest = page->records[m].key;
+          auto sibling = new (sibling_buf->addr) InternalPage(page->hdr.level);
 
-      // link
-      sibling->hdr.sibling_ptr = page->hdr.sibling_ptr;
-      page->hdr.sibling_ptr = sibling_addr;
+          //    std::cout << "addr " <<  sibling_addr << " | level " <<
+          //    (int)(page->hdr.level) << std::endl;
+          int m = cnt / 2;
+          split_key = page->records[m].key;
+          assert(split_key > page->hdr.lowest);
+          assert(split_key < page->hdr.highest);
+          for (int i = m + 1; i < cnt; ++i) { // move
+              sibling->records[i - m - 1].key = page->records[i].key;
+              sibling->records[i - m - 1].ptr = page->records[i].ptr;
+          }
+          page->hdr.last_index -= (cnt - m); // this is correct.
+          assert(page->hdr.last_index == m-1);
+          sibling->hdr.last_index += (cnt - m - 1);
+          assert(sibling->hdr.last_index == cnt - m - 1 - 1);
+          sibling->hdr.leftmost_ptr = page->records[m].ptr;
+          sibling->hdr.lowest = page->records[m].key;
+          sibling->hdr.highest = page->hdr.highest;
+          page->hdr.highest = page->records[m].key;
+
+          // link
+          sibling->hdr.sibling_ptr = page->hdr.sibling_ptr;
+          page->hdr.sibling_ptr = sibling_addr;
 //    sibling->set_consistent();
-    //the code below is just for debugging.
+          //the code below is just for debugging.
 //    sibling_addr.mark = 2;
 
-    rdma_mg->RDMA_Write(sibling_addr, sibling_buf, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-      assert(sibling->records[sibling->hdr.last_index].ptr != GlobalAddress::Null());
-      assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
-      k = split_key;
-      v = sibling_addr;
+          rdma_mg->RDMA_Write(sibling_addr, sibling_buf, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+          assert(sibling->records[sibling->hdr.last_index].ptr != GlobalAddress::Null());
+          assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
+          k = split_key;
+          v = sibling_addr;
 //      printf("page splitted last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
 
-  } else{
+      } else{
 //      k = Key ;
-    // Only set the value as null is enough
-      v = GlobalAddress::Null();
+          // Only set the value as null is enough
+          v = GlobalAddress::Null();
+      }
+      // Set the rear_version for the concurrent reader. The reader can tell whether
+      // there is intermidated writer during its execution.
+      //    page->set_consistent();
+      page->rear_version++;
   }
-        // Set the rear_version for the concurrent reader. The reader can tell whether
-        // there is intermidated writer during its execution.
-        page->rear_version++;
-//    page->set_consistent();
+
+
+
     write_page_and_unlock(local_buffer, page_addr, kInternalPageSize, (uint64_t*)cas_mr->addr,
                           lock_addr, cxt, coro_id, false);
-
+  // We can also say if need_split
     if (sibling_addr != GlobalAddress::Null()){
         auto p = path_stack[coro_id][level+1];
         //check whether the node split is for a root node.

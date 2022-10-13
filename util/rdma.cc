@@ -593,8 +593,7 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
         (name_to_chunksize.at(pool_name));  // here we supposing the SSTables are 4 megabytes
     auto* in_use_array = new In_Use_Array(placeholder_num, name_to_chunksize.at(pool_name),
                                           *p2mrpointer);
-    // TODO: Modify it to allocate the memory according to the memory chunk types
-
+    // TODO: make the code below protected by mutex in thread local alocator
     name_to_mem_pool.at(pool_name).insert({(*p2mrpointer)->addr, in_use_array});
   }
     else
