@@ -1102,7 +1102,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //      assert(result.level !=0);
         assert(result.is_leaf == (level == 0));
         path_stack[coro_id][result.level] = page_addr;
-        printf("From cache, Page offest %lu last index is %d, page pointer is %p\n", page_addr.offset, page->hdr.last_index, page);
+//        printf("From cache, Page offest %lu last index is %d, page pointer is %p\n", page_addr.offset, page->hdr.last_index, page);
 //        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
     }else {
 
@@ -1140,7 +1140,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         result.level = header->level;
         level = result.level;
         path_stack[coro_id][result.level] = page_addr;
-        printf("From remote memory, Page offest %lu last index is %d, page pointer is %p\n", page_addr.offset, page->hdr.last_index, page);
+//        printf("From remote memory, Page offest %lu last index is %d, page pointer is %p\n", page_addr.offset, page->hdr.last_index, page);
         //check level first because the rearversion's position depends on the leaf node or internal node
         if (result.level == 0){
             // if the root node is the leaf node this path will happen.
@@ -1282,8 +1282,7 @@ re_read:
         if (path_stack[coro_id][last_level] != GlobalAddress::Null()){
             //TODO(POTENTIAL bug): add a lock for the page when erase it. other wise other threads may
             // modify the page based on a stale cached page.
-            page_cache->E
-            rase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
+            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
 
         }
         return false;// false means need to fall back
@@ -1343,7 +1342,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         //  saving some RDMA round trips.
         lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
                            lock_addr, 1, cxt, coro_id);
-        printf("Read page %lu over address %p, version is %u  \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
+//        printf("Read page %lu over address %p, version is %u  \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
 //        flag = 1;
     } else{
 
@@ -1360,7 +1359,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 #endif
         lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
                            lock_addr, 1, cxt, coro_id);
-        printf("Read page %lu over address %p, version is %u \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
+//        printf("Read page %lu over address %p, version is %u \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
         handle = page_cache->Insert(page_id, local_buffer, kInternalPageSize, Deallocate_MR);
         // No need for consistence check here.
 //        flag = 0;
@@ -1451,7 +1450,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
     page->hdr.last_index++;
 //      asm volatile ("sfence\n" : : );
-        printf("last_index of page offset %lu is %hd, page level is %d, page is %p\n", page_addr.offset,  page->hdr.last_index, page->hdr.level, page);
+//        printf("last_index of page offset %lu is %hd, page level is %d, page is %p\n", page_addr.offset,  page->hdr.last_index, page->hdr.level, page);
       assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
       assert(page->records[page->hdr.last_index].key != 0);
 //  assert(page->records[page->hdr.last_index] != GlobalAddress::Null());
