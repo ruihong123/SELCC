@@ -1420,6 +1420,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         // upper level. because the sibling pointer only points to larger one.
 
         if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
+            // TODO: How to make sure the Erase was only executed once?
             page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
         }
         this->unlock_addr(lock_addr, cxt, coro_id, false);

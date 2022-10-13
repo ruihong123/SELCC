@@ -22,7 +22,7 @@ void bindCore(uint16_t core) {
 #ifndef NDEBUG
     std::stringstream ss;
     ss << std::this_thread::get_id();
-    DSMEngine::Btr::thread_id = std::stoull(ss.str());
+    DSMEngine::RDMA_Manager::thread_id = std::stoull(ss.str());
 #endif
 }
 

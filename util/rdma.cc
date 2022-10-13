@@ -19,6 +19,8 @@ std::atomic<uint64_t> RDMA_Manager::ReadCount1 = 0;
 #ifndef NDEBUG
     thread_local int RDMA_Manager::thread_id = 0;
 #endif
+
+
 //#define R_SIZE 32
 void UnrefHandle_rdma(void* ptr) { delete static_cast<std::string*>(ptr); }
 void UnrefHandle_qp(void* ptr) {
