@@ -52,13 +52,14 @@ namespace DSMEngine{
             // TODO: maybe we need memory fence here either.
             // TOTHINK: There is no need for local reread because the data will be modified in a copy on write manner.
 
-            if (front_v!= rear_v){
-                goto re_read;
-            }
+
             result.next_level = target_global_ptr_buff;
 #ifndef NDEBUG
             result.upper_key = records[0].key;
 #endif
+            if (front_v!= rear_v){
+                goto re_read;
+            }
             assert(result.next_level != GlobalAddress::Null());
             return;
         }
@@ -72,14 +73,15 @@ namespace DSMEngine{
                 assert(records[i - 1].key <= k);
                 result.upper_key = records[i - 1].key;
                 front_v = front_version;
-                if (front_v!= rear_v){
-                    goto re_read;
-                }
+
 
                 result.next_level = target_global_ptr_buff;
 #ifndef NDEBUG
                 result.upper_key = records[i].key;
 #endif
+                if (front_v!= rear_v){
+                    goto re_read;
+                }
                 assert(result.next_level != GlobalAddress::Null());
                 return;
             }
@@ -90,13 +92,14 @@ namespace DSMEngine{
 
         assert(records[cnt - 1].key <= k);
         front_v = front_version;
-        if (front_v!= rear_v)// version checking
-            goto re_read;
+
 
         result.next_level = target_global_ptr_buff;
 #ifndef NDEBUG
         result.upper_key = hdr.highest;
 #endif
+        if (front_v!= rear_v)// version checking
+            goto re_read;
         assert(result.next_level != GlobalAddress::Null());
     }
 
