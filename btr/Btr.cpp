@@ -1282,7 +1282,8 @@ re_read:
         if (path_stack[coro_id][last_level] != GlobalAddress::Null()){
             //TODO(POTENTIAL bug): add a lock for the page when erase it. other wise other threads may
             // modify the page based on a stale cached page.
-            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
+            page_cache->E
+            rase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
 
         }
         return false;// false means need to fall back
@@ -1414,6 +1415,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
   for (int i = cnt - 1; i >= 0; --i) {
     if (page->records[i].key == k) { // find and update
         page->front_version++;
+
         asm volatile ("sfence\n" : : );
       page->records[i].ptr = v;
       asm volatile ("sfence\n" : : );
@@ -1434,7 +1436,11 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
   if (!is_update) { // insert and shift
       // The update should mark the page version change because this will make the page state in consistent.
       page->front_version++;
+      //TODO(potential bug): double check the memory fence, there could be out of order
+      // execution preventing the version lock.
       asm volatile ("sfence\n" : : );
+      asm volatile ("lfence\n" : : );
+      asm volatile ("mfence\n" : : );
     for (int i = cnt; i > insert_index; --i) {
       page->records[i].key = page->records[i - 1].key;
       page->records[i].ptr = page->records[i - 1].ptr;
@@ -1444,7 +1450,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
 
     page->hdr.last_index++;
-      asm volatile ("sfence\n" : : );
+//      asm volatile ("sfence\n" : : );
         printf("last_index of page offset %lu is %hd, page level is %d, page is %p\n", page_addr.offset,  page->hdr.last_index, page->hdr.level, page);
       assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
       assert(page->records[page->hdr.last_index].key != 0);
@@ -1511,6 +1517,9 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
       // Set the rear_version for the concurrent reader. The reader can tell whether
       // there is intermidated writer during its execution.
       //    page->set_consistent();
+      asm volatile ("sfence\n" : : );
+      asm volatile ("lfence\n" : : );
+      asm volatile ("mfence\n" : : );
       page->rear_version++;
   }
 
