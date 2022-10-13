@@ -1664,6 +1664,12 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 
   lock_and_read_page(localbuf, page_addr, kLeafPageSize, cas_mr,
                      lock_addr, 1, cxt, coro_id);
+#ifndef NDEBUG
+    usleep(20);
+    ibv_wc wc[2];
+    auto qp_type = std::string("default");
+    assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID)== 0);
+#endif
   // TODO: under some situation the lock is not released
 
     auto page = (LeafPage *)page_buffer;
