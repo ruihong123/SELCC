@@ -34,6 +34,9 @@ namespace DSMEngine{
           asm volatile ("sfence\n" : : );
           asm volatile ("lfence\n" : : );
           asm volatile ("mfence\n" : : );
+
+          //TOTHINK: how to make sure that concurrent write will not result in segfault,
+          // such as out of buffer for cnt.
         auto cnt = hdr.last_index + 1;
         // page->debug();
         if (k < records[0].key) {

@@ -1664,12 +1664,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 
   lock_and_read_page(localbuf, page_addr, kLeafPageSize, cas_mr,
                      lock_addr, 1, cxt, coro_id);
-#ifndef NDEBUG
-    usleep(20);
-    ibv_wc wc[2];
-    auto qp_type = std::string("default");
-    assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID)== 0);
-#endif
+
   // TODO: under some situation the lock is not released
 
     auto page = (LeafPage *)page_buffer;
@@ -1688,9 +1683,16 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
             }
 //            this->unlock_addr(lock_addr, cxt, coro_id, true);
             if (nested_retry_counter <= 2){
+
                 nested_retry_counter++;
                 return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt, coro_id);
             }else{
+#ifndef NDEBUG
+                sleep(2);
+                ibv_wc wc[2];
+                auto qp_type = std::string("default");
+                assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID)== 0);
+#endif
                 assert(false);
                 nested_retry_counter = 0;
                 return false;
