@@ -1674,7 +1674,11 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     path_stack[coro_id][page->hdr.level] = page_addr;
     // It is possible that the key is larger than the highest key
     // The range of a page is [lowest,largest).
-    // TODO: USE a thread local counter to prevent too much sibling pointer access.
+    // TODO: find out why sometimes the node is far from the target node that it need multiple times of
+    //  sibling access.
+    //
+    // Note that it is normal to see that the local buffer are always the same accross the nested
+    //  funciton call, because they are sharing the same local buffer.
     if (k >= page->hdr.highest) {
         if (page->hdr.sibling_ptr != GlobalAddress::Null()){
             this->unlock_addr(lock_addr, cxt, coro_id, false);
@@ -1687,12 +1691,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
                 nested_retry_counter++;
                 return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt, coro_id);
             }else{
-#ifndef NDEBUG
-                sleep(2);
-                ibv_wc wc[2];
-                auto qp_type = std::string("default");
-                assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID)== 0);
-#endif
+
                 assert(false);
                 nested_retry_counter = 0;
                 return false;

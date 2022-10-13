@@ -56,6 +56,9 @@ namespace DSMEngine{
                 goto re_read;
             }
             result.next_level = target_global_ptr_buff;
+#ifndef NDEBUG
+            result.upper_key = records[0].key;
+#endif
             assert(result.next_level != GlobalAddress::Null());
             return;
         }
@@ -74,6 +77,9 @@ namespace DSMEngine{
                 }
 
                 result.next_level = target_global_ptr_buff;
+#ifndef NDEBUG
+                result.upper_key = records[i].key;
+#endif
                 assert(result.next_level != GlobalAddress::Null());
                 return;
             }
@@ -88,6 +94,9 @@ namespace DSMEngine{
             goto re_read;
 
         result.next_level = target_global_ptr_buff;
+#ifndef NDEBUG
+        result.upper_key = hdr.highest;
+#endif
         assert(result.next_level != GlobalAddress::Null());
     }
 
