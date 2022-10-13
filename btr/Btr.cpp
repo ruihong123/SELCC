@@ -14,9 +14,9 @@
 #include "port/likely.h"
 namespace DSMEngine {
 bool enter_debug = false;
-#ifndef NDEBUG
-thread_local int Btr::thread_id = 0;
-#endif
+
+
+thread_local int Btr::nested_retry_counter = 0;
 //HotBuffer hot_buf;
 uint64_t cache_miss[MAX_APP_THREAD][8];
 uint64_t cache_hit[MAX_APP_THREAD][8];
@@ -1203,12 +1203,19 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
       //TODO: What if the Erased key is still in use by other threads? THis is very likely
       // for the upper level nodes.
     //          if (path_stack[coro_id][result.level+1] != GlobalAddress::Null()){
-    //              page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
-    //
+    //              page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)))
     //          }
-      result.slibing = page->hdr.sibling_ptr;
-      return internal_page_search(page->hdr.sibling_ptr, k, result, level, isroot, cxt, coro_id);
+        if (nested_retry_counter <= 2){
+            nested_retry_counter++;
+            result.slibing = page->hdr.sibling_ptr;
+            return internal_page_search(page->hdr.sibling_ptr, k, result, level, isroot, cxt, coro_id);
+        }else{
+            nested_retry_counter = 0;
+            return false;
+        }
+
     }
+        nested_retry_counter = 0;
     if (k < page->hdr.lowest) {
       if (isroot){
           // invalidate the root.
@@ -1276,17 +1283,7 @@ re_read:
         goto re_read;
     }
 
-    if ((k < page->hdr.lowest )) { // cache is stale
-        // erase the upper node from the cache and refetch the upper node to continue.
-        int last_level = 1;
-        if (path_stack[coro_id][last_level] != GlobalAddress::Null()){
-            //TODO(POTENTIAL bug): add a lock for the page when erase it. other wise other threads may
-            // modify the page based on a stale cached page.
-            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
 
-        }
-        return false;// false means need to fall back
-    }
 
     assert(result.level == 0);
     if (k >= page->hdr.highest) { // should turn right, the highest is not included
@@ -1298,9 +1295,28 @@ re_read:
             page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
 
         }
-        //              }
-        result.slibing = page->hdr.sibling_ptr;
-        return true;
+        // In case that there is a long distance(num. of sibiling pointers) between current node and the target node
+        if (nested_retry_counter <= 2){
+            nested_retry_counter++;
+            result.slibing = page->hdr.sibling_ptr;
+            return true;
+        }else{
+            nested_retry_counter = 0;
+            return false;
+        }
+
+    }
+    nested_retry_counter = 0;
+    if ((k < page->hdr.lowest )) { // cache is stale
+        // erase the upper node from the cache and refetch the upper node to continue.
+        int last_level = 1;
+        if (path_stack[coro_id][last_level] != GlobalAddress::Null()){
+            //TODO(POTENTIAL bug): add a lock for the page when erase it. other wise other threads may
+            // modify the page based on a stale cached page.
+            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
+
+        }
+        return false;// false means need to fall back
     }
     page->leaf_page_search(k, result, *local_mr, page_addr);
     return true;
@@ -1386,13 +1402,19 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         this->unlock_addr(lock_addr, cxt, coro_id, false);
 
         assert(page->hdr.sibling_ptr != GlobalAddress::Null());
+        if (nested_retry_counter <= 2){
+            nested_retry_counter++;
+            insert_success = this->internal_page_store(page->hdr.sibling_ptr, k, v, level, cxt,
+                                                       coro_id);
+            return insert_success;
+        }else{
+            nested_retry_counter = 0;
+            return false;
+        }
 
 
-        insert_success = this->internal_page_store(page->hdr.sibling_ptr, k, v, level, cxt,
-                                                   coro_id);
-        return insert_success;
     }
-
+        nested_retry_counter = 0;
     if (k < page->hdr.lowest ) {
         // if key is smaller than the lower bound, the insert has to be restart from the
         // upper level. because the sibling pointer only points to larger one.
@@ -1405,6 +1427,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         insert_success = false;
         return insert_success;// result in fall back search on the higher level.
     }
+
 //  assert(k >= page->hdr.lowest);
 
   auto cnt = page->hdr.last_index + 1;
@@ -1649,6 +1672,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     path_stack[coro_id][page->hdr.level] = page_addr;
     // It is possible that the key is larger than the highest key
     // The range of a page is [lowest,largest).
+    // TODO: USE a thread local counter to prevent too much sibling pointer access.
     if (k >= page->hdr.highest) {
         if (page->hdr.sibling_ptr != GlobalAddress::Null()){
             this->unlock_addr(lock_addr, cxt, coro_id, false);
@@ -1656,14 +1680,21 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
                 page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
             }
 //            this->unlock_addr(lock_addr, cxt, coro_id, true);
-            return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt, coro_id);
+            if (nested_retry_counter <= 2){
+                nested_retry_counter++;
+                return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt, coro_id);
+            }else{
+                assert(false);
+                nested_retry_counter = 0;
+                return false;
+            }
         }else{
             // impossible because the right most leaf node 's max is KeyMax
             assert(false);
         }
 
     }
-
+    nested_retry_counter = 0;
     if (k < page->hdr.lowest ) {
         // if key is smaller than the lower bound, the insert has to be restart from the
         // upper level. because the sibling pointer only points to larger one.
@@ -1676,6 +1707,8 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
         insert_success = false;
         return insert_success;// result in fall back search on the higher level.
     }
+    // Clear the retry counter, in case that there is a sibling call.
+
   assert(k >= page->hdr.lowest);
     assert(k < page->hdr.highest);
 // TODO: Check whether the key is larger than the largest key of this node.

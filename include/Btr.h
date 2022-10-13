@@ -68,7 +68,9 @@ public:
 //  void index_cache_statistics();
   void clear_statistics();
     static RDMA_Manager * rdma_mg;
-    static thread_local int thread_id;
+    // TODO: potential bug, if mulitple btrees shared the same retry counter, will it be a problem?
+    //  used for the retry counter for nested function call such as sibling pointer access.
+    static  thread_local int nested_retry_counter;
     private:
   std::mutex mtx;// in case of contention
   uint64_t tree_id;
