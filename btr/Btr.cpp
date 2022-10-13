@@ -1102,7 +1102,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //      assert(result.level !=0);
         assert(result.is_leaf == (level == 0));
         path_stack[coro_id][result.level] = page_addr;
-        printf("From cache, Page offest %lu last index is %d\n", page_addr.offset, page->hdr.last_index);
+        printf("From cache, Page offest %lu last index is %d, page pointer is %p\n", page_addr.offset, page->hdr.last_index, page);
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
     }else {
 
@@ -1140,7 +1140,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         result.level = header->level;
         level = result.level;
         path_stack[coro_id][result.level] = page_addr;
-        printf("From remote memory, Page offest %lu last index is %d\n", page_addr.offset, page->hdr.last_index);
+        printf("From remote memory, Page offest %lu last index is %d, page pointer is %p\n", page_addr.offset, page->hdr.last_index, page);
         //check level first because the rearversion's position depends on the leaf node or internal node
         if (result.level == 0){
             // if the root node is the leaf node this path will happen.
@@ -1430,7 +1430,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
     page->hdr.last_index++;
       asm volatile ("sfence\n" : : );
-        printf("last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
+        printf("last_index of page offset %lu is %hd, page level is %d, page is %p\n", page_addr.offset,  page->hdr.last_index, page->hdr.level, page);
       assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
       assert(page->records[page->hdr.last_index].key != 0);
 //  assert(page->records[page->hdr.last_index] != GlobalAddress::Null());
