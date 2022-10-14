@@ -242,7 +242,7 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
       usleep(10);
       ibv_wc wc[2];
       auto qp_type = std::string("default");
-      assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, 1)== 0);
+      assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, 1) == 0);
 #endif
     return true;
   } else {
