@@ -10,6 +10,7 @@ namespace DSMEngine{
 
         assert(k >= hdr.lowest);
         assert(k < hdr.highest);
+        Key highest_buffer = hdr.highest;
         // optimistically latch free.
         //TODO (potential bug) what will happen if the record version is not consistent?
 
