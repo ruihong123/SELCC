@@ -1077,7 +1077,9 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
     // TODO: use real pointer to bypass the cache hash table. We need overwrittened function for internal page search,
     //  given an local address (now the global address is given). Or we make it the same function with both global ptr and local ptr,
     //  and let the function to figure out the situation.
-
+#ifndef NDEBUG
+        int rdma_refetch_times = 0;
+#endif
     //
     //Question: Shall we implement a shared-exclusive lock here for local contention. or we still
     // follow the optimistic latch free design?
@@ -1117,7 +1119,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         page->front_version = 0;
         page->rear_version = 0;
 #ifndef NDEBUG
-        int rdma_refetch_times = 0;
+        rdma_refetch_times = 1;
 #endif
     rdma_refetch:
 #ifndef NDEBUG
@@ -1134,7 +1136,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         usleep(10);
         ibv_wc wc[2];
         auto qp_type = std::string("default");
-        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID)== 0);
+        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID) == 0);
 #endif
         memset(&result, 0, sizeof(result));
         result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
@@ -1508,10 +1510,12 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
           if(++round_robin_cur == rdma_mg->memory_nodes.size()){
               round_robin_cur = 0;
           }
-          ibv_mr* sibling_buf = new ibv_mr{};
-          rdma_mg->Allocate_Local_RDMA_Slot(*sibling_buf, Internal_and_Leaf);
+          ibv_mr* sibling_mr = new ibv_mr{};
+          printf("Allocate slot for page 3 %p\n", sibling_addr);
 
-          auto sibling = new (sibling_buf->addr) InternalPage(page->hdr.level);
+          rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal_and_Leaf);
+
+          auto sibling = new (sibling_mr->addr) InternalPage(page->hdr.level);
 
           //    std::cout << "addr " <<  sibling_addr << " | level " <<
           //    (int)(page->hdr.level) << std::endl;
@@ -1539,11 +1543,14 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
           //the code below is just for debugging.
 //    sibling_addr.mark = 2;
 
-          rdma_mg->RDMA_Write(sibling_addr, sibling_buf, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+          rdma_mg->RDMA_Write(sibling_addr, sibling_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
           assert(sibling->records[sibling->hdr.last_index].ptr != GlobalAddress::Null());
           assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
           k = split_key;
           v = sibling_addr;
+          // TODO (opt): we can directly add the sibling block into the cache here.
+          rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
+          delete sibling_mr;
 //      printf("page splitted last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
 
       } else{
@@ -1819,6 +1826,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
       }
     //TODO: use a thread local sibling memory region to reduce the allocator contention.
     ibv_mr* sibling_mr = new ibv_mr{};
+      printf("Allocate slot for page 3 %p\n", sibling_addr);
       rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal_and_Leaf);
 //      memset(sibling_mr->addr, 0, kLeafPageSize);
     auto sibling = new (sibling_mr->addr) LeafPage(page->hdr.level);
@@ -1854,6 +1862,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 //    sibling->set_consistent();
     rdma_mg->RDMA_Write(sibling_addr, sibling_mr,kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
       rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
+      delete sibling_mr;
 
   }else{
       sibling_addr = GlobalAddress::Null();
