@@ -57,6 +57,7 @@ namespace DSMEngine{
 #ifndef NDEBUG
             result.upper_key = records[0].key;
 #endif
+            assert(k < result.upper_key);
             if (front_v!= rear_v){
                 goto re_read;
             }
@@ -79,6 +80,7 @@ namespace DSMEngine{
 #ifndef NDEBUG
                 result.upper_key = records[i].key;
 #endif
+                assert(k < result.upper_key);
                 if (front_v!= rear_v){
                     goto re_read;
                 }
@@ -98,6 +100,7 @@ namespace DSMEngine{
 #ifndef NDEBUG
         result.upper_key = hdr.highest;
 #endif
+        assert(k < result.upper_key);
         if (front_v!= rear_v)// version checking
             goto re_read;
         assert(result.next_level != GlobalAddress::Null());
