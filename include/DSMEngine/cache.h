@@ -25,12 +25,7 @@
 #include "Config.h"
 namespace DSMEngine {
 
-    struct Handle {
-    public:
-        void* value;
-        uint32_t refs;     // References, including table_cache reference, if present.
-        void (*deleter)(const Slice&, void* value);
-    };
+
 
     // LRU table_cache implementation
 //
@@ -53,26 +48,7 @@ namespace DSMEngine {
 
 // An entry is a variable length heap-allocated structure.  Entries
 // are kept in a circular doubly linked list ordered by access time.
-    struct LRUHandle : Handle {
 
-
-        LRUHandle* next_hash;// Next LRUhandle in the hash
-        LRUHandle* next;
-        LRUHandle* prev;
-        size_t charge;  // TODO(opt): Only allow uint32_t?
-        size_t key_length;
-        bool in_cache;     // Whether entry is in the table_cache.
-        uint32_t hash;     // Hash of key(); used for fast sharding and comparisons
-        char key_data[1];  // Beginning of key
-
-        Slice key() const {
-            // next_ is only equal to this if the LRU handle is the list head of an
-            // empty list. List heads never have meaningful keys.
-            assert(next != this);
-
-            return Slice(key_data, key_length);
-        }
-    };
 class DSMEngine_EXPORT Cache;
 
 // Create a new table_cache with a fixed size capacity.  This implementation
@@ -82,7 +58,12 @@ DSMEngine_EXPORT Cache* NewLRUCache(size_t capacity);
 class DSMEngine_EXPORT Cache {
  public:
   Cache() = default;
-
+    struct Handle {
+    public:
+        void* value;
+        uint32_t refs;     // References, including table_cache reference, if present.
+        void (*deleter)(const Slice&, void* value);
+    };
   Cache(const Cache&) = delete;
   Cache& operator=(const Cache&) = delete;
 
@@ -154,7 +135,26 @@ class DSMEngine_EXPORT Cache {
   struct Rep;
   Rep* rep_;
 };
+    struct LRUHandle : Cache::Handle {
 
+
+        LRUHandle* next_hash;// Next LRUhandle in the hash
+        LRUHandle* next;
+        LRUHandle* prev;
+        size_t charge;  // TODO(opt): Only allow uint32_t?
+        size_t key_length;
+        bool in_cache;     // Whether entry is in the table_cache.
+        uint32_t hash;     // Hash of key(); used for fast sharding and comparisons
+        char key_data[1];  // Beginning of key
+
+        Slice key() const {
+            // next_ is only equal to this if the LRU handle is the list head of an
+            // empty list. List heads never have meaningful keys.
+            assert(next != this);
+
+            return Slice(key_data, key_length);
+        }
+    };
 class LocalBuffer {
 
     public:

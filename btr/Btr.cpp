@@ -1677,7 +1677,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     // TODO: find out why sometimes the node is far from the target node that it need multiple times of
     //  sibling access.
     //
-    // Note that it is normal to see that the local buffer are always the same accross the nested
+    //  Note that it is normal to see that the local buffer are always the same accross the nested
     //  funciton call, because they are sharing the same local buffer.
     if (k >= page->hdr.highest) {
         if (page->hdr.sibling_ptr != GlobalAddress::Null()){
