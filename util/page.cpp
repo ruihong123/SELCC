@@ -44,13 +44,11 @@ namespace DSMEngine{
         if (k < records[0].key) {
 //      printf("next level pointer is  leftmost %p \n", page->hdr.leftmost_ptr);
             target_global_ptr_buff = hdr.leftmost_ptr;
-            asm volatile ("sfence\n" : : );
-            asm volatile ("lfence\n" : : );
-            asm volatile ("mfence\n" : : );
+
 //      result.upper_key = page->records[0].key;
             // check front verison here because a writer will change the front version at the beggining of a write op
             // if this has not changed, we can guarntee that there is not writer interfere.
-            front_v = front_version;
+
             // TODO: maybe we need memory fence here either.
             // TOTHINK: There is no need for local reread because the data will be modified in a copy on write manner.
 
@@ -60,6 +58,10 @@ namespace DSMEngine{
             result.upper_key = records[0].key;
 #endif
             assert(k < result.upper_key);
+            asm volatile ("sfence\n" : : );
+            asm volatile ("lfence\n" : : );
+            asm volatile ("mfence\n" : : );
+            front_v = front_version;
             if (front_v!= rear_v){
                 goto re_read;
             }
@@ -75,7 +77,7 @@ namespace DSMEngine{
 
                 assert(records[i - 1].key <= k);
                 result.upper_key = records[i - 1].key;
-                front_v = front_version;
+
 
 
                 result.next_level = target_global_ptr_buff;
@@ -83,6 +85,7 @@ namespace DSMEngine{
                 result.upper_key = records[i].key;
 #endif
                 assert(k < result.upper_key);
+                front_v = front_version;
                 if (front_v!= rear_v){
                     goto re_read;
                 }
@@ -95,7 +98,7 @@ namespace DSMEngine{
         target_global_ptr_buff = records[cnt - 1].ptr;
 
         assert(records[cnt - 1].key <= k);
-        front_v = front_version;
+
 
 
         result.next_level = target_global_ptr_buff;
@@ -103,6 +106,7 @@ namespace DSMEngine{
         result.upper_key = hdr.highest;
 #endif
         assert(k < result.upper_key);
+        front_v = front_version;
         if (front_v!= rear_v)// version checking
             goto re_read;
         assert(result.next_level != GlobalAddress::Null());
