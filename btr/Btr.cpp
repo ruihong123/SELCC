@@ -1208,9 +1208,11 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         if (nested_retry_counter <= 2){
             nested_retry_counter++;
             result.slibing = page->hdr.sibling_ptr;
+            page_cache->Release(handle);
             return internal_page_search(page->hdr.sibling_ptr, k, result, level, isroot, cxt, coro_id);
         }else{
             nested_retry_counter = 0;
+            page_cache->Release(handle);
             return false;
         }
 
@@ -1235,7 +1237,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
     //              page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
     //
     //          }
-
+        page_cache->Release(handle);
       return false;
     }
     // this function will add the children pointer to the result.
@@ -1406,9 +1408,11 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             nested_retry_counter++;
             insert_success = this->internal_page_store(page->hdr.sibling_ptr, k, v, level, cxt,
                                                        coro_id);
+            page_cache->Release(handle);
             return insert_success;
         }else{
             nested_retry_counter = 0;
+            page_cache->Release(handle);
             return false;
         }
 
@@ -1426,6 +1430,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         this->unlock_addr(lock_addr, cxt, coro_id, false);
 
         insert_success = false;
+        page_cache->Release(handle);
         return insert_success;// result in fall back search on the higher level.
     }
 
@@ -1550,7 +1555,10 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
     write_page_and_unlock(local_buffer, page_addr, kInternalPageSize, (uint64_t*)cas_mr->addr,
                           lock_addr, cxt, coro_id, false);
-  // We can also say if need_split
+    page_cache->Release(handle);
+
+
+    // We can also say if need_split
     if (sibling_addr != GlobalAddress::Null()){
         auto p = path_stack[coro_id][level+1];
         //check whether the node split is for a root node.
