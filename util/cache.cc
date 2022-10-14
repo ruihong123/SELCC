@@ -56,6 +56,8 @@ class HandleTable {
   LRUHandle* Remove(const Slice& key, uint32_t hash) {
     LRUHandle** ptr = FindPointer(key, hash);
     LRUHandle* result = *ptr;
+    //TODO: only erase those lru handles which has been accessed. THis can prevent
+    // a index block being invalidated multiple times.
     if (result != nullptr) {
         //*ptr belongs to the Handle previous to the result.
       *ptr = result->next_hash;// ptr is the "next_hash" in the handle previous to the result
