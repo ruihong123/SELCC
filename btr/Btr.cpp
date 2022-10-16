@@ -1110,8 +1110,8 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 
         //  pattern_cnt++;
         ibv_mr* new_mr = new ibv_mr{};
-        printf("Allocate slot for page 1 %p\n", page_addr);
         rdma_mg->Allocate_Local_RDMA_Slot(*new_mr, Internal_and_Leaf);
+        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p\n", page_addr, new_mr->addr);
 
         page_buffer = new_mr->addr;
         header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
