@@ -2316,6 +2316,7 @@ void RDMA_Manager::Prepare_WR_Read(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress 
         default:
             break;
     }
+    printf("SUBMIT RDMA read request global ptr is %p, local ptr is %p", remote_ptr, local_mr->addr);
 }
 void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress remote_ptr, ibv_mr *local_mr,
                                     size_t msg_size,
