@@ -1133,7 +1133,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
         //
 #ifndef NDEBUG
-        usleep(10);
+        usleep(100);
         ibv_wc wc[2];
         auto qp_type = std::string("default");
         assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID) == 0);
