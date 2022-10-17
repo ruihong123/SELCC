@@ -1415,7 +1415,6 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     assert(page->hdr.level == level);
     assert(page->check_consistent());
     assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
-
     path_stack[coro_id][page->hdr.level] = page_addr;
     // This is the result that we do not lock the btree when search for the key.
     // Not sure whether this will still work if we have node merge
@@ -1508,7 +1507,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
     page->hdr.last_index++;
 //      asm volatile ("sfence\n" : : );
-//        printf("last_index of page offset %lu is %hd, page level is %d, page is %p\n", page_addr.offset,  page->hdr.last_index, page->hdr.level, page);
+        printf("last_index of page offset %lu is %hd, page level is %d, page is %p\n", page_addr.offset,  page->hdr.last_index, page->hdr.level, page);
       assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
       assert(page->records[page->hdr.last_index].key != 0);
 //  assert(page->records[page->hdr.last_index] != GlobalAddress::Null());
