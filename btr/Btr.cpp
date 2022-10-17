@@ -1227,7 +1227,7 @@ local_reread:
         }
 
     }
-        nested_retry_counter = 0;
+
     if (k < page->hdr.lowest) {
       if (isroot){
           // invalidate the root.
@@ -1248,6 +1248,7 @@ local_reread:
     //              page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
     //
     //          }
+        nested_retry_counter = 0;
         page_cache->Release(handle);
       return false;
     }
@@ -1258,7 +1259,7 @@ local_reread:
         if (!page->internal_page_search(k, result, front_v)){
             goto local_reread;
         }
-
+        nested_retry_counter = 0;
 
   page_cache->Release(handle);
 
@@ -1345,6 +1346,7 @@ re_read:
 // This function will return true unless it found that the key is smaller than the lower bound of a searched node.
 bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int level, CoroContext *cxt, int coro_id) {
     assert(page_addr != GlobalAddress::Null());
+        assert(v != GlobalAddress::Null());
         uint64_t lock_index =
       CityHash64((char *)&page_addr, sizeof(page_addr)) % define::kNumOfLock;
     bool need_split;
