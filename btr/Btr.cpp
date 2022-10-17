@@ -1207,7 +1207,7 @@ local_reread:
           // Question: why none root tranverser will comes to here? If a stale root initial a sibling page read, then the k should
           // not larger than the highest this time.
           //TODO(potential bug): Erase need to acquire the lock for the page
-          DEBUG_arg("Erase the page 1 %p\n", path_stack[coro_id][result.level+1]);
+//          DEBUG_arg("Erase the page 1 %p\n", path_stack[coro_id][result.level+1]);
           page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
       }
       //TODO: What if the Erased key is still in use by other threads? THis is very likely
@@ -1233,7 +1233,7 @@ local_reread:
           // invalidate the root.
           g_root_ptr = GlobalAddress::Null();
       }else{
-          DEBUG_arg("Erase the page 2 %p\n", path_stack[coro_id][result.level+1]);
+//          DEBUG_arg("Erase the page 2 %p\n", path_stack[coro_id][result.level+1]);
           assert(path_stack[coro_id][result.level+1] != GlobalAddress::Null());
           page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
       }
@@ -1310,7 +1310,7 @@ re_read:
         // erase the upper level from the cache
         int last_level = 1;
         if (path_stack[coro_id][last_level] != GlobalAddress::Null()){
-            DEBUG_arg("Erase the page 3 %p\n", path_stack[coro_id][last_level]);
+//            DEBUG_arg("Erase the page 3 %p\n", path_stack[coro_id][last_level]);
 
             page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
 
@@ -1333,7 +1333,7 @@ re_read:
         if (path_stack[coro_id][last_level] != GlobalAddress::Null()){
             //TODO(POTENTIAL bug): add a lock for the page when erase it. other wise other threads may
             // modify the page based on a stale cached page.
-            DEBUG_arg("Erase the page 4 %p\n", path_stack[coro_id][last_level]);
+//            DEBUG_arg("Erase the page 4 %p\n", path_stack[coro_id][last_level]);
             page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
 
         }
@@ -1422,7 +1422,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
       // TODO: No need for node invalidation when inserting things because the tree tranversing is enough for invalidation (Erase)
 
         if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
-            DEBUG_arg("Erase the page 7 %p\n", path_stack[coro_id][level+1]);
+//            DEBUG_arg("Erase the page 7 %p\n", path_stack[coro_id][level+1]);
 
             page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
         }
@@ -1451,7 +1451,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
         if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
             // TODO: How to make sure the Erase was only executed once?
-            DEBUG_arg("Erase the page 8 %p\n", path_stack[coro_id][level+1]);
+//            DEBUG_arg("Erase the page 8 %p\n", path_stack[coro_id][level+1]);
             page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
         }
         this->unlock_addr(lock_addr, cxt, coro_id, false);
@@ -1725,7 +1725,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
         if (page->hdr.sibling_ptr != GlobalAddress::Null()){
             this->unlock_addr(lock_addr, cxt, coro_id, false);
             if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
-                DEBUG_arg("Erase the page 5 %p\n", path_stack[coro_id][1]);
+//                DEBUG_arg("Erase the page 5 %p\n", path_stack[coro_id][1]);
 
                 page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
             }
@@ -1752,7 +1752,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
         // upper level. because the sibling pointer only points to larger one.
 
         if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
-            DEBUG_arg("Erase the page 6 %p\n", path_stack[coro_id][1]);
+//            DEBUG_arg("Erase the page 6 %p\n", path_stack[coro_id][1]);
 
             page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
         }
