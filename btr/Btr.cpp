@@ -398,14 +398,14 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
         assert(page_addr.nodeID == remote_lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(sr, 0, page_addr.nodeID);
     }else{
-        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED,0, Internal_and_Leaf);
+        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
 
 //        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
         ibv_mr* local_CAS_mr = rdma_mg->Get_local_CAS_mr();
 //        *(uint64_t*) local_CAS_mr->addr = 0;
         *(uint64_t *)local_CAS_mr->addr = 0;
         //TODO: WHY the remote lock is not unlocked by this function?
-        rdma_mg->RDMA_Write( remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED,2, LockTable);
+        rdma_mg->RDMA_Write( remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED,1, LockTable);
 
 //        rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED, LockTable);
 //        sr[0].next = &sr[1];
@@ -456,14 +456,17 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
 
-        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED, LockTable);
-        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+//        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED, LockTable);
+//        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+
+        rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED,1, LockTable);
+        rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
 //        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
 
         sr[0].next = &sr[1];
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
-        rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
+//        rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
 //        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
 
         if ((*(uint64_t*) cas_buffer->addr) != 0){
