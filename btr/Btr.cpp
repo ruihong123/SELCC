@@ -1134,12 +1134,12 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
 //        DEBUG_arg("cache miss and RDMA read %p", page_addr);
         //
-#ifndef NDEBUG
-        usleep(100);
-        ibv_wc wc[2];
-        auto qp_type = std::string("default");
-        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID) == 0);
-#endif
+//#ifndef NDEBUG
+//        usleep(100);
+//        ibv_wc wc[2];
+//        auto qp_type = std::string("default");
+//        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID) == 0);
+//#endif
         memset(&result, 0, sizeof(result));
         result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
         result.level = header->level;
@@ -1170,6 +1170,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 #endif
             goto rdma_refetch;
         }
+        assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
 
 
         // if there has already been a cache entry with the same key, the old one will be
@@ -1192,7 +1193,8 @@ local_reread:
             goto local_reread;
         }
         assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
-    if (k >= page->hdr.highest) { // should turn right
+
+        if (k >= page->hdr.highest) { // should turn right
 //            printf("should turn right ");
       // TODO: if this is the root node then we need to refresh the new root.
       if (isroot){
@@ -1516,7 +1518,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //#endif
 //      asm volatile ("sfence\n" : : );
         printf("last_index of page offset %lu is %hd, page level is %d, page is %p, the last index content is %lu %p\n", page_addr.offset,  page->hdr.last_index, page->hdr.level, page, page->records[page->hdr.last_index].key, page->records[page->hdr.last_index].ptr);
-      assert(page->hdr.last_index == last_index_prev+1);
+      assert(page->hdr.last_index == last_index_prev + 1);
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
       assert(page->records[page->hdr.last_index].key != 0);
 //  assert(page->records[page->hdr.last_index] != GlobalAddress::Null());
