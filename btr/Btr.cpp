@@ -10,7 +10,7 @@
 #include <queue>
 #include <utility>
 #include <vector>
-
+//#include <linux/membarrier.h>
 #include "port/likely.h"
 namespace DSMEngine {
 bool enter_debug = false;
@@ -1494,18 +1494,19 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
       page->front_version++;
       //TODO(potential bug): double check the memory fence, there could be out of order
       // execution preventing the version lock.
-      asm volatile ("sfence\n" : : );
-      asm volatile ("lfence\n" : : );
-      asm volatile ("mfence\n" : : );
+//      asm volatile ("sfence\n" : : );
+//      asm volatile ("lfence\n" : : );
+      asm volatile ("mfence" : : : "memory");
     for (int i = cnt; i > insert_index; --i) {
       page->records[i].key = page->records[i - 1].key;
       page->records[i].ptr = page->records[i - 1].ptr;
     }
-      page->hdr.last_index++;
+
 
       page->records[insert_index].key = k;
-    page->records[insert_index].ptr = v;
+      page->records[insert_index].ptr = v;
 
+      page->hdr.last_index++;
 
 
 
@@ -1581,9 +1582,10 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
       // Set the rear_version for the concurrent reader. The reader can tell whether
       // there is intermidated writer during its execution.
       //    page->set_consistent();
-      asm volatile ("sfence\n" : : );
-      asm volatile ("lfence\n" : : );
-      asm volatile ("mfence\n" : : );
+//      asm volatile ("sfence\n" : : );
+//      asm volatile ("lfence\n" : : );
+      asm volatile ("mfence" : : : "memory");
+//      _mm_sfence();
       page->rear_version++;
   }
 
