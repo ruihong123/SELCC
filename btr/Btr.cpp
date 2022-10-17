@@ -1497,6 +1497,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
       asm volatile ("sfence\n" : : );
       asm volatile ("lfence\n" : : );
       asm volatile ("mfence\n" : : );
+      page->hdr.last_index++;
     for (int i = cnt; i > insert_index; --i) {
       page->records[i].key = page->records[i - 1].key;
       page->records[i].ptr = page->records[i - 1].ptr;
@@ -1505,7 +1506,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     page->records[insert_index].ptr = v;
 
 
-    page->hdr.last_index++;
+
 
 //      asm volatile ("sfence\n" : : );
         printf("last_index of page offset %lu is %hd, page level is %d, page is %p, the last index content is %p\n", page_addr.offset,  page->hdr.last_index, page->hdr.level, page, page->records[page->hdr.last_index]);
