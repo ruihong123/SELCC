@@ -1591,7 +1591,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
 
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
-    write_page_and_unlock(local_buffer, page_addr, kInternalPageSize, (uint64_t*)cas_mr->addr,
+
+        write_page_and_unlock(local_buffer, page_addr, kInternalPageSize, (uint64_t*)cas_mr->addr,
                           lock_addr, cxt, coro_id, false);
 //        printf("prepare RDMA write request global ptr is %p, local ptr is %p, level is %d\n", page_addr, page_buffer, level);
 
@@ -2124,7 +2125,7 @@ inline bool Btr::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
 //        assert(ticket - current <=4);
 //    printf("lock offest %lu's ticket %x current %x, thread %u\n", lock_addr.offset, ticket, current, thread_id);
 //   printf("", );
-
+        assert((lock_val +1) <<32 != 0);
   while (ticket != current) { // lock failed
     is_local_locked = true;
 
