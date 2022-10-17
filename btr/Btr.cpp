@@ -1191,7 +1191,7 @@ local_reread:
         if(front_v != rear_v){
             goto local_reread;
         }
-
+        assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
     if (k >= page->hdr.highest) { // should turn right
 //            printf("should turn right ");
       // TODO: if this is the root node then we need to refresh the new root.
@@ -1506,6 +1506,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
 
     page->hdr.last_index++;
+
 //      asm volatile ("sfence\n" : : );
         printf("last_index of page offset %lu is %hd, page level is %d, page is %p, the last index content is %p\n", page_addr.offset,  page->hdr.last_index, page->hdr.level, page, page->records[page->hdr.last_index]);
       assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());

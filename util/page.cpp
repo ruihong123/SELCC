@@ -10,6 +10,7 @@ namespace DSMEngine{
 
         assert(k >= hdr.lowest);
         assert(k < hdr.highest);
+
         Key highest_buffer = 0;
         highest_buffer = hdr.highest;
         // optimistically latch free.
