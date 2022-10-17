@@ -1472,6 +1472,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
   //TODO: Make it a binary search.
   for (int i = cnt - 1; i >= 0; --i) {
     if (page->records[i].key == k) { // find and update
+        assert(false);
         page->front_version++;
 
         asm volatile ("sfence\n" : : );
