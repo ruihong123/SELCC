@@ -345,6 +345,8 @@ class ShardedLRUCache : public Cache {
   size_t GetCapacity() override{
       return capacity_;
   }
+    // if there has already been a cache entry with the same key, the old one will be
+    // removed from the cache, but it may not be garbage collected right away
   Handle* Insert(const Slice& key, void* value, size_t charge,
                  void (*deleter)(const Slice& key, void* value)) override {
     const uint32_t hash = HashSlice(key);
