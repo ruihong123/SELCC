@@ -1505,14 +1505,19 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
       page->records[insert_index].key = k;
       page->records[insert_index].ptr = v;
-
+#ifndef NDEBUG
+      uint16_t last_index_prev = page->hdr.last_index;
+#endif
       page->hdr.last_index++;
 
 
-
+//#ifndef NDEBUG
+//      assert(last_index_memo == page->hdr.last_index);
+//#endif
 //      asm volatile ("sfence\n" : : );
         printf("last_index of page offset %lu is %hd, page level is %d, page is %p, the last index content is %lu %p\n", page_addr.offset,  page->hdr.last_index, page->hdr.level, page, page->records[page->hdr.last_index].key, page->records[page->hdr.last_index].ptr);
-      assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
+      assert(page->hdr.last_index == last_index_prev+1);
+        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
       assert(page->records[page->hdr.last_index].key != 0);
 //  assert(page->records[page->hdr.last_index] != GlobalAddress::Null());
       cnt = page->hdr.last_index + 1;
@@ -1588,7 +1593,6 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //      _mm_sfence();
       page->rear_version++;
   }
-
 
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 
