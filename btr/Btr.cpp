@@ -1379,7 +1379,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         //  saving some RDMA round trips.
         lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
                            lock_addr, 1, cxt, coro_id);
-        printf("Existing cache entry: prepare RDMA read request global ptr is %p, local ptr is %p, level is %d\n", page_addr, page_buffer, level);
+//        printf("Existing cache entry: prepare RDMA read request global ptr is %p, local ptr is %p, level is %d\n", page_addr, page_buffer, level);
 
 //        printf("Read page %lu over address %p, version is %u  \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
 //        flag = 1;
@@ -1399,7 +1399,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 #endif
         lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
                            lock_addr, 1, cxt, coro_id);
-        printf("non-Existing cache entry: prepare RDMA read request global ptr is %p, local ptr is %p, level is %d\n", page_addr, page_buffer, level);
+//        printf("non-Existing cache entry: prepare RDMA read request global ptr is %p, local ptr is %p, level is %d\n", page_addr, page_buffer, level);
 
 //        printf("Read page %lu over address %p, version is %u \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
         handle = page_cache->Insert(page_id, local_buffer, kInternalPageSize, Deallocate_MR);
@@ -1587,7 +1587,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
     write_page_and_unlock(local_buffer, page_addr, kInternalPageSize, (uint64_t*)cas_mr->addr,
                           lock_addr, cxt, coro_id, false);
-        printf("prepare RDMA write request global ptr is %p, local ptr is %p, level is %d\n", page_addr, page_buffer, level);
+//        printf("prepare RDMA write request global ptr is %p, local ptr is %p, level is %d\n", page_addr, page_buffer, level);
 
         page_cache->Release(handle);
 
