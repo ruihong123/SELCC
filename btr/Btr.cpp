@@ -372,7 +372,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
 
   releases_local_lock(lock_addr);
 }
-
+// is it posisble that muliptle writer write to the same remote page at the same time (corner cases)?
 void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, uint64_t *cas_buffer,
                                 GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
 //    printf("Release lock %lu and write page %lu", remote_lock_addr, page_addr);
@@ -398,17 +398,22 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
         assert(page_addr.nodeID == remote_lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(sr, 0, page_addr.nodeID);
     }else{
-        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED,0, Internal_and_Leaf);
+
+//        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
         ibv_mr* local_CAS_mr = rdma_mg->Get_local_CAS_mr();
 //        *(uint64_t*) local_CAS_mr->addr = 0;
-        //TODO: WHY the remote lock is not unlocked by this function?
-        rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED, LockTable);
-        sr[0].next = &sr[1];
-
-
         *(uint64_t *)local_CAS_mr->addr = 0;
+        //TODO: WHY the remote lock is not unlocked by this function?
+        rdma_mg->RDMA_Write( remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED,2, LockTable);
+
+//        rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED, LockTable);
+//        sr[0].next = &sr[1];
+
+
+
         assert(page_addr.nodeID == remote_lock_addr.nodeID);
-        rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
+//        rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
     }
 
 //    std::cout << "release the remote lock at " << remote_lock_addr << std::endl;
@@ -1519,6 +1524,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //      assert(last_index_memo == page->hdr.last_index);
 //#endif
 //      asm volatile ("sfence\n" : : );
+// THe last index could be the same for several print because we may not insert to the end all the time.
         printf("last_index of page offset %lu is %hd, page level is %d, page is %p, the last index content is %lu %p, version should be %d, the key is %lu\n"
                , page_addr.offset,  page->hdr.last_index, page->hdr.level, page, page->records[page->hdr.last_index].key, page->records[page->hdr.last_index].ptr, page->front_version, k);
       assert(page->hdr.last_index == last_index_prev + 1);
