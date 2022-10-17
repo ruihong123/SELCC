@@ -75,7 +75,7 @@ namespace DSMEngine {
 enum Chunk_type {Internal_and_Leaf, LockTable, Message, Version_edit, IndexChunk, FilterChunk, FlushBuffer, DataChunk};
 static const char * EnumStrings[] = { "Internal_and_Leaf", "LockTable", "Message", "Version_edit", "IndexChunk", "FilterChunk", "FlushBuffer", "DataChunk"};
 
-static char config_file_name[100] = "../connection.conf";
+static char config_file_name[100] = "../connection_bigdata.conf";
 
 struct config_t {
   const char* dev_name;    /* IB device name */
