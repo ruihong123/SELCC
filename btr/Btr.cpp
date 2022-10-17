@@ -1497,12 +1497,13 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
       asm volatile ("sfence\n" : : );
       asm volatile ("lfence\n" : : );
       asm volatile ("mfence\n" : : );
-      page->hdr.last_index++;
     for (int i = cnt; i > insert_index; --i) {
       page->records[i].key = page->records[i - 1].key;
       page->records[i].ptr = page->records[i - 1].ptr;
     }
-    page->records[insert_index].key = k;
+      page->hdr.last_index++;
+
+      page->records[insert_index].key = k;
     page->records[insert_index].ptr = v;
 
 
