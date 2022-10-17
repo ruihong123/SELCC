@@ -1680,7 +1680,7 @@ End of socket operations
             delete[] wc;
         }
 //        ibv_wc wc;
-        printf("submit RDMA write request global ptr is %p, local ptr is %p\n", remote_ptr, local_mr->addr);
+        printf("submit RDMA Read request global ptr is %p, local ptr is %p\n", remote_ptr, local_mr->addr);
 
         return rc;
 }
@@ -1886,7 +1886,7 @@ End of socket operations
             }
             delete[] wc;
         }
-        printf("submit RDMA write request global ptr is %p, local ptr is %p\n", remote_ptr, local_mr->addr);
+//        printf("submit RDMA write request global ptr is %p, local ptr is %p\n", remote_ptr, local_mr->addr);
 
         //  stop = std::chrono::high_resolution_clock::now();
         //  duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start); printf("RDMA Write post send and poll size: %zu elapse: %ld\n", msg_size, duration.count());
