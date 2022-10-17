@@ -1469,10 +1469,11 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
   auto cnt = page->hdr.last_index + 1;
   bool is_update = false;
   uint16_t insert_index = 0;
+        DEBUG_arg("The last index 's key is %lu", page->records[page->hdr.last_index].key);
   //TODO: Make it a binary search.
   for (int i = cnt - 1; i >= 0; --i) {
     if (page->records[i].key == k) { // find and update
-        assert(false);
+//        assert(false);
         page->front_version++;
 
         asm volatile ("sfence\n" : : );
