@@ -1183,9 +1183,14 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 
     //      assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 
+// IN case that the local read have a conflict with the concurrent write.
 
-
-
+local_reread:
+        uint8_t front_v = page->front_version;
+        uint8_t rear_v = page->rear_version;
+        if(front_v != rear_v){
+            goto local_reread;
+        }
 
     if (k >= page->hdr.highest) { // should turn right
 //            printf("should turn right ");
@@ -1247,7 +1252,12 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
       return false;
     }
     // this function will add the children pointer to the result.
-    page->internal_page_search(k, result);
+    // TODO: how to make sure that a page split will not happen during you search
+    //  the page.
+        assert(front_v == rear_v);
+        if (!page->internal_page_search(k, result, front_v)){
+            goto local_reread;
+        }
 
 
   page_cache->Release(handle);

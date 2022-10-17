@@ -178,7 +178,7 @@ namespace DSMEngine{
             }
             printf("\n");
         }
-        void internal_page_search(const Key &k, SearchResult &result);
+        bool internal_page_search(const Key &k, SearchResult &result, Key version);
         void internal_page_store(GlobalAddress page_addr, const Key &k,
                                  GlobalAddress value, GlobalAddress root, int level,
                                  CoroContext *cxt, int coro_id);

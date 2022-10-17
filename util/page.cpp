@@ -6,7 +6,7 @@
 #include "page.h"
 #include "Btr.h"
 namespace DSMEngine{
-    void InternalPage::internal_page_search(const Key &k, SearchResult &result) {
+    bool InternalPage::internal_page_search(const Key &k, SearchResult &result, Key version) {
 
         assert(k >= hdr.lowest);
         assert(k < hdr.highest);
@@ -26,12 +26,12 @@ namespace DSMEngine{
         // choice1: Maybe the lock check is necessary (either in the page or outside)
         // choice2: or we check whether the front verison equals the rear version to check wehther there is a
         // concurrent writer (check lock).
-    re_read:
+//    re_read:
         GlobalAddress target_global_ptr_buff;
         uint8_t front_v = front_version;
-        uint8_t rear_v = rear_version;
-        if(front_v != rear_v){
-            goto re_read;
+//        uint8_t rear_v = rear_version;
+        if(front_v != version){
+            return false;
         }
           asm volatile ("sfence\n" : : );
           asm volatile ("lfence\n" : : );
@@ -57,16 +57,17 @@ namespace DSMEngine{
 #ifndef NDEBUG
             result.upper_key = records[0].key;
 #endif
-            assert(k < result.upper_key);
+
             asm volatile ("sfence\n" : : );
             asm volatile ("lfence\n" : : );
             asm volatile ("mfence\n" : : );
             front_v = front_version;
-            if (front_v!= rear_v){
-                goto re_read;
+            if (front_v!= version){
+                return false;
             }
+            assert(k < result.upper_key);
             assert(result.next_level != GlobalAddress::Null());
-            return;
+            return true;
         }
 
         for (int i = 1; i < cnt; ++i) {
@@ -84,13 +85,14 @@ namespace DSMEngine{
 #ifndef NDEBUG
                 result.upper_key = records[i].key;
 #endif
-                assert(k < result.upper_key);
+
                 front_v = front_version;
-                if (front_v!= rear_v){
-                    goto re_read;
+                if (front_v!= version){
+                    return false;
                 }
+                assert(k < result.upper_key);
                 assert(result.next_level != GlobalAddress::Null());
-                return;
+                return true;
             }
         }
 //    printf("next level pointer is  the last value %p \n", page->records[cnt - 1].ptr);
@@ -105,10 +107,11 @@ namespace DSMEngine{
 #ifndef NDEBUG
         result.upper_key = hdr.highest;
 #endif
-        assert(k < result.upper_key);
+
         front_v = front_version;
-        if (front_v!= rear_v)// version checking
-            goto re_read;
+        if (front_v!= version)// version checking
+            return false;
+        assert(k < result.upper_key);
         assert(result.next_level != GlobalAddress::Null());
     }
 
