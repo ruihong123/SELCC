@@ -1680,7 +1680,7 @@ End of socket operations
             delete[] wc;
         }
 //        ibv_wc wc;
-        printf("submit RDMA Read request global ptr is %p, local ptr is %p\n", remote_ptr, local_mr->addr);
+//        printf("submit RDMA Read request global ptr is %p, local ptr is %p\n", remote_ptr, local_mr->addr);
 
         return rc;
 }
@@ -3371,7 +3371,7 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
       mr_input.addr = static_cast<void*>(static_cast<char*>(mr_input.addr) +
                                          block_index * chunk_size);
       mr_input.length = chunk_size;
-      DEBUG_arg("Allocate pointer %p\n", mr_input.addr);
+//      DEBUG_arg("Allocate pointer %p\n", mr_input.addr);
       return;
     } else
       ptr++;
@@ -3398,7 +3398,7 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
     mr_input.addr = static_cast<void*>(static_cast<char*>(mr_input.addr) +
                                        block_index * chunk_size);
     mr_input.length = chunk_size;
-    DEBUG_arg("Allocate pointer %p", mr_input.addr);
+//    DEBUG_arg("Allocate pointer %p", mr_input.addr);
     //  mr_input.fname = file_name;
     return;
   }
@@ -3437,7 +3437,7 @@ bool RDMA_Manager::Deallocate_Local_RDMA_Slot(ibv_mr* mr, ibv_mr* map_pointer,
 }
 bool RDMA_Manager::Deallocate_Local_RDMA_Slot(void* p, Chunk_type buff_type) {
   std::shared_lock<std::shared_mutex> read_lock(local_mem_mutex);
-  DEBUG_arg("Deallocate pointer %p\n", p);
+//  DEBUG_arg("Deallocate pointer %p\n", p);
   std::map<void*, In_Use_Array*>* Bitmap;
   Bitmap = &name_to_mem_pool.at(buff_type);
   auto mr_iter = Bitmap->upper_bound(p);

@@ -1112,7 +1112,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         //  pattern_cnt++;
         ibv_mr* new_mr = new ibv_mr{};
         rdma_mg->Allocate_Local_RDMA_Slot(*new_mr, Internal_and_Leaf);
-        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p\n", page_addr, new_mr->addr);
+//        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p\n", page_addr, new_mr->addr);
 
         page_buffer = new_mr->addr;
         header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
@@ -1132,7 +1132,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         // THe bug could be resulted from the concurrent access by multiple threads.
         // why the last_index is always greater than the records number?
         rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-        DEBUG_arg("cache miss and RDMA read %p", page_addr);
+//        DEBUG_arg("cache miss and RDMA read %p", page_addr);
         //
 #ifndef NDEBUG
         usleep(100);
@@ -1386,7 +1386,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     } else{
 
         local_buffer = new ibv_mr{};
-        printf("Allocate slot for page 2 %p\n", page_addr);
+//        printf("Allocate slot for page 2 %p\n", page_addr);
         rdma_mg->Allocate_Local_RDMA_Slot(*local_buffer, Internal_and_Leaf);
         page_buffer = local_buffer->addr;
         // you have to reread to data from the remote side to not missing update from other
@@ -1527,7 +1527,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
               round_robin_cur = 0;
           }
           ibv_mr* sibling_mr = new ibv_mr{};
-          printf("Allocate slot for page 3 %p\n", sibling_addr);
+//          printf("Allocate slot for page 3 %p\n", sibling_addr);
 
           rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal_and_Leaf);
 
@@ -1844,7 +1844,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
       }
     //TODO: use a thread local sibling memory region to reduce the allocator contention.
     ibv_mr* sibling_mr = new ibv_mr{};
-      printf("Allocate slot for page 3 %p\n", sibling_addr);
+//      printf("Allocate slot for page 3 %p\n", sibling_addr);
       rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal_and_Leaf);
 //      memset(sibling_mr->addr, 0, kLeafPageSize);
     auto sibling = new (sibling_mr->addr) LeafPage(page->hdr.level);
