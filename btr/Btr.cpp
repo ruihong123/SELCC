@@ -1256,9 +1256,10 @@ local_reread:
         if (nested_retry_counter <= 2){
             nested_retry_counter++;
             result.slibing = page->hdr.sibling_ptr;
-            page_cache->Release(handle);
             assert(page->hdr.sibling_ptr != GlobalAddress::Null());
             GlobalAddress sib_ptr = page->hdr.sibling_ptr;
+            page_cache->Release(handle);
+
 //            if(front_v != rear_v){
 //                goto local_reread;
 //            }
