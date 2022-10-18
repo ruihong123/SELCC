@@ -1216,14 +1216,18 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 // IN case that the local read have a conflict with the concurrent write.
 
 local_reread:
-//#ifndef NDEBUG
-//        Key highest = page->hdr.highest;
-//#endif
+#ifndef NDEBUG
+        Key highest;
+#endif
         uint8_t front_v = page->front_version;
         uint8_t rear_v = page->rear_version;
         if(front_v != rear_v){
                 goto local_reread;
+
         }
+#ifndef NDEBUG
+        highest = page->hdr.highest;
+#endif
 //        assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
 
     if (k >= page->hdr.highest) { // should turn right
