@@ -1170,6 +1170,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             // No need for reread.
             rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal_and_Leaf);
             // return true and let the outside code figure out that the leaf node is the root node
+
             return true;
         }
         // This consistent check should be in the path of RDMA read only.
@@ -1202,6 +1203,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         // removed from the cache, but it may not be garbage collected right away
         handle = page_cache->Insert(page_id, new_mr, kInternalPageSize, Deallocate_MR);
 //        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
+        this->unlock_addr(lock_addr, cxt, coro_id, false);
     }
 
     assert(result.level != 0);
