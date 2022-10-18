@@ -1151,12 +1151,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //        rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
 //        DEBUG_arg("cache miss and RDMA read %p", page_addr);
         //
-//#ifndef NDEBUG
-//        usleep(100);
-//        ibv_wc wc[2];
-//        auto qp_type = std::string("default");
-//        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID) == 0);
-//#endif
+
         memset(&result, 0, sizeof(result));
         result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
         result.level = header->level;
@@ -1213,7 +1208,12 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
     //      assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 
 // IN case that the local read have a conflict with the concurrent write.
-
+#ifndef NDEBUG
+        usleep(10);
+        ibv_wc wc[2];
+        auto qp_type = std::string("default");
+        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID) == 0);
+#endif
 local_reread:
         uint8_t front_v = page->front_version;
         uint8_t rear_v = page->rear_version;
@@ -1222,7 +1222,7 @@ local_reread:
         }
 //        assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
 
-        if (k >= page->hdr.highest) { // should turn right
+    if (k >= page->hdr.highest) { // should turn right
 //            printf("should turn right ");
       // TODO: if this is the root node then we need to refresh the new root.
       if (isroot){
