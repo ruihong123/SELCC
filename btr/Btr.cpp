@@ -1170,8 +1170,8 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         // is empty. I spent 3 days to debug, but unfortunatly I did not figure it out.
         // THe weird thing is there will only be one empty in the last index, all the others are valid all the times.
 
-        _mm_clflush(page->front_version);
-        _mm_clflush(page->rear_version);
+        _mm_clflush(&page->front_version);
+        _mm_clflush(&page->rear_version);
 //        || page->records[page->hdr.last_index ].ptr == GlobalAddress::Null()
         if (!page->check_consistent() ) {
             //TODO: What is the other thread is modifying this page but you overwrite the buffer by a reread.
