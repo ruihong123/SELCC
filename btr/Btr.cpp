@@ -1648,7 +1648,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
   }
 
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
-
+        asm volatile ("mfence" : : : "memory");
+        printf("Can handover is %d", can_hand_over(lock_addr));
         write_page_and_unlock(local_buffer, page_addr, kInternalPageSize, (uint64_t*)cas_mr->addr,
                           lock_addr, cxt, coro_id, false);
 //        printf("prepare RDMA write request global ptr is %p, local ptr is %p, level is %d\n", page_addr, page_buffer, level);
