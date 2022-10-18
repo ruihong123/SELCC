@@ -1146,9 +1146,9 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = lock_index * sizeof(uint64_t);
-        lock_and_read_page(new_mr, page_addr, kInternalPageSize, cas_mr,
-                           lock_addr, 1, cxt, coro_id);
-//        rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+//        lock_and_read_page(new_mr, page_addr, kInternalPageSize, cas_mr,
+//                           lock_addr, 1, cxt, coro_id);
+        rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
 //        DEBUG_arg("cache miss and RDMA read %p", page_addr);
         //
 
@@ -1165,7 +1165,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             // No need for reread.
             rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal_and_Leaf);
             // return true and let the outside code figure out that the leaf node is the root node
-            this->unlock_addr(lock_addr, cxt, coro_id, false);
+//            this->unlock_addr(lock_addr, cxt, coro_id, false);
             return true;
         }
         // This consistent check should be in the path of RDMA read only.
@@ -1189,7 +1189,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 #ifndef NDEBUG
             rdma_refetch_times++;
 #endif
-            this->unlock_addr(lock_addr, cxt, coro_id, false);
+//            this->unlock_addr(lock_addr, cxt, coro_id, false);
             goto rdma_refetch;
         }
         assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
@@ -1199,7 +1199,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         // removed from the cache, but it may not be garbage collected right away
         handle = page_cache->Insert(page_id, new_mr, kInternalPageSize, Deallocate_MR);
 //        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
-        this->unlock_addr(lock_addr, cxt, coro_id, false);
+//        this->unlock_addr(lock_addr, cxt, coro_id, false);
 //#ifndef NDEBUG
 //        usleep(10);
 //        ibv_wc wc[2];
@@ -1258,11 +1258,16 @@ local_reread:
             result.slibing = page->hdr.sibling_ptr;
             assert(page->hdr.sibling_ptr != GlobalAddress::Null());
             GlobalAddress sib_ptr = page->hdr.sibling_ptr;
+            // In case that the sibling pointer is invalidated
+            if(front_v != rear_v){
+                goto local_reread;
+            }
+            // The release should always happen in the end of the function, other wise the
+            // page will be overwrittened. When you run release, this means the page buffer will
+            // sooner be overwritten.
             page_cache->Release(handle);
 
-//            if(front_v != rear_v){
-//                goto local_reread;
-//            }
+
             return internal_page_search(sib_ptr, k, result, level, isroot, cxt, coro_id);
         }else{
             nested_retry_counter = 0;

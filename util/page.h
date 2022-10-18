@@ -163,11 +163,11 @@ namespace DSMEngine{
             if (!succ) {
                 // this->debug();
             }
-#ifndef NDEBUG
-            if (front_version == 0 && succ){
-                printf("check version pass, with 0\n");
-            }
-#endif
+//#ifndef NDEBUG
+//            if (front_version == 0 && succ){
+//                printf("check version pass, with 0\n");
+//            }
+//#endif
             return succ;
         }
 
