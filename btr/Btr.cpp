@@ -636,7 +636,7 @@ next: // Internal_and_Leaf page search
             p = result.next_level;
             level = result.level - 1;
         }else{
-            printf("happens when there is a only one level\n");
+            printf("happens when there is only one level\n");
         }
 
         if (level != 0){
@@ -1158,7 +1158,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         //check level first because the rearversion's position depends on the leaf node or internal node
         if (result.level == 0){
             // if the root node is the leaf node this path will happen.
-
+            printf("root and leaf are the same\n");
             // No need for reread.
             rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal_and_Leaf);
             // return true and let the outside code figure out that the leaf node is the root node
