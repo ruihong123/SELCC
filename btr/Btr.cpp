@@ -1170,7 +1170,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             // No need for reread.
             rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal_and_Leaf);
             // return true and let the outside code figure out that the leaf node is the root node
-
+            this->unlock_addr(lock_addr, cxt, coro_id, false);
             return true;
         }
         // This consistent check should be in the path of RDMA read only.
@@ -1194,6 +1194,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 #ifndef NDEBUG
             rdma_refetch_times++;
 #endif
+            this->unlock_addr(lock_addr, cxt, coro_id, false);
             goto rdma_refetch;
         }
         assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
