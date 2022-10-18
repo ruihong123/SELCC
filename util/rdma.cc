@@ -3372,6 +3372,10 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
                                          block_index * chunk_size);
       mr_input.length = chunk_size;
 //      DEBUG_arg("Allocate pointer %p\n", mr_input.addr);
+#ifndef NDEBUG
+        assert(*(uint64_t*)mr_input.addr == 0);
+        *(uint64_t*)mr_input.addr = 1;
+#endif
       return;
     } else
       ptr++;
@@ -3400,6 +3404,10 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
     mr_input.length = chunk_size;
 //    DEBUG_arg("Allocate pointer %p", mr_input.addr);
     //  mr_input.fname = file_name;
+#ifndef NDEBUG
+      assert(*(uint64_t*)mr_input.addr == 0);
+      *(uint64_t*)mr_input.addr = 1;
+#endif
     return;
   }
 }
@@ -3437,6 +3445,10 @@ bool RDMA_Manager::Deallocate_Local_RDMA_Slot(ibv_mr* mr, ibv_mr* map_pointer,
 }
 bool RDMA_Manager::Deallocate_Local_RDMA_Slot(void* p, Chunk_type buff_type) {
   std::shared_lock<std::shared_mutex> read_lock(local_mem_mutex);
+#ifndef NDEBUG
+    assert(*(uint64_t*)p == 1);
+    *(uint64_t*)p = 0;
+#endif
 //  DEBUG_arg("Deallocate pointer %p\n", p);
   std::map<void*, In_Use_Array*>* Bitmap;
   Bitmap = &name_to_mem_pool.at(buff_type);
