@@ -1165,6 +1165,10 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             return true;
         }
         // This consistent check should be in the path of RDMA read only.
+        //TODO (OPTIMIZATION): Think about Why the last index check is necessary? can we remove it
+        // If  there is no such check, the page may stay in some invalid state, where the last key-value noted by "last_index"
+        // is empty. I spent 3 days to debug, but unfortunatly I did not figure it out.
+        // THe weird thing is there will only be one empty in the last index, all the others are valid all the times.
         if (!page->check_consistent() || page->records[page->hdr.last_index ].ptr == GlobalAddress::Null()) {
             //TODO: What is the other thread is modifying this page but you overwrite the buffer by a reread.
             // How to tell whether the inconsistent content is from local read-write conflict or remote
@@ -1762,7 +1766,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
                 return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt, coro_id);
             }else{
 
-                assert(false);
+//                assert(false);
                 nested_retry_counter = 0;
                 return false;
             }
