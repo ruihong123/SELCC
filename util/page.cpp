@@ -115,6 +115,7 @@ namespace DSMEngine{
         assert(k < result.upper_key);
         assert(result.next_level != GlobalAddress::Null());
         assert(result.next_level.offset != 0);
+        return true;
     }
 
     void LeafPage::leaf_page_search(const Key &k, SearchResult &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr) {
