@@ -1140,7 +1140,15 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         //TODO: Why the internal page read some times read an empty page?
         // THe bug could be resulted from the concurrent access by multiple threads.
         // why the last_index is always greater than the records number?
-        rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+        uint64_t lock_index =
+                CityHash64((char *)&page_addr, sizeof(page_addr)) % define::kNumOfLock;
+        GlobalAddress lock_addr;
+        lock_addr.nodeID = page_addr.nodeID;
+        lock_addr.offset = lock_index * sizeof(uint64_t);
+        lock_and_read_page(new_mr, page_addr, kInternalPageSize, cas_mr,
+                           lock_addr, 1, cxt, coro_id);
+//        rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
 //        DEBUG_arg("cache miss and RDMA read %p", page_addr);
         //
 //#ifndef NDEBUG
