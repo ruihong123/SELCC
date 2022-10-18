@@ -1216,6 +1216,9 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 // IN case that the local read have a conflict with the concurrent write.
 
 local_reread:
+#ifndef NDEBUG
+        Key highest = page->hdr.highest;
+#endif
         uint8_t front_v = page->front_version;
         uint8_t rear_v = page->rear_version;
         if(front_v != rear_v){
@@ -1250,6 +1253,7 @@ local_reread:
             nested_retry_counter++;
             result.slibing = page->hdr.sibling_ptr;
             page_cache->Release(handle);
+            assert(page->hdr.sibling_ptr != GlobalAddress::Null());
             return internal_page_search(page->hdr.sibling_ptr, k, result, level, isroot, cxt, coro_id);
         }else{
             nested_retry_counter = 0;
