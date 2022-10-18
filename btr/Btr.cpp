@@ -398,6 +398,11 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
         assert(page_addr.nodeID == remote_lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(sr, 0, page_addr.nodeID);
     }else{
+#ifndef NDEBUG
+        auto page = (InternalPage*) page_buffer->addr;
+        assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
+#endif
+
         rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
 
 //        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
