@@ -1174,8 +1174,8 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         // is empty. I spent 3 days to debug, but unfortunatly I did not figure it out.
         // THe weird thing is there will only be one empty in the last index, all the others are valid all the times.
 
-        _mm_clflush(&page->front_version);
-        _mm_clflush(&page->rear_version);
+//        _mm_clflush(&page->front_version);
+//        _mm_clflush(&page->rear_version);
 //        || page->records[page->hdr.last_index ].ptr == GlobalAddress::Null()
         if (!page->check_consistent() ) {
             //TODO: What is the other thread is modifying this page but you overwrite the buffer by a reread.
@@ -1216,14 +1216,12 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 // IN case that the local read have a conflict with the concurrent write.
 
 local_reread:
-#ifndef NDEBUG
-        Key highest = page->hdr.highest;
-#endif
+//#ifndef NDEBUG
+//        Key highest = page->hdr.highest;
+//#endif
         uint8_t front_v = page->front_version;
         uint8_t rear_v = page->rear_version;
-        if(front_v != rear_v){
-            goto local_reread;
-        }
+
 //        assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
 
     if (k >= page->hdr.highest) { // should turn right
@@ -1254,7 +1252,11 @@ local_reread:
             result.slibing = page->hdr.sibling_ptr;
             page_cache->Release(handle);
             assert(page->hdr.sibling_ptr != GlobalAddress::Null());
-            return internal_page_search(page->hdr.sibling_ptr, k, result, level, isroot, cxt, coro_id);
+            GlobalAddress sib_ptr = page->hdr.sibling_ptr;
+//            if(front_v != rear_v){
+//                goto local_reread;
+//            }
+            return internal_page_search(sib_ptr, k, result, level, isroot, cxt, coro_id);
         }else{
             nested_retry_counter = 0;
             page_cache->Release(handle);
