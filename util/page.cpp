@@ -114,7 +114,7 @@ namespace DSMEngine{
             return false;
         assert(k < result.upper_key);
         assert(result.next_level != GlobalAddress::Null());
-        assert(result.next_level.offset != 0);
+        assert(result.next_level.offset >= 1024*1024);
         return true;
     }
 
