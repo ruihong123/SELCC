@@ -1221,7 +1221,9 @@ local_reread:
 //#endif
         uint8_t front_v = page->front_version;
         uint8_t rear_v = page->rear_version;
-
+        if(front_v != rear_v){
+                goto local_reread;
+        }
 //        assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
 
     if (k >= page->hdr.highest) { // should turn right
