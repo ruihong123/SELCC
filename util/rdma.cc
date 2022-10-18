@@ -3446,7 +3446,7 @@ bool RDMA_Manager::Deallocate_Local_RDMA_Slot(ibv_mr* mr, ibv_mr* map_pointer,
 bool RDMA_Manager::Deallocate_Local_RDMA_Slot(void* p, Chunk_type buff_type) {
   std::shared_lock<std::shared_mutex> read_lock(local_mem_mutex);
 #ifndef NDEBUG
-    assert(*(uint64_t*)p == 1);
+//    assert(*(uint64_t*)p == 1);
     *(uint64_t*)p = 0;
 #endif
 //  DEBUG_arg("Deallocate pointer %p\n", p);
