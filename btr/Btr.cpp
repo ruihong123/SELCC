@@ -1205,7 +1205,7 @@ local_reread:
         if(front_v != rear_v){
             goto local_reread;
         }
-        assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
+//        assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
 
         if (k >= page->hdr.highest) { // should turn right
 //            printf("should turn right ");
