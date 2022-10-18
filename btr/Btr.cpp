@@ -400,7 +400,10 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
     }else{
 #ifndef NDEBUG
         auto page = (InternalPage*) page_buffer->addr;
-        assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
+        if (page->hdr.level >0){
+            assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
+
+        }
 #endif
 
         rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
