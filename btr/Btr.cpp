@@ -1200,6 +1200,12 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         handle = page_cache->Insert(page_id, new_mr, kInternalPageSize, Deallocate_MR);
 //        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
         this->unlock_addr(lock_addr, cxt, coro_id, false);
+#ifndef NDEBUG
+        usleep(10);
+        ibv_wc wc[2];
+        auto qp_type = std::string("default");
+        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID) == 0);
+#endif
     }
 
     assert(result.level != 0);
@@ -1208,12 +1214,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
     //      assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 
 // IN case that the local read have a conflict with the concurrent write.
-#ifndef NDEBUG
-        usleep(10);
-        ibv_wc wc[2];
-        auto qp_type = std::string("default");
-        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID) == 0);
-#endif
+
 local_reread:
         uint8_t front_v = page->front_version;
         uint8_t rear_v = page->rear_version;
