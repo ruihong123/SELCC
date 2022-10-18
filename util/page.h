@@ -157,10 +157,17 @@ namespace DSMEngine{
         CityHash32((char *)&front_version, (&rear_version) - (&front_version));
     succ = cal_crc == this->crc;
 #endif
+
+
             succ = succ && (rear_version == front_version);
             if (!succ) {
                 // this->debug();
             }
+#ifndef NDEBUG
+            if (front_version == 0 && succ){
+                printf("check version pass, with 0\n");
+            }
+#endif
             return succ;
         }
 

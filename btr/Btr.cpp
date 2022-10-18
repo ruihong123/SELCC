@@ -1133,7 +1133,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 #endif
     rdma_refetch:
 #ifndef NDEBUG
-        if (rdma_refetch_times >= 1000){
+        if (rdma_refetch_times >= 10){
             assert(false);
         }
 #endif
@@ -1169,7 +1169,11 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         // If  there is no such check, the page may stay in some invalid state, where the last key-value noted by "last_index"
         // is empty. I spent 3 days to debug, but unfortunatly I did not figure it out.
         // THe weird thing is there will only be one empty in the last index, all the others are valid all the times.
-        if (!page->check_consistent() || page->records[page->hdr.last_index ].ptr == GlobalAddress::Null()) {
+
+        _mm_clflush(page->front_version);
+        _mm_clflush(page->rear_version);
+//        || page->records[page->hdr.last_index ].ptr == GlobalAddress::Null()
+        if (!page->check_consistent() ) {
             //TODO: What is the other thread is modifying this page but you overwrite the buffer by a reread.
             // How to tell whether the inconsistent content is from local read-write conflict or remote
             // RDMA read and write conflict
