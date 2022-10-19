@@ -1208,6 +1208,10 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
          * On the requester side, contents of the RDMA read buffer are guaranteed to be fully received only if one of the following events takes place:
          * *Completion of the RDMA Read Work Request (if completion is requested)
          * *Completion of the subsequent Work Request
+         * link : https://docs.nvidia.com/networking/display/MLNXOFEDv451010/Out-of-Order+%28OOO%29+Data+Placement+Experimental+Verbs
+         *
+         * According to this note, the two version checks will not guarantee the RDMA read page is consistent even if the verison check
+         * is passed.
          */
         assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
 
