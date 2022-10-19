@@ -1529,13 +1529,15 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
   for (int i = cnt - 1; i >= 0; --i) {
     if (page->records[i].key == k) { // find and update
 //        assert(false);
-        page->front_version++;
-
+//        page->front_version++;
+        __atomic_fetch_add(&page->front_version, 1, __ATOMIC_SEQ_CST);
         asm volatile ("sfence\n" : : );
       page->records[i].ptr = v;
       asm volatile ("sfence\n" : : );
-        page->rear_version++;
-      // assert(false);
+//        page->rear_version++;
+        __atomic_fetch_add(&page->rear_version, 1, __ATOMIC_SEQ_CST);
+
+        // assert(false);
       is_update = true;
       break;
     }
@@ -1556,7 +1558,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
       // execution preventing the version lock.
 //      asm volatile ("sfence\n" : : );
 //      asm volatile ("lfence\n" : : );
-      asm volatile ("mfence" : : : "memory");
+//      asm volatile ("mfence" : : : "memory");
     for (int i = cnt; i > insert_index; --i) {
       page->records[i].key = page->records[i - 1].key;
       page->records[i].ptr = page->records[i - 1].ptr;
@@ -1656,9 +1658,11 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         // The function below is the way to atomically change data without initialize the std::atomic
         // see https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
       __atomic_fetch_add(&page->rear_version, 1, __ATOMIC_SEQ_CST);
+//      page->rear_version++;
   }
 
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
+
         asm volatile ("mfence" : : : "memory");
         printf("Can handover is %d, last index is %hd, page offset is %lu\n", can_hand_over(lock_addr),page->hdr.last_index, page_addr.offset);
         write_page_and_unlock(local_buffer, page_addr, kInternalPageSize, (uint64_t*)cas_mr->addr,

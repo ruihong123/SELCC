@@ -108,7 +108,7 @@ namespace DSMEngine{
         InternalEntry records[kInternalCardinality] = {};
 
 //  uint8_t padding[InternalPagePadding];
-        alignas(64) uint8_t rear_version;
+        alignas(8) uint8_t rear_version;
 
         friend class Btr;
         friend class Cache;
