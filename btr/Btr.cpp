@@ -2207,7 +2207,7 @@ inline bool Btr::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
 //      (*cxt->yield)(*cxt->master);
 //    }
 
-    current = node.ticket_lock.load(std::memory_order_relaxed) >> 32;
+    current = node.ticket_lock.load(std::memory_order_seq_cst) >> 32;
   }
 
   if (is_local_locked) {
