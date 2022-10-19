@@ -102,13 +102,13 @@ namespace DSMEngine{
             uint64_t embedding_lock;
             uint64_t index_cache_freq;
         };
-
+//        std::atomic<uint8_t> front_version;
         uint8_t front_version;
         Header hdr;
         InternalEntry records[kInternalCardinality] = {};
 
 //  uint8_t padding[InternalPagePadding];
-        uint8_t rear_version;
+        alignas(64) uint8_t rear_version;
 
         friend class Btr;
         friend class Cache;
@@ -127,6 +127,7 @@ namespace DSMEngine{
 
             front_version = 0;
             rear_version = 0;
+            embedding_lock = 1;
         }
 
         InternalPage(uint32_t level = 0) {
@@ -136,7 +137,7 @@ namespace DSMEngine{
             front_version = 0;
             rear_version = 0;
 
-            embedding_lock = 0;
+            embedding_lock = 1;
         }
 
 //        void set_consistent() {
@@ -214,7 +215,7 @@ namespace DSMEngine{
             front_version = 0;
             rear_version = 0;
 
-            embedding_lock = 0;
+            embedding_lock = 1;
         }
 
 //        void set_consistent() {

@@ -101,6 +101,7 @@ RDMA_Manager::RDMA_Manager(config_t config, size_t remote_block_size)
                      std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)), R_SIZE*std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)));
   Mempool_initialize(Version_edit, 1024 * 1024, 32*1024*1024);
   Mempool_initialize(Internal_and_Leaf, kInternalPageSize, 0);
+        printf("atomic uint8_t, uint16_t, uint32_t and uint64_t are, %lu %lu %lu %lu\n ", sizeof(std::atomic<uint8_t>), sizeof(std::atomic<uint16_t>), sizeof(std::atomic<uint32_t>), sizeof(std::atomic<uint64_t>));
 
 }
 
@@ -3373,8 +3374,8 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
       mr_input.length = chunk_size;
 //      DEBUG_arg("Allocate pointer %p\n", mr_input.addr);
 #ifndef NDEBUG
-        assert(*(uint64_t*)mr_input.addr == 1);
-        *(uint64_t*)mr_input.addr = 0;
+        assert(*(uint64_t*)mr_input.addr == 0);
+        *(uint64_t*)mr_input.addr = 1;
 #endif
       return;
     } else
@@ -3405,8 +3406,8 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
 //    DEBUG_arg("Allocate pointer %p", mr_input.addr);
     //  mr_input.fname = file_name;
 #ifndef NDEBUG
-      assert(*(uint64_t*)mr_input.addr == 1);
-      *(uint64_t*)mr_input.addr = 0;
+      assert(*(uint64_t*)mr_input.addr == 0);
+      *(uint64_t*)mr_input.addr = 1;
 #endif
     return;
   }
@@ -3447,7 +3448,7 @@ bool RDMA_Manager::Deallocate_Local_RDMA_Slot(void* p, Chunk_type buff_type) {
   std::shared_lock<std::shared_mutex> read_lock(local_mem_mutex);
 #ifndef NDEBUG
 //    assert(*(uint64_t*)p == 1);
-    *(uint64_t*)p = 1;
+    *(uint64_t*)p = 0;
 #endif
 //  DEBUG_arg("Deallocate pointer %p\n", p);
   std::map<void*, In_Use_Array*>* Bitmap;

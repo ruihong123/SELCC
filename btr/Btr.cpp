@@ -1550,7 +1550,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     GlobalAddress sibling_addr = GlobalAddress::Null();
   if (!is_update) { // insert and shift
       // The update should mark the page version change because this will make the page state in consistent.
-      page->front_version++;
+      __atomic_fetch_add(&page->front_version, 1, __ATOMIC_SEQ_CST);
+//      page->front_version++;
       //TODO(potential bug): double check the memory fence, there could be out of order
       // execution preventing the version lock.
 //      asm volatile ("sfence\n" : : );
@@ -1652,7 +1653,9 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //      asm volatile ("lfence\n" : : );
       asm volatile ("mfence" : : : "memory");
 //      _mm_sfence();
-      page->rear_version++;
+        // The function below is the way to atomically change data without initialize the std::atomic
+        // see https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
+      __atomic_fetch_add(&page->rear_version, 1, __ATOMIC_SEQ_CST);
   }
 
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
