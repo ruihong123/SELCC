@@ -1184,8 +1184,8 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 
 //        _mm_clflush(&page->front_version);
 //        _mm_clflush(&page->rear_version);
-//        || page->records[page->hdr.last_index ].ptr == GlobalAddress::Null()
-        if (!page->check_consistent() || page->records[page->hdr.last_index ].ptr == GlobalAddress::Null()) {
+//        || page->records[page->hdr.last_index ].ptr == GlobalAddress::Null() 0x16623140000001 becomes 0x40000001
+        if (!page->check_consistent() ) {
             //TODO: What is the other thread is modifying this page but you overwrite the buffer by a reread.
             // How to tell whether the inconsistent content is from local read-write conflict or remote
             // RDMA read and write conflict
@@ -1200,6 +1200,15 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //            this->unlock_addr(lock_addr, cxt, coro_id, false);
             goto rdma_refetch;
         }
+        /**
+         * On the responder side, contents of the RDMA write buffer are guaranteed to be fully received only if one of the following events takes place:
+         * *Completion of the RDMA Write with immediate data
+         * *Arrival and completion of the subsequent Send message
+         * *Update of a memory element by subsequent RDMA Atomic operation
+         * On the requester side, contents of the RDMA read buffer are guaranteed to be fully received only if one of the following events takes place:
+         * *Completion of the RDMA Read Work Request (if completion is requested)
+         * *Completion of the subsequent Work Request
+         */
         assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
 
 

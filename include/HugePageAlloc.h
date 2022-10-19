@@ -27,8 +27,8 @@ namespace DSMEngine{
 //            assert(is_mmap_work == true);
             printf("mmap failed!\n");
             is_mmap_work = false;
-            //Use aligned alloc to enable the atomic variables.
-            res = aligned_alloc(64, size);
+            //Use aligned alloc to enable the atomic variables. aligned to cache line size.
+            res = aligned_alloc(128, size);
             assert(res != NULL);
             return res;
         }else{
