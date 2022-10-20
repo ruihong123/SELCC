@@ -5,6 +5,7 @@
 #ifndef MEMORYENGINE_PAGE_H
 #define MEMORYENGINE_PAGE_H
 #include "Common.h"
+#include "rdma.h"
 #include <iostream>
 namespace DSMEngine{
     struct SearchResult {
@@ -25,14 +26,17 @@ namespace DSMEngine{
     private:
         GlobalAddress leftmost_ptr;
         GlobalAddress sibling_ptr;
-        uint8_t level;
+
         // the last index is initialized as -1 in leaf node and internal nodes,
         // only 0 in the root node.
-        int16_t last_index;
+
         Key lowest;
         Key highest;
-//        bool local_invalidation;
-
+        //TODO: reserve struture or pointer for the invalidation bit (if not valid, a RDMA read is required),
+        // globale address (for checking whether this page is what we want) cache handle pointer.
+        bool valid_page;
+        int16_t last_index;
+        uint8_t level;
         friend class InternalPage;
         friend class LeafPage;
         friend class Btr;
@@ -54,8 +58,7 @@ namespace DSMEngine{
                       << "cnt=" << last_index + 1 << ",";
 //              << "range=[" << lowest << " - " << highest << "]";
         }
-    } __attribute__((packed));
-    ;
+    } __attribute__ ((aligned (8)));
 
     class InternalEntry {
     public:
@@ -87,29 +90,33 @@ namespace DSMEngine{
 //      key = {};
         }
     } __attribute__((packed));
-
+    //TODO (potential bug): recalcuclate the kInternalCardinality, if we take alignment into consideration
+    // the caculation below may not correct.
     constexpr int kInternalCardinality =
-            (kInternalPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8) /
+            (kInternalPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t)) /
             sizeof(InternalEntry);
 
     constexpr int kLeafCardinality =
-            (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8) / sizeof(LeafEntry);
+            (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t)) / sizeof(LeafEntry);
 
 
     class InternalPage {
         // private:
-        union {
-            uint32_t crc;
-            uint64_t embedding_lock;
-            uint64_t index_cache_freq;
+        //TODO: we can make the local lock metaddata outside the page.
+        struct {
+            uint16_t local_lock_bytes;
+            uint16_t issued_ticket;
+            uint16_t current_ticket;
+            uint16_t back_up;
         };
 //        std::atomic<uint8_t> front_version;
-        uint8_t front_version;
+//        uint8_t front_version;
+        uint64_t global_lock;
         Header hdr;
         InternalEntry records[kInternalCardinality] = {};
 
 //  uint8_t padding[InternalPagePadding];
-        alignas(8) uint8_t rear_version;
+//        alignas(8) uint8_t rear_version;
 
         friend class Btr;
         friend class Cache;
@@ -128,7 +135,10 @@ namespace DSMEngine{
 
             front_version = 0;
             rear_version = 0;
-            embedding_lock = 1;
+            local_lock_bytes = 0;
+            current_ticket = 0;
+            issued_ticket = 0;
+//            embedding_lock = 1;
         }
 
         InternalPage(uint32_t level = 0) {
@@ -137,8 +147,10 @@ namespace DSMEngine{
 
             front_version = 0;
             rear_version = 0;
-
-            embedding_lock = 1;
+            local_lock_bytes = 0;
+            current_ticket = 0;
+            issued_ticket = 0;
+//            embedding_lock = 1;
         }
 
 //        void set_consistent() {
@@ -149,7 +161,7 @@ namespace DSMEngine{
 //        CityHash32((char *)&front_version, (&rear_version) - (&front_version));
 //#endif
 //        }
-
+        void check_invalidation_and_refetch(RDMA_Manager *rdma_mg, ibv_mr mr);
 
         bool check_consistent() const {
 
@@ -191,14 +203,16 @@ namespace DSMEngine{
         void internal_page_store(GlobalAddress page_addr, const Key &k,
                                  GlobalAddress value, GlobalAddress root, int level,
                                  CoroContext *cxt, int coro_id);
-    } __attribute__((packed));
+    };
 
     class LeafPage {
-    private:
-        union {
-            uint32_t crc;
-            uint64_t embedding_lock;
-        };
+//    private:
+        struct {
+            uint16_t lock_bytes;
+            uint16_t issued_ticket;
+            uint16_t current_ticket;
+            uint16_t back_up;
+        } __attribute__((packed));
         uint8_t front_version;
         Header hdr;
         LeafEntry records[kLeafCardinality] = {};
@@ -215,8 +229,10 @@ namespace DSMEngine{
 
             front_version = 0;
             rear_version = 0;
-
-            embedding_lock = 1;
+            lock_bytes = 0;
+            current_ticket = 0;
+            issued_ticket = 0;
+//            embedding_lock = 1;
         }
 
 //        void set_consistent() {

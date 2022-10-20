@@ -1102,13 +1102,14 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 #ifndef NDEBUG
         int rdma_refetch_times = 0;
 #endif
+        ibv_mr* mr;
     //
     //Question: Shall we implement a shared-exclusive lock here for local contention. or we still
     // follow the optimistic latch free design?
     // Answer: Still optimistic latch free, the local read of internal node do not need local lock,
     // but the local write will write through the memory node and acquire the global lock.
     if (handle != nullptr){
-        auto mr = (ibv_mr*)page_cache->Value(handle);
+        mr = (ibv_mr*)page_cache->Value(handle);
         page_buffer = mr->addr;
         header = (Header *)((char*)page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
         page = (InternalPage *)page_buffer;
@@ -1128,18 +1129,19 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         path_stack[coro_id][result.level] = page_addr;
 //        printf("From cache, Page offest %lu last index is %d, page pointer is %p\n", page_addr.offset, page->hdr.last_index, page);
 //        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
+
     }else {
 
         //  pattern_cnt++;
-        ibv_mr* new_mr = new ibv_mr{};
-        rdma_mg->Allocate_Local_RDMA_Slot(*new_mr, Internal_and_Leaf);
+        mr = new ibv_mr{};
+        rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
 //        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p\n", page_addr, new_mr->addr);
 
-        page_buffer = new_mr->addr;
+        page_buffer = mr->addr;
         header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
         page = (InternalPage *)page_buffer;
-        page->front_version = 0;
-        page->rear_version = 0;
+//        page->front_version = 0;
+//        page->rear_version = 0;
 #ifndef NDEBUG
         rdma_refetch_times = 1;
 #endif
@@ -1152,15 +1154,15 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         //TODO: Why the internal page read some times read an empty page?
         // THe bug could be resulted from the concurrent access by multiple threads.
         // why the last_index is always greater than the records number?
-        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
-        uint64_t lock_index =
-                CityHash64((char *)&page_addr, sizeof(page_addr)) % define::kNumOfLock;
-        GlobalAddress lock_addr;
-        lock_addr.nodeID = page_addr.nodeID;
-        lock_addr.offset = lock_index * sizeof(uint64_t);
+//        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+//        uint64_t lock_index =
+//                CityHash64((char *)&page_addr, sizeof(page_addr)) % define::kNumOfLock;
+//        GlobalAddress lock_addr;
+//        lock_addr.nodeID = page_addr.nodeID;
+//        lock_addr.offset = lock_index * sizeof(uint64_t);
 //        lock_and_read_page(new_mr, page_addr, kInternalPageSize, cas_mr,
 //                           lock_addr, 1, cxt, coro_id);
-        rdma_mg->RDMA_Read(page_addr, new_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+        rdma_mg->RDMA_Read(page_addr, mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
 //        DEBUG_arg("cache miss and RDMA read %p", page_addr);
         //
 
@@ -1218,7 +1220,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 
         // if there has already been a cache entry with the same key, the old one will be
         // removed from the cache, but it may not be garbage collected right away
-        handle = page_cache->Insert(page_id, new_mr, kInternalPageSize, Deallocate_MR);
+        handle = page_cache->Insert(page_id, mr, kInternalPageSize, Deallocate_MR);
 //        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 //        this->unlock_addr(lock_addr, cxt, coro_id, false);
 //#ifndef NDEBUG
@@ -1268,7 +1270,27 @@ local_reread:
           //TODO(potential bug): we need to avoid this erase because it is expensive, we can barely
           // mark the page invalidated within the page and then let the next thread access this page to refresh this page.
 //          DEBUG_arg("Erase the page 1 %p\n", path_stack[coro_id][result.level+1]);
-          page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
+          Slice upper_node_page_id((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress));
+          // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+          // the page to check whether the page has been evicted.
+          Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+          if(upper_layer_handle){
+              InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
+              uint16_t expected = 0;
+              if(__atomic_compare_exchange_n(&page->local_lock_bytes, &expected, 1, false, (int) std::memory_order_seq_cst, (int) std::memory_order_seq_cst)){
+                  // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
+                  // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
+                  // already set it.
+                  assert(expected = 0);
+                  if (upper_page->hdr.valid_page){
+                      upper_page->hdr.valid_page = false;
+                  }
+                  __atomic_store_n(&page->local_lock_bytes, 0, (int)std::memory_order_seq_cst);
+              }
+              page_cache->Release(upper_layer_handle);
+          }
+
+//            page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
       }
       //TODO: What if the Erased key is still in use by other threads? THis is very likely
       // for the upper level nodes.
@@ -1306,7 +1328,26 @@ local_reread:
       }else{
 //          DEBUG_arg("Erase the page 2 %p\n", path_stack[coro_id][result.level+1]);
           assert(path_stack[coro_id][result.level+1] != GlobalAddress::Null());
-          page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
+          Slice upper_node_page_id((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress));
+          // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+          // the page to check whether the page has been evicted.
+          Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+          if(upper_layer_handle){
+              InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
+              uint16_t expected = 0;
+              if(__atomic_compare_exchange_n(&page->local_lock_bytes, &expected, 1, false, (int) std::memory_order_seq_cst, (int) std::memory_order_seq_cst)){
+                  // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
+                  // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
+                  // already set it.
+                  assert(expected = 0);
+                  if (upper_page->hdr.valid_page){
+                      upper_page->hdr.valid_page = false;
+                  }
+                  __atomic_store_n(&page->local_lock_bytes, 0, (int)std::memory_order_seq_cst);
+              }
+              page_cache->Release(upper_layer_handle);
+          }
+//          page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
       }
     //              printf("key %ld error in level %d\n", k, page->hdr.level);
     //              sleep(10);
@@ -1383,8 +1424,26 @@ re_read:
         int last_level = 1;
         if (path_stack[coro_id][last_level] != GlobalAddress::Null()){
 //            DEBUG_arg("Erase the page 3 %p\n", path_stack[coro_id][last_level]);
-
-            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
+            Slice upper_node_page_id((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress));
+            // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+            //  the page to check whether the page has been evicted.
+            Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+            if(upper_layer_handle){
+                LeafPage* upper_page = (LeafPage*)((ibv_mr*)upper_layer_handle->value)->addr;
+                uint16_t expected = 0;
+                if(__atomic_compare_exchange_n(&page->lock_bytes, &expected, 1, false, (int) std::memory_order_seq_cst,(int) std::memory_order_seq_cst)){
+                    // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
+                    // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
+                    // already set it.
+                    assert(expected = 0);
+                    if (upper_page->hdr.valid_page){
+                        upper_page->hdr.valid_page = false;
+                    }
+                    __atomic_store_n(&page->lock_bytes, 0, (int)std::memory_order_seq_cst);
+                }
+                page_cache->Release(upper_layer_handle);
+            }
+//            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
 
         }
         // In case that there is a long distance(num. of sibiling pointers) between current node and the target node
@@ -1406,7 +1465,26 @@ re_read:
             //TODO(POTENTIAL bug): add a lock for the page when erase it. other wise other threads may
             // modify the page based on a stale cached page.
 //            DEBUG_arg("Erase the page 4 %p\n", path_stack[coro_id][last_level]);
-            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
+            Slice upper_node_page_id((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress));
+            // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+            //  the page to check whether the page has been evicted.
+            Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+            if(upper_layer_handle){
+                LeafPage* upper_page = (LeafPage*)((ibv_mr*)upper_layer_handle->value)->addr;
+                uint16_t expected = 0;
+                if(__atomic_compare_exchange_n(&page->lock_bytes, &expected, 1, false, (int) std::memory_order_seq_cst,(int) std::memory_order_seq_cst)){
+                    // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
+                    // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
+                    // already set it.
+                    assert(expected = 0);
+                    if (upper_page->hdr.valid_page){
+                        upper_page->hdr.valid_page = false;
+                    }
+                    __atomic_store_n(&page->lock_bytes, 0, (int)std::memory_order_seq_cst);
+                }
+                page_cache->Release(upper_layer_handle);
+            }
+//            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
 
         }
         return false;// false means need to fall back
@@ -1495,8 +1573,26 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
         if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
 //            DEBUG_arg("Erase the page 7 %p\n", path_stack[coro_id][level+1]);
-
-            page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
+            Slice upper_node_page_id((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress));
+            // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+            // the page to check whether the page has been evicted.
+            Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+            if(upper_layer_handle){
+                InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
+                uint16_t expected = 0;
+                if(__atomic_compare_exchange_n(&page->local_lock_bytes, &expected, 1, false, (int) std::memory_order_seq_cst, (int) std::memory_order_seq_cst)){
+                    // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
+                    // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
+                    // already set it.
+                    assert(expected = 0);
+                    if (upper_page->hdr.valid_page){
+                        upper_page->hdr.valid_page = false;
+                    }
+                    __atomic_store_n(&page->local_lock_bytes, 0, (int)std::memory_order_seq_cst);
+                }
+                page_cache->Release(upper_layer_handle);
+            }
+//            page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
         }
         // This could be async.
         this->unlock_addr(lock_addr, cxt, coro_id, false);
@@ -1522,9 +1618,26 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         // upper level. because the sibling pointer only points to larger one.
 
         if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
-            // TODO: How to make sure the Erase was only executed once?
-//            DEBUG_arg("Erase the page 8 %p\n", path_stack[coro_id][level+1]);
-            page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
+            Slice upper_node_page_id((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress));
+            // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+            //  the page to check whether the page has been evicted.
+            Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+            if(upper_layer_handle){
+                InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
+                uint16_t expected = 0;
+                if(__atomic_compare_exchange_n(&page->local_lock_bytes, &expected, 1, false, (int) std::memory_order_seq_cst, (int) std::memory_order_seq_cst)){
+                    // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
+                    // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
+                    // already set it.
+                    assert(expected = 0);
+                    if (upper_page->hdr.valid_page){
+                        upper_page->hdr.valid_page = false;
+                    }
+                    __atomic_store_n(&page->local_lock_bytes, 0, (int)std::memory_order_seq_cst);
+                }
+                page_cache->Release(upper_layer_handle);
+            }
+//            page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
         }
         this->unlock_addr(lock_addr, cxt, coro_id, false);
 
@@ -1822,8 +1935,26 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
             this->unlock_addr(lock_addr, cxt, coro_id, false);
             if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
 //                DEBUG_arg("Erase the page 5 %p\n", path_stack[coro_id][1]);
-
-                page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
+                Slice upper_node_page_id((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress));
+                // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+                //  the page to check whether the page has been evicted.
+                Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+                if(upper_layer_handle){
+                    LeafPage* upper_page = (LeafPage*)((ibv_mr*)upper_layer_handle->value)->addr;
+                    uint16_t expected = 0;
+                    if(__atomic_compare_exchange_n(&page->lock_bytes, &expected, 1, false, (int) std::memory_order_seq_cst,(int) std::memory_order_seq_cst)){
+                        // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
+                        // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
+                        // already set it.
+                        assert(expected = 0);
+                        if (upper_page->hdr.valid_page){
+                            upper_page->hdr.valid_page = false;
+                        }
+                        __atomic_store_n(&page->lock_bytes, 0, (int)std::memory_order_seq_cst);
+                    }
+                    page_cache->Release(upper_layer_handle);
+                }
+//                page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
             }
 //            this->unlock_addr(lock_addr, cxt, coro_id, true);
             if (nested_retry_counter <= 2){
@@ -1849,8 +1980,26 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 
         if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
 //            DEBUG_arg("Erase the page 6 %p\n", path_stack[coro_id][1]);
-
-            page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
+            Slice upper_node_page_id((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress));
+            // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+            //  the page to check whether the page has been evicted.
+            Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+            if(upper_layer_handle){
+                LeafPage* upper_page = (LeafPage*)((ibv_mr*)upper_layer_handle->value)->addr;
+                uint16_t expected = 0;
+                if(__atomic_compare_exchange_n(&page->lock_bytes, &expected, 1, false, (int) std::memory_order_seq_cst,(int) std::memory_order_seq_cst)){
+                    // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
+                    // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
+                    // already set it.
+                    assert(expected = 0);
+                    if (upper_page->hdr.valid_page){
+                        upper_page->hdr.valid_page = false;
+                    }
+                    __atomic_store_n(&page->lock_bytes, 0, (int)std::memory_order_seq_cst);
+                }
+                page_cache->Release(upper_layer_handle);
+            }
+//            page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
         }
         this->unlock_addr(lock_addr, cxt, coro_id, false);
 

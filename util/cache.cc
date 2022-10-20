@@ -224,7 +224,7 @@ void LRUCache::LRU_Append(LRUHandle* list, LRUHandle* e) {
 Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
 //  MutexLock l(&mutex_);
   SpinLock l(&mutex_);
-  //TOTHINK(ruihong): shoul we update the lru list after look up a key?
+  //TOTHINK(ruihong): should we update the lru list after look up a key?
   //  Answer: Ref will refer this key and later, the outer function has to call
   // Unref or release which will update the lRU list.
   LRUHandle* e = table_.Lookup(key, hash);
@@ -247,6 +247,8 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
                                                 void* value)) {
 //  MutexLock l(&mutex_);
   SpinLock l(&mutex_);
+  //TODO: set the LRUHandle within the page, so that we can check the reference, during the direct access, or we reserver
+  // a place hodler for the address pointer to the LRU handle of the page.
   LRUHandle* e =
       reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));
   e->value = value;

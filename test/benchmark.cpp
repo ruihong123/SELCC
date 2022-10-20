@@ -120,8 +120,8 @@ void thread_run(int id) {
   for (uint64_t i = 1; i < end_warm_key; ++i) {
       // we can not sequentially pop up the data. Otherwise there will be a bug.
       if (i % all_thread == my_id) {
-//      tree->insert(i, i * 2);
-        tree->insert(to_key(i), i * 2);
+      tree->insert(i, i * 2);
+//        tree->insert(to_key(i), i * 2);
 //        tree->insert(rand.Next()%(kKeySpace), i * 2);
 
         }

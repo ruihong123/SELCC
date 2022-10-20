@@ -118,6 +118,20 @@ namespace DSMEngine{
         return true;
     }
 
+    void InternalPage::check_invalidation_and_refetch(RDMA_Manager *rdma_mg, ibv_mr mr) {
+        bool expected = false;
+        if (!hdr.valid_page && __atomic_compare_exchange_n(&local_lock_bytes, (uint16_t*)&expected, true, false, (int)std::memory_order_seq_cst, (int)std::memory_order_seq_cst)){
+            invalidation_reread:
+            rdma_mg->RDMA_Read(page_addr, mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            // If the global lock is in use, then this read page should be in a inconsistent state.
+            if (global_lock != 1){
+                goto invalidation_reread;
+            }
+            __atomic_store_n(&page->hdr.valid_page, false, (int)std::memory_order_seq_cst);
+
+        }
+    }
+
     void LeafPage::leaf_page_search(const Key &k, SearchResult &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr) {
 //    re_read:
         Value target_value_buff{};
