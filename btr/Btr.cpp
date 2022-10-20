@@ -15,6 +15,7 @@
 namespace DSMEngine {
 bool enter_debug = false;
 
+//struct tranverse_stack_element
 
 thread_local int Btr::nested_retry_counter = 0;
 //HotBuffer hot_buf;
@@ -31,8 +32,11 @@ volatile bool need_stop = false;
 thread_local size_t Btr::round_robin_cur = 0;
 thread_local CoroCall Btr::worker[define::kMaxCoro];
 thread_local CoroCall Btr::master;
+//thread_local GlobalAddress path_stack[define::kMaxCoro]
+//                                     [define::kMaxLevelOfTree];
+
 thread_local GlobalAddress path_stack[define::kMaxCoro]
-                                     [define::kMaxLevelOfTree];
+    [define::kMaxLevelOfTree];
 RDMA_Manager * Btr::rdma_mg = nullptr;
 // for coroutine schedule
 struct CoroDeadline {
@@ -406,23 +410,23 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
         }
 #endif
 
-        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
+//        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
 
-//        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
         ibv_mr* local_CAS_mr = rdma_mg->Get_local_CAS_mr();
 //        *(uint64_t*) local_CAS_mr->addr = 0;
         *(uint64_t *)local_CAS_mr->addr = 0;
         //TODO: WHY the remote lock is not unlocked by this function?
-        rdma_mg->RDMA_CAS( remote_lock_addr, local_CAS_mr, 1,0, IBV_SEND_SIGNALED,1, LockTable);
+//        rdma_mg->RDMA_CAS( remote_lock_addr, local_CAS_mr, 1,0, IBV_SEND_SIGNALED,1, LockTable);
         assert(*(uint64_t *)local_CAS_mr->addr == 1);
 
-//        rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED, LockTable);
+        rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED, LockTable);
 //        sr[0].next = &sr[1];
 
 
 
         assert(page_addr.nodeID == remote_lock_addr.nodeID);
-//        rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
+        rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
     }
 
 //    std::cout << "release the remote lock at " << remote_lock_addr << std::endl;
@@ -465,17 +469,18 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
 
-//        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED, LockTable);
-//        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED, LockTable);
+        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
 
-        rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED|IBV_SEND_FENCE,1, LockTable);
-        rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
+//        rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED|IBV_SEND_FENCE,1, LockTable);
+//        rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
+
 //        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
 
         sr[0].next = &sr[1];
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
-//        rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
+        rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
 //        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
 
         if ((*(uint64_t*) cas_buffer->addr) != 0){
@@ -1261,7 +1266,8 @@ local_reread:
           // It is possible that a staled root will result in a reread at the same level and then the upper level is null
           // Question: why none root tranverser will comes to here? If a stale root initial a sibling page read, then the k should
           // not larger than the highest this time.
-          //TODO(potential bug): Erase need to acquire the lock for the page
+          //TODO(potential bug): we need to avoid this erase because it is expensive, we can barely
+          // mark the page invalidated within the page and then let the next thread access this page to refresh this page.
 //          DEBUG_arg("Erase the page 1 %p\n", path_stack[coro_id][result.level+1]);
           page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
       }

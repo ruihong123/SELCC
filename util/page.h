@@ -31,6 +31,7 @@ namespace DSMEngine{
         int16_t last_index;
         Key lowest;
         Key highest;
+//        bool local_invalidation;
 
         friend class InternalPage;
         friend class LeafPage;
