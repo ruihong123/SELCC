@@ -414,14 +414,13 @@ void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, in
 
         rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
         ibv_mr* local_CAS_mr = rdma_mg->Get_local_CAS_mr();
-//        *(uint64_t*) local_CAS_mr->addr = 0;
         *(uint64_t *)local_CAS_mr->addr = 0;
         //TODO: WHY the remote lock is not unlocked by this function?
 //        rdma_mg->RDMA_CAS( remote_lock_addr, local_CAS_mr, 1,0, IBV_SEND_SIGNALED,1, LockTable);
 //        assert(*(uint64_t *)local_CAS_mr->addr == 1);
 
         rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED, LockTable);
-//        sr[0].next = &sr[1];
+        sr[0].next = &sr[1];
 
 
 
