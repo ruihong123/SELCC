@@ -1195,6 +1195,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         int rdma_refetch_times = 0;
 #endif
         ibv_mr* mr;
+
     //
     //Question: Shall we implement a shared-exclusive lock here for local contention. or we still
     // follow the optimistic latch free design?
@@ -1238,6 +1239,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
         page = (InternalPage *)page_buffer;
         page->global_lock = 1;
+
 //        page->front_version = 0;
 //        page->rear_version = 0;
 #ifndef NDEBUG
@@ -1260,6 +1262,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //        lock_addr.offset = lock_index * sizeof(uint64_t);
 //        lock_and_read_page(new_mr, page_addr, kInternalPageSize, cas_mr,
 //                           lock_addr, 1, cxt, coro_id);
+        // it can read the full page, because it has not inserted to the cache.
         rdma_mg->RDMA_Read(page_addr, mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
 //        DEBUG_arg("cache miss and RDMA read %p", page_addr);
         //
@@ -1305,7 +1308,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             goto rdma_refetch;
         }
         // Initialize the local lock informations.
-        page->local_metadata_init();
+//        page->local_metadata_init();
         /**
          * On the responder side, contents of the RDMA write buffer are guaranteed to be fully received only if one of the following events takes place:
          * *Completion of the RDMA Write with immediate data
@@ -1316,7 +1319,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
          * *Completion of the subsequent Work Request
          */
         assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
-
+        page->local_metadata_init();
 
         // if there has already been a cache entry with the same key, the old one will be
         // removed from the cache, but it may not be garbage collected right away
@@ -1641,15 +1644,15 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     Cache::Handle* handle = nullptr;
     handle = page_cache->Lookup(page_id);
     ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
-    ibv_mr* local_buffer;
+    ibv_mr* page_mr;
     void * page_buffer;
         InternalPage* page;
 //    int flag = 3;
     if (handle!= nullptr){
-        // TOTHINK: shall the writer update the old internal page or leaf page. If so, it
+        // TODO: only fetch the data outside the local metadata.
         // is possible that the reader need to have a local reread, during the execution.
-        local_buffer = (ibv_mr*)page_cache->Value(handle);
-        page_buffer = local_buffer->addr;
+        page_mr = (ibv_mr*)page_cache->Value(handle);
+        page_buffer = page_mr->addr;
         // you have to reread to data from the remote side to not missing update from other
         // nodes! Do not read the page from the cache!
         page = (InternalPage *)page_buffer;
@@ -1662,7 +1665,10 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //            rdma_mg->RDMA_Read(page_addr, local_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
 
         }else{
-            global_lock_and_read_page(local_buffer, page_addr, kInternalPageSize,
+            ibv_mr temp_mr = *page_mr;
+            temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
+            temp_mr.length = temp_mr.length - sizeof(Local_Meta);
+            global_lock_and_read_page(&temp_mr, page_addr, kInternalPageSize - sizeof(Local_Meta),
                                       lock_addr, cas_mr, 1, cxt, coro_id);
         }
 //        lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
@@ -1673,24 +1679,24 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //        flag = 1;
     } else{
 
-        local_buffer = new ibv_mr{};
+        page_mr = new ibv_mr{};
 //        printf("Allocate slot for page 2 %p\n", page_addr);
-        rdma_mg->Allocate_Local_RDMA_Slot(*local_buffer, Internal_and_Leaf);
-        page_buffer = local_buffer->addr;
+        rdma_mg->Allocate_Local_RDMA_Slot(*page_mr, Internal_and_Leaf);
+        page_buffer = page_mr->addr;
         page = (InternalPage *)page_buffer;
         // you have to reread to data from the remote side to not missing update from other
         // nodes! Do not read the page from the cache!
         bool handover = acquire_local_lock(&page->local_lock_meta, cxt, coro_id);
         assert(!handover);
-        global_lock_and_read_page(local_buffer, page_addr, kInternalPageSize,
+        global_lock_and_read_page(page_mr, page_addr, kInternalPageSize,
                                   lock_addr, cas_mr, 1, cxt, coro_id);
-
+        page->local_metadata_init();
 //        lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
 //                           lock_addr, 1, cxt, coro_id);
 //        printf("non-Existing cache entry: prepare RDMA read request global ptr is %p, local ptr is %p, level is %d\n", page_addr, page_buffer, level);
 
 //        printf("Read page %lu over address %p, version is %u \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
-        handle = page_cache->Insert(page_id, local_buffer, kInternalPageSize, Deallocate_MR);
+        handle = page_cache->Insert(page_id, page_mr, kInternalPageSize, Deallocate_MR);
         // No need for consistence check here.
 //        flag = 0;
     }
@@ -1954,7 +1960,10 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //            rdma_mg->RDMA_Write(page_addr, local_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             releases_local_lock(&page->local_lock_meta);
         }else{
-            global_write_page_and_unlock(local_buffer, page_addr, kInternalPageSize, lock_addr, cxt, coro_id, false);
+            ibv_mr temp_mr = *page_mr;
+            temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
+            temp_mr.length = temp_mr.length - sizeof(Local_Meta);
+            global_write_page_and_unlock(&temp_mr, page_addr, kInternalPageSize -sizeof(Local_Meta), lock_addr, cxt, coro_id, false);
             releases_local_lock(&page->local_lock_meta);
         }
 //        write_page_and_unlock(local_buffer, page_addr, kInternalPageSize,

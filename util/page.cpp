@@ -125,14 +125,16 @@ namespace DSMEngine{
         return true;
     }
     // THe local concurrency control optimization to reduce RDMA bandwidth, is worthy of writing in the paper
-    void InternalPage::check_invalidation_and_refetch_outside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *mr) {
+    void InternalPage::check_invalidation_and_refetch_outside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
         uint8_t expected = 0;
-        assert(mr->addr == this);
+        assert(page_mr->addr == this);
         if (!hdr.valid_page && __atomic_compare_exchange_n(&local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
             invalidation_reread:
             __atomic_fetch_add(&local_lock_meta.issued_ticket, 1, mem_cst_seq);
-
-            rdma_mg->RDMA_Read(page_addr, mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            ibv_mr temp_mr = *page_mr;
+            temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
+            temp_mr.length = temp_mr.length - sizeof(Local_Meta);
+            rdma_mg->RDMA_Read(page_addr, &temp_mr, kInternalPageSize-sizeof(Local_Meta), IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             // If the global lock is in use, then this read page should be in a inconsistent state.
             if (global_lock != 0){
                 goto invalidation_reread;
@@ -143,12 +145,15 @@ namespace DSMEngine{
             __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
         }
     }
-    void InternalPage::check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *mr) {
+    void InternalPage::check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
         uint8_t expected = 0;
-        assert(mr->addr == this);
+        assert(page_mr->addr == this);
         if (!hdr.valid_page ){
 invalidation_reread:
-            rdma_mg->RDMA_Read(page_addr, mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            ibv_mr temp_mr = *page_mr;
+            temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
+            temp_mr.length = temp_mr.length - sizeof(Local_Meta);
+            rdma_mg->RDMA_Read(page_addr, &temp_mr, kInternalPageSize-sizeof(Local_Meta), IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             // If the global lock is in use, then this read page should be in a inconsistent state.
             if (global_lock != 1){
                 // with a lock the remote side can not be inconsistent.
