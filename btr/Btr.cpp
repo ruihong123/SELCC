@@ -1658,7 +1658,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         //  saving some RDMA round trips.
         bool handover = acquire_local_lock(&page->local_lock_meta, cxt, coro_id);
         if (handover){
-            rdma_mg->RDMA_Read(page_addr, local_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            // No need to read the page again because we handover the page as well.
+//            rdma_mg->RDMA_Read(page_addr, local_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
 
         }else{
             global_lock_and_read_page(local_buffer, page_addr, kInternalPageSize,
@@ -1949,8 +1950,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         // the lock release before
         bool hand_over_other = can_hand_over(&page->local_lock_meta);
         if (hand_over_other) {
-
-            rdma_mg->RDMA_Write(page_addr, local_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            //No need to write back we can handover the page as well.
+//            rdma_mg->RDMA_Write(page_addr, local_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             releases_local_lock(&page->local_lock_meta);
         }else{
             global_write_page_and_unlock(local_buffer, page_addr, kInternalPageSize, lock_addr, cxt, coro_id, false);
