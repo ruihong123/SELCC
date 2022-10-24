@@ -134,7 +134,7 @@ namespace DSMEngine{
 
             rdma_mg->RDMA_Read(page_addr, mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             // If the global lock is in use, then this read page should be in a inconsistent state.
-            if (global_lock != 1){
+            if (global_lock != 0){
                 goto invalidation_reread;
             }
 
