@@ -181,7 +181,7 @@ namespace DSMEngine{
 
         bool check_consistent() const {
 
-            bool succ = hdr.valid_page;
+            bool succ = global_lock;
 #ifdef CONFIG_ENABLE_CRC
             auto cal_crc =
         CityHash32((char *)&front_version, (&rear_version) - (&front_version));
