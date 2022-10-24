@@ -2,11 +2,11 @@
 // Created by wang4996 on 22-8-8.
 //
 
-#include <infiniband/verbs.h>
+//#include <infiniband/verbs.h>
 #include "page.h"
 #include "Btr.h"
 namespace DSMEngine{
-    bool InternalPage::internal_page_search(const Key &k, SearchResult &result, Key version) {
+    bool InternalPage::internal_page_search(const Key &k, SearchResult &result, uint16_t current_ticket) {
 
         assert(k >= hdr.lowest);
         assert(k < hdr.highest);
@@ -29,11 +29,16 @@ namespace DSMEngine{
         // concurrent writer (check lock).
 //    re_read:
         GlobalAddress target_global_ptr_buff;
-        uint8_t front_v = front_version;
+
+//        uint64_t local_meta_new = __atomic_load_n((uint64_t*)&local_meta, (int)std::memory_order_seq_cst);
+//        if (((uint16_t*) &local_meta_new)[2] != current_ticket){
+//            return false;
+//        }
+//        uint8_t front_v = front_version;
 //        uint8_t rear_v = rear_version;
-        if(front_v != version){
-            return false;
-        }
+//        if(front_v != current_ticket){
+//            return false;
+//        }
           asm volatile ("sfence\n" : : );
           asm volatile ("lfence\n" : : );
           asm volatile ("mfence\n" : : );
@@ -62,10 +67,11 @@ namespace DSMEngine{
             asm volatile ("sfence\n" : : );
             asm volatile ("lfence\n" : : );
             asm volatile ("mfence\n" : : );
-            front_v = front_version;
-            if (front_v!= version){
+            uint64_t local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
+            if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
                 return false;
             }
+
             assert(k < result.upper_key);
             assert(result.next_level != GlobalAddress::Null());
             return true;
@@ -87,8 +93,8 @@ namespace DSMEngine{
                 result.upper_key = records[i].key;
 #endif
 
-                front_v = front_version;
-                if (front_v!= version){
+                uint64_t local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
+                if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
                     return false;
                 }
                 assert(k < result.upper_key);
@@ -109,25 +115,48 @@ namespace DSMEngine{
         result.upper_key = hdr.highest;
 #endif
 
-        front_v = front_version;
-        if (front_v!= version)// version checking
+        uint64_t local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
+        if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
             return false;
+        }
         assert(k < result.upper_key);
         assert(result.next_level != GlobalAddress::Null());
         assert(result.next_level.offset >= 1024*1024);
         return true;
     }
-
-    void InternalPage::check_invalidation_and_refetch(RDMA_Manager *rdma_mg, ibv_mr mr) {
-        bool expected = false;
-        if (!hdr.valid_page && __atomic_compare_exchange_n(&local_lock_bytes, (uint16_t*)&expected, true, false, (int)std::memory_order_seq_cst, (int)std::memory_order_seq_cst)){
+    // THe local concurrency control optimization to reduce RDMA bandwidth, is worthy of writing in the paper
+    void InternalPage::check_invalidation_and_refetch_outside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *mr) {
+        uint8_t expected = 0;
+        assert(mr->addr == this);
+        if (!hdr.valid_page && __atomic_compare_exchange_n(&local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
             invalidation_reread:
+            __atomic_fetch_add(&local_lock_meta.issued_ticket, 1, mem_cst_seq);
+
             rdma_mg->RDMA_Read(page_addr, mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             // If the global lock is in use, then this read page should be in a inconsistent state.
             if (global_lock != 1){
                 goto invalidation_reread;
             }
-            __atomic_store_n(&page->hdr.valid_page, false, (int)std::memory_order_seq_cst);
+
+            hdr.valid_page = false;
+            local_lock_meta.current_ticket++;
+            __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
+        }
+    }
+    void InternalPage::check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *mr) {
+        uint8_t expected = 0;
+        assert(mr->addr == this);
+        if (!hdr.valid_page ){
+invalidation_reread:
+            rdma_mg->RDMA_Read(page_addr, mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            // If the global lock is in use, then this read page should be in a inconsistent state.
+            if (global_lock != 1){
+                // with a lock the remote side can not be inconsistent.
+                assert(false);
+                goto invalidation_reread;
+            }
+            __atomic_store_n(&hdr.valid_page, false, (int)std::memory_order_seq_cst);
+
 
         }
     }

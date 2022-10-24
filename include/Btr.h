@@ -117,12 +117,16 @@ public:
   bool try_lock_addr(GlobalAddress lock_addr, uint64_t tag, ibv_mr *buf,
                      CoroContext *cxt, int coro_id);
   void unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro_id, bool async);
-  void write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, uint64_t *cas_buffer,
-                             GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async);
+  void write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress remote_lock_addr,
+                        CoroContext *cxt, int coro_id, bool async);
+    void global_write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+                                      GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async);
   void lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
                           int page_size, ibv_mr *cas_buffer,
                           GlobalAddress lock_addr, uint64_t tag,
                           CoroContext *cxt, int coro_id);
+    void global_lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
+                                   ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id);
     // Node ID in GLobalAddress for a tree pointer should be the id in the Memory pool
     // THis funciton will get the page by the page addr and search the pointer for the
     // next level if it is not leaf page. If it is a leaf page, just put the value in the
@@ -146,12 +150,12 @@ public:
 
   bool acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
                           int coro_id);
-  bool acquire_shared_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
+    bool acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt,
                             int coro_id);
-  bool acquire_exclusive_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
-                                   int coro_id);
   bool can_hand_over(GlobalAddress lock_addr);
+        bool can_hand_over(Local_Meta * local_lock_meta);
   void releases_local_lock(GlobalAddress lock_addr);
+        void releases_local_lock(Local_Meta * local_lock_meta);
 };
 
 class Btr_iter{

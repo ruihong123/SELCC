@@ -51,9 +51,9 @@
 
 #define DIR_MESSAGE_NR 128
 
-#define kInternalPageSize 2*1024
+#define kInternalPageSize 16*1024
 
-#define kLeafPageSize 2*1024
+#define kLeafPageSize 16*1024
 
 #define KEY_PADDING 12
 
@@ -63,7 +63,7 @@
 void bindCore(uint16_t core);
 char *getIP();
 char *getMac();
-
+constexpr int mem_cst_seq = __ATOMIC_SEQ_CST;
 inline int bits_in(std::uint64_t u) {
   auto bs = std::bitset<64>(u);
   return bs.count();

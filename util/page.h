@@ -8,6 +8,7 @@
 #include "rdma.h"
 #include <iostream>
 namespace DSMEngine{
+
     struct SearchResult {
         bool is_leaf;
         uint8_t level;
@@ -26,7 +27,7 @@ namespace DSMEngine{
     private:
         GlobalAddress leftmost_ptr;
         GlobalAddress sibling_ptr;
-
+        GlobalAddress this_page_g_ptr;
         // the last index is initialized as -1 in leaf node and internal nodes,
         // only 0 in the root node.
 
@@ -98,20 +99,25 @@ namespace DSMEngine{
 
     constexpr int kLeafCardinality =
             (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t)) / sizeof(LeafEntry);
+    struct Local_Meta {
 
+        uint8_t local_lock_byte;
+        uint8_t issued_ticket;
+        uint8_t current_ticket;
+        uint8_t hand_time;
+        uint32_t hand_over;//can be only 1 byte.
+    };
 
     class InternalPage {
         // private:
         //TODO: we can make the local lock metaddata outside the page.
-        struct {
-            uint16_t local_lock_bytes;
-            uint16_t issued_ticket;
-            uint16_t current_ticket;
-            uint16_t back_up;
-        };
+    public:
+
+        Local_Meta local_lock_meta;
 //        std::atomic<uint8_t> front_version;
 //        uint8_t front_version;
         uint64_t global_lock;
+
         Header hdr;
         InternalEntry records[kInternalCardinality] = {};
 
@@ -123,7 +129,7 @@ namespace DSMEngine{
 
     public:
         // this is called when tree grows
-        InternalPage(GlobalAddress left, const Key &key, GlobalAddress right,
+        InternalPage(GlobalAddress left, const Key &key, GlobalAddress right, GlobalAddress this_page_g_ptr,
                      uint32_t level = 0) {
             hdr.leftmost_ptr = left;
             hdr.level = level;
@@ -132,24 +138,25 @@ namespace DSMEngine{
             records[1].ptr = GlobalAddress::Null();
 
             hdr.last_index = 0;
+            hdr.this_page_g_ptr = this_page_g_ptr;
+            local_metadata_init();
+//            front_version = 0;
+//            rear_version = 0;
+//            local_lock_bytes = 0;
+//            current_ticket = 0;
+//            issued_ticket = 0;
 
-            front_version = 0;
-            rear_version = 0;
-            local_lock_bytes = 0;
-            current_ticket = 0;
-            issued_ticket = 0;
 //            embedding_lock = 1;
         }
 
-        InternalPage(uint32_t level = 0) {
+        InternalPage(GlobalAddress this_page_g_ptr, uint32_t level = 0) {
             hdr.level = level;
             records[0].ptr = GlobalAddress::Null();
+            local_metadata_init();
+            hdr.this_page_g_ptr = this_page_g_ptr;
+//            front_version = 0;
+//            rear_version = 0;
 
-            front_version = 0;
-            rear_version = 0;
-            local_lock_bytes = 0;
-            current_ticket = 0;
-            issued_ticket = 0;
 //            embedding_lock = 1;
         }
 
@@ -161,11 +168,20 @@ namespace DSMEngine{
 //        CityHash32((char *)&front_version, (&rear_version) - (&front_version));
 //#endif
 //        }
-        void check_invalidation_and_refetch(RDMA_Manager *rdma_mg, ibv_mr mr);
+        void local_metadata_init(){
+            __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
+            local_lock_meta.current_ticket = 0;
+            local_lock_meta.issued_ticket = 0;
+        }
+        void set_global_address(GlobalAddress g_ptr){
+
+        }
+        void check_invalidation_and_refetch_outside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *mr);
+        void check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *mr);
 
         bool check_consistent() const {
 
-            bool succ = true;
+            bool succ = hdr.valid_page;
 #ifdef CONFIG_ENABLE_CRC
             auto cal_crc =
         CityHash32((char *)&front_version, (&rear_version) - (&front_version));
@@ -173,7 +189,7 @@ namespace DSMEngine{
 #endif
 
 
-            succ = succ && (rear_version == front_version);
+//            succ = succ && (rear_version == front_version);
             if (!succ) {
                 // this->debug();
             }
@@ -188,8 +204,8 @@ namespace DSMEngine{
         void debug() const {
             std::cout << "InternalPage@ ";
             hdr.debug();
-            std::cout << "version: [" << (int)front_version << ", " << (int)rear_version
-                      << "]" << std::endl;
+//            std::cout << "version: [" << (int)front_version << ", " << (int)rear_version
+//                      << "]" << std::endl;
         }
 
         void verbose_debug() const {
@@ -199,7 +215,7 @@ namespace DSMEngine{
             }
             printf("\n");
         }
-        bool internal_page_search(const Key &k, SearchResult &result, Key version);
+        bool internal_page_search(const Key &k, SearchResult &result, uint16_t current_ticket);
         void internal_page_store(GlobalAddress page_addr, const Key &k,
                                  GlobalAddress value, GlobalAddress root, int level,
                                  CoroContext *cxt, int coro_id);
