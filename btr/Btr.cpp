@@ -1702,14 +1702,14 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         // No need for consistence check here.
 //        flag = 0;
     }
-    local_reread:
-        assert(((uint64_t)&page->local_lock_meta) % 8 == 0);
-        uint64_t local_meta = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
-        while( ((Local_Meta*) &local_meta)->local_lock_byte > 0){
-            local_meta = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
-        };
-        uint16_t issued_ticket = ((Local_Meta*) &local_meta)->issued_ticket;
-        uint16_t current_ticket = ((Local_Meta*) &local_meta)->current_ticket;
+//    local_reread:
+//        assert(((uint64_t)&page->local_lock_meta) % 8 == 0);
+//        uint64_t local_meta = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
+//        while( ((Local_Meta*) &local_meta)->local_lock_byte > 0){
+//            local_meta = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
+//        };
+//        uint16_t issued_ticket = ((Local_Meta*) &local_meta)->issued_ticket;
+//        uint16_t current_ticket = ((Local_Meta*) &local_meta)->current_ticket;
 
 
     assert(((char*)&page->global_lock - (char*)page) == sizeof(Local_Meta));
@@ -1755,10 +1755,10 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         if (nested_retry_counter <= 2){
             nested_retry_counter++;
             GlobalAddress sib_ptr = page->hdr.sibling_ptr;
-            uint64_t local_meta_new = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
-            if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
-                goto local_reread;
-            }
+//            uint64_t local_meta_new = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
+//            if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
+//                goto local_reread;
+//            }
 
             insert_success = this->internal_page_store(sib_ptr, k, v, level, cxt,
                                                        coro_id);
