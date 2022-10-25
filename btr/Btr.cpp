@@ -1666,9 +1666,11 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
         }else{
             ibv_mr temp_mr = *page_mr;
+            GlobalAddress temp_page_add = page_addr;
+            temp_page_add.offset = page_addr.offset + sizeof(Local_Meta);
             temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
             temp_mr.length = temp_mr.length - sizeof(Local_Meta);
-            global_lock_and_read_page(&temp_mr, page_addr, kInternalPageSize - sizeof(Local_Meta),
+            global_lock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - sizeof(Local_Meta),
                                       lock_addr, cas_mr, 1, cxt, coro_id);
         }
 //        lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
@@ -1961,9 +1963,11 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             releases_local_lock(&page->local_lock_meta);
         }else{
             ibv_mr temp_mr = *page_mr;
+            GlobalAddress temp_page_add = page_addr;
+            temp_page_add.offset = page_addr.offset + sizeof(Local_Meta);
             temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
             temp_mr.length = temp_mr.length - sizeof(Local_Meta);
-            global_write_page_and_unlock(&temp_mr, page_addr, kInternalPageSize -sizeof(Local_Meta), lock_addr, cxt, coro_id, false);
+            global_write_page_and_unlock(&temp_mr, temp_page_add, kInternalPageSize -sizeof(Local_Meta), lock_addr, cxt, coro_id, false);
             releases_local_lock(&page->local_lock_meta);
         }
 //        write_page_and_unlock(local_buffer, page_addr, kInternalPageSize,
