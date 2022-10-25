@@ -1636,7 +1636,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //    lock_addr.offset = lock_index * sizeof(uint64_t);
     lock_addr.nodeID = page_addr.nodeID;
 
-    lock_addr.offset = page_addr + STRUCT_OFFSET(InternalPage,global_lock);
+    lock_addr.offset = page_addr.offset + STRUCT_OFFSET(InternalPage,global_lock);
 // Shall the page modification happen over the cached data buffer?
 
 //Yes
