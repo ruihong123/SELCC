@@ -1292,7 +1292,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //        _mm_clflush(&page->front_version);
 //        _mm_clflush(&page->rear_version);
 //        || page->records[page->hdr.last_index ].ptr == GlobalAddress::Null() 0x16623140000001 becomes 0x40000001
-        if (!page->check_consistent() ) {
+        if (!page->check_lock_state() ) {
             //TODO: What is the other thread is modifying this page but you overwrite the buffer by a reread.
             // How to tell whether the inconsistent content is from local read-write conflict or remote
             // RDMA read and write conflict
@@ -1692,6 +1692,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         assert(!handover);
         global_lock_and_read_page(page_mr, page_addr, kInternalPageSize,
                                   lock_addr, cas_mr, 1, cxt, coro_id);
+
         page->local_metadata_init();
 //        lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
 //                           lock_addr, 1, cxt, coro_id);
@@ -1714,7 +1715,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
     assert(((char*)&page->global_lock - (char*)page) == sizeof(Local_Meta));
     assert(page->hdr.level == level);
-    assert(page->check_consistent());
+    assert(!page->check_lock_state());
     assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
     path_stack[coro_id][page->hdr.level] = page_addr;
     // This is the result that we do not lock the btree when search for the key.
@@ -1967,6 +1968,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             temp_page_add.offset = page_addr.offset + sizeof(Local_Meta);
             temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
             temp_mr.length = temp_mr.length - sizeof(Local_Meta);
+            assert(page->global_lock = 1);
             global_write_page_and_unlock(&temp_mr, temp_page_add, kInternalPageSize -sizeof(Local_Meta), lock_addr, cxt, coro_id, false);
             releases_local_lock(&page->local_lock_meta);
         }

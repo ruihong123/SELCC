@@ -136,13 +136,15 @@ namespace DSMEngine{
             temp_page_add.offset = page_addr.offset + sizeof(Local_Meta);
             temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
             temp_mr.length = temp_mr.length - sizeof(Local_Meta);
-
             rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-sizeof(Local_Meta), IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             assert(hdr.level < 100);
             // If the global lock is in use, then this read page should be in a inconsistent state.
             if (global_lock != 0){
                 goto invalidation_reread;
             }
+            // TODO: think whether we need to reset the global lock to 1 because the RDMA write need to make sure
+            //  that the global lock is 1.
+            //  Answer, we only need to reset it when we write back the data.
 
             hdr.valid_page = false;
             local_lock_meta.current_ticket++;
