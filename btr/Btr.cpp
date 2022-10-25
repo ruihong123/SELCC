@@ -1954,7 +1954,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 
         asm volatile ("mfence" : : : "memory");
-        printf("Can handover is %d, last index is %hd, page offset is %lu\n", can_hand_over(lock_addr),page->hdr.last_index, page_addr.offset);
+//        printf("Can handover is %d, last index is %hd, page offset is %lu\n", can_hand_over(lock_addr),page->hdr.last_index, page_addr.offset);
         // It is posisble that the local lock implementation is not strong enough, making
         // the lock release before
         bool hand_over_other = can_hand_over(&page->local_lock_meta);
