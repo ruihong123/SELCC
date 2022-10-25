@@ -117,7 +117,7 @@ namespace DSMEngine{
 //        std::atomic<uint8_t> front_version;
 //        uint8_t front_version;
         uint64_t global_lock;
-        uint8_t front_version;
+        uint8_t front_version = 0;
         Header hdr;
         InternalEntry records[kInternalCardinality] = {};
 
@@ -184,7 +184,7 @@ namespace DSMEngine{
 
         bool check_consistent() const {
 
-            bool succ = global_lock;
+            bool succ = global_lock ==0;
 #ifdef CONFIG_ENABLE_CRC
             auto cal_crc =
         CityHash32((char *)&front_version, (&rear_version) - (&front_version));
