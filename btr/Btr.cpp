@@ -1337,7 +1337,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID) == 0);
 //#endif
     }
-
+        assert(page->hdr.level < 100);
     assert(result.level != 0);
     //          assert(!from_cache);
 
