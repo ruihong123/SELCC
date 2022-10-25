@@ -2112,19 +2112,21 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
                 //  the page to check whether the page has been evicted.
                 Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
                 if(upper_layer_handle){
-                    LeafPage* upper_page = (LeafPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                    uint16_t expected = 0;
-                    if(__atomic_compare_exchange_n(&page->lock_bytes, &expected, 1, false, (int) std::memory_order_seq_cst,(int) std::memory_order_seq_cst)){
+                    InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
+                    uint8_t expected = 0;
+                    if(__atomic_compare_exchange_n(&upper_page->local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
                         // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
                         // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
                         // already set it.
                         assert(expected = 0);
+                        __atomic_fetch_add(&upper_page->local_lock_meta.issued_ticket,1, mem_cst_seq);
                         if (upper_page->hdr.valid_page){
                             upper_page->hdr.valid_page = false;
                         }
-                        __atomic_store_n(&page->lock_bytes, 0, (int)std::memory_order_seq_cst);
+                        // keep the operation on the version.
+                        upper_page->local_lock_meta.current_ticket++;
+                        __atomic_store_n(&upper_page->local_lock_meta.local_lock_byte, 0, mem_cst_seq);
                     }
-                    page_cache->Release(upper_layer_handle);
                 }
 //                page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
             }
@@ -2157,19 +2159,21 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
             //  the page to check whether the page has been evicted.
             Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
             if(upper_layer_handle){
-                LeafPage* upper_page = (LeafPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                uint16_t expected = 0;
-                if(__atomic_compare_exchange_n(&page->lock_bytes, &expected, 1, false, (int) std::memory_order_seq_cst,(int) std::memory_order_seq_cst)){
+                InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
+                uint8_t expected = 0;
+                if(__atomic_compare_exchange_n(&upper_page->local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
                     // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
                     // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
                     // already set it.
                     assert(expected = 0);
+                    __atomic_fetch_add(&upper_page->local_lock_meta.issued_ticket,1, mem_cst_seq);
                     if (upper_page->hdr.valid_page){
                         upper_page->hdr.valid_page = false;
                     }
-                    __atomic_store_n(&page->lock_bytes, 0, (int)std::memory_order_seq_cst);
+                    // keep the operation on the version.
+                    upper_page->local_lock_meta.current_ticket++;
+                    __atomic_store_n(&upper_page->local_lock_meta.local_lock_byte, 0, mem_cst_seq);
                 }
-                page_cache->Release(upper_layer_handle);
             }
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
         }

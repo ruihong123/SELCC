@@ -117,7 +117,7 @@ namespace DSMEngine{
 //        std::atomic<uint8_t> front_version;
 //        uint8_t front_version;
         uint64_t global_lock;
-
+        uint8_t front_version;
         Header hdr;
         InternalEntry records[kInternalCardinality] = {};
 
@@ -172,6 +172,9 @@ namespace DSMEngine{
             __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
             local_lock_meta.current_ticket = 0;
             local_lock_meta.issued_ticket = 0;
+
+            local_lock_meta.hand_over = 0;
+            local_lock_meta.hand_time = 0;
         }
         void set_global_address(GlobalAddress g_ptr){
 
@@ -223,12 +226,8 @@ namespace DSMEngine{
 
     class LeafPage {
 //    private:
-        struct {
-            uint16_t lock_bytes;
-            uint16_t issued_ticket;
-            uint16_t current_ticket;
-            uint16_t back_up;
-        } __attribute__((packed));
+        Local_Meta local_lock_meta;
+        uint64_t global_lock;
         uint8_t front_version;
         Header hdr;
         LeafEntry records[kLeafCardinality] = {};
@@ -245,9 +244,11 @@ namespace DSMEngine{
 
             front_version = 0;
             rear_version = 0;
-            lock_bytes = 0;
-            current_ticket = 0;
-            issued_ticket = 0;
+            local_lock_meta.local_lock_byte = 0;
+            local_lock_meta.current_ticket = 0;
+            local_lock_meta.issued_ticket = 0;
+            local_lock_meta.hand_over = 0;
+            local_lock_meta.hand_time = 0;
 //            embedding_lock = 1;
         }
 
