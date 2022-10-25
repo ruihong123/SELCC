@@ -220,7 +220,7 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
     assert(left != GlobalAddress::Null());
     assert(right != GlobalAddress::Null());
   auto new_root = new(page_buffer->addr) InternalPage(left, k, right, GlobalAddress(), level);
-
+    assert(level < 100);
   auto new_root_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1);
     if(++round_robin_cur == rdma_mg->memory_nodes.size()){
         round_robin_cur = 0;
@@ -1223,7 +1223,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //        printf("From cache, Page offest %lu last index is %d, page pointer is %p\n", page_addr.offset, page->hdr.last_index, page);
 //        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 
-
+        assert(page->hdr.level < 100);
         // Note: we can not make the local lock outside the page, because in that case, the local lock
         // are aggregated but the global lock is per page, we can not do the lock handover.
         page->check_invalidation_and_refetch_outside_lock(page_addr, rdma_mg, mr);
