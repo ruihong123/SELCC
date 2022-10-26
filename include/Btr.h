@@ -117,7 +117,9 @@ public:
   bool try_lock_addr(GlobalAddress lock_addr, uint64_t tag, ibv_mr *buf,
                      CoroContext *cxt, int coro_id);
   void unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro_id, bool async);
-  void write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress remote_lock_addr,
+        void global_unlock_addr(GlobalAddress remote_lock_add, CoroContext *cxt, int coro_id, bool async);
+
+        void write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress remote_lock_addr,
                         CoroContext *cxt, int coro_id, bool async);
     void global_write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                       GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async);

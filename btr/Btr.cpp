@@ -376,6 +376,26 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
 
   releases_local_lock(lock_addr);
 }
+    void Btr::global_unlock_addr(GlobalAddress remote_lock_add, CoroContext *cxt, int coro_id, bool async) {
+//        bool hand_over_other = can_hand_over(local_lock_meta);
+//        if (hand_over_other) {
+//            releases_local_lock(local_lock_meta);
+//            return;
+//        }
+
+        auto cas_buf = rdma_mg->Get_local_CAS_mr();
+//    std::cout << "unlock " << lock_addr << std::endl;
+        *(uint64_t*)cas_buf->addr = 0;
+        if (async) {
+            // send flag 0 means there is no flag
+            rdma_mg->RDMA_Write(remote_lock_add, cas_buf,  sizeof(uint64_t), 0,0,Internal_and_Leaf);
+        } else {
+//      std::cout << "Unlock the remote lock" << lock_addr << std::endl;
+            rdma_mg->RDMA_Write(remote_lock_add, cas_buf,  sizeof(uint64_t), IBV_SEND_SIGNALED,1,Internal_and_Leaf);
+            assert(*(uint64_t*)cas_buf->addr == 1);
+        }
+//        releases_local_lock(lock_addr);
+    }
 // is it posisble that muliptle writer write to the same remote page at the same time (corner cases)?
     void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                     GlobalAddress remote_lock_addr,
@@ -1750,8 +1770,17 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
         }
         // This could be async.
-        this->unlock_addr(lock_addr, cxt, coro_id, false);
+//        this->unlock_addr(lock_addr, cxt, coro_id, false);
+        bool hand_over_other = can_hand_over(&page->local_lock_meta);
+        if (hand_over_other) {
+            releases_local_lock(&page->local_lock_meta);
+        }else{
 
+            assert(page->global_lock = 1);
+            global_unlock_addr(lock_addr,cxt,coro_id, false);
+//            global_write_page_and_unlock(&temp_mr, temp_page_add, kInternalPageSize -sizeof(Local_Meta), lock_addr, cxt, coro_id, false);
+            releases_local_lock(&page->local_lock_meta);
+        }
         assert(page->hdr.sibling_ptr != GlobalAddress::Null());
         if (nested_retry_counter <= 2){
             nested_retry_counter++;
@@ -1802,7 +1831,18 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             }
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
         }
-        this->unlock_addr(lock_addr, cxt, coro_id, false);
+//        this->unlock_addr(lock_addr, cxt, coro_id, false);
+        bool hand_over_other = can_hand_over(&page->local_lock_meta);
+        if (hand_over_other) {
+            releases_local_lock(&page->local_lock_meta);
+        }else{
+
+            assert(page->global_lock = 1);
+            global_unlock_addr(lock_addr,cxt,coro_id, false);
+//            global_write_page_and_unlock(&temp_mr, temp_page_add, kInternalPageSize -sizeof(Local_Meta), lock_addr, cxt, coro_id, false);
+            releases_local_lock(&page->local_lock_meta);
+        }
+
 
         insert_success = false;
         page_cache->Release(handle);
