@@ -1862,7 +1862,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     }
 
 //  assert(k >= page->hdr.lowest);
-
+        assert(page->local_lock_meta.local_lock_byte == 1);
     auto cnt = page->hdr.last_index + 1;
   bool is_update = false;
   uint16_t insert_index = 0;
@@ -1937,6 +1937,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
       // THe data under this internal node [lowest, highest)
 
       //Both internal node and leaf nodes are [lowest, highest) except for the left most
+      assert(page->local_lock_meta.local_lock_byte == 1);
+
       if (need_split) { // need split
           sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1);
           if(++round_robin_cur == rdma_mg->memory_nodes.size()){
@@ -2009,6 +2011,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //        printf("Can handover is %d, last index is %hd, page offset is %lu\n", can_hand_over(lock_addr),page->hdr.last_index, page_addr.offset);
         // It is posisble that the local lock implementation is not strong enough, making
         // the lock release before
+        assert(page->local_lock_meta.local_lock_byte == 1);
+
         bool hand_over_other = can_hand_over(&page->local_lock_meta);
         if (hand_over_other) {
             //No need to write back we can handover the page as well.
