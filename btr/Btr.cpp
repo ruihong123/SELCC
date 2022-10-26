@@ -1693,6 +1693,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             global_lock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - sizeof(Local_Meta),
                                       lock_addr, cas_mr, 1, cxt, coro_id);
         }
+        assert(page->local_lock_meta.local_lock_byte == 1);
+
 //        lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
 //                           lock_addr, 1, cxt, coro_id);
 //        printf("Existing cache entry: prepare RDMA read request global ptr is %p, local ptr is %p, level is %d\n", page_addr, page_buffer, level);
@@ -1713,6 +1715,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         assert(!handover);
         global_lock_and_read_page(page_mr, page_addr, kInternalPageSize,
                                   lock_addr, cas_mr, 1, cxt, coro_id);
+        assert(page->local_lock_meta.local_lock_byte == 1);
 
 
 //        lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
