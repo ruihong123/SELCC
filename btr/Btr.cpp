@@ -464,22 +464,22 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
             }
 #endif
 
-//        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
+        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
 
-            rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+//            rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
             ibv_mr* local_CAS_mr = rdma_mg->Get_local_CAS_mr();
             *(uint64_t *)local_CAS_mr->addr = 0;
             //TODO: WHY the remote lock is not unlocked by this function?
-//        rdma_mg->RDMA_CAS( remote_lock_addr, local_CAS_mr, 1,0, IBV_SEND_SIGNALED,1, LockTable);
+        rdma_mg->RDMA_CAS( remote_lock_addr, local_CAS_mr, 1,0, IBV_SEND_SIGNALED,1, LockTable);
 //        assert(*(uint64_t *)local_CAS_mr->addr == 1);
 
-            rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED, Internal_and_Leaf);
+//            rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED, Internal_and_Leaf);
             sr[0].next = &sr[1];
 
 
 
             assert(page_addr.nodeID == remote_lock_addr.nodeID);
-            rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
+//            rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
         }
 
 //        releases_local_lock(remote_lock_addr);
