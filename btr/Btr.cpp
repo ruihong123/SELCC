@@ -1731,6 +1731,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //        };
 //        uint16_t issued_ticket = ((Local_Meta*) &local_meta)->issued_ticket;
 //        uint16_t current_ticket = ((Local_Meta*) &local_meta)->current_ticket;
+        assert(page->local_lock_meta.local_lock_byte == 1);
 
 
     assert(((char*)&page->global_lock - (char*)page) == sizeof(Local_Meta));
@@ -1814,7 +1815,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         return insert_success;
 
     }
-        nested_retry_counter = 0;
+    nested_retry_counter = 0;
     if (k < page->hdr.lowest ) {
         // if key is smaller than the lower bound, the insert has to be restart from the
         // upper level. because the sibling pointer only points to larger one.
@@ -1862,7 +1863,6 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     }
 
 //  assert(k >= page->hdr.lowest);
-        assert(page->local_lock_meta.local_lock_byte == 1);
     auto cnt = page->hdr.last_index + 1;
   bool is_update = false;
   uint16_t insert_index = 0;
