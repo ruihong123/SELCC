@@ -1712,6 +1712,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         // you have to reread to data from the remote side to not missing update from other
         // nodes! Do not read the page from the cache!
         bool handover = acquire_local_lock(&page->local_lock_meta, cxt, coro_id);
+        assert(page->local_lock_meta.local_lock_byte == 1);
         assert(!handover);
         global_lock_and_read_page(page_mr, page_addr, kInternalPageSize,
                                   lock_addr, cas_mr, 1, cxt, coro_id);
