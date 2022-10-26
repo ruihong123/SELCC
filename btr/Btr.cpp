@@ -1771,35 +1771,47 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         }
         // This could be async.
 //        this->unlock_addr(lock_addr, cxt, coro_id, false);
-        bool hand_over_other = can_hand_over(&page->local_lock_meta);
-        if (hand_over_other) {
-            releases_local_lock(&page->local_lock_meta);
-        }else{
 
-            assert(page->global_lock = 1);
-            global_unlock_addr(lock_addr,cxt,coro_id, false);
-//            global_write_page_and_unlock(&temp_mr, temp_page_add, kInternalPageSize -sizeof(Local_Meta), lock_addr, cxt, coro_id, false);
-            releases_local_lock(&page->local_lock_meta);
-        }
+
+
         assert(page->hdr.sibling_ptr != GlobalAddress::Null());
         if (nested_retry_counter <= 2){
             nested_retry_counter++;
             GlobalAddress sib_ptr = page->hdr.sibling_ptr;
-//            uint64_t local_meta_new = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
-//            if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
-//                goto local_reread;
-//            }
+            //Unlock this page.
+            bool hand_over_other = can_hand_over(&page->local_lock_meta);
+            if (hand_over_other) {
+                releases_local_lock(&page->local_lock_meta);
+            }else{
+
+                assert(page->global_lock = 1);
+                global_unlock_addr(lock_addr,cxt,coro_id, false);
+                releases_local_lock(&page->local_lock_meta);
+            }
 
             insert_success = this->internal_page_store(sib_ptr, k, v, level, cxt,
                                                        coro_id);
-            page_cache->Release(handle);
-            return insert_success;
+
+
         }else{
             nested_retry_counter = 0;
-            page_cache->Release(handle);
-            return false;
+            insert_success = false;
+            //Unlock this page.
+            bool hand_over_other = can_hand_over(&page->local_lock_meta);
+            if (hand_over_other) {
+                releases_local_lock(&page->local_lock_meta);
+            }else{
+
+                assert(page->global_lock = 1);
+                global_unlock_addr(lock_addr,cxt,coro_id, false);
+                releases_local_lock(&page->local_lock_meta);
+            }
+//            return false;
         }
 
+
+        page_cache->Release(handle);
+        return insert_success;
 
     }
         nested_retry_counter = 0;
