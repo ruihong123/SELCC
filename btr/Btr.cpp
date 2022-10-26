@@ -1706,6 +1706,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         rdma_mg->Allocate_Local_RDMA_Slot(*page_mr, Internal_and_Leaf);
         page_buffer = page_mr->addr;
         page = (InternalPage *)page_buffer;
+        page->local_metadata_init();
         // you have to reread to data from the remote side to not missing update from other
         // nodes! Do not read the page from the cache!
         bool handover = acquire_local_lock(&page->local_lock_meta, cxt, coro_id);
@@ -1713,7 +1714,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         global_lock_and_read_page(page_mr, page_addr, kInternalPageSize,
                                   lock_addr, cas_mr, 1, cxt, coro_id);
 
-        page->local_metadata_init();
+
 //        lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
 //                           lock_addr, 1, cxt, coro_id);
 //        printf("non-Existing cache entry: prepare RDMA read request global ptr is %p, local ptr is %p, level is %d\n", page_addr, page_buffer, level);
