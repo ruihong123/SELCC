@@ -133,6 +133,7 @@ namespace DSMEngine{
                      uint32_t level = 0) {
             hdr.leftmost_ptr = left;
             hdr.level = level;
+            global_lock = 0;
             records[0].key = key;
             records[0].ptr = right;
             records[1].ptr = GlobalAddress::Null();
@@ -151,6 +152,7 @@ namespace DSMEngine{
 
         InternalPage(GlobalAddress this_page_g_ptr, uint32_t level = 0) {
             hdr.level = level;
+            global_lock = 0;
             records[0].ptr = GlobalAddress::Null();
             local_metadata_init();
             hdr.this_page_g_ptr = this_page_g_ptr;
