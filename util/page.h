@@ -95,7 +95,7 @@ namespace DSMEngine{
     //TODO (potential bug): recalcuclate the kInternalCardinality, if we take alignment into consideration
     // the caculation below may not correct.
     constexpr int kInternalCardinality =
-            (kInternalPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t)) /
+            (kInternalPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) -64) /
             sizeof(InternalEntry);
 
     constexpr int kLeafCardinality =
