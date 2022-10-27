@@ -117,7 +117,7 @@ namespace DSMEngine{
         Local_Meta local_lock_meta;
 //        std::atomic<uint8_t> front_version;
 //        uint8_t front_version;
-        uint64_t global_lock;
+        alignas(64) uint64_t global_lock;
         uint8_t front_version = 0;
         Header hdr;
         InternalEntry records[kInternalCardinality] = {};
