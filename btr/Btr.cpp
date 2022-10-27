@@ -1244,6 +1244,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 
         assert(page->hdr.level < 100);
+        assert((page->local_lock_meta.current_ticket == page->local_lock_meta.issued_ticket && page->local_lock_meta.local_lock_byte == 0) || (page->local_lock_meta.current_ticket != page->local_lock_meta.issued_ticket && page->local_lock_meta.local_lock_byte == 1));
         // Note: we can not make the local lock outside the page, because in that case, the local lock
         // are aggregated but the global lock is per page, we can not do the lock handover.
         page->check_invalidation_and_refetch_outside_lock(page_addr, rdma_mg, mr);
@@ -1676,6 +1677,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
         temp_mr.length = temp_mr.length - sizeof(Local_Meta);
         //Skip the local lock metadata
+        //TOTHINK: The RDMA read may result in the local spin lock not work if they are in the same cache line.
+        // The RDMA read may result in a false
         global_lock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - sizeof(Local_Meta),
                                   lock_addr, cas_mr, 1, cxt, coro_id);
         assert(page->local_lock_meta.local_lock_byte == 1);
