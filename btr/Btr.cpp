@@ -2655,7 +2655,7 @@ bool Btr::acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt, int 
 //        return true;
 //    }
 //    if (local_lock_meta->handover_times < define::kMaxHandOverTime &&)
-    assert(local_lock_meta->local_lock_byte = 1);
+    assert(local_lock_meta->local_lock_byte == 1);
     local_lock_meta->hand_time++;
     return local_lock_meta->hand_over;
 
