@@ -2715,6 +2715,7 @@ inline void Btr::releases_local_lock(GlobalAddress lock_addr) {
 //        auto &node = local_locks[(lock_addr.nodeID-1)/2][lock_addr.offset / 8];
         local_lock_meta->current_ticket++;
         assert(local_lock_meta->local_lock_byte == 1);
+        assert((uint64_t)&local_lock_meta->local_lock_byte % 8 == 0);
         __atomic_store_n(&local_lock_meta->local_lock_byte, 0, mem_cst_seq);
 //        node.ticket_lock.fetch_add((1ull << 32));
     }
