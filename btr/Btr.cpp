@@ -2646,7 +2646,7 @@ void Btr::invalidate_page(InternalPage *upper_page) {
         // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
         // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
         // already set it.
-        assert(expected = 0);
+        assert(expected == 0);
         __atomic_fetch_add(&upper_page->local_lock_meta.issued_ticket,1, mem_cst_seq);
         if (upper_page->hdr.valid_page){
             upper_page->hdr.valid_page = false;
