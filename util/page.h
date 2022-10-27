@@ -94,12 +94,6 @@ namespace DSMEngine{
     } __attribute__((packed));
     //TODO (potential bug): recalcuclate the kInternalCardinality, if we take alignment into consideration
     // the caculation below may not correct.
-    constexpr int kInternalCardinality =
-            (kInternalPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) -64) /
-            sizeof(InternalEntry);
-
-    constexpr int kLeafCardinality =
-            (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t)) / sizeof(LeafEntry);
     struct Local_Meta {
 
         uint8_t local_lock_byte;
@@ -108,6 +102,15 @@ namespace DSMEngine{
         uint8_t hand_time;
         uint32_t hand_over;//can be only 1 byte.
     };
+        constexpr int RDMA_OFFSET  = 64; // cache line offset.
+//    constexpr int RDMA_OFFSET  = sizeof(Local_Meta);
+    constexpr int kInternalCardinality =
+            (kInternalPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) -RDMA_OFFSET) /
+            sizeof(InternalEntry);
+
+    constexpr int kLeafCardinality =
+            (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) / sizeof(LeafEntry);
+
 
     class InternalPage {
         // private:
@@ -230,7 +233,7 @@ namespace DSMEngine{
     class LeafPage {
 //    private:
         Local_Meta local_lock_meta;
-        uint64_t global_lock;
+        alignas(64) uint64_t global_lock;
         uint8_t front_version;
         Header hdr;
         LeafEntry records[kLeafCardinality] = {};
