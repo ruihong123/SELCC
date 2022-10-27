@@ -1680,7 +1680,6 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         // TODO(Potential optimization): May be we can handover the cache if two writer threads modifying the same page.
         //  saving some RDMA round trips.
         bool handover = acquire_local_lock(&page->local_lock_meta, cxt, coro_id);
-        assert( __atomic_load_n(&page->local_lock_meta.local_lock_byte, mem_cst_seq) != 0);
 
         if (handover){
             // No need to read the page again because we handover the page as well.
@@ -1695,6 +1694,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             global_lock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - sizeof(Local_Meta),
                                       lock_addr, cas_mr, 1, cxt, coro_id);
         }
+        assert( __atomic_load_n(&page->local_lock_meta.local_lock_byte, mem_cst_seq) != 0);
 
 
 //        lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
