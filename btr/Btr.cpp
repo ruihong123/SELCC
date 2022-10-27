@@ -65,6 +65,7 @@ Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id),
       n.hand_time = 0;
     }
   }
+    assert(sizeof(InternalPage) <= kInternalPageSize);
 
   print_verbose();
     assert(g_root_ptr.is_lock_free());
@@ -1189,7 +1190,6 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
                                    CoroContext *cxt, int coro_id) {
 
 // tothink: How could I know whether this level before I actually access this page.
-
 
 
 //  auto &pattern_cnt = pattern[rdma_mg->getMyThreadID()][page_addr.nodeID];
