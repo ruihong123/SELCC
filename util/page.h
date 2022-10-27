@@ -101,11 +101,11 @@ namespace DSMEngine{
             (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t)) / sizeof(LeafEntry);
     struct Local_Meta {
 
-        uint64_t local_lock_byte;
-        uint64_t issued_ticket;
-        uint64_t current_ticket;
-        uint64_t hand_time;
-        uint64_t hand_over;//can be only 1 byte.
+        uint8_t local_lock_byte;
+        uint8_t issued_ticket;
+        uint8_t current_ticket;
+        uint8_t hand_time;
+        uint32_t hand_over;//can be only 1 byte.
     };
 
     class InternalPage {

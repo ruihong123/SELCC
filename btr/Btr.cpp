@@ -1413,7 +1413,7 @@ local_reread:
           Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
           if(upper_layer_handle){
               InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-              uint64_t expected = 0;
+              uint8_t expected = 0;
               if(__atomic_compare_exchange_n(&upper_page->local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
                   // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
                   // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
@@ -1478,7 +1478,7 @@ local_reread:
           Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
           if(upper_layer_handle){
               InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-              uint64_t expected = 0;
+              uint8_t expected = 0;
               if(__atomic_compare_exchange_n(&upper_page->local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
                   // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
                   // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
@@ -1620,7 +1620,7 @@ re_read:
             Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
             if(upper_layer_handle){
                 InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                uint64_t expected = 0;
+                uint8_t expected = 0;
                 if(__atomic_compare_exchange_n(&upper_page->local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
                     // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
                     // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
@@ -1766,7 +1766,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
             if(upper_layer_handle){
                 InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                uint64_t expected = 0;
+                uint8_t expected = 0;
                 if(__atomic_compare_exchange_n(&upper_page->local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
                     // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
                     // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
@@ -1840,7 +1840,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
             if(upper_layer_handle){
                 InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                uint64_t expected = 0;
+                uint8_t expected = 0;
                 if(__atomic_compare_exchange_n(&upper_page->local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
                     // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
                     // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
@@ -2188,7 +2188,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
                 Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
                 if(upper_layer_handle){
                     InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                    uint64_t expected = 0;
+                    uint8_t expected = 0;
                     if(__atomic_compare_exchange_n(&upper_page->local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
                         // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
                         // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
@@ -2235,7 +2235,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
             Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
             if(upper_layer_handle){
                 InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                uint64_t expected = 0;
+                uint8_t expected = 0;
                 if(__atomic_compare_exchange_n(&upper_page->local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
                     // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
                     // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
@@ -2642,7 +2642,7 @@ bool Btr::acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt, int 
     __atomic_fetch_add(&local_lock_meta->issued_ticket, 1, mem_cst_seq);
     assert(local_lock_meta->issued_ticket - local_lock_meta->current_ticket <= 16 );
     //TOTHINK(potential bug): what if the ticket out of buffer.
-    uint64_t expected = 0;
+    uint8_t expected = 0;
     while(!__atomic_compare_exchange_n(&local_lock_meta->local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
 
     }
