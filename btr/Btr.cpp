@@ -1633,22 +1633,22 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         // TODO(Potential optimization): May be we can handover the cache if two writer threads modifying the same page.
         //  saving some RDMA round trips.
         bool handover = acquire_local_lock(&page->local_lock_meta, cxt, coro_id);
-
+        assert( __atomic_load_n(&page->local_lock_meta.local_lock_byte, mem_cst_seq) != 0);
         if (handover){
             // No need to read the page again because we handover the page as well.
 //            rdma_mg->RDMA_Read(page_addr, local_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
 
         }else{
-//            ibv_mr temp_mr = *page_mr;
-//            GlobalAddress temp_page_add = page_addr;
-//            temp_page_add.offset = page_addr.offset + sizeof(Local_Meta);
-//            temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
-//            temp_mr.length = temp_mr.length - sizeof(Local_Meta);
-//            global_lock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - sizeof(Local_Meta),
-//                                      lock_addr, cas_mr, 1, cxt, coro_id);
-            usleep(1);
+            ibv_mr temp_mr = *page_mr;
+            GlobalAddress temp_page_add = page_addr;
+            temp_page_add.offset = page_addr.offset + sizeof(Local_Meta);
+            temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
+            temp_mr.length = temp_mr.length - sizeof(Local_Meta);
+            global_lock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - sizeof(Local_Meta),
+                                      lock_addr, cas_mr, 1, cxt, coro_id);
+//            usleep(1);
         }
-        assert( __atomic_load_n(&page->local_lock_meta.local_lock_byte, mem_cst_seq) != 0);
+
 
 
 //        lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
