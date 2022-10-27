@@ -158,6 +158,7 @@ public:
         bool can_hand_over(Local_Meta * local_lock_meta);
   void releases_local_lock(GlobalAddress lock_addr);
         void releases_local_lock(Local_Meta * local_lock_meta);
+        void invalidate_page(InternalPage* upper_page);
 };
 
 class Btr_iter{
