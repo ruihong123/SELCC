@@ -133,38 +133,43 @@ namespace DSMEngine{
         uint8_t issued_temp = __atomic_load_n(&local_lock_meta.issued_ticket,mem_cst_seq);
 #endif
         if (!hdr.valid_page && __atomic_compare_exchange_n(&local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
-        invalidation_reread:
-            __atomic_fetch_add(&local_lock_meta.issued_ticket, 1, mem_cst_seq);
-            ibv_mr temp_mr = *page_mr;
-            GlobalAddress temp_page_add = page_addr;
-            temp_page_add.offset = page_addr.offset + sizeof(Local_Meta);
-            temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
-            temp_mr.length = temp_mr.length - sizeof(Local_Meta);
-            rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-sizeof(Local_Meta), IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-            assert(hdr.level < 100);
-            // If the global lock is in use, then this read page should be in a inconsistent state.
-            if (global_lock != 0){
-                goto invalidation_reread;
-            }
-            // TODO: think whether we need to reset the global lock to 1 because the RDMA write need to make sure
-            //  that the global lock is 1.
-            //  Answer, we only need to reset it when we write back the data.
+            // when acquiring the lock, check the valid bit again, so that we can save unecessssary bandwidth.
+            if(!hdr.valid_page){
+                __atomic_fetch_add(&local_lock_meta.issued_ticket, 1, mem_cst_seq);
+                ibv_mr temp_mr = *page_mr;
+                GlobalAddress temp_page_add = page_addr;
+                temp_page_add.offset = page_addr.offset + sizeof(Local_Meta);
+                temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
+                temp_mr.length = temp_mr.length - sizeof(Local_Meta);
+                invalidation_reread:
+                rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-sizeof(Local_Meta), IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+                assert(hdr.level < 100);
+                // If the global lock is in use, then this read page should be in a inconsistent state.
+                if (global_lock != 0){
+                    goto invalidation_reread;
+                }
+                // TODO: think whether we need to reset the global lock to 1 because the RDMA write need to make sure
+                //  that the global lock is 1.
+                //  Answer, we only need to reset it when we write back the data.
 
-            hdr.valid_page = false;
-            local_lock_meta.current_ticket++;
-            __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
+                hdr.valid_page = false;
+                local_lock_meta.current_ticket++;
+                __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
+            }
+
         }
     }
     void InternalPage::check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
         uint8_t expected = 0;
         assert(page_mr->addr == this);
         if (!hdr.valid_page ){
-invalidation_reread:
+
             ibv_mr temp_mr = *page_mr;
             GlobalAddress temp_page_add = page_addr;
             temp_page_add.offset = page_addr.offset + sizeof(Local_Meta);
             temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
             temp_mr.length = temp_mr.length - sizeof(Local_Meta);
+        invalidation_reread:
             rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-sizeof(Local_Meta), IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             // If the global lock is in use, then this read page should be in a inconsistent state.
             if (global_lock != 1){
