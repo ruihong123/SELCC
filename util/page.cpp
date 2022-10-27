@@ -128,8 +128,12 @@ namespace DSMEngine{
     void InternalPage::check_invalidation_and_refetch_outside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
         uint8_t expected = 0;
         assert(page_mr->addr == this);
+#ifndef NDEBUG
+        uint8_t lock_temp = __atomic_load_n(&local_lock_meta.local_lock_byte,mem_cst_seq);
+        uint8_t issued_temp = __atomic_load_n(&local_lock_meta.issued_ticket,mem_cst_seq);
+#endif
         if (!hdr.valid_page && __atomic_compare_exchange_n(&local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
-            invalidation_reread:
+        invalidation_reread:
             __atomic_fetch_add(&local_lock_meta.issued_ticket, 1, mem_cst_seq);
             ibv_mr temp_mr = *page_mr;
             GlobalAddress temp_page_add = page_addr;
