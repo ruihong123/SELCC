@@ -1244,7 +1244,14 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 
         assert(page->hdr.level < 100);
-        assert((page->local_lock_meta.current_ticket == page->local_lock_meta.issued_ticket && page->local_lock_meta.local_lock_byte == 0) || (page->local_lock_meta.current_ticket != page->local_lock_meta.issued_ticket && page->local_lock_meta.local_lock_byte == 1));
+#ifndef NDEBUG
+        uint64_t local_meta_new = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
+        assert(((Local_Meta*) &local_meta_new)->local_lock_byte == 0 && ((Local_Meta*) &local_meta_new)->current_ticket == ((Local_Meta*) &local_meta_new)->issued_ticket || ((Local_Meta*) &local_meta_new)->local_lock_byte == 1 && ((Local_Meta*) &local_meta_new)->current_ticket != ((Local_Meta*) &local_meta_new)->issued_ticket );
+//        if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
+//            goto local_reread;
+//        }
+#endif
+//        assert((page->local_lock_meta.current_ticket == page->local_lock_meta.issued_ticket && page->local_lock_meta.local_lock_byte == 0) || (page->local_lock_meta.current_ticket != page->local_lock_meta.issued_ticket && page->local_lock_meta.local_lock_byte == 1));
         // Note: we can not make the local lock outside the page, because in that case, the local lock
         // are aggregated but the global lock is per page, we can not do the lock handover.
         page->check_invalidation_and_refetch_outside_lock(page_addr, rdma_mg, mr);
