@@ -139,11 +139,11 @@ namespace DSMEngine{
                 __atomic_fetch_add(&local_lock_meta.issued_ticket, 1, mem_cst_seq);
                 ibv_mr temp_mr = *page_mr;
                 GlobalAddress temp_page_add = page_addr;
-                temp_page_add.offset = page_addr.offset + sizeof(Local_Meta);
-                temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
-                temp_mr.length = temp_mr.length - sizeof(Local_Meta);
+                temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
+                temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
+                temp_mr.length = temp_mr.length - RDMA_OFFSET;
                 invalidation_reread:
-                rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-sizeof(Local_Meta), IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+                rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-RDMA_OFFSET, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
                 assert(hdr.level < 100);
                 // If the global lock is in use, then this read page should be in a inconsistent state.
                 if (global_lock != 0){
@@ -170,11 +170,11 @@ namespace DSMEngine{
 
             ibv_mr temp_mr = *page_mr;
             GlobalAddress temp_page_add = page_addr;
-            temp_page_add.offset = page_addr.offset + sizeof(Local_Meta);
-            temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
-            temp_mr.length = temp_mr.length - sizeof(Local_Meta);
+            temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
+            temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
+            temp_mr.length = temp_mr.length - RDMA_OFFSET;
         invalidation_reread:
-            rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-sizeof(Local_Meta), IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-RDMA_OFFSET, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             // If the global lock is in use, then this read page should be in a inconsistent state.
             if (global_lock != 1){
                 // with a lock the remote side can not be inconsistent.

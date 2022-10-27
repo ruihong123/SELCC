@@ -7,6 +7,7 @@
 #include "Common.h"
 #include "rdma.h"
 #include <iostream>
+
 namespace DSMEngine{
 
     struct SearchResult {

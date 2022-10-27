@@ -1246,7 +1246,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         assert(page->hdr.level < 100);
 #ifndef NDEBUG
         uint64_t local_meta_new = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
-        assert(((Local_Meta*) &local_meta_new)->local_lock_byte == 0 && ((Local_Meta*) &local_meta_new)->current_ticket == ((Local_Meta*) &local_meta_new)->issued_ticket || ((Local_Meta*) &local_meta_new)->local_lock_byte == 1 && ((Local_Meta*) &local_meta_new)->current_ticket != ((Local_Meta*) &local_meta_new)->issued_ticket );
+//        assert(((Local_Meta*) &local_meta_new)->local_lock_byte == 0 && ((Local_Meta*) &local_meta_new)->current_ticket == ((Local_Meta*) &local_meta_new)->issued_ticket || ((Local_Meta*) &local_meta_new)->local_lock_byte == 1 && ((Local_Meta*) &local_meta_new)->current_ticket != ((Local_Meta*) &local_meta_new)->issued_ticket );
 //        if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
 //            goto local_reread;
 //        }
@@ -1649,10 +1649,10 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         }else{
             ibv_mr temp_mr = *page_mr;
             GlobalAddress temp_page_add = page_addr;
-            temp_page_add.offset = page_addr.offset + sizeof(Local_Meta);
-            temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
-            temp_mr.length = temp_mr.length - sizeof(Local_Meta);
-            global_lock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - sizeof(Local_Meta),
+            temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
+            temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
+            temp_mr.length = temp_mr.length - RDMA_OFFSET;
+            global_lock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
                                       lock_addr, cas_mr, 1, cxt, coro_id);
 //            usleep(1);
         }
@@ -1680,13 +1680,13 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         assert(!handover);
         ibv_mr temp_mr = *page_mr;
         GlobalAddress temp_page_add = page_addr;
-        temp_page_add.offset = page_addr.offset + sizeof(Local_Meta);
-        temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
-        temp_mr.length = temp_mr.length - sizeof(Local_Meta);
+        temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
+        temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
+        temp_mr.length = temp_mr.length - RDMA_OFFSET;
         //Skip the local lock metadata
         //TOTHINK: The RDMA read may result in the local spin lock not work if they are in the same cache line.
         // The RDMA read may result in a false
-        global_lock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - sizeof(Local_Meta),
+        global_lock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
                                   lock_addr, cas_mr, 1, cxt, coro_id);
         assert(page->local_lock_meta.local_lock_byte == 1);
 
@@ -1711,7 +1711,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         assert(page->local_lock_meta.local_lock_byte == 1);
 
 
-    assert(((char*)&page->global_lock - (char*)page) == sizeof(Local_Meta));
+    assert(((char*)&page->global_lock - (char*)page) == RDMA_OFFSET);
     assert(page->hdr.level == level);
     assert(!page->check_lock_state());
     assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
@@ -1805,7 +1805,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
             assert(page->global_lock = 1);
             global_unlock_addr(lock_addr,cxt,coro_id, false);
-//            global_write_page_and_unlock(&temp_mr, temp_page_add, kInternalPageSize -sizeof(Local_Meta), lock_addr, cxt, coro_id, false);
+//            global_write_page_and_unlock(&temp_mr, temp_page_add, kInternalPageSize -RDMA_OFFSET, lock_addr, cxt, coro_id, false);
             releases_local_lock(&page->local_lock_meta);
         }
 
@@ -1974,11 +1974,11 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         }else{
             ibv_mr temp_mr = *page_mr;
             GlobalAddress temp_page_add = page_addr;
-            temp_page_add.offset = page_addr.offset + sizeof(Local_Meta);
-            temp_mr.addr = (char*)temp_mr.addr + sizeof(Local_Meta);
-            temp_mr.length = temp_mr.length - sizeof(Local_Meta);
+            temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
+            temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
+            temp_mr.length = temp_mr.length - RDMA_OFFSET;
             assert(page->global_lock = 1);
-            global_write_page_and_unlock(&temp_mr, temp_page_add, kInternalPageSize -sizeof(Local_Meta), lock_addr, cxt, coro_id, false);
+            global_write_page_and_unlock(&temp_mr, temp_page_add, kInternalPageSize -RDMA_OFFSET, lock_addr, cxt, coro_id, false);
             releases_local_lock(&page->local_lock_meta);
         }
 //        write_page_and_unlock(local_buffer, page_addr, kInternalPageSize,

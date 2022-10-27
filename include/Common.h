@@ -24,7 +24,7 @@
 
 #define LATENCY_WINDOWS 1000000
 
-
+#define RDMA_OFFSET 64
 
 #define STRUCT_OFFSET(type, field)                                             \
   (char *)&((type *)(0))->field - (char *)((type *)(0))
