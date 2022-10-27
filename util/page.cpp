@@ -126,7 +126,7 @@ namespace DSMEngine{
     }
     // THe local concurrency control optimization to reduce RDMA bandwidth, is worthy of writing in the paper
     void InternalPage::check_invalidation_and_refetch_outside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
-        uint64_t expected = 0;
+        uint8_t expected = 0;
         assert(page_mr->addr == this);
         if (!hdr.valid_page && __atomic_compare_exchange_n(&local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
             invalidation_reread:
@@ -152,7 +152,7 @@ namespace DSMEngine{
         }
     }
     void InternalPage::check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
-        uint64_t expected = 0;
+        uint8_t expected = 0;
         assert(page_mr->addr == this);
         if (!hdr.valid_page ){
 invalidation_reread:
