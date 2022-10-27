@@ -131,6 +131,7 @@ namespace DSMEngine{
 #ifndef NDEBUG
         uint8_t lock_temp = __atomic_load_n(&local_lock_meta.local_lock_byte,mem_cst_seq);
         uint8_t issued_temp = __atomic_load_n(&local_lock_meta.issued_ticket,mem_cst_seq);
+        uint16_t retry_counter = 0;
 #endif
         if (!hdr.valid_page && __atomic_compare_exchange_n(&local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
             // when acquiring the lock, check the valid bit again, so that we can save unecessssary bandwidth.
@@ -146,6 +147,9 @@ namespace DSMEngine{
                 assert(hdr.level < 100);
                 // If the global lock is in use, then this read page should be in a inconsistent state.
                 if (global_lock != 0){
+#ifndef NDEBUG
+                    assert(++retry_counter<10);
+#endif
                     goto invalidation_reread;
                 }
                 // TODO: think whether we need to reset the global lock to 1 because the RDMA write need to make sure
