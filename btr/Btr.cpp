@@ -573,6 +573,11 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
             uint64_t retry_cnt = 0;
             uint64_t pre_tag = 0;
             uint64_t conflict_tag = 0;
+
+#ifndef NDEBUG
+        InternalPage* page = (InternalPage*)((char*)page_buffer->addr - RDMA_OFFSET);
+        assert(page->local_lock_meta.local_lock_byte == 1);
+#endif
             retry:
             retry_cnt++;
             if (retry_cnt > 3000) {
@@ -585,15 +590,14 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
             }
             struct ibv_send_wr sr[2];
             struct ibv_sge sge[2];
-
+        assert(page->local_lock_meta.local_lock_byte == 1);
             rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED, Internal_and_Leaf);
             rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
-
 //        rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED|IBV_SEND_FENCE,1, LockTable);
 //        rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
 
 //        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
-
+        assert(page->local_lock_meta.local_lock_byte == 1);
             sr[0].next = &sr[1];
             *(uint64_t *)cas_buffer->addr = 0;
             assert(page_addr.nodeID == lock_addr.nodeID);
@@ -1669,6 +1673,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
             temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
             temp_mr.length = temp_mr.length - RDMA_OFFSET;
+            assert(page->local_lock_meta.local_lock_byte == 1);
             global_lock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
                                       lock_addr, cas_mr, 1, cxt, coro_id);
 //            usleep(1);
