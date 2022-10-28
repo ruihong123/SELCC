@@ -157,7 +157,7 @@ namespace DSMEngine{
                 //  that the global lock is 1.
                 //  Answer, we only need to reset it when we write back the data.
 
-                hdr.valid_page = false;
+                hdr.valid_page = true;
                 local_lock_meta.current_ticket++;
                 __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
             }
