@@ -138,6 +138,7 @@ namespace DSMEngine{
                      uint32_t level = 0) {
             hdr.leftmost_ptr = left;
             hdr.level = level;
+            hdr.valid_page = true;
             global_lock = 0;
             records[0].key = key;
             records[0].ptr = right;
