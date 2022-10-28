@@ -1667,7 +1667,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
                                       lock_addr, cas_mr, 1, cxt, coro_id);
 //            usleep(1);
         }
-
+        assert(page->local_lock_meta.local_lock_byte == 1);
 
 
 //        lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
@@ -1719,7 +1719,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //        };
 //        uint16_t issued_ticket = ((Local_Meta*) &local_meta)->issued_ticket;
 //        uint16_t current_ticket = ((Local_Meta*) &local_meta)->current_ticket;
-        assert(page->local_lock_meta.local_lock_byte == 1);
+
 
 
     assert(((char*)&page->global_lock - (char*)page) == RDMA_OFFSET);
