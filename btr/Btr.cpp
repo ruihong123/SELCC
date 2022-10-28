@@ -1225,6 +1225,13 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         mr = (ibv_mr*)page_cache->Value(handle);
         page_buffer = mr->addr;
         header = (Header *)((char*)page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
+#ifndef NDEBUG
+        uint64_t local_meta_old = __atomic_load_n((uint64_t*)&page_buffer, (int)std::memory_order_seq_cst);
+//        assert(((Local_Meta*) &local_meta_new)->local_lock_byte == 0 && ((Local_Meta*) &local_meta_new)->current_ticket == ((Local_Meta*) &local_meta_new)->issued_ticket || ((Local_Meta*) &local_meta_new)->local_lock_byte == 1 && ((Local_Meta*) &local_meta_new)->current_ticket != ((Local_Meta*) &local_meta_new)->issued_ticket );
+//        if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
+//            goto local_reread;
+//        }
+#endif
         page = (InternalPage *)page_buffer;
 #ifndef NDEBUG
         uint64_t local_meta_new = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
