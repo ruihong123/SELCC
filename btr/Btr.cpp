@@ -613,6 +613,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
 //      lock_fail[rdma_mg->getMyThreadID()][0]++;
                 goto retry;
             }
+        assert(page->local_lock_meta.local_lock_byte == 1);
     }
 
 
