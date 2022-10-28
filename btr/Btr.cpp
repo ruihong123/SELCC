@@ -1660,10 +1660,11 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 #endif
         bool handover = acquire_local_lock(&page->local_lock_meta, cxt, coro_id);
 #ifndef NDEBUG
+        usleep(4);
         uint8_t expected = 0;
         assert(!__atomic_compare_exchange_n(&page->local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq));
 #endif
-        usleep(4);
+
         assert( __atomic_load_n(&page->local_lock_meta.local_lock_byte, mem_cst_seq) != 0);
         if (handover){
             // No need to read the page again because we handover the page as well.
@@ -1843,7 +1844,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     auto cnt = page->hdr.last_index + 1;
   bool is_update = false;
   uint16_t insert_index = 0;
-        printf("The last index %d 's key is %lu, this key is %lu\n", page->hdr.last_index, page->records[page->hdr.last_index].key, k);
+//        printf("The last index %d 's key is %lu, this key is %lu\n", page->hdr.last_index, page->records[page->hdr.last_index].key, k);
   //TODO: Make it a binary search.
   for (int i = cnt - 1; i >= 0; --i) {
     if (page->records[i].key == k) { // find and update
@@ -1897,8 +1898,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //#endif
 //      asm volatile ("sfence\n" : : );
 // THe last index could be the same for several print because we may not insert to the end all the time.
-        printf("last_index of page offset %lu is %hd, page level is %d, page is %p, the last index content is %lu %p, version should be, the key is %lu\n"
-               , page_addr.offset,  page->hdr.last_index, page->hdr.level, page, page->records[page->hdr.last_index].key, page->records[page->hdr.last_index].ptr, k);
+//        printf("last_index of page offset %lu is %hd, page level is %d, page is %p, the last index content is %lu %p, version should be, the key is %lu\n"
+//               , page_addr.offset,  page->hdr.last_index, page->hdr.level, page, page->records[page->hdr.last_index].key, page->records[page->hdr.last_index].ptr, k);
       assert(page->hdr.last_index == last_index_prev + 1);
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
       assert(page->records[page->hdr.last_index].key != 0);
@@ -2675,6 +2676,7 @@ void Btr::invalidate_page(InternalPage *upper_page) {
         if (upper_page->hdr.valid_page){
             upper_page->hdr.valid_page = false;
         }
+        printf("Page invalidation %p\n", upper_page);
         // keep the operation on the version.
         upper_page->local_lock_meta.current_ticket++;
         __atomic_store_n(&upper_page->local_lock_meta.local_lock_byte, 0, mem_cst_seq);
