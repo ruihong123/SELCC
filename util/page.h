@@ -49,6 +49,7 @@ namespace DSMEngine{
             leftmost_ptr = GlobalAddress::Null();
             sibling_ptr = GlobalAddress::Null();
             last_index = -1;
+            valid_page = true;
             lowest = kKeyMin;
             highest = kKeyMax;
         }
