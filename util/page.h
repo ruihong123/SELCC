@@ -97,9 +97,10 @@ namespace DSMEngine{
     // the caculation below may not correct.
     struct Local_Meta {
 
-        uint8_t local_lock_byte;
+
         uint8_t issued_ticket;
         uint8_t current_ticket;
+        uint8_t local_lock_byte;
         uint8_t hand_time;
         uint32_t hand_over;//can be only 1 byte.
     };
