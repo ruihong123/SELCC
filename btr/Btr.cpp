@@ -2598,7 +2598,7 @@ bool Btr::acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt, int 
     while(!__atomic_compare_exchange_n(&local_lock_meta->local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
 
     }
-    global_static_var = __atomic_load_n((uint64_t*)local_lock_meta, (int)std::memory_order_seq_cst);
+//    global_static_var = __atomic_load_n((uint64_t*)local_lock_meta, (int)std::memory_order_seq_cst);
 //    uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
 //    uint8_t current = __atomic_load_n(&local_lock_addr->current_ticket, mem_cst_seq);// current is the former 32 bit in ticket lock
 //    uint8_t current = local_lock_meta->current_ticket;
