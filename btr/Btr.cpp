@@ -1902,7 +1902,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //      asm volatile ("sfence\n" : : );
 // THe last index could be the same for several print because we may not insert to the end all the time.
 //        printf("last_index of page offset %lu is %hd, page level is %d, page is %p, the last index content is %lu %p, version should be, the key is %lu\n"
-               , page_addr.offset,  page->hdr.last_index, page->hdr.level, page, page->records[page->hdr.last_index].key, page->records[page->hdr.last_index].ptr, k);
+//               , page_addr.offset,  page->hdr.last_index, page->hdr.level, page, page->records[page->hdr.last_index].key, page->records[page->hdr.last_index].ptr, k);
       assert(page->hdr.last_index == last_index_prev + 1);
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
       assert(page->records[page->hdr.last_index].key != 0);
