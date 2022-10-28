@@ -1650,6 +1650,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         //  saving some RDMA round trips.
 #ifndef NDEBUG
     bool valid_temp = page->hdr.valid_page;
+        uint64_t local_meta_new = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
 
 #endif
         bool handover = acquire_local_lock(&page->local_lock_meta, cxt, coro_id);
@@ -2574,7 +2575,7 @@ bool Btr::acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt, int 
 
 
     __atomic_fetch_add(&local_lock_meta->issued_ticket, 1, mem_cst_seq);
-    assert(local_lock_meta->issued_ticket - local_lock_meta->current_ticket <= 16 );
+//    assert(local_lock_meta->issued_ticket - local_lock_meta->current_ticket <= 16 );
     //TOTHINK(potential bug): what if the ticket out of buffer.
     uint8_t expected = 0;
     while(!__atomic_compare_exchange_n(&local_lock_meta->local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
