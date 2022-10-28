@@ -1663,7 +1663,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         uint8_t expected = 0;
         assert(!__atomic_compare_exchange_n(&page->local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq));
 #endif
-        usleep(1);
+        usleep(2);
         assert( __atomic_load_n(&page->local_lock_meta.local_lock_byte, mem_cst_seq) != 0);
         if (handover){
             // No need to read the page again because we handover the page as well.
