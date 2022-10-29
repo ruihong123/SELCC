@@ -2594,19 +2594,20 @@ bool Btr::acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt, int 
     //TOTHINK(potential bug): what if the ticket out of buffer.
     uint8_t expected = 0;
 #ifndef NDEBUG
-    uint64_t spin_coutner = 0;
+    uint64_t spin_counter = 0;
     uint64_t global_static_var;
 
 #endif
     while(!__atomic_compare_exchange_n(&local_lock_meta->local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
-        spin_coutner++;
+        spin_counter++;
+
     }
     global_static_var = __atomic_load_n((uint64_t*)local_lock_meta, (int)std::memory_order_seq_cst);
     if(((Local_Meta*)&global_static_var)->issued_ticket - ((Local_Meta*)&global_static_var)->current_ticket == 2){
         printf("mark here");
     }
-    printf("Acquire lock for %p, the current ticks is %d, issued ticket is%d, spin %lu times\n", local_lock_meta,
-           ((Local_Meta*)&global_static_var)->current_ticket, ((Local_Meta*)&global_static_var)->issued_ticket, spin_coutner);
+    printf("Acquire lock for %p, the current ticks is %d, issued ticket is%d, spin %lu times, thread %d\n", local_lock_meta,
+           ((Local_Meta*)&global_static_var)->current_ticket, ((Local_Meta*)&global_static_var)->issued_ticket, spin_counter, rdma_mg->thread_id);
 //    uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
 //    uint8_t current = __atomic_load_n(&local_lock_addr->current_ticket, mem_cst_seq);// current is the former 32 bit in ticket lock
 //    uint8_t current = local_lock_meta->current_ticket;
