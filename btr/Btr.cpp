@@ -2588,7 +2588,7 @@ bool Btr::acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt, int 
     assert((uint64_t)local_lock_meta % 8 == 0);
     //TODO: local lock implementation over InternalPage::Local_Meta.
 
-    if((uint64_t) local_lock_meta == 0x7fffeff0f080 || (uint64_t)local_lock_meta == 0x7fffeff07080){
+    if(local_lock_meta->issued_ticket - local_lock_meta->current_ticket == 2){
         printf("mark here");
     }
         __atomic_fetch_add(&local_lock_meta->issued_ticket, 1, mem_cst_seq);
@@ -2602,7 +2602,7 @@ bool Btr::acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt, int 
         spin_coutner++;
     }
     global_static_var = __atomic_load_n((uint64_t*)local_lock_meta, (int)std::memory_order_seq_cst);
-    printf("Acquire lock for %p, the current ticks is %d, issued ticket is%d, spin %lu times", local_lock_meta,
+    printf("Acquire lock for %p, the current ticks is %d, issued ticket is%d, spin %lu times\n", local_lock_meta,
            local_lock_meta->current_ticket, local_lock_meta->issued_ticket, spin_coutner);
 //    uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
 //    uint8_t current = __atomic_load_n(&local_lock_addr->current_ticket, mem_cst_seq);// current is the former 32 bit in ticket lock
