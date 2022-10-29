@@ -84,7 +84,7 @@ namespace DSMEngine{
                 target_global_ptr_buff = records[i - 1].ptr;
 
                 assert(records[i - 1].key <= k);
-                result.upper_key = records[i - 1].key;
+//                result.upper_key = records[i - 1].key;
 
 
 
