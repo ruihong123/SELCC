@@ -152,8 +152,10 @@ public:
 
   bool acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
                           int coro_id);
+        bool try_lock(Local_Meta *local_lock_meta);
     bool acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt,
                             int coro_id);
+
   bool can_hand_over(GlobalAddress lock_addr);
         bool can_hand_over(Local_Meta * local_lock_meta);
   void releases_local_lock(GlobalAddress lock_addr);

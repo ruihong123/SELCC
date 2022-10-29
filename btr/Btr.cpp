@@ -2582,6 +2582,11 @@ inline bool Btr::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
   return node.hand_over;
 }
 //    = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
+    bool Btr::try_lock(Local_Meta *local_lock_meta) {
+        auto currently_locked = __atomic_load_n(&local_lock_meta->local_lock_byte, __ATOMIC_RELAXED);
+        return !currently_locked &&
+                __atomic_compare_exchange_n(&local_lock_meta->local_lock_byte, &currently_locked, 1, true, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED);
+    }
 
 bool Btr::acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt, int coro_id) {
     assert((uint64_t)local_lock_meta % 8 == 0);
@@ -2598,14 +2603,18 @@ bool Btr::acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt, int 
     uint64_t global_static_var;
 
 #endif
-    while(!__atomic_compare_exchange_n(&local_lock_meta->local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
-#ifndef NDEBUG
-        spin_counter++;
+//    uint8_t lock_status =
+    size_t tries = 0;
+    while(1){
 
-        global_static_var = __atomic_load_n((uint64_t*)local_lock_meta, (int)std::memory_order_seq_cst);
-        printf("Acquire lock for %p, the current ticks is %d, issued ticket is%d, spin %lu times, thread %d\n", local_lock_meta,
-               ((Local_Meta*)&global_static_var)->current_ticket, ((Local_Meta*)&global_static_var)->issued_ticket, spin_counter, rdma_mg->thread_id);
-#endif
+        if(try_lock(local_lock_meta)){
+            break;
+        }
+        port::AsmVolatilePause();
+        if (tries++ > 100) {
+            //        printf("I tried so many time I got yield\n");
+            std::this_thread::yield();
+        }
     }
 #ifndef NDEBUG
     global_static_var = __atomic_load_n((uint64_t*)local_lock_meta, (int)std::memory_order_seq_cst);
@@ -2721,6 +2730,7 @@ void Btr::clear_statistics() {
     cache_miss[i][0] = 0;
   }
 }
+
 
 
 }
