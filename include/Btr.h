@@ -153,6 +153,7 @@ public:
   bool acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
                           int coro_id);
         bool try_lock(Local_Meta *local_lock_meta);
+        void unlock_lock(Local_Meta *local_lock_meta);
     bool acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt,
                             int coro_id);
 

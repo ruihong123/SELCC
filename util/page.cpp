@@ -124,6 +124,14 @@ namespace DSMEngine{
         assert(result.next_level.offset >= 1024*1024);
         return true;
     }
+     bool InternalPage::try_lock() {
+        auto currently_locked = __atomic_load_n(&local_lock_meta.local_lock_byte, __ATOMIC_RELAXED);
+        return !currently_locked &&
+               __atomic_compare_exchange_n(&local_lock_meta.local_lock_byte, &currently_locked, 1, true, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED);
+    }
+    inline void  InternalPage::unlock_lock() {
+        __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
+    }
     // THe local concurrency control optimization to reduce RDMA bandwidth, is worthy of writing in the paper
     void InternalPage::check_invalidation_and_refetch_outside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
         uint8_t expected = 0;
@@ -134,7 +142,7 @@ namespace DSMEngine{
         uint8_t issued_temp = __atomic_load_n(&local_lock_meta.issued_ticket,mem_cst_seq);
         uint16_t retry_counter = 0;
 #endif
-        if (!hdr.valid_page && __atomic_compare_exchange_n(&local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq)){
+        if (!hdr.valid_page && try_lock()){
             // when acquiring the lock, check the valid bit again, so that we can save unecessssary bandwidth.
             if(!hdr.valid_page){
                 printf("Page refetch %p\n", this);
@@ -160,7 +168,7 @@ namespace DSMEngine{
 
                 hdr.valid_page = true;
                 local_lock_meta.current_ticket++;
-                __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
+                unlock_lock();
             }
 
         }
