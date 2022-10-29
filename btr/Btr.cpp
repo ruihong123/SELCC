@@ -2590,9 +2590,7 @@ bool Btr::acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt, int 
 
 
         __atomic_fetch_add(&local_lock_meta->issued_ticket, 1, mem_cst_seq);
-    if(local_lock_meta->issued_ticket - local_lock_meta->current_ticket == 2){
-        printf("mark here");
-    }
+
 //    assert(local_lock_meta->issued_ticket - local_lock_meta->current_ticket <= 16 );
     //TOTHINK(potential bug): what if the ticket out of buffer.
     uint8_t expected = 0;
@@ -2603,6 +2601,9 @@ bool Btr::acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt, int 
         spin_coutner++;
     }
     global_static_var = __atomic_load_n((uint64_t*)local_lock_meta, (int)std::memory_order_seq_cst);
+    if(local_lock_meta->issued_ticket -local_lock_meta->current_ticket == 2){
+        printf("mark here");
+    }
     printf("Acquire lock for %p, the current ticks is %d, issued ticket is%d, spin %lu times\n", local_lock_meta,
            local_lock_meta->current_ticket, local_lock_meta->issued_ticket, spin_coutner);
 //    uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
