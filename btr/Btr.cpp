@@ -393,7 +393,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
         } else {
 //      std::cout << "Unlock the remote lock" << lock_addr << std::endl;
             rdma_mg->RDMA_Write(remote_lock_add, cas_buf,  sizeof(uint64_t), IBV_SEND_SIGNALED,1,Internal_and_Leaf);
-            assert(*(uint64_t*)cas_buf->addr == 1);
+//            assert(*(uint64_t*)cas_buf->addr == 1);
         }
 //        releases_local_lock(lock_addr);
     }
