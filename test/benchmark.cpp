@@ -339,7 +339,7 @@ int main(int argc, char *argv[]) {
             4*10*1024*1024 /*initial local buffer size*/
     };
     rdma_mg = DSMEngine::RDMA_Manager::Get_Instance(config);
-    DSMEngine::Cache* cache_ptr = DSMEngine::NewLRUCache(define::kIndexCacheSize);
+    DSMEngine::Cache* cache_ptr = DSMEngine::NewLRUCache(define::kIndexCacheSize*define::MB);
 //  rdma_mg->registerThread();
   tree = new DSMEngine::Btr(rdma_mg, cache_ptr, 0);
 
