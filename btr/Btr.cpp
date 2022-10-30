@@ -2713,8 +2713,9 @@ void Btr::invalidate_page(InternalPage *upper_page) {
         __atomic_fetch_add(&upper_page->local_lock_meta.issued_ticket,1, mem_cst_seq);
         if (upper_page->hdr.valid_page){
             upper_page->hdr.valid_page = false;
+            printf("Page invalidation %p\n", upper_page);
         }
-        printf("Page invalidation %p\n", upper_page);
+
         // keep the operation on the version.
         upper_page->local_lock_meta.current_ticket++;
         unlock_lock(&upper_page->local_lock_meta);
