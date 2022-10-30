@@ -12,6 +12,8 @@
 #include <vector>
 //#include <linux/membarrier.h>
 #include "port/likely.h"
+#include "util/hash.h"
+
 namespace DSMEngine {
 bool enter_debug = false;
 
@@ -47,6 +49,10 @@ struct CoroDeadline {
     return this->deadline < o.deadline;
   }
 };
+
+    static inline uint32_t HashSlice(const Slice& s) {
+        return Hash(s.data(), s.size(), 0);
+    }
 
 //thread_local Timer timer;
 thread_local std::queue<uint16_t> hot_wait_queue;
@@ -1177,6 +1183,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 
   leaf_page_del(p, k, 0, cxt, coro_id);
 }
+
 /**
  * Node ID in GLobalAddress for a tree pointer should be the id in the Memory pool
  THis funciton will get the page by the page addr and search the pointer for the
@@ -1275,7 +1282,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         //  pattern_cnt++;
         mr = new ibv_mr{};
         rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
-        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p\n", page_addr, mr->addr);
+        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu\n", page_addr, mr->addr, HashSlice(page_id));
 
         page_buffer = mr->addr;
         header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(InternalPage, hdr)));
