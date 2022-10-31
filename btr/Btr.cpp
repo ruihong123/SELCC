@@ -1399,6 +1399,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 local_reread:
 #ifndef NDEBUG
         Key highest;
+        size_t local_reread_retry = 0;
 #endif
         assert(((uint64_t)&page->local_lock_meta) % 8 == 0);
         uint64_t local_meta = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
@@ -1463,6 +1464,11 @@ local_reread:
             // In case that the sibling pointer is invalidated
             uint64_t local_meta_new = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
             if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
+#ifndef NDEBUG
+                if(local_reread_retry++ > 500){
+                    assert(false);
+                }
+#endif
                 goto local_reread;
             }
 //            if(front_v != rear_v){
@@ -1972,6 +1978,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
           assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
           k = split_key;
           v = sibling_addr;
+          printf("Create new node %p\n", v);
           // TODO (opt): we can directly add the sibling block into the cache here.
           rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
           delete sibling_mr;
