@@ -470,7 +470,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
 
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
-        printf("Reease global lock for %p\n", page_addr);
+//        printf("Reease global lock for %p\n", page_addr);
         if (async){
 
             rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
@@ -597,7 +597,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
             }
             struct ibv_send_wr sr[2];
             struct ibv_sge sge[2];
-        printf("Acquire global lock for %p\n", page_addr);
+//        printf("Acquire global lock for %p\n", page_addr);
         assert(page->local_lock_meta.local_lock_byte == 1);
             rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED, Internal_and_Leaf);
             rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
