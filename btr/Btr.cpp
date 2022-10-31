@@ -75,7 +75,7 @@ Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id),
 
   print_verbose();
     assert(g_root_ptr.is_lock_free());
-    page_cache = NewLRUCache(define::kIndexCacheSize);
+//    page_cache = NewLRUCache(define::kIndexCacheSize);
 
 //  root_ptr_ptr = get_root_ptr_ptr();
 
