@@ -354,6 +354,7 @@ class ShardedLRUCache : public Cache {
   Handle* Insert(const Slice& key, void* value, size_t charge,
                  void (*deleter)(const Slice& key, void* value)) override {
 #ifndef NDEBUG
+        assert(capacity_ >= 1000);
         if (TotalCharge() > 0.9 * capacity_ ){
             for (int i = 0; i < kNumShards - 1; ++i) {
                 if (shard_[i+1].TotalCharge() >0 && shard_[i].TotalCharge()/shard_[i+1].TotalCharge() >= 2){
@@ -369,6 +370,7 @@ class ShardedLRUCache : public Cache {
     return shard_[Shard(hash)].Insert(key, hash, value, charge, deleter);
   }
   Handle* Lookup(const Slice& key) override {
+      assert(capacity_ >= 1000);
     const uint32_t hash = HashSlice(key);
     return shard_[Shard(hash)].Lookup(key, hash);
   }
