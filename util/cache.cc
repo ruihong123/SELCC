@@ -351,6 +351,16 @@ class ShardedLRUCache : public Cache {
     // removed from the cache, but it may not be garbage collected right away
   Handle* Insert(const Slice& key, void* value, size_t charge,
                  void (*deleter)(const Slice& key, void* value)) override {
+#ifndef NDEBUG
+        if (TotalCharge() > 0.9 * capacity_ ){
+            for (int i = 0; i < kNumShards - 1; ++i) {
+                if (shard_[i].TotalCharge()/shard_[i+1].TotalCharge() >= 2){
+                    printf("Uneven cache distribution\n");
+                }
+            }
+        }
+
+#endif
     const uint32_t hash = HashSlice(key);
     return shard_[Shard(hash)].Insert(key, hash, value, charge, deleter);
   }
