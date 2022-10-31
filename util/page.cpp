@@ -158,7 +158,7 @@ namespace DSMEngine{
                 // If the global lock is in use, then this read page should be in a inconsistent state.
                 if (global_lock != 0){
 #ifndef NDEBUG
-                    assert(++retry_counter<10);
+                    assert(++retry_counter<100);
 #endif
                     goto invalidation_reread;
                 }

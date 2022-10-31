@@ -340,6 +340,7 @@ int main(int argc, char *argv[]) {
     };
     rdma_mg = DSMEngine::RDMA_Manager::Get_Instance(config);
     DSMEngine::Cache* cache_ptr = DSMEngine::NewLRUCache(define::kIndexCacheSize*define::MB);
+    assert(cache_ptr->TotalCharge()> 10000);
 //  rdma_mg->registerThread();
   tree = new DSMEngine::Btr(rdma_mg, cache_ptr, 0);
 
