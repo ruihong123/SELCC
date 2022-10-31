@@ -222,6 +222,8 @@ void LRUCache::LRU_Append(LRUHandle* list, LRUHandle* e) {
 }
 
 Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
+    //TODO: WHEN there is a miss, directly call the RDMA refetch and put it into the
+    // cache.
 //  MutexLock l(&mutex_);
   SpinLock l(&mutex_);
   //TOTHINK(ruihong): should we update the lru list after look up a key?
