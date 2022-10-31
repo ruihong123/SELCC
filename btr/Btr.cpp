@@ -1701,7 +1701,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //        printf("Read page %lu over address %p, version is %u  \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
 //        flag = 1;
     } else{
-
+        //TODO: acquire the lock when trying to insert the page to the cache.
         page_mr = new ibv_mr{};
 //        printf("Allocate slot for page 2 %p\n", page_addr);
         rdma_mg->Allocate_Local_RDMA_Slot(*page_mr, Internal_and_Leaf);
