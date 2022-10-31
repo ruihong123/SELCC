@@ -357,7 +357,8 @@ class ShardedLRUCache : public Cache {
         if (TotalCharge() > 0.9 * capacity_ ){
             for (int i = 0; i < kNumShards - 1; ++i) {
                 if (shard_[i+1].TotalCharge() >0 && shard_[i].TotalCharge()/shard_[i+1].TotalCharge() >= 2){
-                    printf("Uneven cache distribution\n");
+//                    printf("Uneven cache distribution\n");
+                    break;
                 }
             }
         }
