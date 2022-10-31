@@ -1296,7 +1296,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 #endif
     rdma_refetch:
 #ifndef NDEBUG
-        if (rdma_refetch_times >= 30){
+        if (rdma_refetch_times >= 100){
             assert(false);
         }
 #endif
