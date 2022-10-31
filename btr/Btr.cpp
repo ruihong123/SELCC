@@ -1284,10 +1284,10 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         //  pattern_cnt++;
         mr = new ibv_mr{};
         rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
-#ifndef NDEBUG
-        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d, this thread is %d\n",
-               page_addr, mr->addr, HashSlice(page_id), level, rdma_mg->thread_id);
-#endif
+
+        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
+               page_addr, mr->addr, HashSlice(page_id), level);
+
         page_buffer = mr->addr;
         header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(InternalPage, hdr)));
         page = (InternalPage *)page_buffer;
