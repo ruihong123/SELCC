@@ -226,7 +226,8 @@ Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
     // cache.
 //  MutexLock l(&mutex_);
   SpinLock l(&mutex_);
-  //TOTHINK(ruihong): should we update the lru list after look up a key?
+    assert(usage_ <= capacity_);
+    //TOTHINK(ruihong): should we update the lru list after look up a key?
   //  Answer: Ref will refer this key and later, the outer function has to call
   // Unref or release which will update the lRU list.
   LRUHandle* e = table_.Lookup(key, hash);
@@ -272,6 +273,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
     // next is read by key() in an assert, so it must be initialized
     e->next = nullptr;
   }
+        assert(usage_ <= capacity_);
   // This will remove some entry from LRU if the table_cache over size.
   while (usage_ > capacity_ && lru_.next != &lru_) {
     LRUHandle* old = lru_.next;
