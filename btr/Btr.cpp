@@ -100,7 +100,10 @@ Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id),
         remote_mr = *rdma_mg->global_index_table;
         // find the table enty according to the id
         remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*tree_id);
+        printf("Writer to remote address %p", remote_mr.addr);
         rdma_mg->RDMA_CAS(&remote_mr, local_mr, 0, g_root_ptr.load(), IBV_SEND_SIGNALED, 1, 1);
+        assert(*(uint64_t*)local_mr->addr = 0);
+
     }else{
         get_root_ptr();
     }
@@ -245,6 +248,8 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
     remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*tree_id);
     //TODO: The new root seems not be updated by the CAS, the old root and new_root addr are the same
   if (!rdma_mg->RDMA_CAS(&remote_mr, cas_buffer, old_root, new_root_addr, IBV_SEND_SIGNALED, 1, 1)) {
+      assert(*(uint64_t*)cas_buffer->addr = (uint64_t)old_root);
+      printf("Update the root global buffer %p successfully", remote_mr.addr);
     broadcast_new_root(new_root_addr, level);
     std::cout << "new root level " << level << " " << new_root_addr
               << std::endl;
