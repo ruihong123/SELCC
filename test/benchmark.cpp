@@ -31,6 +31,8 @@ const int kMaxThread = 32;
 
 int kReadRatio;
 int kThreadCount;
+int ThisNodeID;
+
 //int kComputeNodeCount;
 //int kMemoryNodeCount;
 bool table_scan = false;
@@ -258,8 +260,8 @@ void thread_run(int id) {
 }
 
 void parse_args(int argc, char *argv[]) {
-  if (argc != 4) {
-    printf("Usage: ./benchmark kReadRatio kThreadCount tablescan\n");
+  if (argc != 5) {
+    printf("Usage: ./benchmark kReadRatio kThreadCount ThisNodeID tablescan\n");
     exit(-1);
   }
 
@@ -267,13 +269,16 @@ void parse_args(int argc, char *argv[]) {
 //    kMemoryNodeCount = atoi(argv[2]);
     kReadRatio = atoi(argv[1]);
     kThreadCount = atoi(argv[2]);
+
     int scan_number = atoi(argv[3]);
+    ThisNodeID = atoi(argv[4]);
+
     if(scan_number == 0)
         table_scan = false;
     else
         table_scan = true;
 
-    printf("kReadRatio %d, kThreadCount %d, tablescan %d\n", kReadRatio, kThreadCount, scan_number);
+    printf("kReadRatio %d, kThreadCount %d, tablescan %d, ThisNodeID %d\n", kReadRatio, kThreadCount, table_scan, ThisNodeID);
 }
 
 void cal_latency() {
@@ -341,7 +346,7 @@ int main(int argc, char *argv[]) {
     DSMEngine::Cache* cache_ptr = DSMEngine::NewLRUCache(define::kIndexCacheSize*define::MB);
     assert(cache_ptr->GetCapacity()> 10000);
 //  rdma_mg->registerThread();
-  tree = new DSMEngine::Btr(rdma_mg, cache_ptr, 0);
+  tree = new DSMEngine::Btr(rdma_mg, cache_ptr, ThisNodeID);
 
 #ifndef BENCH_LOCK
   if (DSMEngine::RDMA_Manager::node_id == 0) {
