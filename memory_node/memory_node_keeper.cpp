@@ -60,22 +60,22 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
     uint8_t i = 0;
     uint8_t id;
     while ((pos = connection_conf.find(space_delimiter)) != std::string::npos) {
-      id = 2*i + 1;
+      id = 2*i;
       rdma_mg->compute_nodes.insert({id, connection_conf.substr(0, pos)});
       connection_conf.erase(0, pos + space_delimiter.length());
       i++;
     }
-    rdma_mg->compute_nodes.insert({2*i+1, connection_conf});
+    rdma_mg->compute_nodes.insert({2*i, connection_conf});
     assert((rdma_mg->node_id - 1)/2 <  rdma_mg->compute_nodes.size());
     i = 0;
     std::getline(myfile,connection_conf );
     while ((pos = connection_conf.find(space_delimiter)) != std::string::npos) {
-      id = 2*i;
+      id = 2*i +1;
       rdma_mg->memory_nodes.insert({id, connection_conf.substr(0, pos)});
       connection_conf.erase(0, pos + space_delimiter.length());
       i++;
     }
-    rdma_mg->memory_nodes.insert({2*i, connection_conf});
+    rdma_mg->memory_nodes.insert({2*i + 1, connection_conf});
     i++;
   }
 

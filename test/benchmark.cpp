@@ -31,8 +31,8 @@ const int kMaxThread = 32;
 
 int kReadRatio;
 int kThreadCount;
-int kComputeNodeCount;
-int kMemoryNodeCount;
+//int kComputeNodeCount;
+//int kMemoryNodeCount;
 bool table_scan = false;
 bool use_range_query = true;
 
@@ -263,18 +263,17 @@ void parse_args(int argc, char *argv[]) {
     exit(-1);
   }
 
-    kComputeNodeCount = atoi(argv[1]);
-    kMemoryNodeCount = atoi(argv[2]);
-    kReadRatio = atoi(argv[3]);
-    kThreadCount = atoi(argv[4]);
-    int scan_number = atoi(argv[5]);
+//    kComputeNodeCount = atoi(argv[1]);
+//    kMemoryNodeCount = atoi(argv[2]);
+    kReadRatio = atoi(argv[1]);
+    kThreadCount = atoi(argv[2]);
+    int scan_number = atoi(argv[3]);
     if(scan_number == 0)
         table_scan = false;
     else
         table_scan = true;
 
-    printf("kComputeNodeCount %d, kMemoryNodeCount %d, kReadRatio %d, kThreadCount %d, tablescan %d\n", kComputeNodeCount,
-           kMemoryNodeCount, kReadRatio, kThreadCount, scan_number);
+    printf("kReadRatio %d, kThreadCount %d, tablescan %d\n", kReadRatio, kThreadCount, scan_number);
 }
 
 void cal_latency() {
