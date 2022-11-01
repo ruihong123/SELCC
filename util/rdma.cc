@@ -964,40 +964,50 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
 }
 
 ibv_mr *RDMA_Manager::create_index_table() {
-    int mr_flags = 0;
-    size_t size = 16*1024;
-    char* buff = new char[size];
+    std::unique_lock<std::mutex> lck(global_resources_mtx);
+    if (global_index_table == nullptr){
+        int mr_flags = 0;
+        size_t size = 16*1024;
+        char* buff = new char[size];
 //      *p2buffpointer = (char*)hugePageAlloc(size);
-    if (!buff) {
-        fprintf(stderr, "failed to malloc bytes to memory buffer create index\n");
-        return nullptr;
-    }
-    memset(buff, 0, size);
+        if (!buff) {
+            fprintf(stderr, "failed to malloc bytes to memory buffer create index\n");
+            return nullptr;
+        }
+        memset(buff, 0, size);
 
-    /* register the memory buffer */
-    mr_flags =
-            IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
-    //  auto start = std::chrono::high_resolution_clock::now();
-    global_index_table  = ibv_reg_mr(res->pd, buff, size, mr_flags);
+        /* register the memory buffer */
+        mr_flags =
+                IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
+        //  auto start = std::chrono::high_resolution_clock::now();
+        global_index_table  = ibv_reg_mr(res->pd, buff, size, mr_flags);
+        printf("Global index table address is %p\n", global_index_table->addr);
+
+
+    }
     return global_index_table;
 
 }
 ibv_mr *RDMA_Manager::create_lock_table() {
-    int mr_flags = 0;
-    size_t size = define::kLockChipMemSize;
-    char* buff = new char[size];
+    std::unique_lock<std::mutex> lck(global_resources_mtx);
+    if (global_lock_table == nullptr){
+        int mr_flags = 0;
+        size_t size = define::kLockChipMemSize;
+        char* buff = new char[size];
 //      *p2buffpointer = (char*)hugePageAlloc(size);
-    if (!buff) {
-        fprintf(stderr, "failed to malloc bytes to memory buffer create lock table\n");
-        return nullptr;
-    }
-    memset(buff, 0, size);
+        if (!buff) {
+            fprintf(stderr, "failed to malloc bytes to memory buffer create lock table\n");
+            return nullptr;
+        }
+        memset(buff, 0, size);
 
-    /* register the memory buffer */
-    mr_flags =
-            IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
-    //  auto start = std::chrono::high_resolution_clock::now();
-    global_lock_table  = ibv_reg_mr(res->pd, buff, size, mr_flags);
+        /* register the memory buffer */
+        mr_flags =
+                IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
+        //  auto start = std::chrono::high_resolution_clock::now();
+        global_lock_table  = ibv_reg_mr(res->pd, buff, size, mr_flags);
+    }
+
     return global_lock_table;
 
 }

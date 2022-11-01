@@ -548,6 +548,7 @@ class RDMA_Manager {
   std::map<std::string, ibv_qp*> qp_map_Mside; /* QP Map */
   std::map<std::string, registered_qp_config*> qp_main_connection_info_Mside;
   // This global index table is in the node 0;
+  std::mutex global_resources_mtx;
   ibv_mr* global_index_table = nullptr;
   ibv_mr* global_lock_table = nullptr;
 #ifdef PROCESSANALYSIS
