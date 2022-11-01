@@ -1285,8 +1285,8 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         mr = new ibv_mr{};
         rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
 
-        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
-               page_addr, mr->addr, HashSlice(page_id), level);
+//        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
+//               page_addr, mr->addr, HashSlice(page_id), level);
 
         page_buffer = mr->addr;
         header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(InternalPage, hdr)));
@@ -1980,7 +1980,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
           assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
           k = split_key;
           v = sibling_addr;
-          printf("Create new node %p\n", v);
+//          printf("Create new node %p\n", v);
           // TODO (opt): we can directly add the sibling block into the cache here.
           rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
           delete sibling_mr;
