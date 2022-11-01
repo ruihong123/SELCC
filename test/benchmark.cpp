@@ -258,8 +258,8 @@ void thread_run(int id) {
 }
 
 void parse_args(int argc, char *argv[]) {
-  if (argc != 6) {
-    printf("Usage: ./benchmark kComputeNodeCount kMemoryNodeCount kReadRatio kThreadCount tablescan\n");
+  if (argc != 4) {
+    printf("Usage: ./benchmark kReadRatio kThreadCount tablescan\n");
     exit(-1);
   }
 
