@@ -2741,6 +2741,7 @@ inline void Btr::releases_local_lock(Local_Meta * local_lock_meta) {
 //        node.ticket_lock.fetch_add((1ull << 32));
 }
 void Btr::invalidate_page(InternalPage *upper_page) {
+    //TODO invalidate page with version
     uint8_t expected = 0;
     if(try_lock(&upper_page->local_lock_meta)){
         // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
@@ -2750,7 +2751,7 @@ void Btr::invalidate_page(InternalPage *upper_page) {
         __atomic_fetch_add(&upper_page->local_lock_meta.issued_ticket,1, mem_cst_seq);
         if (upper_page->hdr.valid_page){
             upper_page->hdr.valid_page = false;
-            printf("Page invalidation %p\n", upper_page);
+//            printf("Page invalidation %p\n", upper_page);
         }
 
         // keep the operation on the version.
