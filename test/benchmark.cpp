@@ -108,7 +108,7 @@ void thread_run(int id) {
 
 #ifndef BENCH_LOCK
   uint64_t all_thread = kThreadCount * rdma_mg->GetComputeNodeNum();
-  uint64_t my_id = kThreadCount * rdma_mg->node_id + id;
+  uint64_t my_id = kThreadCount * (DSMEngine::RDMA_Manager::node_id-1)/2 + id;
 
   printf("I am %d\n", my_id);
 
@@ -122,7 +122,7 @@ void thread_run(int id) {
   for (uint64_t i = 1; i < end_warm_key; ++i) {
       // we can not sequentially pop up the data. Otherwise there will be a bug.
       if (i % all_thread == my_id) {
-      tree->insert(i, i * 2);
+        tree->insert(i, i * 2);
 //        tree->insert(to_key(i), i * 2);
 //        tree->insert(rand.Next()%(kKeySpace), i * 2);
 
