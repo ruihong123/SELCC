@@ -108,7 +108,7 @@ void thread_run(int id) {
 
 #ifndef BENCH_LOCK
   uint64_t all_thread = kThreadCount * rdma_mg->GetComputeNodeNum();
-  uint64_t my_id = kThreadCount * (DSMEngine::RDMA_Manager::node_id-1)/2 + id;
+  uint64_t my_id = kThreadCount * (DSMEngine::RDMA_Manager::node_id)/2 + id;
 
   printf("I am %d\n", my_id);
 
