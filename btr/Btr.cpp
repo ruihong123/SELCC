@@ -475,7 +475,10 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
 
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
-//        printf("Reease global lock for %p\n", page_addr);
+#ifndef NDEBUG
+        printf("Reease global lock for %p\n", page_addr);
+
+#endif
         if (async){
 
             rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
@@ -627,6 +630,9 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
                 goto retry;
             }
         assert(page->local_lock_meta.local_lock_byte == 1);
+#ifndef NDEBUG
+        printf("Acquire global lock for %p", page_addr);
+#endif
     }
 
 
@@ -2734,6 +2740,7 @@ inline void Btr::releases_local_lock(GlobalAddress lock_addr) {
 inline void Btr::releases_local_lock(Local_Meta * local_lock_meta) {
 
 //        auto &node = local_locks[(lock_addr.nodeID-1)/2][lock_addr.offset / 8];
+
     local_lock_meta->current_ticket++;
     assert(local_lock_meta->local_lock_byte == 1);
 //    assert((uint64_t)&local_lock_meta->local_lock_byte % 8 == 0);
