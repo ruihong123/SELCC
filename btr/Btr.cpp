@@ -491,7 +491,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
         }else{
 #ifndef NDEBUG
             auto page = (InternalPage*) page_buffer->addr;
-            assert(page->global_lock == 1);
+//            assert(page->global_lock == 1);
             if (page->hdr.level >0){
                 assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
 
