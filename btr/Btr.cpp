@@ -515,7 +515,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
             rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
         }
 #ifndef NDEBUG
-        printf("Reease global lock for %p\n", page_addr);
+//        printf("Reease global lock for %p\n", page_addr);
 
 #endif
 //        releases_local_lock(remote_lock_addr);
@@ -589,7 +589,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
             uint64_t pre_tag = 0;
             uint64_t conflict_tag = 0;
 #ifndef NDEBUG
-        printf("Acquire global lock for %p\n", page_addr);
+//        printf("Acquire global lock for %p\n", page_addr);
 #endif
 #ifndef NDEBUG
         InternalPage* page = (InternalPage*)((char*)page_buffer->addr - RDMA_OFFSET);
