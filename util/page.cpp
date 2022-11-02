@@ -145,7 +145,7 @@ namespace DSMEngine{
         if (!hdr.valid_page && try_lock()){
             // when acquiring the lock, check the valid bit again, so that we can save unecessssary bandwidth.
             if(!hdr.valid_page){
-                printf("Page refetch %p\n", this);
+//                printf("Page refetch %p\n", this);
                 __atomic_fetch_add(&local_lock_meta.issued_ticket, 1, mem_cst_seq);
                 ibv_mr temp_mr = *page_mr;
                 GlobalAddress temp_page_add = page_addr;
