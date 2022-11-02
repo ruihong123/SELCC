@@ -631,7 +631,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
             }
         assert(page->local_lock_meta.local_lock_byte == 1);
 #ifndef NDEBUG
-        printf("Acquire global lock for %p", page_addr);
+        printf("Acquire global lock for %p\n", page_addr);
 #endif
     }
 
@@ -754,6 +754,7 @@ next: // Internal_and_Leaf page search
     if (next_times == 1000){
         assert(false);
     }
+
 #endif
     if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
@@ -1216,7 +1217,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 
 // tothink: How could I know whether this level before I actually access this page.
 
-
+        assert( page_addr.offset % kInternalPageSize == 0 );
 //  auto &pattern_cnt = pattern[rdma_mg->getMyThreadID()][page_addr.nodeID];
 
     int counter = 0;
