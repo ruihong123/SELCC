@@ -1335,6 +1335,12 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         if (result.level == 0){
             // if the root node is the leaf node this path will happen.
             printf("root and leaf are the same\n");
+            if (page->check_lock_state() && k >= page->hdr.highest){
+                std::unique_lock<std::mutex> l(mtx);
+                if (page_addr == g_root_ptr.load()){
+                    g_root_ptr.store(GlobalAddress::Null());
+                }
+            }
             // No need for reread.
             rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal_and_Leaf);
             // return true and let the outside code figure out that the leaf node is the root node
