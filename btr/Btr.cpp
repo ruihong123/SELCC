@@ -475,10 +475,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
 
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
-#ifndef NDEBUG
-        printf("Reease global lock for %p\n", page_addr);
 
-#endif
         if (async){
 
             rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
@@ -517,7 +514,10 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
             assert(page_addr.nodeID == remote_lock_addr.nodeID);
             rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
         }
+#ifndef NDEBUG
+        printf("Reease global lock for %p\n", page_addr);
 
+#endif
 //        releases_local_lock(remote_lock_addr);
     }
 void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
@@ -588,7 +588,9 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
             uint64_t retry_cnt = 0;
             uint64_t pre_tag = 0;
             uint64_t conflict_tag = 0;
-
+#ifndef NDEBUG
+        printf("Acquire global lock for %p\n", page_addr);
+#endif
 #ifndef NDEBUG
         InternalPage* page = (InternalPage*)((char*)page_buffer->addr - RDMA_OFFSET);
         assert(page->local_lock_meta.local_lock_byte == 1);
@@ -630,9 +632,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
                 goto retry;
             }
         assert(page->local_lock_meta.local_lock_byte == 1);
-#ifndef NDEBUG
-        printf("Acquire global lock for %p\n", page_addr);
-#endif
+
     }
 
 
@@ -1979,14 +1979,25 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
           split_key = page->records[m].key;
           assert(split_key > page->hdr.lowest);
           assert(split_key < page->hdr.highest);
-          for (int i = m + 1; i < cnt; ++i) { // move
-              sibling->records[i - m - 1].key = page->records[i].key;
-              sibling->records[i - m - 1].ptr = page->records[i].ptr;
-          }
-          page->hdr.last_index -= (cnt - m); // this is correct.
+          page->hdr.last_index -= (cnt - m); // this is correct. because we extract the split key to upper layer
           assert(page->hdr.last_index == m-1);
           sibling->hdr.last_index += (cnt - m - 1);
           assert(sibling->hdr.last_index == cnt - m - 1 - 1);
+          for (int i = m + 1; i < cnt; ++i) { // move
+              //Is this correct?
+              sibling->records[i - m - 1].key = page->records[i].key;
+              sibling->records[i - m - 1].ptr = page->records[i].ptr;
+          }
+//          page->hdr.last_index = m; // this is correct.
+//          assert(page->hdr.last_index == m);
+//          assert(sibling->hdr.last_index == 0);
+//          sibling->hdr.last_index += (cnt - m - 1);
+//          for (int i = m; i < cnt; ++i) { // move
+//              //Is this correct?
+//              sibling->records[i - m].key = page->records[i].key;
+//              sibling->records[i - m].ptr = page->records[i].ptr;
+//          }
+
           sibling->hdr.leftmost_ptr = page->records[m].ptr;
           sibling->hdr.lowest = page->records[m].key;
           sibling->hdr.highest = page->hdr.highest;
@@ -2627,7 +2638,8 @@ inline bool Btr::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
 }
 //    = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
     inline bool Btr::try_lock(Local_Meta *local_lock_meta) {
-        auto currently_locked = __atomic_load_n(&local_lock_meta->local_lock_byte, __ATOMIC_RELAXED);
+//        auto currently_locked = __atomic_load_n(&local_lock_meta->local_lock_byte, __ATOMIC_RELAXED);
+        uint8_t currently_locked = 0;
         return !currently_locked &&
                 __atomic_compare_exchange_n(&local_lock_meta->local_lock_byte, &currently_locked, 1, true, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED);
     }
@@ -2657,6 +2669,7 @@ bool Btr::acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt, int 
         if(try_lock(local_lock_meta)){
             break;
         }
+        assert(local_lock_meta);
         port::AsmVolatilePause();
         if (tries++ > 100) {
             //        printf("I tried so many time I got yield\n");
