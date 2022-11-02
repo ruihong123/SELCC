@@ -156,9 +156,11 @@ extern GlobalAddress g_root_ptr;
 extern int g_root_level;
 extern bool enable_cache;
 GlobalAddress Btr::get_root_ptr() {
-  if (g_root_ptr.load() == GlobalAddress::Null()) {
+    GlobalAddress root_ptr = g_root_ptr.load();
+  if (root_ptr == GlobalAddress::Null()) {
       std::unique_lock<std::mutex> l(mtx);
-      if (g_root_ptr.load() == GlobalAddress::Null()) {
+      root_ptr = g_root_ptr.load();
+      if (root_ptr == GlobalAddress::Null()) {
           ibv_mr* local_mr = rdma_mg->Get_local_CAS_mr();
 
           ibv_mr remote_mr{};
@@ -179,9 +181,9 @@ GlobalAddress Btr::get_root_ptr() {
 
       }
       assert(g_root_ptr != GlobalAddress::Null());
-    return g_root_ptr.load();
+    return root_ptr;
   } else {
-    return g_root_ptr.load();
+    return root_ptr;
   }
 
   // std::cout << "root ptr " << root_ptr << std::endl;
@@ -240,7 +242,7 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
 //    new_root->front_version++;
 //    new_root->rear_version = new_root->front_version;
   // set local cache for root address
-  g_root_ptr = new_root_addr;
+  g_root_ptr.store(new_root_addr,std::memory_order_seq_cst);
     tree_height = level;
   rdma_mg->RDMA_Write(new_root_addr, page_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
     ibv_mr remote_mr = *rdma_mg->global_index_table;
