@@ -1256,6 +1256,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
     // Answer: Still optimistic latch free, the local read of internal node do not need local lock,
     // but the local write will write through the memory node and acquire the global lock.
     if (handle != nullptr){
+        cache_hit[RDMA_Manager::thread_id][0]++;
         mr = (ibv_mr*)page_cache->Value(handle);
         page_buffer = mr->addr;
         header = (Header *)((char*)page_buffer + (STRUCT_OFFSET(InternalPage, hdr)));
@@ -1299,6 +1300,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         // CHANGE IT BACK
         page->check_invalidation_and_refetch_outside_lock(page_addr, rdma_mg, mr);
     }else {
+        cache_miss[RDMA_Manager::thread_id][0]++;
         // TODO (potential optimization) we can use a lock when pushing the read page to cache
         // so that we can avoid install the page to cache mulitple times. But currently it is okay.
         //  pattern_cnt++;
@@ -1692,6 +1694,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         InternalPage* page;
 //    int flag = 3;
     if (handle!= nullptr){
+        cache_hit[RDMA_Manager::thread_id][0]++;
         // TODO: only fetch the data outside the local metadata.
         // is possible that the reader need to have a local reread, during the execution.
         page_mr = (ibv_mr*)page_cache->Value(handle);
@@ -1739,6 +1742,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //        printf("Read page %lu over address %p, version is %u  \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
 //        flag = 1;
     } else{
+        cache_miss[RDMA_Manager::thread_id][0]++;
         //TODO: acquire the lock when trying to insert the page to the cache.
         page_mr = new ibv_mr{};
 //        printf("Allocate slot for page 2 %p\n", page_addr);

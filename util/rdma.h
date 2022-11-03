@@ -453,9 +453,9 @@ class RDMA_Manager {
   //  void mem_pool_serialization
   bool poll_reply_buffer(RDMA_Reply* rdma_reply);
   // TODO: Make all the variable more smart pointers.
-#ifndef NDEBUG
+//#ifndef NDEBUG
     static thread_local int thread_id;
-#endif
+//#endif
   resources* res = nullptr;
   std::vector<ibv_mr*>
       remote_mem_pool; /* a vector for all the remote memory regions*/

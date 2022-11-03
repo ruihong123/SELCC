@@ -60,7 +60,7 @@
 #define VALUE_PADDING 392
 // }
 
-void bindCore(uint16_t core);
+void bindCore(uint16_t thread_id);
 char *getIP();
 char *getMac();
 constexpr int mem_cst_seq = __ATOMIC_SEQ_CST;

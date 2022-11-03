@@ -10,20 +10,22 @@
 #include <arpa/inet.h>
 #include <thread>
 
-void bindCore(uint16_t core) {
+void bindCore(uint16_t thread_id) {
 
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(core, &cpuset);
+    CPU_SET(thread_id, &cpuset);
     int rc = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
     if (rc != 0) {
         printf("can't bind core!");
     }
-#ifndef NDEBUG
-    std::stringstream ss;
-    ss << std::this_thread::get_id();
-    DSMEngine::RDMA_Manager::thread_id = std::stoull(ss.str());
-#endif
+//#ifndef NDEBUG
+//    std::stringstream ss;
+//    ss << std::this_thread::get_id();
+//    DSMEngine::RDMA_Manager::thread_id = std::stoull(ss.str());
+//#endif
+
+    DSMEngine::RDMA_Manager::thread_id = thread_id;
 }
 
 char *getIP() {
