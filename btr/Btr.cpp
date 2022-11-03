@@ -581,6 +581,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         }
 
     }
+    printf( "successfully lock the %p\n", lock_addr);
 
 //  rdma_mg->read_sync(page_buffer, page_addr, page_size, cxt);
 //  pattern[rdma_mg->getMyThreadID()][page_addr.nodeID]++;
