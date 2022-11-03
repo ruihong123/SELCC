@@ -1481,7 +1481,7 @@ local_reread:
     //              page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)))
     //          }
         if (nested_retry_counter <= 2){
-            printf("arrive here\n");
+//            printf("arrive here\n");
             nested_retry_counter++;
             result.slibing = page->hdr.sibling_ptr;
             assert(page->hdr.sibling_ptr != GlobalAddress::Null());
@@ -1978,8 +1978,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
           auto sibling = new(sibling_mr->addr) InternalPage(GlobalAddress(), page->hdr.level);
 
-              std::cout << "addr " <<  sibling_addr << " | level " <<
-              (int)(page->hdr.level) << std::endl;
+//              std::cout << "addr " <<  sibling_addr << " | level " <<
+//              (int)(page->hdr.level) << std::endl;
           int m = cnt / 2;
           split_key = page->records[m].key;
           assert(split_key > page->hdr.lowest);
