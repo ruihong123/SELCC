@@ -168,9 +168,9 @@ namespace DSMEngine{
 
                 hdr.valid_page = true;
                 local_lock_meta.current_ticket++;
-                unlock_lock();
-            }
 
+            }
+            unlock_lock();
         }
     }
     void InternalPage::check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
