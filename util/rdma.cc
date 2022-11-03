@@ -16,9 +16,9 @@ std::atomic<uint64_t> RDMA_Manager::RDMAMemoryAllocElapseSum = 0;
 std::atomic<uint64_t> RDMA_Manager::ReadCount1 = 0;
 #endif
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
     thread_local int RDMA_Manager::thread_id = 0;
-#endif
+//#endif
 
 
 //#define R_SIZE 32
