@@ -545,7 +545,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         uint64_t conflict_tag = 0;
     retry:
         retry_cnt++;
-        if (retry_cnt > 1000) {
+        if (retry_cnt > 100000) {
             std::cout << "Deadlock " << lock_addr << std::endl;
 
             std::cout << rdma_mg->GetMemoryNodeNum() << ", "
@@ -579,6 +579,8 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
 //      lock_fail[rdma_mg->getMyThreadID()][0]++;
             goto retry;
         }
+//        LeafPage* page = (LeafPage*) page_buffer->addr;
+//        assert(page)
 
     }
     printf( "successfully lock the %p\n", lock_addr);
