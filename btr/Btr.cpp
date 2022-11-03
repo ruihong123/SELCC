@@ -178,6 +178,7 @@ GlobalAddress Btr::get_root_ptr() {
           g_root_ptr.store(*(GlobalAddress*)local_mr->addr);
 
           std::cout << "Get new root" << g_root_ptr <<std::endl;
+          root_ptr = g_root_ptr.load();
 
       }
       assert(g_root_ptr != GlobalAddress::Null());
@@ -2396,10 +2397,10 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
         auto p = path_stack[coro_id][level+1];
         //check whether the node split is for a root node.
         if (UNLIKELY(p == GlobalAddress::Null() )){
-            //TODO: we probably need a update root lock for the code below.
+            //TODO: we probably need a update root global lock (accross compute nodes) for the code below.
             g_root_ptr = GlobalAddress::Null();
             p = get_root_ptr();
-            //TODO: tHERE COULd be a bug in the get_root_ptr so that the CAS for update_new_root will be failed.
+            //TODO: If withoutnthe global lock, a new root may be further pop up during for the two code above
 
             if (path_stack[coro_id][level] == p){
                 update_new_root(path_stack[coro_id][level],  split_key, sibling_addr,level+1,path_stack[coro_id][level], cxt, coro_id);
@@ -2407,6 +2408,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
             }else{
                 //find the upper level
                 //TODO: shall I implement a function that search a ptr at particular level.
+//                insert_internal( split_key, sibling_addr,0,0,level +1);
             }
 
 
