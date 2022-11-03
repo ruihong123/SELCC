@@ -49,7 +49,7 @@ std::thread th[kMaxThread];
 uint64_t tp[kMaxThread][8];
 
 volatile bool need_stop;
-uint64_t latency[MAX_APP_THREAD][LATENCY_WINDOWS];
+extern uint64_t latency[MAX_APP_THREAD][LATENCY_WINDOWS];
 uint64_t latency_th_all[LATENCY_WINDOWS];
 
 DSMEngine::Btr *tree;

@@ -13,6 +13,7 @@
 //#include <linux/membarrier.h>
 #include "port/likely.h"
 #include "util/hash.h"
+
 uint64_t cache_miss[MAX_APP_THREAD][8];
 uint64_t cache_hit[MAX_APP_THREAD][8];
 uint64_t invalid_counter[MAX_APP_THREAD][8];
@@ -22,6 +23,7 @@ uint64_t hierarchy_lock[MAX_APP_THREAD][8];
 uint64_t handover_count[MAX_APP_THREAD][8];
 uint64_t hot_filter_count[MAX_APP_THREAD][8];
 uint64_t latency[MAX_APP_THREAD][LATENCY_WINDOWS];
+
 namespace DSMEngine {
 bool enter_debug = false;
 
