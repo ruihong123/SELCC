@@ -464,7 +464,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
         rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
     }
 
-//    std::cout << "release the remote lock at " << remote_lock_addr << std::endl;
+    std::cout << "release the remote lock at " << remote_lock_addr << std::endl;
 //  if (async) {
 //    rdma_mg->write_batch(rs, 2, false);
 //  } else {
@@ -536,14 +536,15 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         return;
     }
 
-    {
 
+    {
+        std::cout << "try to lock the " << lock_addr << std::endl;
         uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
     retry:
         retry_cnt++;
-        if (retry_cnt > 100000) {
+        if (retry_cnt > 1000) {
             std::cout << "Deadlock " << lock_addr << std::endl;
 
             std::cout << rdma_mg->GetMemoryNodeNum() << ", "
@@ -577,7 +578,6 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
 //      lock_fail[rdma_mg->getMyThreadID()][0]++;
             goto retry;
         }
-//        std::cout << "Successfully lock the " << lock_addr << std::endl;
 
     }
 
@@ -2772,7 +2772,7 @@ inline void Btr::releases_local_lock(Local_Meta * local_lock_meta) {
 //        node.ticket_lock.fetch_add((1ull << 32));
 }
 void Btr::invalidate_page(InternalPage *upper_page) {
-    //TODO invalidate page with version
+    //TODO invalidate page with version, may be reuse the current and issue version?
     uint8_t expected = 0;
     if(try_lock(&upper_page->local_lock_meta)){
         // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
