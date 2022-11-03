@@ -463,7 +463,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
         assert(page_addr.nodeID == remote_lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
     }
-        printf( "release the remote lock at  %p", remote_lock_addr);
+        printf( "release the remote lock at  %p\n", remote_lock_addr);
 //    std::cout << "" << remote_lock_addr << std::endl;
 //  if (async) {
 //    rdma_mg->write_batch(rs, 2, false);
@@ -538,7 +538,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
 
 
     {
-        printf( "try to lock the %p", lock_addr);
+        printf( "try to lock the %p\n", lock_addr);
         uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
