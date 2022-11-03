@@ -3316,6 +3316,7 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
   }
   mem_read_lock.unlock();
   // If not find remote buffers are all used, allocate another remote memory region.
+  //TODO: some mechanism is needed to avoid excessively remote memory allocation RPC call
   std::unique_lock<std::shared_mutex> mem_write_lock(remote_mem_mutex);
     Remote_Memory_Register(1 * 1024 * 1024 * 1024, target_node_id, Internal_and_Leaf);
   //  fs_meta_save();
