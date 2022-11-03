@@ -2022,14 +2022,15 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
           v = sibling_addr;
 //          printf("Create new node %p\n", v);
           // TODO (opt): we can directly add the sibling block into the cache here.
-          rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
-          delete sibling_mr;
+
+
 //      printf("page splitted last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
 
         //The code below is optional.
         Slice sibling_page_id((char*)&sibling_addr, sizeof(GlobalAddress));
         handle = page_cache->Insert(sibling_page_id, sibling_mr, kInternalPageSize, Deallocate_MR);
-
+//          rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
+//          delete sibling_mr;
       } else{
 //      k = Key ;
           // Only set the value as null is enough
