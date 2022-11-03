@@ -1481,6 +1481,7 @@ local_reread:
     //              page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)))
     //          }
         if (nested_retry_counter <= 2){
+            printf("arrive here\n");
             nested_retry_counter++;
             result.slibing = page->hdr.sibling_ptr;
             assert(page->hdr.sibling_ptr != GlobalAddress::Null());
