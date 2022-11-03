@@ -605,7 +605,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
 #endif
             retry:
             retry_cnt++;
-            if (retry_cnt > 3000) {
+            if (retry_cnt > 300000) {
                 std::cout << "Deadlock " << lock_addr << std::endl;
 
                 std::cout << rdma_mg->GetMemoryNodeNum() << ", "
