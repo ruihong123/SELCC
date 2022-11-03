@@ -388,7 +388,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
 //      std::cout << "Unlock the remote lock" << lock_addr << std::endl;
       rdma_mg->RDMA_Write(lock_addr, cas_buf,  sizeof(uint64_t), IBV_SEND_SIGNALED,1,LockTable);
   }
-    printf( "release the remote lock at  %p\n", lock_addr);
+//    printf( "release the remote lock at  %p\n", lock_addr);
 
   releases_local_lock(lock_addr);
 }
