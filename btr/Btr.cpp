@@ -2411,6 +2411,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 
 
         }
+        assert(p != GlobalAddress::Null());
         // if not a root split go ahead and insert in the upper level.
         level = level +1;
         //*****************Now it is not a root update, insert to the upper level******************
@@ -2418,6 +2419,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
         memset(&result, 0, sizeof(SearchResult));
         int fall_back_level = 0;
         re_insert:
+
         if (UNLIKELY(!internal_page_store(p, split_key, sibling_addr, level, cxt, coro_id))){
             //this path should be a rare case.
 
