@@ -2025,6 +2025,10 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
           delete sibling_mr;
 //      printf("page splitted last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
 
+        //The code below is optional.
+        Slice sibling_page_id((char*)&sibling_addr, sizeof(GlobalAddress));
+        handle = page_cache->Insert(sibling_page_id, sibling_mr, kInternalPageSize, Deallocate_MR);
+
       } else{
 //      k = Key ;
           // Only set the value as null is enough
@@ -2645,10 +2649,10 @@ inline bool Btr::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
 }
 //    = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
     inline bool Btr::try_lock(Local_Meta *local_lock_meta) {
-//        auto currently_locked = __atomic_load_n(&local_lock_meta->local_lock_byte, __ATOMIC_RELAXED);
-        uint8_t currently_locked = 0;
+        auto currently_locked = __atomic_load_n(&local_lock_meta->local_lock_byte, __ATOMIC_SEQ_CST);
+//        uint8_t currently_locked = 0;
         return !currently_locked &&
-                __atomic_compare_exchange_n(&local_lock_meta->local_lock_byte, &currently_locked, 1, true, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED);
+                __atomic_compare_exchange_n(&local_lock_meta->local_lock_byte, &currently_locked, 1, true, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
     }
     inline void Btr::unlock_lock(Local_Meta *local_lock_meta) {
         __atomic_store_n(&local_lock_meta->local_lock_byte, 0, mem_cst_seq);
