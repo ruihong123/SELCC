@@ -13,6 +13,7 @@
 //#include <linux/membarrier.h>
 #include "port/likely.h"
 #include "util/hash.h"
+#include "port/port_posix.h"
 
 uint64_t cache_miss[MAX_APP_THREAD][8];
 uint64_t cache_hit[MAX_APP_THREAD][8];
