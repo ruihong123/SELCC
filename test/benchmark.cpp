@@ -371,7 +371,6 @@ int main(int argc, char *argv[]) {
     ;
 #endif
 #ifndef NDEBUG
-  Show_Me_The_Print = true;
 #endif
   timespec s, e;
   uint64_t pre_tp = 0;

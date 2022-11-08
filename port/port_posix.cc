@@ -25,7 +25,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <cstdlib>
-//#include "logging/logging.h"
+bool Show_Me_The_Print = false;
 
 namespace DSMEngine {
 
@@ -42,7 +42,6 @@ extern const bool kDefaultToAdaptiveMutex = true;
 #else
 extern const bool kDefaultToAdaptiveMutex = false;
 #endif
-
 namespace port {
 
 static int PthreadCall(const char* label, int result) {
