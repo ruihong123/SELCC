@@ -241,6 +241,7 @@ void LRUCache::Release(Cache::Handle* handle) {
 //  MutexLock l(&
   SpinLock l(&mutex_);
   Unref(reinterpret_cast<LRUHandle*>(handle));
+    assert(reinterpret_cast<LRUHandle*>(handle)->refs != 0);
 }
 //If the inserted key has already existed, then the old LRU handle will be removed from
 // the cache, but it may not garbage-collected right away.
