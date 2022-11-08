@@ -191,7 +191,7 @@ void LRUCache::Ref(LRUHandle* e) {
   }
   e->refs++;
   //todo: delete the assert below
-    assert(e->refs <=16);
+    assert(e->refs <=2);
 }
 
 void LRUCache::Unref(LRUHandle* e) {
