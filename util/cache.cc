@@ -370,15 +370,23 @@ class ShardedLRUCache : public Cache {
 
 #endif
     const uint32_t hash = HashSlice(key);
-    return shard_[Shard(hash)].Insert(key, hash, value, charge, deleter);
+
+        auto handle = shard_[Shard(hash)].Insert(key, hash, value, charge, deleter);
+        printf("Insert: refer to handle %p", handle);
+
+        return shard_[Shard(hash)].Insert(key, hash, value, charge, deleter);
   }
   Handle* Lookup(const Slice& key) override {
       assert(capacity_ >= 1000);
     const uint32_t hash = HashSlice(key);
+
+    auto handle = shard_[Shard(hash)].Lookup(key, hash);
+      printf("Look up: refer to handle %p", handle);
     return shard_[Shard(hash)].Lookup(key, hash);
   }
   void Release(Handle* handle) override {
     LRUHandle* h = reinterpret_cast<LRUHandle*>(handle);
+      printf("release handle %p", handle);
     shard_[Shard(h->hash)].Release(handle);
   }
   void Erase(const Slice& key) override {
