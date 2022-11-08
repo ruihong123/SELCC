@@ -26,7 +26,7 @@
 #include <unistd.h>
 #include <cstdlib>
 bool Show_Me_The_Print = false;
-
+int TimePrintCounter = 0;
 namespace DSMEngine {
 
 // We want to give users opportunity to default all the mutexes to adaptive if

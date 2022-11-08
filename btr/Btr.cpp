@@ -25,6 +25,7 @@ uint64_t handover_count[MAX_APP_THREAD][8];
 uint64_t hot_filter_count[MAX_APP_THREAD][8];
 uint64_t latency[MAX_APP_THREAD][LATENCY_WINDOWS];
 extern bool Show_Me_The_Print;
+extern int TimePrintCounter;
 namespace DSMEngine {
 bool enter_debug = false;
 
@@ -459,7 +460,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
 //        rdma_mg->RDMA_CAS( remote_lock_addr, local_CAS_mr, 1,0, IBV_SEND_SIGNALED,1, LockTable);
 //        assert(*(uint64_t *)local_CAS_mr->addr == 1);
 
-        rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED|IBV_SEND_FENCE, LockTable);
+        rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED, LockTable);
         sr[0].next = &sr[1];
 
 
@@ -2178,7 +2179,17 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v, Key &split_key, GlobalAddress &sibling_addr,
                      GlobalAddress root, int level, CoroContext *cxt, int coro_id) {
 
-    assert(level == 0);
+#ifdef PROCESSANALYSIS
+    std::chrono::time_point<std::chrono::high_resolution_clock> start;
+    if (TimePrintCounter==10000){
+        start = std::chrono::high_resolution_clock::now();
+        TimePrintCounter = 0;
+    } else{
+        TimePrintCounter++;
+    }
+
+#endif
+        assert(level == 0);
         uint64_t lock_index =
       CityHash64((char *)&page_addr, sizeof(page_addr)) % define::kNumOfLock;
 
@@ -2342,7 +2353,15 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
       write_page_and_unlock(
               &target_mr, GADD(page_addr, offset),
               sizeof(LeafEntry), lock_addr, cxt, coro_id, false);
-
+#ifdef PROCESSANALYSIS
+      if (TimePrintCounter==10000){
+          auto stop = std::chrono::high_resolution_clock::now();
+          auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+//#ifndef NDEBUG
+          printf("leaf page store uses (%ld) ns\n", duration.count());
+      }
+//#endif
+#endif
     return true;
   } else {
     std::sort(
