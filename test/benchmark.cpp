@@ -26,7 +26,7 @@ extern uint64_t pattern[MAX_APP_THREAD][8];
 extern uint64_t hot_filter_count[MAX_APP_THREAD][8];
 extern uint64_t hierarchy_lock[MAX_APP_THREAD][8];
 extern uint64_t handover_count[MAX_APP_THREAD][8];
-
+extern bool Show_Me_The_Print;
 const int kMaxThread = 32;
 
 int kReadRatio;
@@ -370,7 +370,9 @@ int main(int argc, char *argv[]) {
   while (!ready.load())
     ;
 #endif
-
+#ifndef NDEBUG
+  Show_Me_The_Print = true;
+#endif
   timespec s, e;
   uint64_t pre_tp = 0;
   uint64_t pre_ths[MAX_APP_THREAD];

@@ -259,7 +259,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
                                             client_ip);
         qp_reset_handler(receive_msg_buf, client_ip, socket_fd,
                          compute_node_id);
-        DEBUG("QP has been reconnect from the memory node side\n");
+        DEBUG_PRINT("QP has been reconnect from the memory node side\n");
         //TODO: Pause all the background tasks because the remote qp is not ready.
         // stop sending back messasges. The compute node may not reconnect its qp yet!
 
@@ -389,7 +389,7 @@ int Memory_Node_Keeper::server_sock_connect(const char* servername, int port) {
   void Memory_Node_Keeper::create_mr_handler(RDMA_Request* request,
                                              std::string& client_ip,
                                              uint8_t target_node_id) {
-    DEBUG("Create new mr\n");
+    DEBUG_PRINT("Create new mr\n");
 //  std::cout << "create memory region command receive for" << client_ip
 //  << std::endl;
   //TODO: consider the edianess of the RDMA request and reply.
@@ -425,7 +425,7 @@ int Memory_Node_Keeper::server_sock_connect(const char* servername, int port) {
                                              std::string& client_ip,
                                              uint8_t target_node_id) {
     int rc;
-    DEBUG("Create new qp\n");
+    DEBUG_PRINT("Create new qp\n");
   assert(request->buffer != nullptr);
   assert(request->rkey != 0);
   char gid_str[17];
@@ -508,7 +508,7 @@ int Memory_Node_Keeper::server_sock_connect(const char* servername, int port) {
   void Memory_Node_Keeper::sync_option_handler(RDMA_Request* request,
                                                std::string& client_ip,
                                                uint8_t target_node_id) {
-    DEBUG("SYNC option \n");
+    DEBUG_PRINT("SYNC option \n");
     ibv_mr send_mr;
     rdma_mg->Allocate_Local_RDMA_Slot(send_mr, Message);
     RDMA_Reply* send_pointer = (RDMA_Reply*)send_mr.addr;

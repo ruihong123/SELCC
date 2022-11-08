@@ -1517,7 +1517,7 @@ local_reread:
         }else{
             nested_retry_counter = 0;
             page_cache->Release(handle);
-            DEBUG("retry over two times place 1\n");
+            DEBUG_PRINT("retry over two times place 1\n");
             return false;
         }
 
@@ -1555,7 +1555,7 @@ local_reread:
     //          }
         nested_retry_counter = 0;
         page_cache->Release(handle);
-        DEBUG("retry place 2\n");
+        DEBUG_PRINT_CONDITION("retry place 2\n");
       return false;
     }
     // this function will add the children pointer to the result.
@@ -1639,7 +1639,7 @@ re_read:
             return true;
         }else{
             nested_retry_counter = 0;
-            DEBUG("retry place 3\n");
+            DEBUG_PRINT_CONDITION("retry place 3\n");
             return false;
         }
 
@@ -1664,7 +1664,7 @@ re_read:
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
 
         }
-        DEBUG("retry place 4\n");
+        DEBUG_PRINT_CONDITION("retry place 4\n");
         return false;// false means need to fall back
     }
     page->leaf_page_search(k, result, *local_mr, page_addr);
@@ -1841,7 +1841,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         }else{
             nested_retry_counter = 0;
             insert_success = false;
-            DEBUG("retry place 5\n");
+            DEBUG_PRINT_CONDITION("retry place 5\n");
             //Unlock this page.
             bool hand_over_other = can_hand_over(&page->local_lock_meta);
             if (hand_over_other) {
@@ -1891,7 +1891,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
 
         insert_success = false;
-        DEBUG("retry place 6\n");
+        DEBUG_PRINT_CONDITION("retry place 6\n");
         page_cache->Release(handle);
         return insert_success;// result in fall back search on the higher level.
     }
@@ -2241,7 +2241,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
             }else{
 
 //                assert(false);
-                DEBUG("retry place 7");
+                DEBUG_PRINT_CONDITION("retry place 7");
                 nested_retry_counter = 0;
                 return false;
             }
@@ -2273,7 +2273,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
         this->unlock_addr(lock_addr, cxt, coro_id, false);
 
         insert_success = false;
-        DEBUG("retry place 8\n");
+        DEBUG_PRINT_CONDITION("retry place 8\n");
         return insert_success;// result in fall back search on the higher level.
     }
     // Clear the retry counter, in case that there is a sibling call.
@@ -2510,7 +2510,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
         this->unlock_addr(lock_addr, cxt, coro_id, false);
 
         assert(page->hdr.sibling_ptr != GlobalAddress::Null());
-        DEBUG("retry place 9\n");
+        DEBUG_PRINT_CONDITION("retry place 9\n");
         return false;
     }
         page->front_version++;

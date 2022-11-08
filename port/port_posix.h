@@ -86,8 +86,9 @@
 #define DEBUG_arg(x,y)
 #define DEBUG(x)
 #else
-#define DEBUG_arg(x,y) printf(x,y)
-#define DEBUG(x) printf(x)
+#define DEBUG_PRINT_arg(x,y) printf(x,y)
+#define DEBUG_PRINT(x) printf(x)
+#define DEBUG_PRINT_CONDITION(x) if(Show_Me_The_Print) {printf(x);}
 #endif
 //#define TIMEPRINT
 #define WITHMEMORYVERSIONSET
@@ -101,6 +102,8 @@
 
 //#define BLOOMANALYSIS
 #include "port/thread_annotations.h"
+bool Show_Me_The_Print = false;
+
 namespace DSMEngine {
 
 extern const bool kDefaultToAdaptiveMutex;
