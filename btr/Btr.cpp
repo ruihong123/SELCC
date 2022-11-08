@@ -1477,7 +1477,7 @@ local_reread:
           Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
           if(upper_layer_handle){
               InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-              invalidate_page(upper_page);
+              Recieve_page_invalidation(upper_page);
               page_cache->Release(upper_layer_handle);
           }
 
@@ -1537,7 +1537,7 @@ local_reread:
           if(upper_layer_handle){
               InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
 
-              invalidate_page(upper_page);
+              Recieve_page_invalidation(upper_page);
               page_cache->Release(upper_layer_handle);
           }
 //          page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
@@ -1625,7 +1625,7 @@ re_read:
             Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
             if(upper_layer_handle){
                 InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                invalidate_page(upper_page);
+                Recieve_page_invalidation(upper_page);
                 page_cache->Release(upper_layer_handle);
 
             }
@@ -1658,7 +1658,7 @@ re_read:
             Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
             if(upper_layer_handle){
                 InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                invalidate_page(upper_page);
+                Recieve_page_invalidation(upper_page);
                 page_cache->Release(upper_layer_handle);
             }
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
@@ -1809,7 +1809,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
             if(upper_layer_handle){
                 InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                invalidate_page(upper_page);
+                Recieve_page_invalidation(upper_page);
                 page_cache->Release(upper_layer_handle);
             }
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
@@ -1872,7 +1872,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
             if(upper_layer_handle){
                 InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                invalidate_page(upper_page);
+                Recieve_page_invalidation(upper_page);
                 page_cache->Release(upper_layer_handle);
             }
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
@@ -2227,7 +2227,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
                 Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
                 if(upper_layer_handle){
                     InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                    invalidate_page(upper_page);
+                    Recieve_page_invalidation(upper_page);
                     page_cache->Release(upper_layer_handle);
                 }
 
@@ -2264,7 +2264,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
             Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
             if(upper_layer_handle){
                 InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                invalidate_page(upper_page);
+                Recieve_page_invalidation(upper_page);
                 page_cache->Release(upper_layer_handle);
             }
 
@@ -2781,7 +2781,7 @@ inline void Btr::releases_local_lock(Local_Meta * local_lock_meta) {
     unlock_lock(local_lock_meta);
 //        node.ticket_lock.fetch_add((1ull << 32));
 }
-void Btr::invalidate_page(InternalPage *upper_page) {
+void Btr::Recieve_page_invalidation(InternalPage *upper_page) {
     //TODO invalidate page with version, may be reuse the current and issue version?
     uint8_t expected = 0;
     if(try_lock(&upper_page->local_lock_meta)){
@@ -2800,7 +2800,10 @@ void Btr::invalidate_page(InternalPage *upper_page) {
         unlock_lock(&upper_page->local_lock_meta);
     }
 }
+    void Btr::Initialize_page_invalidation(InternalPage *upper_page) {
+        // TODO: cache invalidation RPC.
 
+    }
 
 //void Btr::index_cache_statistics() {
 //  page_cache->statistics();

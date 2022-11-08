@@ -43,6 +43,7 @@ namespace DSMEngine {
 
 class InternalPage;
 class LeafPage;
+//template <typename Value>
 class Btr {
 //friend class DSMEngine::InternalPage;
 
@@ -161,7 +162,9 @@ public:
         bool can_hand_over(Local_Meta * local_lock_meta);
   void releases_local_lock(GlobalAddress lock_addr);
         void releases_local_lock(Local_Meta * local_lock_meta);
-        void invalidate_page(InternalPage* upper_page);
+        void Recieve_page_invalidation(InternalPage* upper_page);
+        // should be executed with in a local page lock.
+        void Initialize_page_invalidation(InternalPage* upper_page);
 };
 
 class Btr_iter{
