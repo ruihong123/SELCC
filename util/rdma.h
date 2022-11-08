@@ -127,7 +127,8 @@ enum RDMA_Command_Type {
   version_unpin_,
   sync_option,
   qp_reset_,
-  broadcast_root
+  broadcast_root,
+  page_invalidation
 
 
 };
