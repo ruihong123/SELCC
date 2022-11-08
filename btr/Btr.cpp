@@ -2180,12 +2180,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
                      GlobalAddress root, int level, CoroContext *cxt, int coro_id) {
 
 #ifdef PROCESSANALYSIS
-    std::chrono::time_point<std::chrono::high_resolution_clock> start;
-    if (TimePrintCounter>=TIMEPRINTGAP){
-        start = std::chrono::high_resolution_clock::now();
-
-    }
-
+    auto start = std::chrono::high_resolution_clock::now();
 #endif
         assert(level == 0);
         uint64_t lock_index =
