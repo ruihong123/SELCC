@@ -191,7 +191,7 @@ void LRUCache::Ref(LRUHandle* e) {
   }
   e->refs++;
   //todo: delete the assert below
-    assert(e->refs <=2);
+    assert(e->refs <=17);
 }
 
 void LRUCache::Unref(LRUHandle* e) {
@@ -371,8 +371,8 @@ class ShardedLRUCache : public Cache {
 #endif
     const uint32_t hash = HashSlice(key);
 
-        auto handle = shard_[Shard(hash)].Insert(key, hash, value, charge, deleter);
-        printf("Insert: refer to handle %p", handle);
+//        auto handle = shard_[Shard(hash)].Insert(key, hash, value, charge, deleter);
+//        printf("Insert: refer to handle %p\n", handle);
 
         return shard_[Shard(hash)].Insert(key, hash, value, charge, deleter);
   }
@@ -380,13 +380,13 @@ class ShardedLRUCache : public Cache {
       assert(capacity_ >= 1000);
     const uint32_t hash = HashSlice(key);
 
-    auto handle = shard_[Shard(hash)].Lookup(key, hash);
-      printf("Look up: refer to handle %p", handle);
+//    auto handle = shard_[Shard(hash)].Lookup(key, hash);
+//      printf("Look up: refer to handle %p\n", handle);
     return shard_[Shard(hash)].Lookup(key, hash);
   }
   void Release(Handle* handle) override {
     LRUHandle* h = reinterpret_cast<LRUHandle*>(handle);
-      printf("release handle %p", handle);
+//      printf("release handle %p\n", handle);
     shard_[Shard(h->hash)].Release(handle);
   }
   void Erase(const Slice& key) override {
