@@ -82,7 +82,7 @@
 // when targeting older platforms.
 #define fdatasync fsync
 #endif
-extern bool Show_Me_The_Print;
+//extern bool Show_Me_The_Print;
 #ifdef NDEBUG
 #define DEBUG_arg(x,y)
 #define DEBUG(x)
