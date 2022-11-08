@@ -84,8 +84,9 @@
 #endif
 //extern bool Show_Me_The_Print;
 #ifdef NDEBUG
-#define DEBUG_arg(x,y)
-#define DEBUG(x)
+#define DEBUG_PRINT_arg(x,y)
+#define DEBUG_PRINT(x)
+#define DEBUG_PRINT_CONDITION(x)
 #else
 #define DEBUG_PRINT_arg(x,y) printf(x,y)
 #define DEBUG_PRINT(x) printf(x)
