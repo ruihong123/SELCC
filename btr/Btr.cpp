@@ -2036,8 +2036,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
         //The code below is optional.
         Slice sibling_page_id((char*)&sibling_addr, sizeof(GlobalAddress));
-        handle = page_cache->Insert(sibling_page_id, sibling_mr, kInternalPageSize, Deallocate_MR);
-          page_cache->Release(handle);
+        auto sib_handle = page_cache->Insert(sibling_page_id, sibling_mr, kInternalPageSize, Deallocate_MR);
+          page_cache->Release(sib_handle);
 //          rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
 //          delete sibling_mr;
       } else{
