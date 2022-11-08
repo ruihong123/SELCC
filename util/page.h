@@ -239,7 +239,7 @@ namespace DSMEngine{
     class LeafPage {
 //    private:
         Local_Meta local_lock_meta;
-        alignas(64) uint64_t global_lock;
+        alignas(8) uint64_t global_lock;
         alignas(8) uint64_t reference_bitmap;
         uint8_t front_version;
         Header hdr;
