@@ -2181,7 +2181,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 
 #ifdef PROCESSANALYSIS
     std::chrono::time_point<std::chrono::high_resolution_clock> start;
-    if (TimePrintCounter==100000){
+    if (TimePrintCounter==TIMEPRINTGAP){
         start = std::chrono::high_resolution_clock::now();
 
     }
@@ -2352,7 +2352,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
               &target_mr, GADD(page_addr, offset),
               sizeof(LeafEntry), lock_addr, cxt, coro_id, false);
 #ifdef PROCESSANALYSIS
-      if (TimePrintCounter==10000){
+      if (TimePrintCounter==TIMEPRINTGAP){
           auto stop = std::chrono::high_resolution_clock::now();
           auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
 //#ifndef NDEBUG
