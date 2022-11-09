@@ -230,8 +230,6 @@ void thread_run(int id) {
     } else {
       v = 12;
       tree->insert(key, v);
-
-
     }
     print_counter++;
     if (print_counter%100000 == 0)
