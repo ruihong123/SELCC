@@ -93,18 +93,19 @@ namespace DSMEngine{
                 right = mid - 1;
             }
         }
-        target_global_ptr_buff = records[mid].ptr;
+        assert(left == right);
+        target_global_ptr_buff = records[right].ptr;
         result.next_level = target_global_ptr_buff;
 #ifndef NDEBUG
-        result.this_key = records[mid].key;
+        result.this_key = records[right].key;
 #endif
         uint64_t local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
         if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
             return false;
         }
 #ifndef NDEBUG
-        if (mid != hdr.last_index){
-            result.later_key = records[mid + 1].key;
+        if (right != hdr.last_index){
+            result.later_key = records[right + 1].key;
             assert(k < result.later_key);
         }
 
