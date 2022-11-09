@@ -96,17 +96,20 @@ namespace DSMEngine{
         target_global_ptr_buff = records[mid].ptr;
         result.next_level = target_global_ptr_buff;
 #ifndef NDEBUG
+        result.this_key = records[mid].key;
+#endif
+        uint64_t local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
+        if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
+            return false;
+        }
+#ifndef NDEBUG
         if (mid != hdr.last_index){
             result.later_key = records[mid + 1].key;
             assert(k < result.later_key);
         }
 
 #endif
-        uint64_t local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
-        if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
-            return false;
-        }
-        assert(records[mid].key <= k);
+        assert(result.this_key <= k);
 
         assert(result.next_level != GlobalAddress::Null());
         return true;
