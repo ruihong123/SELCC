@@ -16,7 +16,7 @@ namespace DSMEngine{
         GlobalAddress slibing;
         GlobalAddress next_level;
 #ifndef NDEBUG
-        Key upper_key;
+        Key later_key;
 
         char key_padding[KEY_PADDING];
 #endif
