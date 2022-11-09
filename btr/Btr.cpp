@@ -824,7 +824,7 @@ next: // Internal_and_Leaf page search
 #ifdef PROCESSANALYSIS
       if (TimePrintCounter>=TIMEPRINTGAP){
           auto stop = std::chrono::high_resolution_clock::now();
-          auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+          auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
 //#ifndef NDEBUG
           printf("internal node tranverse uses (%ld) us\n", duration.count());
           TimePrintCounter = 0;
