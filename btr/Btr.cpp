@@ -548,6 +548,9 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
     retry:
+#ifdef PROCESSANALYSIS
+    auto start = std::chrono::high_resolution_clock::now();
+#endif
         retry_cnt++;
         if (retry_cnt > 10000000) {
             std::cout << "Deadlock " << lock_addr << std::endl;
@@ -573,7 +576,18 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         assert(page_addr.nodeID == lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
 //        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-
+#ifdef PROCESSANALYSIS
+        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+//#ifndef NDEBUG
+            printf("one RDMA round trip uses (%ld) ns\n", duration.count());
+            TimePrintCounter[RDMA_Manager::thread_id] = 0;
+        }else{
+            TimePrintCounter[RDMA_Manager::thread_id]++;
+        }
+//#endif
+#endif
         if ((*(uint64_t*) cas_buffer->addr) != 0){
             conflict_tag = *(uint64_t*)cas_buffer->addr;
             if (conflict_tag != pre_tag) {
@@ -2230,23 +2244,23 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
   bool insert_success;
 //  auto tag = rdma_mg->getThreadTag();
 //  assert(tag != 0);
-#ifdef PROCESSANALYSIS
-    auto start = std::chrono::high_resolution_clock::now();
-#endif
+//#ifdef PROCESSANALYSIS
+//    auto start = std::chrono::high_resolution_clock::now();
+//#endif
   lock_and_read_page(localbuf, page_addr, kLeafPageSize, cas_mr,
                      lock_addr, 1, cxt, coro_id);
-#ifdef PROCESSANALYSIS
-      if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-          auto stop = std::chrono::high_resolution_clock::now();
-          auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-//#ifndef NDEBUG
-          printf("leaf page store RDMA uses (%ld) ns\n", duration.count());
-//          TimePrintCounter[RDMA_Manager::thread_id] = 0;
-      }else{
-//          TimePrintCounter[RDMA_Manager::thread_id]++;
-      }
+//#ifdef PROCESSANALYSIS
+//      if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+//          auto stop = std::chrono::high_resolution_clock::now();
+//          auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+////#ifndef NDEBUG
+//          printf("leaf page store RDMA uses (%ld) ns\n", duration.count());
+////          TimePrintCounter[RDMA_Manager::thread_id] = 0;
+//      }else{
+////          TimePrintCounter[RDMA_Manager::thread_id]++;
+//      }
+////#endif
 //#endif
-#endif
   // TODO: under some situation the lock is not released
 
     auto page = (LeafPage *)page_buffer;
