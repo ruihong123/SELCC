@@ -782,9 +782,9 @@ next: // Internal_and_Leaf page search
     }
 
 #endif
-//#ifdef PROCESSANALYSIS
-//    auto start = std::chrono::high_resolution_clock::now();
-//#endif
+#ifdef PROCESSANALYSIS
+    auto start = std::chrono::high_resolution_clock::now();
+#endif
     if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
             p = get_root_ptr();
@@ -835,16 +835,16 @@ next: // Internal_and_Leaf page search
 //    if (target_level == 0){
 //
 //    }
-//#ifdef PROCESSANALYSIS
-//      if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-//          auto stop = std::chrono::high_resolution_clock::now();
-//          auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-////#ifndef NDEBUG
-//          printf("internal node tranverse uses (%ld) ns\n", duration.count());
-////          TimePrintCounter = 0;
-//      }
-////#endif
+#ifdef PROCESSANALYSIS
+      if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+          auto stop = std::chrono::high_resolution_clock::now();
+          auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+//#ifndef NDEBUG
+          printf("internal node tranverse uses (%ld) ns\n", duration.count());
+//          TimePrintCounter = 0;
+      }
 //#endif
+#endif
 
 //#ifdef PROCESSANALYSIS
 //    start = std::chrono::high_resolution_clock::now();
@@ -2253,7 +2253,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
       if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
           auto stop = std::chrono::high_resolution_clock::now();
           auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-          printf("leaf page store RDMA uses (%ld) ns\n", duration.count());
+          printf("leaf page store fetch RDMA uses (%ld) ns\n", duration.count());
 //          TimePrintCounter[RDMA_Manager::thread_id] = 0;
       }else{
 //          TimePrintCounter[RDMA_Manager::thread_id]++;
