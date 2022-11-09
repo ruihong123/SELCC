@@ -2347,7 +2347,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     // It is problematic to just check whether the value is empty, because it is possible
     // that the buffer is not initialized as 0
 #ifdef PROCESSANALYSIS
-    start = std::chrono::high_resolution_clock::now();
+    auto start = std::chrono::high_resolution_clock::now();
 #endif
     // TODO: make the key-value stored with order, do not use this unordered page structure.
     //  Or use the key to check whether this holder is empty.
