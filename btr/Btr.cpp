@@ -548,9 +548,9 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
     retry:
-#ifdef PROCESSANALYSIS
-    auto start = std::chrono::high_resolution_clock::now();
-#endif
+//#ifdef PROCESSANALYSIS
+//    auto start = std::chrono::high_resolution_clock::now();
+//#endif
         retry_cnt++;
         if (retry_cnt > 10000000) {
             std::cout << "Deadlock " << lock_addr << std::endl;
@@ -576,18 +576,18 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         assert(page_addr.nodeID == lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
 //        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-#ifdef PROCESSANALYSIS
-        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-            auto stop = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-//#ifndef NDEBUG
-            printf("one RDMA round trip uses (%ld) ns\n", duration.count());
-            TimePrintCounter[RDMA_Manager::thread_id] = 0;
-        }else{
-            TimePrintCounter[RDMA_Manager::thread_id]++;
-        }
+//#ifdef PROCESSANALYSIS
+//        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+//            auto stop = std::chrono::high_resolution_clock::now();
+//            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+////#ifndef NDEBUG
+//            printf("one RDMA round trip uses (%ld) ns\n", duration.count());
+//            TimePrintCounter[RDMA_Manager::thread_id] = 0;
+//        }else{
+//            TimePrintCounter[RDMA_Manager::thread_id]++;
+//        }
+////#endif
 //#endif
-#endif
         if ((*(uint64_t*) cas_buffer->addr) != 0){
             conflict_tag = *(uint64_t*)cas_buffer->addr;
             if (conflict_tag != pre_tag) {
@@ -2244,23 +2244,21 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
   bool insert_success;
 //  auto tag = rdma_mg->getThreadTag();
 //  assert(tag != 0);
-//#ifdef PROCESSANALYSIS
-//    auto start = std::chrono::high_resolution_clock::now();
-//#endif
+#ifdef PROCESSANALYSIS
+    auto start = std::chrono::high_resolution_clock::now();
+#endif
   lock_and_read_page(localbuf, page_addr, kLeafPageSize, cas_mr,
                      lock_addr, 1, cxt, coro_id);
-//#ifdef PROCESSANALYSIS
-//      if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-//          auto stop = std::chrono::high_resolution_clock::now();
-//          auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-////#ifndef NDEBUG
-//          printf("leaf page store RDMA uses (%ld) ns\n", duration.count());
-////          TimePrintCounter[RDMA_Manager::thread_id] = 0;
-//      }else{
-////          TimePrintCounter[RDMA_Manager::thread_id]++;
-//      }
-////#endif
-//#endif
+#ifdef PROCESSANALYSIS
+      if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+          auto stop = std::chrono::high_resolution_clock::now();
+          auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+          printf("leaf page store RDMA uses (%ld) ns\n", duration.count());
+//          TimePrintCounter[RDMA_Manager::thread_id] = 0;
+      }else{
+//          TimePrintCounter[RDMA_Manager::thread_id]++;
+      }
+#endif
   // TODO: under some situation the lock is not released
 
     auto page = (LeafPage *)page_buffer;
@@ -2347,7 +2345,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     // It is problematic to just check whether the value is empty, because it is possible
     // that the buffer is not initialized as 0
 #ifdef PROCESSANALYSIS
-    auto start = std::chrono::high_resolution_clock::now();
+    start = std::chrono::high_resolution_clock::now();
 #endif
     // TODO: make the key-value stored with order, do not use this unordered page structure.
     //  Or use the key to check whether this holder is empty.
@@ -2397,9 +2395,9 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
 //#ifndef NDEBUG
         printf("leaf page search and update uses (%ld) ns\n", duration.count());
-        TimePrintCounter[RDMA_Manager::thread_id] = 0;
+//        TimePrintCounter[RDMA_Manager::thread_id] = 0;
     }else{
-        TimePrintCounter[RDMA_Manager::thread_id]++;
+//        TimePrintCounter[RDMA_Manager::thread_id]++;
     }
 //#endif
 #endif
@@ -2409,10 +2407,22 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     ibv_mr target_mr = *localbuf;
     int offset = (update_addr - (char *) page);
       LADD(target_mr.addr, offset);
+#ifdef PROCESSANALYSIS
+      start = std::chrono::high_resolution_clock::now();
+#endif
       write_page_and_unlock(
               &target_mr, GADD(page_addr, offset),
               sizeof(LeafEntry), lock_addr, cxt, coro_id, false);
-
+#ifdef PROCESSANALYSIS
+      if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+          auto stop = std::chrono::high_resolution_clock::now();
+          auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+          printf("leaf pages write back uses (%ld) ns\n", duration.count());
+          TimePrintCounter[RDMA_Manager::thread_id] = 0;
+      }else{
+          TimePrintCounter[RDMA_Manager::thread_id]++;
+      }
+#endif
     return true;
   } else {
     std::sort(
@@ -2474,10 +2484,21 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
   }
     page->rear_version = page->front_version;
 //  page->set_consistent();
-
+#ifdef PROCESSANALYSIS
+    start = std::chrono::high_resolution_clock::now();
+#endif
     write_page_and_unlock(localbuf, page_addr, kLeafPageSize,
                           lock_addr, cxt, coro_id, false);
-
+#ifdef PROCESSANALYSIS
+    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+        printf("leaf pages write back uses (%ld) ns\n", duration.count());
+        TimePrintCounter[RDMA_Manager::thread_id] = 0;
+    }else{
+        TimePrintCounter[RDMA_Manager::thread_id]++;
+    }
+#endif
     if (sibling_addr != GlobalAddress::Null()){
         auto p = path_stack[coro_id][level+1];
         //check whether the node split is for a root node.
