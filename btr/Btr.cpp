@@ -768,9 +768,9 @@ next: // Internal_and_Leaf page search
     }
 
 #endif
-#ifdef PROCESSANALYSIS
-    auto start = std::chrono::high_resolution_clock::now();
-#endif
+//#ifdef PROCESSANALYSIS
+//    auto start = std::chrono::high_resolution_clock::now();
+//#endif
     if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
             p = get_root_ptr();
@@ -821,20 +821,20 @@ next: // Internal_and_Leaf page search
 //    if (target_level == 0){
 //
 //    }
-#ifdef PROCESSANALYSIS
-      if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-          auto stop = std::chrono::high_resolution_clock::now();
-          auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-//#ifndef NDEBUG
-          printf("internal node tranverse uses (%ld) ns\n", duration.count());
-//          TimePrintCounter = 0;
-      }
+//#ifdef PROCESSANALYSIS
+//      if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+//          auto stop = std::chrono::high_resolution_clock::now();
+//          auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+////#ifndef NDEBUG
+//          printf("internal node tranverse uses (%ld) ns\n", duration.count());
+////          TimePrintCounter = 0;
+//      }
+////#endif
 //#endif
-#endif
 
-#ifdef PROCESSANALYSIS
-    start = std::chrono::high_resolution_clock::now();
-#endif
+//#ifdef PROCESSANALYSIS
+//    start = std::chrono::high_resolution_clock::now();
+//#endif
     if (!leaf_page_store(p, k, v, split_key, sibling_prt, root, 0, cxt, coro_id)){
         if (path_stack[coro_id][1] != GlobalAddress::Null()){
             p = path_stack[coro_id][1];
@@ -850,18 +850,18 @@ next: // Internal_and_Leaf page search
 #endif
         goto next;
     }
-#ifdef PROCESSANALYSIS
-    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-        auto stop = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-//#ifndef NDEBUG
-        printf("leaf node store uses (%ld) ns\n", duration.count());
-        TimePrintCounter[RDMA_Manager::thread_id] = 0;
-    }else{
-        TimePrintCounter[RDMA_Manager::thread_id]++;
-    }
+//#ifdef PROCESSANALYSIS
+//    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+//        auto stop = std::chrono::high_resolution_clock::now();
+//        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+////#ifndef NDEBUG
+//        printf("leaf node store uses (%ld) ns\n", duration.count());
+//        TimePrintCounter[RDMA_Manager::thread_id] = 0;
+//    }else{
+//        TimePrintCounter[RDMA_Manager::thread_id]++;
+//    }
+////#endif
 //#endif
-#endif
     //======================== below is about nested node split ============================//
     assert(level == 0);
     // this track means root is the leaves
@@ -2207,9 +2207,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v, Key &split_key, GlobalAddress &sibling_addr,
                      GlobalAddress root, int level, CoroContext *cxt, int coro_id) {
 
-//#ifdef PROCESSANALYSIS
-//    auto start = std::chrono::high_resolution_clock::now();
-//#endif
+
         assert(level == 0);
         uint64_t lock_index =
       CityHash64((char *)&page_addr, sizeof(page_addr)) % define::kNumOfLock;
@@ -2232,10 +2230,23 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
   bool insert_success;
 //  auto tag = rdma_mg->getThreadTag();
 //  assert(tag != 0);
-
+#ifdef PROCESSANALYSIS
+    auto start = std::chrono::high_resolution_clock::now();
+#endif
   lock_and_read_page(localbuf, page_addr, kLeafPageSize, cas_mr,
                      lock_addr, 1, cxt, coro_id);
-
+#ifdef PROCESSANALYSIS
+      if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+          auto stop = std::chrono::high_resolution_clock::now();
+          auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+//#ifndef NDEBUG
+          printf("leaf page store RDMA uses (%ld) us\n", duration.count());
+          TimePrintCounter[RDMA_Manager::thread_id] = 0;
+      }else{
+          TimePrintCounter[RDMA_Manager::thread_id]++;
+      }
+//#endif
+#endif
   // TODO: under some situation the lock is not released
 
     auto page = (LeafPage *)page_buffer;
@@ -2321,7 +2332,9 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
   char *update_addr = nullptr;
     // It is problematic to just check whether the value is empty, because it is possible
     // that the buffer is not initialized as 0
-
+#ifdef PROCESSANALYSIS
+    start = std::chrono::high_resolution_clock::now();
+#endif
     // TODO: make the key-value stored with order, do not use this unordered page structure.
     //  Or use the key to check whether this holder is empty.
     page->front_version++;
@@ -2364,7 +2377,18 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 
     cnt++;
   }
-
+#ifdef PROCESSANALYSIS
+    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+//#ifndef NDEBUG
+        printf("leaf page search and update uses (%ld) us\n", duration.count());
+        TimePrintCounter[RDMA_Manager::thread_id] = 0;
+    }else{
+        TimePrintCounter[RDMA_Manager::thread_id]++;
+    }
+//#endif
+#endif
   bool need_split = cnt == kLeafCardinality;
   if (!need_split) {
     assert(update_addr);
@@ -2374,18 +2398,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
       write_page_and_unlock(
               &target_mr, GADD(page_addr, offset),
               sizeof(LeafEntry), lock_addr, cxt, coro_id, false);
-//#ifdef PROCESSANALYSIS
-//      if (TimePrintCounter>=TIMEPRINTGAP){
-//          auto stop = std::chrono::high_resolution_clock::now();
-//          auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-////#ifndef NDEBUG
-//          printf("leaf page store uses (%ld) us\n", duration.count());
-//          TimePrintCounter = 0;
-//      }else{
-//          TimePrintCounter++;
-//      }
-////#endif
-//#endif
+
     return true;
   } else {
     std::sort(
