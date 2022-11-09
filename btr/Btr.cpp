@@ -25,7 +25,7 @@ uint64_t handover_count[MAX_APP_THREAD][8];
 uint64_t hot_filter_count[MAX_APP_THREAD][8];
 uint64_t latency[MAX_APP_THREAD][LATENCY_WINDOWS];
 extern bool Show_Me_The_Print;
-extern int TimePrintCounter;
+int TimePrintCounter[MAX_APP_THREAD];
 namespace DSMEngine {
 bool enter_debug = false;
 
@@ -822,7 +822,7 @@ next: // Internal_and_Leaf page search
 //
 //    }
 #ifdef PROCESSANALYSIS
-      if (TimePrintCounter>=TIMEPRINTGAP){
+      if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
           auto stop = std::chrono::high_resolution_clock::now();
           auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
 //#ifndef NDEBUG
@@ -851,14 +851,14 @@ next: // Internal_and_Leaf page search
         goto next;
     }
 #ifdef PROCESSANALYSIS
-    if (TimePrintCounter>=TIMEPRINTGAP){
+    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
         auto stop = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
 //#ifndef NDEBUG
         printf("leaf node store uses (%ld) ns\n", duration.count());
-        TimePrintCounter = 0;
+        TimePrintCounter[RDMA_Manager::thread_id] = 0;
     }else{
-        TimePrintCounter++;
+        TimePrintCounter[RDMA_Manager::thread_id]++;
     }
 //#endif
 #endif
