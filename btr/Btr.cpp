@@ -826,12 +826,14 @@ next: // Internal_and_Leaf page search
           auto stop = std::chrono::high_resolution_clock::now();
           auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
 //#ifndef NDEBUG
-          printf("internal node tranverse uses (%ld) us\n", duration.count());
-          TimePrintCounter = 0;
-      }else{
-          TimePrintCounter++;
+          printf("internal node tranverse uses (%ld) ns\n", duration.count());
+//          TimePrintCounter = 0;
       }
 //#endif
+#endif
+
+#ifdef PROCESSANALYSIS
+    start = std::chrono::high_resolution_clock::now();
 #endif
     if (!leaf_page_store(p, k, v, split_key, sibling_prt, root, 0, cxt, coro_id)){
         if (path_stack[coro_id][1] != GlobalAddress::Null()){
@@ -848,7 +850,18 @@ next: // Internal_and_Leaf page search
 #endif
         goto next;
     }
-
+#ifdef PROCESSANALYSIS
+    if (TimePrintCounter>=TIMEPRINTGAP){
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+//#ifndef NDEBUG
+        printf("leaf node store uses (%ld) ns\n", duration.count());
+        TimePrintCounter = 0;
+    }else{
+        TimePrintCounter++;
+    }
+//#endif
+#endif
     //======================== below is about nested node split ============================//
     assert(level == 0);
     // this track means root is the leaves
