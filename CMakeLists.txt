@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DROCKSDB_SUPPORT_THREAD_LOCAL -Wall -Wextra -pthread")
+set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS} -O3")
 include_directories(
         "${PROJECT_SOURCE_DIR}"
 #        "${PROJECT_SOURCE_DIR}/third_party/googletest/googlemock"
@@ -76,6 +77,7 @@ target_include_directories(DSMEngine
 
         )
 enable_testing()
+message(STATUS "cmake flag is release ${CMAKE_CXX_FLAGS_RELEASE}")
 # This project is tested using GoogleTest.
 add_subdirectory("third_party/googletest")
 find_package(ibverbs REQUIRED)
