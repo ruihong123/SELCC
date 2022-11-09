@@ -2238,9 +2238,9 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 #ifdef PROCESSANALYSIS
       if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
           auto stop = std::chrono::high_resolution_clock::now();
-          auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+          auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
 //#ifndef NDEBUG
-          printf("leaf page store RDMA uses (%ld) us\n", duration.count());
+          printf("leaf page store RDMA uses (%ld) ns\n", duration.count());
 //          TimePrintCounter[RDMA_Manager::thread_id] = 0;
       }else{
 //          TimePrintCounter[RDMA_Manager::thread_id]++;
@@ -2380,9 +2380,9 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 #ifdef PROCESSANALYSIS
     if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
         auto stop = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
 //#ifndef NDEBUG
-        printf("leaf page search and update uses (%ld) us\n", duration.count());
+        printf("leaf page search and update uses (%ld) ns\n", duration.count());
         TimePrintCounter[RDMA_Manager::thread_id] = 0;
     }else{
         TimePrintCounter[RDMA_Manager::thread_id]++;
