@@ -1743,10 +1743,10 @@ re_read:
     if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
         auto stop = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-        printf("leaf page search fetch RDMA uses (%ld) ns\n", duration.count());
-//          TimePrintCounter[RDMA_Manager::thread_id] = 0;
+        printf("leaf page search the page uses (%ld) ns\n", duration.count());
+          TimePrintCounter[RDMA_Manager::thread_id] = 0;
     }else{
-//          TimePrintCounter[RDMA_Manager::thread_id]++;
+          TimePrintCounter[RDMA_Manager::thread_id]++;
     }
 #endif
     return true;
