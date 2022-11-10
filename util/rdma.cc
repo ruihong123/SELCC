@@ -2373,9 +2373,9 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
         int rc;
         struct ibv_send_wr* bad_wr = NULL;
         ibv_qp* qp;
-#ifdef PROCESSANALYSIS
-        auto start = std::chrono::high_resolution_clock::now();
-#endif
+//#ifdef PROCESSANALYSIS
+//        auto start = std::chrono::high_resolution_clock::now();
+//#endif
         if (qp_type == "default"){
             //    assert(false);// Never comes to here
             qp = static_cast<ibv_qp*>(qp_data_default.at(target_node_id)->Get());
@@ -2408,26 +2408,23 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
             rc = ibv_post_send(qp, sr, &bad_wr);
             l.unlock();
         }
-#ifdef PROCESSANALYSIS
-        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-            auto stop = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-//#ifndef NDEBUG
-            printf("find the QP uses (%ld) ns\n", duration.count());
-//            TimePrintCounter[RDMA_Manager::thread_id] = 0;
-        }else{
-//            TimePrintCounter[RDMA_Manager::thread_id]++;
-        }
+//#ifdef PROCESSANALYSIS
+//        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+//            auto stop = std::chrono::high_resolution_clock::now();
+//            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+////#ifndef NDEBUG
+//            printf("find the QP uses (%ld) ns\n", duration.count());
+////            TimePrintCounter[RDMA_Manager::thread_id] = 0;
+//        }else{
+////            TimePrintCounter[RDMA_Manager::thread_id]++;
+//        }
+////#endif
 //#endif
-#endif
-#ifdef PROCESSANALYSIS
-        start = std::chrono::high_resolution_clock::now();
-#endif
+//#ifdef PROCESSANALYSIS
+//        start = std::chrono::high_resolution_clock::now();
+//#endif
         if (rc) fprintf(stderr, "failed to post SR, return is %d\n", rc);
-        //  else
-        //  {
-//      fprintf(stdout, "RDMA Write Request was posted, OPCODE is %d\n", sr.opcode);
-        //  }
+
         if (poll_num != 0) {
             ibv_wc* wc = new ibv_wc[poll_num]();
             //  auto start = std::chrono::high_resolution_clock::now();
@@ -2441,18 +2438,16 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
             }
             delete[] wc;
         }
-#ifdef PROCESSANALYSIS
-        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-            auto stop = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-//#ifndef NDEBUG
-            printf("polling the QP uses (%ld) ns\n", duration.count());
-//            TimePrintCounter[RDMA_Manager::thread_id] = 0;
-        }else{
-//            TimePrintCounter[RDMA_Manager::thread_id]++;
-        }
+//#ifdef PROCESSANALYSIS
+//        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+//            auto stop = std::chrono::high_resolution_clock::now();
+//            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+//            printf("polling the QP uses (%ld) ns\n", duration.count());
+////            TimePrintCounter[RDMA_Manager::thread_id] = 0;
+//        }else{
+////            TimePrintCounter[RDMA_Manager::thread_id]++;
+//        }
 //#endif
-#endif
        return rc;
     }
 
