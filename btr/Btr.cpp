@@ -1056,6 +1056,9 @@ int level = -1;
     }
 //#endif
 #endif
+#ifdef PROCESSANALYSIS
+    start = std::chrono::high_resolution_clock::now();
+#endif
 leaf_next:// Leaf page search
     if (!leaf_page_search(p, k, result, level, cxt, coro_id)){
         if (path_stack[coro_id][1] != GlobalAddress::Null()){
@@ -1070,6 +1073,7 @@ leaf_next:// Leaf page search
 #ifndef NDEBUG
         next_times++;
 #endif
+        DEBUG_PRINT_CONDITION("back off for search\n");
         goto next;
     }else{
         if (result.val != kValueNull) { // find
@@ -1084,7 +1088,16 @@ leaf_next:// Leaf page search
         return false; // not found
     }
 
-
+#ifdef PROCESSANALYSIS
+    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+        printf("leaf page search the page uses (%ld) ns\n", duration.count());
+        TimePrintCounter[RDMA_Manager::thread_id] = 0;
+    }else{
+        TimePrintCounter[RDMA_Manager::thread_id]++;
+    }
+#endif
 
 //    if (result.is_leaf) {
 //        if (result.val != kValueNull) { // find
@@ -1651,20 +1664,20 @@ re_read:
     ((LeafPage*)page_buffer)->front_version = 0;
     ((LeafPage*)page_buffer)->rear_version = 0;
     header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
-#ifdef PROCESSANALYSIS
-    auto start = std::chrono::high_resolution_clock::now();
-#endif
+//#ifdef PROCESSANALYSIS
+//    auto start = std::chrono::high_resolution_clock::now();
+//#endif
     rdma_mg->RDMA_Read(page_addr, local_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-#ifdef PROCESSANALYSIS
-    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-        auto stop = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-        printf("leaf page search fetch RDMA uses (%ld) ns\n", duration.count());
-//          TimePrintCounter[RDMA_Manager::thread_id] = 0;
-    }else{
-//          TimePrintCounter[RDMA_Manager::thread_id]++;
-    }
-#endif
+//#ifdef PROCESSANALYSIS
+//    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+//        auto stop = std::chrono::high_resolution_clock::now();
+//        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+//        printf("leaf page search fetch RDMA uses (%ld) ns\n", duration.count());
+////          TimePrintCounter[RDMA_Manager::thread_id] = 0;
+//    }else{
+////          TimePrintCounter[RDMA_Manager::thread_id]++;
+//    }
+//#endif
     memset(&result, 0, sizeof(result));
     result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
     result.level = header->level;
@@ -1735,20 +1748,20 @@ re_read:
         DEBUG_PRINT_CONDITION("retry place 4\n");
         return false;// false means need to fall back
     }
-#ifdef PROCESSANALYSIS
-    start = std::chrono::high_resolution_clock::now();
-#endif
+//#ifdef PROCESSANALYSIS
+//    start = std::chrono::high_resolution_clock::now();
+//#endif
     page->leaf_page_search(k, result, *local_mr, page_addr);
-#ifdef PROCESSANALYSIS
-    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-        auto stop = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-        printf("leaf page search the page uses (%ld) ns\n", duration.count());
-          TimePrintCounter[RDMA_Manager::thread_id] = 0;
-    }else{
-          TimePrintCounter[RDMA_Manager::thread_id]++;
-    }
-#endif
+//#ifdef PROCESSANALYSIS
+//    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+//        auto stop = std::chrono::high_resolution_clock::now();
+//        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+//        printf("leaf page search the page uses (%ld) ns\n", duration.count());
+//          TimePrintCounter[RDMA_Manager::thread_id] = 0;
+//    }else{
+//          TimePrintCounter[RDMA_Manager::thread_id]++;
+//    }
+//#endif
     return true;
 }
 // This function will return true unless it found that the key is smaller than the lower bound of a searched node.
