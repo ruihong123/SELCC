@@ -1328,7 +1328,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
 //#ifndef NDEBUG
-            printf("cache look up (%ld) ns, \n", duration.count());
+            printf("cache look up for level %d is (%ld) ns, \n", level, duration.count());
 //          TimePrintCounter = 0;
         }
 //#endif
@@ -1651,13 +1651,14 @@ local_reread:
     // TODO: how to make sure that a page split will not happen during you search
     //  the page.
 //        assert(front_v == rear_v);
-#ifdef PROCESSANALYSIS
-        start = std::chrono::high_resolution_clock::now();
-#endif
         if (!page->internal_page_search(k, result, current_ticket)){
             goto local_reread;
         }
         nested_retry_counter = 0;
+#ifdef PROCESSANALYSIS
+        start = std::chrono::high_resolution_clock::now();
+#endif
+
 
   page_cache->Release(handle);
 
@@ -1666,7 +1667,7 @@ local_reread:
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
 //#ifndef NDEBUG
-            printf("internal node page search (%ld) ns\n", duration.count());
+            printf("cache release (%ld) ns\n", duration.count());
 //          TimePrintCounter = 0;
         }
 //#endif
