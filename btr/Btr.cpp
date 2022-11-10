@@ -771,16 +771,16 @@ void Btr::insert(const Key &k, const Value &v, CoroContext *cxt, int coro_id) {
 //TODO: What if we ustilize the cache tree height for the root level?
 
 //    int target_level = 0;
-#ifndef NDEBUG
+//#ifndef NDEBUG
     int next_times = 0;
-#endif
+//#endif
 next: // Internal_and_Leaf page search
-#ifndef NDEBUG
+//#ifndef NDEBUG
     if (next_times++ == 1000){
         assert(false);
     }
 
-#endif
+//#endif
 #ifdef PROCESSANALYSIS
     auto start = std::chrono::high_resolution_clock::now();
 #endif
@@ -839,7 +839,7 @@ next: // Internal_and_Leaf page search
           auto stop = std::chrono::high_resolution_clock::now();
           auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
 //#ifndef NDEBUG
-          printf("internal node tranverse uses (%ld) ns\n", duration.count());
+          printf("internal node tranverse uses (%ld) ns, next time is %d\n", duration.count(), next_times);
 //          TimePrintCounter = 0;
       }
 //#endif
