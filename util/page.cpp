@@ -248,7 +248,7 @@ namespace DSMEngine{
             auto &r = records[i];
             while (r.f_version != r.r_version){
 //                ibv_mr target_mr = *local_mr_copied;
-                exit(0);
+//                exit(0);
                 int offset = ((char*)&r - (char *) this);
                 LADD(local_mr_copied.addr, offset);
                 Btr::rdma_mg->RDMA_Read(GADD(g_page_ptr, offset), &local_mr_copied, sizeof(LeafEntry),IBV_SEND_SIGNALED,1, Internal_and_Leaf);
