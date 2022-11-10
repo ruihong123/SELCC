@@ -973,7 +973,9 @@ next: // Internal_and_Leaf page search
 
 bool Btr::search(const Key &k, Value &v, CoroContext *cxt, int coro_id) {
 //  assert(rdma_mg->is_register());
-
+#ifdef PROCESSANALYSIS
+    auto start = std::chrono::high_resolution_clock::now();
+#endif
   auto root = get_root_ptr();
   SearchResult result;
 
@@ -1006,9 +1008,7 @@ int level = -1;
         assert(false);
     }
 #endif
-#ifdef PROCESSANALYSIS
-    auto start = std::chrono::high_resolution_clock::now();
-#endif
+
     if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
         //The traverser failed to move to the next level
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
@@ -1082,7 +1082,7 @@ leaf_next:// Leaf page search
             if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
                 auto stop = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-                printf("leaf page search the page uses (%ld) ns\n", duration.count());
+                printf("leaf page fetch and search the page uses (%ld) ns\n", duration.count());
                 TimePrintCounter[RDMA_Manager::thread_id] = 0;
             }else{
                 TimePrintCounter[RDMA_Manager::thread_id]++;
@@ -1099,7 +1099,7 @@ leaf_next:// Leaf page search
         if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-            printf("leaf page search the page uses (%ld) ns\n", duration.count());
+            printf("leaf page fetch and search the page uses (%ld) ns\n", duration.count());
             TimePrintCounter[RDMA_Manager::thread_id] = 0;
         }else{
             TimePrintCounter[RDMA_Manager::thread_id]++;
