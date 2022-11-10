@@ -508,7 +508,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
 
 //        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
 
-            rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+            rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
             ibv_mr* local_CAS_mr = rdma_mg->Get_local_CAS_mr();
             *(uint64_t *)local_CAS_mr->addr = 0;
             //TODO: WHY the remote lock is not unlocked by this function?
@@ -521,7 +521,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
 
 
             assert(page_addr.nodeID == remote_lock_addr.nodeID);
-            rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
+            rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
         }
 #ifndef NDEBUG
 //        printf("Reease global lock for %p\n", page_addr);
@@ -634,7 +634,8 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
             struct ibv_sge sge[2];
 //        printf("Acquire global lock for %p\n", page_addr);
         assert(page->local_lock_meta.local_lock_byte == 1);
-            rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED, Internal_and_Leaf);
+        //Only the second RDMA issue a completion
+            rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, 0, Internal_and_Leaf);
             rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
 //        rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED|IBV_SEND_FENCE,1, LockTable);
 //        rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
@@ -644,8 +645,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
             sr[0].next = &sr[1];
             *(uint64_t *)cas_buffer->addr = 0;
             assert(page_addr.nodeID == lock_addr.nodeID);
-            rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
-//        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+            rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
 
             if ((*(uint64_t*) cas_buffer->addr) != 0){
                 conflict_tag = *(uint64_t*)cas_buffer->addr;
@@ -1078,6 +1078,16 @@ leaf_next:// Leaf page search
     }else{
         if (result.val != kValueNull) { // find
             v = result.val;
+#ifdef PROCESSANALYSIS
+            if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+                auto stop = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+                printf("leaf page search the page uses (%ld) ns\n", duration.count());
+                TimePrintCounter[RDMA_Manager::thread_id] = 0;
+            }else{
+                TimePrintCounter[RDMA_Manager::thread_id]++;
+            }
+#endif
 
             return true;
         }
@@ -1085,19 +1095,20 @@ leaf_next:// Leaf page search
             p = result.slibing;
             goto leaf_next;
         }
+#ifdef PROCESSANALYSIS
+        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+            printf("leaf page search the page uses (%ld) ns\n", duration.count());
+            TimePrintCounter[RDMA_Manager::thread_id] = 0;
+        }else{
+            TimePrintCounter[RDMA_Manager::thread_id]++;
+        }
+#endif
+
         return false; // not found
     }
 
-#ifdef PROCESSANALYSIS
-    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-        auto stop = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-        printf("leaf page search the page uses (%ld) ns\n", duration.count());
-        TimePrintCounter[RDMA_Manager::thread_id] = 0;
-    }else{
-        TimePrintCounter[RDMA_Manager::thread_id]++;
-    }
-#endif
 
 //    if (result.is_leaf) {
 //        if (result.val != kValueNull) { // find
