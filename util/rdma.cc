@@ -3,13 +3,18 @@
 #include "Common.h"
 #include "HugePageAlloc.h"
 //#include "DSMEngine/env.h"
-
+#ifdef RDMAPROCESSANALYSIS
+extern int TimePrintCounter[MAX_APP_THREAD];
+#endif
 namespace DSMEngine {
 uint16_t RDMA_Manager::node_id = 0;
 #ifdef PROCESSANALYSIS
 std::atomic<uint64_t> RDMA_Manager::RDMAReadTimeElapseSum = 0;
 std::atomic<uint64_t> RDMA_Manager::ReadCount = 0;
 #endif
+
+
+
 #ifdef GETANALYSIS
 std::atomic<uint64_t> RDMA_Manager::RDMAFindmrElapseSum = 0;
 std::atomic<uint64_t> RDMA_Manager::RDMAMemoryAllocElapseSum = 0;
@@ -2368,6 +2373,9 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
         int rc;
         struct ibv_send_wr* bad_wr = NULL;
         ibv_qp* qp;
+#ifdef PROCESSANALYSIS
+        auto start = std::chrono::high_resolution_clock::now();
+#endif
         if (qp_type == "default"){
             //    assert(false);// Never comes to here
             qp = static_cast<ibv_qp*>(qp_data_default.at(target_node_id)->Get());
@@ -2400,8 +2408,21 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
             rc = ibv_post_send(qp, sr, &bad_wr);
             l.unlock();
         }
-
-        //  start = std::chrono::high_resolution_clock::now();
+#ifdef PROCESSANALYSIS
+        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+//#ifndef NDEBUG
+            printf("find the QP uses (%ld) ns\n", duration.count());
+//            TimePrintCounter[RDMA_Manager::thread_id] = 0;
+        }else{
+//            TimePrintCounter[RDMA_Manager::thread_id]++;
+        }
+//#endif
+#endif
+#ifdef PROCESSANALYSIS
+        start = std::chrono::high_resolution_clock::now();
+#endif
         if (rc) fprintf(stderr, "failed to post SR, return is %d\n", rc);
         //  else
         //  {
@@ -2420,9 +2441,19 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
             }
             delete[] wc;
         }
-        //  stop = std::chrono::high_resolution_clock::now();
-        //  duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start); printf("RDMA Write post send and poll size: %zu elapse: %ld\n", msg_size, duration.count());
-        return rc;
+#ifdef PROCESSANALYSIS
+        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+//#ifndef NDEBUG
+            printf("polling the QP uses (%ld) ns\n", duration.count());
+//            TimePrintCounter[RDMA_Manager::thread_id] = 0;
+        }else{
+//            TimePrintCounter[RDMA_Manager::thread_id]++;
+        }
+//#endif
+#endif
+       return rc;
     }
 
 int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare, uint64_t swap, size_t send_flag,
