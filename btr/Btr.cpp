@@ -973,9 +973,7 @@ next: // Internal_and_Leaf page search
 
 bool Btr::search(const Key &k, Value &v, CoroContext *cxt, int coro_id) {
 //  assert(rdma_mg->is_register());
-#ifdef PROCESSANALYSIS
-    auto start = std::chrono::high_resolution_clock::now();
-#endif
+
   auto root = get_root_ptr();
   SearchResult result;
 
@@ -998,7 +996,9 @@ bool Btr::search(const Key &k, Value &v, CoroContext *cxt, int coro_id) {
 int level = -1;
 //TODO: What if we ustilize the cache tree height for the root level?
 //TODO: Change it into while style code.
-
+#ifdef PROCESSANALYSIS
+    auto start = std::chrono::high_resolution_clock::now();
+#endif
 //#ifndef NDEBUG
     int next_times = 0;
 //#endif
