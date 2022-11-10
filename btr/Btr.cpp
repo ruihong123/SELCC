@@ -537,6 +537,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
 //    printf("lock %lu and read page offset %lu", lock_addr.offset, page_addr.offset);
     bool hand_over = acquire_local_lock(lock_addr, cxt, coro_id);
     if (hand_over) {
+
         rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
         return;
     }
@@ -574,7 +575,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         sr[0].next = &sr[1];
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
-        rdma_mg->Batch_Submit_WRs(sr, 2, page_addr.nodeID);
+        rdma_mg->Batch_Submit_WRs(&sr[0], 2, page_addr.nodeID);
 //        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
 #ifdef PROCESSANALYSIS
         if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
@@ -1005,6 +1006,9 @@ int level = -1;
         assert(false);
     }
 #endif
+#ifdef PROCESSANALYSIS
+    auto start = std::chrono::high_resolution_clock::now();
+#endif
     if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
         //The traverser failed to move to the next level
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
@@ -1042,7 +1046,16 @@ int level = -1;
         }
 
     }
-
+#ifdef PROCESSANALYSIS
+    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+//#ifndef NDEBUG
+        printf("internal node tranverse uses (%ld) ns\n", duration.count());
+//          TimePrintCounter = 0;
+    }
+//#endif
+#endif
 leaf_next:// Leaf page search
     if (!leaf_page_search(p, k, result, level, cxt, coro_id)){
         if (path_stack[coro_id][1] != GlobalAddress::Null()){
@@ -1638,7 +1651,20 @@ re_read:
     ((LeafPage*)page_buffer)->front_version = 0;
     ((LeafPage*)page_buffer)->rear_version = 0;
     header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
+#ifdef PROCESSANALYSIS
+    auto start = std::chrono::high_resolution_clock::now();
+#endif
     rdma_mg->RDMA_Read(page_addr, local_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+#ifdef PROCESSANALYSIS
+    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+        printf("leaf page search fetch RDMA uses (%ld) ns\n", duration.count());
+//          TimePrintCounter[RDMA_Manager::thread_id] = 0;
+    }else{
+//          TimePrintCounter[RDMA_Manager::thread_id]++;
+    }
+#endif
     memset(&result, 0, sizeof(result));
     result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
     result.level = header->level;
@@ -1709,7 +1735,20 @@ re_read:
         DEBUG_PRINT_CONDITION("retry place 4\n");
         return false;// false means need to fall back
     }
+#ifdef PROCESSANALYSIS
+    start = std::chrono::high_resolution_clock::now();
+#endif
     page->leaf_page_search(k, result, *local_mr, page_addr);
+#ifdef PROCESSANALYSIS
+    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+        printf("leaf page search fetch RDMA uses (%ld) ns\n", duration.count());
+//          TimePrintCounter[RDMA_Manager::thread_id] = 0;
+    }else{
+//          TimePrintCounter[RDMA_Manager::thread_id]++;
+    }
+#endif
     return true;
 }
 // This function will return true unless it found that the key is smaller than the lower bound of a searched node.
