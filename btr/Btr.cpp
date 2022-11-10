@@ -999,15 +999,15 @@ int level = -1;
 //TODO: What if we ustilize the cache tree height for the root level?
 //TODO: Change it into while style code.
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
     int next_times = 0;
-#endif
+//#endif
     next: // Internal_and_Leaf page search
-#ifndef NDEBUG
+//#ifndef NDEBUG
     if (next_times == 1000){
         assert(false);
     }
-#endif
+//#endif
 
     if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
         //The traverser failed to move to the next level
@@ -1051,7 +1051,7 @@ int level = -1;
         auto stop = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
 //#ifndef NDEBUG
-        printf("internal node tranverse uses (%ld) ns\n", duration.count());
+        printf("internal node tranverse uses (%ld) ns, next time is %d\n", duration.count(), next_times);
 //          TimePrintCounter = 0;
     }
 //#endif
