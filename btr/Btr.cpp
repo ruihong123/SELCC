@@ -771,6 +771,9 @@ void Btr::insert(const Key &k, const Value &v, CoroContext *cxt, int coro_id) {
 //TODO: What if we ustilize the cache tree height for the root level?
 
 //    int target_level = 0;
+#ifdef PROCESSANALYSIS
+    auto start = std::chrono::high_resolution_clock::now();
+#endif
 //#ifndef NDEBUG
     int next_times = 0;
 //#endif
@@ -781,9 +784,7 @@ next: // Internal_and_Leaf page search
     }
 
 //#endif
-#ifdef PROCESSANALYSIS
-    auto start = std::chrono::high_resolution_clock::now();
-#endif
+
     if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
             p = get_root_ptr();
@@ -794,9 +795,7 @@ next: // Internal_and_Leaf page search
             p = path_stack[coro_id][result.level +1];
             level = result.level +1;
         }
-#ifndef NDEBUG
-        next_times++;
-#endif
+
         goto next;
     }
     else{
@@ -1039,9 +1038,7 @@ int level = -1;
         if (level != 0 && level != -1){
             // If Level is 1 then the leaf node and root node are the same.
             assert(!result.is_leaf);
-#ifndef NDEBUG
-            next_times++;
-#endif
+
             goto next;
         }
 
@@ -1322,7 +1319,20 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
     void* page_buffer;
     Header * header;
     InternalPage* page;
+#ifdef PROCESSANALYSIS
+        auto start = std::chrono::high_resolution_clock::now();
+#endif
     handle = page_cache->Lookup(page_id);
+#ifdef PROCESSANALYSIS
+        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+//#ifndef NDEBUG
+            printf("cache look up (%ld) ns, \n", duration.count());
+//          TimePrintCounter = 0;
+        }
+//#endif
+#endif
     // TODO: use real pointer to bypass the cache hash table. We need overwrittened function for internal page search,
     //  given an local address (now the global address is given). Or we make it the same function with both global ptr and local ptr,
     //  and let the function to figure out the situation.
@@ -1641,7 +1651,9 @@ local_reread:
     // TODO: how to make sure that a page split will not happen during you search
     //  the page.
 //        assert(front_v == rear_v);
-
+#ifdef PROCESSANALYSIS
+        start = std::chrono::high_resolution_clock::now();
+#endif
         if (!page->internal_page_search(k, result, current_ticket)){
             goto local_reread;
         }
@@ -1649,7 +1661,16 @@ local_reread:
 
   page_cache->Release(handle);
 
-
+#ifdef PROCESSANALYSIS
+        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+//#ifndef NDEBUG
+            printf("internal node page search (%ld) ns\n", duration.count());
+//          TimePrintCounter = 0;
+        }
+//#endif
+#endif
 
   return true;
 }
