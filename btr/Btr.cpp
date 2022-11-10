@@ -776,7 +776,7 @@ void Btr::insert(const Key &k, const Value &v, CoroContext *cxt, int coro_id) {
 #endif
 next: // Internal_and_Leaf page search
 #ifndef NDEBUG
-    if (next_times == 1000){
+    if (next_times++ == 1000){
         assert(false);
     }
 
@@ -1004,7 +1004,7 @@ int level = -1;
 //#endif
     next: // Internal_and_Leaf page search
 //#ifndef NDEBUG
-    if (next_times == 1000){
+    if (next_times++ == 1000){
         assert(false);
     }
 //#endif
