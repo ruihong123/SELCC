@@ -153,6 +153,8 @@ void RWMutex::ReadLock() {
 
     PthreadCall("read lock", pthread_rwlock_rdlock(&mu_));
 #ifndef NDEBUG
+    assert(lock_state_ == 0);
+
     lock_state_ = 1;
 #endif
 }
@@ -160,17 +162,24 @@ void RWMutex::ReadLock() {
 void RWMutex::WriteLock() {
     PthreadCall("write lock", pthread_rwlock_wrlock(&mu_));
 #ifndef NDEBUG
+    assert(lock_state_ == 0);
     lock_state_ = 2;
 #endif
 }
 
 void RWMutex::ReadUnlock() {
+#ifndef NDEBUG
     assert(lock_state_ == 1);
+    lock_state_ = 0;
+#endif
     PthreadCall("read unlock", pthread_rwlock_unlock(&mu_));
 }
 
 void RWMutex::WriteUnlock() {
+#ifndef NDEBUG
     assert(lock_state_ == 2);
+    lock_state_ = 0;
+#endif
     PthreadCall("write unlock", pthread_rwlock_unlock(&mu_));
 }
 
