@@ -208,11 +208,12 @@ void LRUCache::Ref_in_LookUp(LRUHandle* e) {
       e->refs.fetch_add(1);
       assert(e->in_cache.load());
       mutex_.WriteUnlock();
+      return;
   }
 //  e->refs++;
     e->refs.fetch_add(1);
     assert(e->in_cache.load());
-        mutex_.ReadUnlock();
+    mutex_.ReadUnlock();
 }
 
 void LRUCache::Unref(LRUHandle* e) {
