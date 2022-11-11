@@ -174,6 +174,9 @@ class RWMutex {
 
  private:
   pthread_rwlock_t mu_; // the underlying platform mutex
+#ifndef NDEBUG
+  int lock_state_;
+#endif
 };
 
 class CondVar {

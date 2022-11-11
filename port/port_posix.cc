@@ -149,13 +149,30 @@ RWMutex::RWMutex() {
 
 RWMutex::~RWMutex() { PthreadCall("destroy mutex", pthread_rwlock_destroy(&mu_)); }
 
-void RWMutex::ReadLock() { PthreadCall("read lock", pthread_rwlock_rdlock(&mu_)); }
+void RWMutex::ReadLock() {
 
-void RWMutex::WriteLock() { PthreadCall("write lock", pthread_rwlock_wrlock(&mu_)); }
+    PthreadCall("read lock", pthread_rwlock_rdlock(&mu_));
+#ifndef NDEBUG
+    lock_state_ = 1;
+#endif
+}
 
-void RWMutex::ReadUnlock() { PthreadCall("read unlock", pthread_rwlock_unlock(&mu_)); }
+void RWMutex::WriteLock() {
+    PthreadCall("write lock", pthread_rwlock_wrlock(&mu_));
+#ifndef NDEBUG
+    lock_state_ = 2;
+#endif
+}
 
-void RWMutex::WriteUnlock() { PthreadCall("write unlock", pthread_rwlock_unlock(&mu_)); }
+void RWMutex::ReadUnlock() {
+    assert(lock_state_ == 1);
+    PthreadCall("read unlock", pthread_rwlock_unlock(&mu_));
+}
+
+void RWMutex::WriteUnlock() {
+    assert(lock_state_ == 2);
+    PthreadCall("write unlock", pthread_rwlock_unlock(&mu_));
+}
 
 int PhysicalCoreID() {
 #if defined(ROCKSDB_SCHED_GETCPU_PRESENT) && defined(__x86_64__) && \
