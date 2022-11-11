@@ -144,6 +144,9 @@ void CondVar::SignalAll() {
 }
 
 RWMutex::RWMutex() {
+#ifndef NDEBUG
+    lock_state_ = 0;
+#endif
   PthreadCall("init mutex", pthread_rwlock_init(&mu_, nullptr));
 }
 
