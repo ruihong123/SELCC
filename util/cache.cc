@@ -257,6 +257,8 @@ Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
         e = table_.Lookup(key, hash);
         if (e != nullptr) {
             Ref_in_LookUp(e);
+        }else{
+            mutex_.ReadUnlock();
         }
     }
 
