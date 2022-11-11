@@ -134,7 +134,7 @@ class LRUCache {
   void Prune();
   size_t TotalCharge() const {
 //    MutexLock l(&mutex_);
-    SpinLock l(&mutex_);
+    ReadLock l(&mutex_);
     return usage_;
   }
 
