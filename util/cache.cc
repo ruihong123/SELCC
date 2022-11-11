@@ -149,7 +149,7 @@ class LRUCache {
   size_t capacity_;
 
   // mutex_ protects the following state.
-  mutable SpinMutex mutex_;
+  mutable port::RWMutex mutex_;
   size_t usage_ GUARDED_BY(mutex_);
 
   // Dummy head of LRU list.
@@ -213,7 +213,7 @@ void LRUCache::LRU_Remove(LRUHandle* e) {
   e->prev->next = e->next;
 }
 
-void LRUCache::LRU_Append(LRUHandle* list, LRUHandle* e) {
+void LRUCache::LRU_Append(LRUHandle* list, LRUHandle* 0e) {
   // Make "e" newest entry by inserting just before *list
   e->next = list;
   e->prev = list->prev;
@@ -225,7 +225,7 @@ Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
     //TODO: WHEN there is a miss, directly call the RDMA refetch and put it into the
     // cache.
 //  MutexLock l(&mutex_);
-  SpinLock l(&mutex_);
+  ReadLock l(&mutex_);
     assert(usage_ <= capacity_);
     //TOTHINK(ruihong): should we update the lru list after look up a key?
   //  Answer: Ref will refer this key and later, the outer function has to call
@@ -239,7 +239,7 @@ Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
 
 void LRUCache::Release(Cache::Handle* handle) {
 //  MutexLock l(&
-  SpinLock l(&mutex_);
+  WriteLock l(&mutex_);
   Unref(reinterpret_cast<LRUHandle*>(handle));
 //    assert(reinterpret_cast<LRUHandle*>(handle)->refs != 0);
 }
@@ -250,7 +250,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
                                 void (*deleter)(const Slice& key,
                                                 void* value)) {
 //  MutexLock l(&mutex_);
-  SpinLock l(&mutex_);
+
   //TODO: set the LRUHandle within the page, so that we can check the reference, during the direct access, or we reserver
   // a place hodler for the address pointer to the LRU handle of the page.
   LRUHandle* e =
@@ -263,7 +263,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
   e->in_cache = false;
   e->refs = 1;  // for the returned handle.
   std::memcpy(e->key_data, key.data(), key.size());
-
+  WriteLock l(&mutex_);
   if (capacity_ > 0) {
     e->refs++;  // for the table_cache's reference. refer here and unrefer outside
     e->in_cache = true;
@@ -307,13 +307,13 @@ bool LRUCache::FinishErase(LRUHandle* e) {
 
 void LRUCache::Erase(const Slice& key, uint32_t hash) {
 //  MutexLock l(&mutex_);
-  SpinLock l(&mutex_);
+  WriteLock l(&mutex_);
   FinishErase(table_.Remove(key, hash));
 }
 
 void LRUCache::Prune() {
 //  MutexLock l(&mutex_);
-  SpinLock l(&mutex_);
+  WriteLock l(&mutex_);
   while (lru_.next != &lru_) {
     LRUHandle* e = lru_.next;
     assert(e->refs == 1);
