@@ -61,7 +61,7 @@ class DSMEngine_EXPORT Cache {
     struct Handle {
     public:
         void* value;
-        uint32_t refs;     // References, including table_cache reference, if present.
+        std::atomic<uint32_t> refs;     // References, including table_cache reference, if present.
         void (*deleter)(const Slice&, void* value);
     };
   Cache(const Cache&) = delete;
@@ -143,7 +143,7 @@ class DSMEngine_EXPORT Cache {
         LRUHandle* prev;
         size_t charge;  // TODO(opt): Only allow uint32_t?
         size_t key_length;
-        bool in_cache;     // Whether entry is in the table_cache.
+        std::atomic<bool> in_cache;     // Whether entry is in the table_cache.
         uint32_t hash;     // Hash of key(); used for fast sharding and comparisons
         char key_data[1];  // Beginning of key
 

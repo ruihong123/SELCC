@@ -142,6 +142,7 @@ class LRUCache {
   void LRU_Remove(LRUHandle* e);
   void LRU_Append(LRUHandle* list, LRUHandle* e);
   void Ref(LRUHandle* e);
+    void Ref_in_LookUp(LRUHandle* e);
   void Unref(LRUHandle* e);
   bool FinishErase(LRUHandle* e) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
@@ -183,15 +184,35 @@ LRUCache::~LRUCache() {
     e = next;
   }
 }
+    void LRUCache::Ref(LRUHandle* e) {
+        if (e->refs == 1 && e->in_cache) {  // If on lru_ list, move to in_use_ list.
+            LRU_Remove(e);
+            LRU_Append(&in_use_, e);
+        }
+        e->refs++;
+    }
 
-void LRUCache::Ref(LRUHandle* e) {
-  if (e->refs == 1 && e->in_cache) {  // If on lru_ list, move to in_use_ list.
-    LRU_Remove(e);
-    LRU_Append(&in_use_, e);
+// THere should be no lock outside
+void LRUCache::Ref_in_LookUp(LRUHandle* e) {
+    //TODO: Update the read lock to a write lock within the if predicate
+  if (e->refs.load() == 1 && e->in_cache.load()) {  // If on lru_ list, move to in_use_ list.
+      mutex_.ReadUnlock();
+      mutex_.WriteLock();
+      if (e->refs.load() == 1 && e->in_cache.load()) {
+          LRU_Remove(e);
+          LRU_Append(&in_use_, e);
+          e->refs.fetch_add(1);
+          mutex_.WriteUnlock();
+          return;
+      }
+      e->refs.fetch_add(1);
+      assert(e->in_cache.load());
+      mutex_.WriteUnlock();
   }
-  e->refs++;
-  //todo: delete the assert below
-    assert(e->refs <=17);
+//  e->refs++;
+    e->refs.fetch_add(1);
+    assert(e->in_cache.load());
+        mutex_.ReadUnlock();
 }
 
 void LRUCache::Unref(LRUHandle* e) {
@@ -225,15 +246,19 @@ Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
     //TODO: WHEN there is a miss, directly call the RDMA refetch and put it into the
     // cache.
 //  MutexLock l(&mutex_);
-  ReadLock l(&mutex_);
-    assert(usage_ <= capacity_);
-    //TOTHINK(ruihong): should we update the lru list after look up a key?
-  //  Answer: Ref will refer this key and later, the outer function has to call
-  // Unref or release which will update the lRU list.
-  LRUHandle* e = table_.Lookup(key, hash);
-  if (e != nullptr) {
-    Ref(e);
-  }
+    LRUHandle *e;
+    {
+        mutex_.ReadLock();
+        assert(usage_ <= capacity_);
+        //TOTHINK(ruihong): should we update the lru list after look up a key?
+        //  Answer: Ref will refer this key and later, the outer function has to call
+        // Unref or release which will update the lRU list.
+        e = table_.Lookup(key, hash);
+        if (e != nullptr) {
+            Ref_in_LookUp(e);
+        }
+    }
+
   return reinterpret_cast<Cache::Handle*>(e);
 }
 
