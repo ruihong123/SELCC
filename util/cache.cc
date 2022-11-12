@@ -134,8 +134,8 @@ class LRUCache {
   void Prune();
   size_t TotalCharge() const {
 //    MutexLock l(&mutex_);
-    ReadLock l(&mutex_);
-//      SpinLock l(&mutex_);
+//    ReadLock l(&mutex_);
+    SpinLock l(&mutex_);
     return usage_;
   }
 
@@ -143,7 +143,7 @@ class LRUCache {
   void LRU_Remove(LRUHandle* e);
   void LRU_Append(LRUHandle* list, LRUHandle* e);
   void Ref(LRUHandle* e);
-    void Ref_in_LookUp(LRUHandle* e);
+//    void Ref_in_LookUp(LRUHandle* e);
   void Unref(LRUHandle* e);
   bool FinishErase(LRUHandle* e) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
@@ -151,8 +151,8 @@ class LRUCache {
   size_t capacity_;
 
   // mutex_ protects the following state.
-  mutable port::RWMutex mutex_;
-//    mutable SpinMutex mutex_;
+//  mutable port::RWMutex mutex_;
+    mutable SpinMutex mutex_;
   size_t usage_ GUARDED_BY(mutex_);
 
   // Dummy head of LRU list.
@@ -195,28 +195,28 @@ LRUCache::~LRUCache() {
     }
 
 // THere should be no lock outside
-void LRUCache::Ref_in_LookUp(LRUHandle* e) {
-    //TODO: Update the read lock to a write lock within the if predicate
-  if (e->refs.load() == 1 && e->in_cache.load()) {  // If on lru_ list, move to in_use_ list.
-      mutex_.ReadUnlock();
-      mutex_.WriteLock();
-      if (e->refs.load() == 1 && e->in_cache.load()) {
-          LRU_Remove(e);
-          LRU_Append(&in_use_, e);
-          e->refs.fetch_add(1);
-          mutex_.WriteUnlock();
-          return;
-      }
-      e->refs.fetch_add(1);
-      assert(e->in_cache.load());
-      mutex_.WriteUnlock();
-      return;
-  }
-//  e->refs++;
-    e->refs.fetch_add(1);
-    assert(e->in_cache.load());
-    mutex_.ReadUnlock();
-}
+//void LRUCache::Ref_in_LookUp(LRUHandle* e) {
+//    //TODO: Update the read lock to a write lock within the if predicate
+//  if (e->refs.load() == 1 && e->in_cache.load()) {  // If on lru_ list, move to in_use_ list.
+//      mutex_.ReadUnlock();
+//      mutex_.WriteLock();
+//      if (e->refs.load() == 1 && e->in_cache.load()) {
+//          LRU_Remove(e);
+//          LRU_Append(&in_use_, e);
+//          e->refs.fetch_add(1);
+//          mutex_.WriteUnlock();
+//          return;
+//      }
+//      e->refs.fetch_add(1);
+//      assert(e->in_cache.load());
+//      mutex_.WriteUnlock();
+//      return;
+//  }
+////  e->refs++;
+//    e->refs.fetch_add(1);
+//    assert(e->in_cache.load());
+//    mutex_.ReadUnlock();
+//}
 
 void LRUCache::Unref(LRUHandle* e) {
   assert(e->refs > 0);
@@ -245,31 +245,43 @@ void LRUCache::LRU_Append(LRUHandle* list, LRUHandle* e) {
   e->next->prev = e;
 }
 
+//Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
+//    //TODO: WHEN there is a miss, directly call the RDMA refetch and put it into the
+//    // cache.
+////  MutexLock l(&mutex_);
+//    LRUHandle *e;
+//    {
+//        mutex_.ReadLock();
+//        assert(usage_ <= capacity_);
+//        //TOTHINK(ruihong): should we update the lru list after look up a key?
+//        //  Answer: Ref will refer this key and later, the outer function has to call
+//        // Unref or release which will update the lRU list.
+//        e = table_.Lookup(key, hash);
+//        if (e != nullptr) {
+//            Ref_in_LookUp(e);
+//        }else{
+//            mutex_.ReadUnlock();
+//        }
+//    }
+//
+//  return reinterpret_cast<Cache::Handle*>(e);
+//}
 Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
-    //TODO: WHEN there is a miss, directly call the RDMA refetch and put it into the
-    // cache.
 //  MutexLock l(&mutex_);
-    LRUHandle *e;
-    {
-        mutex_.ReadLock();
-        assert(usage_ <= capacity_);
-        //TOTHINK(ruihong): should we update the lru list after look up a key?
-        //  Answer: Ref will refer this key and later, the outer function has to call
-        // Unref or release which will update the lRU list.
-        e = table_.Lookup(key, hash);
-        if (e != nullptr) {
-            Ref_in_LookUp(e);
-        }else{
-            mutex_.ReadUnlock();
-        }
+    SpinLock l(&mutex_);
+    //TOTHINK(ruihong): shoul we update the lru list after look up a key?
+    //  Answer: Ref will refer this key and later, the outer function has to call
+    // Unref or release which will update the lRU list.
+    LRUHandle* e = table_.Lookup(key, hash);
+    if (e != nullptr) {
+        Ref(e);
     }
-
-  return reinterpret_cast<Cache::Handle*>(e);
+    return reinterpret_cast<Cache::Handle*>(e);
 }
-
 void LRUCache::Release(Cache::Handle* handle) {
 //  MutexLock l(&mutex_);
-  WriteLock l(&mutex_);
+//  WriteLock l(&mutex_);
+  SpinLock l(&mutex_);
   Unref(reinterpret_cast<LRUHandle*>(handle));
 //    assert(reinterpret_cast<LRUHandle*>(handle)->refs != 0);
 }
@@ -293,7 +305,8 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
   e->in_cache = false;
   e->refs = 1;  // for the returned handle.
   std::memcpy(e->key_data, key.data(), key.size());
-  WriteLock l(&mutex_);
+//  WriteLock l(&mutex_);
+  SpinLock l(&mutex_);
   if (capacity_ > 0) {
     e->refs++;  // for the table_cache's reference. refer here and unrefer outside
     e->in_cache = true;
@@ -337,13 +350,15 @@ bool LRUCache::FinishErase(LRUHandle* e) {
 
 void LRUCache::Erase(const Slice& key, uint32_t hash) {
 //  MutexLock l(&mutex_);
-  WriteLock l(&mutex_);
+//  WriteLock l(&mutex_);
+  SpinLock l(&mutex_);
   FinishErase(table_.Remove(key, hash));
 }
 
 void LRUCache::Prune() {
 //  MutexLock l(&mutex_);
-  WriteLock l(&mutex_);
+//  WriteLock l(&mutex_);
+    SpinLock l(&mutex_);
   while (lru_.next != &lru_) {
     LRUHandle* e = lru_.next;
     assert(e->refs == 1);

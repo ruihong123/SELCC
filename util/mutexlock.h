@@ -62,7 +62,7 @@ class SpinMutex {
         break;
       }
       port::AsmVolatilePause();
-      if (tries > 100) {
+      if (tries > 10000) {
         //        printf("I tried so many time I got yield\n");
         std::this_thread::yield();
       }
