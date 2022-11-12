@@ -135,6 +135,7 @@ class LRUCache {
   size_t TotalCharge() const {
 //    MutexLock l(&mutex_);
     ReadLock l(&mutex_);
+//      SpinLock l(&mutex_);
     return usage_;
   }
 
@@ -151,6 +152,7 @@ class LRUCache {
 
   // mutex_ protects the following state.
   mutable port::RWMutex mutex_;
+//    mutable SpinMutex mutex_;
   size_t usage_ GUARDED_BY(mutex_);
 
   // Dummy head of LRU list.
@@ -266,7 +268,7 @@ Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
 }
 
 void LRUCache::Release(Cache::Handle* handle) {
-//  MutexLock l(&
+//  MutexLock l(&mutex_);
   WriteLock l(&mutex_);
   Unref(reinterpret_cast<LRUHandle*>(handle));
 //    assert(reinterpret_cast<LRUHandle*>(handle)->refs != 0);

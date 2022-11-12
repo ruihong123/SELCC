@@ -178,7 +178,7 @@ GlobalAddress Btr::get_root_ptr() {
           while (*(GlobalAddress*)(local_mr->addr) == GlobalAddress::Null()) {
               rdma_mg->RDMA_Read(&remote_mr, local_mr, sizeof(GlobalAddress), IBV_SEND_SIGNALED, 1, 1);
           }
-
+          assert(*(GlobalAddress*)local_mr->addr != GlobalAddress::Null());
           g_root_ptr.store(*(GlobalAddress*)local_mr->addr);
 
           std::cout << "Get new root" << g_root_ptr <<std::endl;
