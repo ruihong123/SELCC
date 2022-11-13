@@ -82,10 +82,10 @@ Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id),
 //    page_cache = NewLRUCache(define::kIndexCacheSize);
 
 //  root_ptr_ptr = get_root_ptr_ptr();
-
+    cached_root_page_mr = new ibv_mr{};
   // try to init tree and install root pointer
-    rdma_mg->Allocate_Local_RDMA_Slot(cached_root_page_mr, Internal_and_Leaf);// local allocate
-    memset(cached_root_page_mr.addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
+    rdma_mg->Allocate_Local_RDMA_Slot(*cached_root_page_mr, Internal_and_Leaf);// local allocate
+    memset(cached_root_page_mr->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
     if (rdma_mg->node_id == 0){
         // only the first compute node create the root node for index
         g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1); // remote allocation.
@@ -93,11 +93,11 @@ Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id),
         if(++round_robin_cur == rdma_mg->memory_nodes.size()){
             round_robin_cur = 0;
         }
-        auto root_page = new (cached_root_page_mr.addr) LeafPage;
+        auto root_page = new (cached_root_page_mr->addr) LeafPage;
 
         root_page->front_version++;
         root_page->rear_version = root_page->front_version;
-        rdma_mg->RDMA_Write(g_root_ptr, &cached_root_page_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+        rdma_mg->RDMA_Write(g_root_ptr, cached_root_page_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
         // TODO: create a special region to store the root_ptr for every tree id.
         auto local_mr = rdma_mg->Get_local_CAS_mr(); // remote allocation.
         ibv_mr remote_mr{};
@@ -109,7 +109,11 @@ Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id),
         assert(*(uint64_t*)local_mr->addr == 0);
 
     }else{
-        get_root_ptr();
+        rdma_mg->Allocate_Local_RDMA_Slot(*cached_root_page_mr, Internal_and_Leaf);// local allocate
+        memset(cached_root_page_mr->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
+//        rdma_mg->Allocate_Local_RDMA_Slot()
+        ibv_mr* dummy_mr;
+        get_root_ptr(dummy_mr);
     }
 
 //  auto cas_buffer = (rdma_mg->get_rbuf(0)).get_cas_buffer();
@@ -156,15 +160,23 @@ GlobalAddress Btr::get_root_ptr_ptr() {
   return addr;
 }
 
-extern GlobalAddress g_root_ptr;
-extern int g_root_level;
-extern bool enable_cache;
-GlobalAddress Btr::get_root_ptr() {
+//extern GlobalAddress g_root_ptr;
+//extern int g_root_level;
+//extern bool enable_cache;
+GlobalAddress Btr::get_root_ptr(ibv_mr*& root_hint) {
+    //Note it is okay if cached_root_page_mr is an older version for the g_root_ptr, because when we use the
+    // page we will check whether this page is correct or not
+    root_hint = cached_root_page_mr;
     GlobalAddress root_ptr = g_root_ptr.load();
   if (root_ptr == GlobalAddress::Null()) {
       std::unique_lock<std::mutex> l(mtx);
+      root_hint = cached_root_page_mr;
       root_ptr = g_root_ptr.load();
       if (root_ptr == GlobalAddress::Null()) {
+//          assert(cached_root_page_mr = nullptr);
+            // TODO: an alternative design is to insert this page into the cache.
+            rdma_mg->Deallocate_Local_RDMA_Slot(cached_root_page_mr->addr, Internal_and_Leaf);
+            delete cached_root_page_mr;
           ibv_mr* local_mr = rdma_mg->Get_local_CAS_mr();
 
           ibv_mr remote_mr{};
@@ -183,11 +195,22 @@ GlobalAddress Btr::get_root_ptr() {
 
           std::cout << "Get new root" << g_root_ptr <<std::endl;
           root_ptr = g_root_ptr.load();
+          assert(g_root_ptr != GlobalAddress::Null());
+
+          //Try to rebuild a local mr for the new root, the old root may
+          cached_root_page_mr = new ibv_mr{};
+          // try to init tree and install root pointer
+          rdma_mg->Allocate_Local_RDMA_Slot(*cached_root_page_mr, Internal_and_Leaf);// local allocate
+          memset(cached_root_page_mr->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
+          //Read a larger enough data for the root node thorugh it may oversize the page but it is ok since we only read the data.
+          rdma_mg->RDMA_Read(root_ptr, cached_root_page_mr, kInternalPageSize,IBV_SEND_SIGNALED,1,Internal_and_Leaf);
 
       }
-      assert(g_root_ptr != GlobalAddress::Null());
-    return root_ptr;
+
+      return root_ptr;
   } else {
+      assert(((InternalPage*)cached_root_page_mr->addr)->hdr.this_page_g_ptr == root_ptr);
+      root_hint = cached_root_page_mr;
     return root_ptr;
   }
 
@@ -277,8 +300,8 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
 
 void Btr::print_and_check_tree(CoroContext *cxt, int coro_id) {
 //  assert(rdma_mg->is_register());
-
-  auto root = get_root_ptr();
+    ibv_mr* page_hint;
+  auto root = get_root_ptr(page_hint);
   // SearchResult result;
 
   GlobalAddress p = root;
@@ -681,10 +704,12 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
                           int coro_id, int target_level) {
 
     //TODO: You need to acquire a lock when you write a page
-    auto root = get_root_ptr();
+        ibv_mr* page_hint = nullptr;
+    auto root = get_root_ptr(page_hint);
     SearchResult result{0};
 
     GlobalAddress p = root;
+
     //TODO: ADD support for root invalidate and update.
 
 
@@ -696,20 +721,22 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
 
 next: // Internal_and_Leaf page search
     //TODO: What if the target_level is equal to the root level.
-    if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
+    if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
-            p = get_root_ptr();
+            p = get_root_ptr(page_hint);
             level = -1;
         }else{
             // fall back to upper level
             assert(level == result.level|| level == -1);
             p = path_stack[coro_id][result.level +1];
+            page_hint = nullptr;
             level = result.level +1;
         }
         goto next;
     }else{
         assert(level == result.level);
         isroot = false;
+        page_hint = nullptr;
         // if the root and sibling are the same, it is also okay because the
         // p will not be changed
         if (result.slibing != GlobalAddress::Null()) { // turn right
@@ -741,7 +768,7 @@ next: // Internal_and_Leaf page search
         }
         else{
             // re-search the tree from the scratch. (only happen when root and leaf are the same.)
-            p = get_root_ptr();
+            p = get_root_ptr(page_hint);
             level = -1;
         }
         goto next;
@@ -756,8 +783,8 @@ void Btr::insert(const Key &k, const Value &v, CoroContext *cxt, int coro_id) {
   before_operation(cxt, coro_id);
 
 
-
-  auto root = get_root_ptr();
+    ibv_mr* page_hint = nullptr;
+  auto root = get_root_ptr(page_hint);
     assert(root != GlobalAddress::Null());
 //  std::cout << "The root now is " << root << std::endl;
   SearchResult result{};
@@ -785,14 +812,15 @@ next: // Internal_and_Leaf page search
 
 //#endif
 
-    if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
+    if (!internal_page_search(p, k, result, level, isroot, nullptr, cxt, coro_id)) {
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
-            p = get_root_ptr();
+            p = get_root_ptr(page_hint);
             level = -1;
         }else{
             // fall back to upper level
             assert(level == result.level || level == -1);
             p = path_stack[coro_id][result.level +1];
+            page_hint = nullptr;
             level = result.level +1;
         }
 
@@ -801,6 +829,7 @@ next: // Internal_and_Leaf page search
     else{
         assert(level == result.level);
         isroot = false;
+        page_hint = nullptr;
         // if the root and sibling are the same, it is also okay because the
         // p will not be changed
         if (result.slibing != GlobalAddress::Null()) { // turn right
@@ -854,7 +883,7 @@ next: // Internal_and_Leaf page search
         }
         else{
             // re-search the tree from the scratch. (only happen when root and leaf are the same.)
-            p = get_root_ptr();
+            p = get_root_ptr(page_hint);
             level = -1;
         }
 #ifndef NDEBUG
@@ -972,8 +1001,8 @@ next: // Internal_and_Leaf page search
 
 bool Btr::search(const Key &k, Value &v, CoroContext *cxt, int coro_id) {
 //  assert(rdma_mg->is_register());
-
-  auto root = get_root_ptr();
+    ibv_mr* page_hint = nullptr;
+  auto root = get_root_ptr(page_hint);
   SearchResult result;
 
   GlobalAddress p = root;
@@ -1008,15 +1037,16 @@ int level = -1;
     }
 //#endif
 
-    if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
+    if (!internal_page_search(p, k, result, level, isroot, nullptr, cxt, coro_id)) {
         //The traverser failed to move to the next level
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
-            p = get_root_ptr();
+            p = get_root_ptr(page_hint);
             level = -1;
         }else{
             // fall back to upper level
             assert(level == result.level|| level == -1);
             p = path_stack[coro_id][result.level +1];
+            page_hint = nullptr;
             level = result.level + 1;
         }
         goto next;
@@ -1025,6 +1055,7 @@ int level = -1;
         // The traversing moving the the next level correctly
         assert(level == result.level|| level == -1);
         isroot = false;
+        page_hint = nullptr;
         // Do not need to
         if (result.slibing != GlobalAddress::Null()) { // turn right
             p = result.slibing;
@@ -1064,7 +1095,7 @@ leaf_next:// Leaf page search
 
         }
         else{
-            p = get_root_ptr();
+            p = get_root_ptr(page_hint);
             level = -1;
         }
 #ifndef NDEBUG
@@ -1215,8 +1246,9 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
     before_operation(cxt, coro_id);
 
 
+        ibv_mr* page_hint = nullptr;
 
-    auto root = get_root_ptr();
+    auto root = get_root_ptr(page_hint);
 //  std::cout << "The root now is " << root << std::endl;
     SearchResult result;
     GlobalAddress p = root;
@@ -1227,14 +1259,15 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //TODO: What if we ustilize the cache tree height for the root level?
     int target_level = 0;
     next: // Internal_and_Leaf page search
-    if (!internal_page_search(p, k, result, level, isroot, cxt, coro_id)) {
+    if (!internal_page_search(p, k, result, level, isroot, nullptr, cxt, coro_id)) {
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
-            p = get_root_ptr();
+            p = get_root_ptr(page_hint);
             level = -1;
         }else{
             // fall back to upper level
             assert(level == result.level|| level == -1);
             p = path_stack[coro_id][result.level +1];
+            page_hint = nullptr;
             level = result.level +1;
         }
         goto next;
@@ -1242,6 +1275,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
     else{
         assert(level == result.level|| level == -1);
         isroot = false;
+        page_hint = nullptr;
         // if the root and sibling are the same, it is also okay because the
         // p will not be changed
         if (result.slibing != GlobalAddress::Null()) { // turn right
@@ -1275,7 +1309,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         }
         else{
             // re-search the tree from the scratch. (only happen when root and leaf are the same.)
-            p = get_root_ptr();
+            p = get_root_ptr(page_hint);
             level = -1;
         }
         goto next;
@@ -1299,7 +1333,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
  * @return
  */
     bool Btr::internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int &level, bool isroot,
-                                   CoroContext *cxt, int coro_id) {
+                                   ibv_mr *page_hint, CoroContext *cxt, int coro_id) {
 
 // tothink: How could I know whether this level before I actually access this page.
 
@@ -1319,10 +1353,53 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
     void* page_buffer;
     Header * header;
     InternalPage* page;
+    ibv_mr* mr;
 #ifdef PROCESSANALYSIS
         auto start = std::chrono::high_resolution_clock::now();
 #endif
-    handle = page_cache->Lookup(page_id);
+        bool skip_cache = false;
+        //TODO: For the pointer swizzling, we need to clear the hdr.this_page_g_ptr when we deallocate
+        // the page. Also we need a mechanism to avoid the page being deallocate during the access. if a page
+        // is pointer swizzled, we need to make sure it will not be evict from the cache.
+    if (page_hint != nullptr) {
+        mr = page_hint;
+        page_buffer = mr->addr;
+        header = (Header *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage, hdr)));
+        if (header->this_page_g_ptr == page_addr) {
+            // if this page mr is in-use and is the local cache for page_addr
+            skip_cache = true;
+            page = (InternalPage *)page_buffer;
+            memset(&result, 0, sizeof(result));
+            result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
+            result.level = header->level;
+#ifndef NDEBUG
+            if (level != -1){
+                assert(level ==result.level );
+            }
+#endif
+            level = result.level;
+            assert(result.is_leaf == (level == 0));
+            path_stack[coro_id][result.level] = page_addr;
+            //If this is the leaf node, directly return let leaf page search to handle it.
+            if (result.level == 0){
+                // if the root node is the leaf node this path will happen.
+                printf("root and leaf are the same\n");
+                if (page->check_lock_state() && k >= page->hdr.highest){
+                    std::unique_lock<std::mutex> l(mtx);
+                    if (page_addr == g_root_ptr.load()){
+                        g_root_ptr.store(GlobalAddress::Null());
+                    }
+                }
+                return true;
+            }
+            assert(page->hdr.level < 100);
+            page->check_invalidation_and_refetch_outside_lock(page_addr, rdma_mg, mr);
+        }
+
+    }
+
+    if(!skip_cache){
+        handle = page_cache->Lookup(page_id);
 #ifdef PROCESSANALYSIS
         if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
             auto stop = std::chrono::high_resolution_clock::now();
@@ -1333,93 +1410,105 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         }
 //#endif
 #endif
-    // TODO: use real pointer to bypass the cache hash table. We need overwrittened function for internal page search,
-    //  given an local address (now the global address is given). Or we make it the same function with both global ptr and local ptr,
-    //  and let the function to figure out the situation.
+        // TODO: use real pointer to bypass the cache hash table. We need overwrittened function for internal page search,
+        //  given an local address (now the global address is given). Or we make it the same function with both global ptr and local ptr,
+        //  and let the function to figure out the situation.
+
+
+
 #ifndef NDEBUG
         int rdma_refetch_times = 0;
 #endif
-        ibv_mr* mr;
-
-    //
-    //Question: Shall we implement a shared-exclusive lock here for local contention. or we still
-    // follow the optimistic latch free design?
-    // Answer: Still optimistic latch free, the local read of internal node do not need local lock,
-    // but the local write will write through the memory node and acquire the global lock.
-    if (handle != nullptr){
-        cache_hit[RDMA_Manager::thread_id][0]++;
-        mr = (ibv_mr*)page_cache->Value(handle);
-        page_buffer = mr->addr;
-        header = (Header *)((char*)page_buffer + (STRUCT_OFFSET(InternalPage, hdr)));
+        //
+        //Question: Shall we implement a shared-exclusive lock here for local contention. or we still
+        // follow the optimistic latch free design?
+        // Answer: Still optimistic latch free, the local read of internal node do not need local lock,
+        // but the local write will write through the memory node and acquire the global lock.
+        if (handle != nullptr){
+            cache_hit[RDMA_Manager::thread_id][0]++;
+            mr = (ibv_mr*)page_cache->Value(handle);
+            page_buffer = mr->addr;
+            header = (Header *)((char*)page_buffer + (STRUCT_OFFSET(InternalPage, hdr)));
 #ifndef NDEBUG
-        uint64_t local_meta_old = __atomic_load_n((uint64_t*)page_buffer, (int)std::memory_order_seq_cst);
+            uint64_t local_meta_old = __atomic_load_n((uint64_t*)page_buffer, (int)std::memory_order_seq_cst);
 //        assert(((Local_Meta*) &local_meta_new)->local_lock_byte == 0 && ((Local_Meta*) &local_meta_new)->current_ticket == ((Local_Meta*) &local_meta_new)->issued_ticket || ((Local_Meta*) &local_meta_new)->local_lock_byte == 1 && ((Local_Meta*) &local_meta_new)->current_ticket != ((Local_Meta*) &local_meta_new)->issued_ticket );
 //        if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
 //            goto local_reread;
 //        }
 #endif
-        page = (InternalPage *)page_buffer;
+            page = (InternalPage *)page_buffer;
 #ifndef NDEBUG
-        uint64_t local_meta_new = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
+            uint64_t local_meta_new = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
 //        assert(((Local_Meta*) &local_meta_new)->local_lock_byte == 0 && ((Local_Meta*) &local_meta_new)->current_ticket == ((Local_Meta*) &local_meta_new)->issued_ticket || ((Local_Meta*) &local_meta_new)->local_lock_byte == 1 && ((Local_Meta*) &local_meta_new)->current_ticket != ((Local_Meta*) &local_meta_new)->issued_ticket );
 //        if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
 //            goto local_reread;
 //        }
 #endif
-        memset(&result, 0, sizeof(result));
-        result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
-        result.level = header->level;
+            memset(&result, 0, sizeof(result));
+            result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
+            result.level = header->level;
 #ifndef NDEBUG
-        if (level != -1){
-            assert(level ==result.level );
-        }
+            if (level != -1){
+                assert(level ==result.level );
+            }
 
 #endif
-        level = result.level;
+            level = result.level;
 //  if(!result.is_leaf)
 //      assert(result.level !=0);
-        assert(result.is_leaf == (level == 0));
-        path_stack[coro_id][result.level] = page_addr;
+            assert(result.is_leaf == (level == 0));
+            path_stack[coro_id][result.level] = page_addr;
+            if (result.level == 0){
+                // if the root node is the leaf node this path will happen.
+                printf("root and leaf are the same\n");
+                if (page->check_lock_state() && k >= page->hdr.highest){
+                    std::unique_lock<std::mutex> l(mtx);
+                    if (page_addr == g_root_ptr.load()){
+                        g_root_ptr.store(GlobalAddress::Null());
+                    }
+                }
+                return true;
+            }
 //        printf("From cache, Page offest %lu last index is %d, page pointer is %p\n", page_addr.offset, page->hdr.last_index, page);
 //        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 
-        assert(page->hdr.level < 100);
+            assert(page->hdr.level < 100);
 
 //        assert((page->local_lock_meta.current_ticket == page->local_lock_meta.issued_ticket && page->local_lock_meta.local_lock_byte == 0) || (page->local_lock_meta.current_ticket != page->local_lock_meta.issued_ticket && page->local_lock_meta.local_lock_byte == 1));
-        // Note: we can not make the local lock outside the page, because in that case, the local lock
-        // are aggregated but the global lock is per page, we can not do the lock handover.
-        // CHANGE IT BACK
-        page->check_invalidation_and_refetch_outside_lock(page_addr, rdma_mg, mr);
-    }else {
-        cache_miss[RDMA_Manager::thread_id][0]++;
-        // TODO (potential optimization) we can use a lock when pushing the read page to cache
-        // so that we can avoid install the page to cache mulitple times. But currently it is okay.
-        //  pattern_cnt++;
-        mr = new ibv_mr{};
-        rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
+            // Note: we can not make the local lock outside the page, because in that case, the local lock
+            // are aggregated but the global lock is per page, we can not do the lock handover.
+            // CHANGE IT BACK
+            page->check_invalidation_and_refetch_outside_lock(page_addr, rdma_mg, mr);
+        }else {
+            cache_miss[RDMA_Manager::thread_id][0]++;
+            // TODO (potential optimization) we can use a lock when pushing the read page to cache
+            // so that we can avoid install the page to cache mulitple times. But currently it is okay.
+            //  pattern_cnt++;
+            mr = new ibv_mr{};
+            rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
 
 //        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
 //               page_addr, mr->addr, HashSlice(page_id), level);
 
-        page_buffer = mr->addr;
-        header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(InternalPage, hdr)));
-        page = (InternalPage *)page_buffer;
-        page->global_lock = 1;
+            page_buffer = mr->addr;
+            header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(InternalPage, hdr)));
+            page = (InternalPage *)page_buffer;
+            page->global_lock = 1;
 
 //        page->front_version = 0;
 //        page->rear_version = 0;
 #ifndef NDEBUG
-        rdma_refetch_times = 1;
+            rdma_refetch_times = 1;
 #endif
-    rdma_refetch:
+            rdma_refetch:
 #ifndef NDEBUG
-        if (rdma_refetch_times >= 10000){
-            assert(false);
-        }
+            if (rdma_refetch_times >= 10000){
+                assert(false);
+            }
 #endif
-        //TODO: Why the internal page read some times read an empty page?
-        // THe bug could be resulted from the concurrent access by multiple threads.
-        // why the last_index is always greater than the records number?
+            //TODO: Why the internal page read some times read an empty page?
+            // THe bug could be resulted from the concurrent access by multiple threads.
+            // why the last_index is always greater than the records number?
 //        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
 //        uint64_t lock_index =
 //                CityHash64((char *)&page_addr, sizeof(page_addr)) % define::kNumOfLock;
@@ -1428,78 +1517,78 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //        lock_addr.offset = lock_index * sizeof(uint64_t);
 //        lock_and_read_page(new_mr, page_addr, kInternalPageSize, cas_mr,
 //                           lock_addr, 1, cxt, coro_id);
-        // it can read the full page, because it has not inserted to the cache.
-        rdma_mg->RDMA_Read(page_addr, mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            // it can read the full page, because it has not inserted to the cache.
+            rdma_mg->RDMA_Read(page_addr, mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
 //        DEBUG_arg("cache miss and RDMA read %p", page_addr);
-        //
-        assert(page->hdr.this_page_g_ptr = page_addr);
-        memset(&result, 0, sizeof(result));
-        result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
-        result.level = header->level;
-        level = result.level;
-        path_stack[coro_id][result.level] = page_addr;
+            //
+            assert(page->hdr.this_page_g_ptr = page_addr);
+            memset(&result, 0, sizeof(result));
+            result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
+            result.level = header->level;
+            level = result.level;
+            path_stack[coro_id][result.level] = page_addr;
 //        printf("From remote memory, Page offest %lu last index is %d, page pointer is %p\n", page_addr.offset, page->hdr.last_index, page);
-        //check level first because the rearversion's position depends on the leaf node or internal node
-        if (result.level == 0){
-            // if the root node is the leaf node this path will happen.
-            printf("root and leaf are the same\n");
-            if (page->check_lock_state() && k >= page->hdr.highest){
-                std::unique_lock<std::mutex> l(mtx);
-                if (page_addr == g_root_ptr.load()){
-                    g_root_ptr.store(GlobalAddress::Null());
+            //check level first because the rearversion's position depends on the leaf node or internal node
+            if (result.level == 0){
+                // if the root node is the leaf node this path will happen.
+                printf("root and leaf are the same\n");
+                if (page->check_lock_state() && k >= page->hdr.highest){
+                    std::unique_lock<std::mutex> l(mtx);
+                    if (page_addr == g_root_ptr.load()){
+                        g_root_ptr.store(GlobalAddress::Null());
+                    }
                 }
-            }
-            // No need for reread.
-            rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal_and_Leaf);
-            // return true and let the outside code figure out that the leaf node is the root node
+                // No need for reread.
+                rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal_and_Leaf);
+                // return true and let the outside code figure out that the leaf node is the root node
 //            this->unlock_addr(lock_addr, cxt, coro_id, false);
-            return true;
-        }
-        // This consistent check should be in the path of RDMA read only.
-        //TODO (OPTIMIZATION): Think about Why the last index check is necessary? can we remove it
-        // If  there is no such check, the page may stay in some invalid state, where the last key-value noted by "last_index"
-        // is empty. I spent 3 days to debug, but unfortunatly I did not figure it out.
-        // THe weird thing is there will only be one empty in the last index, all the others are valid all the times.
+                return true;
+            }
+            // This consistent check should be in the path of RDMA read only.
+            //TODO (OPTIMIZATION): Think about Why the last index check is necessary? can we remove it
+            // If  there is no such check, the page may stay in some invalid state, where the last key-value noted by "last_index"
+            // is empty. I spent 3 days to debug, but unfortunatly I did not figure it out.
+            // THe weird thing is there will only be one empty in the last index, all the others are valid all the times.
 
 //        _mm_clflush(&page->front_version);
 //        _mm_clflush(&page->rear_version);
 //        || page->records[page->hdr.last_index ].ptr == GlobalAddress::Null() 0x16623140000001 becomes 0x40000001
-        if (!page->check_lock_state() ) {
-            //TODO: What is the other thread is modifying this page but you overwrite the buffer by a reread.
-            // How to tell whether the inconsistent content is from local read-write conflict or remote
-            // RDMA read and write conflict
-            // TODO: What if the records are not consistent but the page version is consistent.
-            //If this page is fetch from the remote memory, discard the page before insert to the cache,
-            // then refetch the page by RDMA.
-            //If this page read from the
+            if (!page->check_lock_state() ) {
+                //TODO: What is the other thread is modifying this page but you overwrite the buffer by a reread.
+                // How to tell whether the inconsistent content is from local read-write conflict or remote
+                // RDMA read and write conflict
+                // TODO: What if the records are not consistent but the page version is consistent.
+                //If this page is fetch from the remote memory, discard the page before insert to the cache,
+                // then refetch the page by RDMA.
+                //If this page read from the
 
 #ifndef NDEBUG
-            rdma_refetch_times++;
+                rdma_refetch_times++;
 #endif
 //            this->unlock_addr(lock_addr, cxt, coro_id, false);
-            goto rdma_refetch;
-        }
-        // Initialize the local lock informations.
+                goto rdma_refetch;
+            }
+            // Initialize the local lock informations.
 //        page->local_metadata_init();
-        /**
-         * On the responder side, contents of the RDMA write buffer are guaranteed to be fully received only if one of the following events takes place:
-         * *Completion of the RDMA Write with immediate data
-         * *Arrival and completion of the subsequent Send message
-         * *Update of a memory element by subsequent RDMA Atomic operation
-         * On the requester side, contents of the RDMA read buffer are guaranteed to be fully received only if one of the following events takes place:
-         * *Completion of the RDMA Read Work Request (if completion is requested)
-         * *Completion of the subsequent Work Request
-         */
-        assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
-        page->local_metadata_init();
+            /**
+             * On the responder side, contents of the RDMA write buffer are guaranteed to be fully received only if one of the following events takes place:
+             * *Completion of the RDMA Write with immediate data
+             * *Arrival and completion of the subsequent Send message
+             * *Update of a memory element by subsequent RDMA Atomic operation
+             * On the requester side, contents of the RDMA read buffer are guaranteed to be fully received only if one of the following events takes place:
+             * *Completion of the RDMA Read Work Request (if completion is requested)
+             * *Completion of the subsequent Work Request
+             */
+            assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
+            page->local_metadata_init();
 
-        // if there has already been a cache entry with the same key, the old one will be
-        // removed from the cache, but it may not be garbage collected right away
-        //TODO(): you need to make sure this insert will not push out any cache entry,
-        // because the page could hold a lock on that page and this page may miss the update.
-        // However, this page's read is still a valid read and the other update may not required to
-        // be seen for multiversion Transaction concurrency control, but this may critical for the 2PL algorithms.
-        handle = page_cache->Insert(page_id, mr, kInternalPageSize, Deallocate_MR);
+            // if there has already been a cache entry with the same key, the old one will be
+            // removed from the cache, but it may not be garbage collected right away
+            //TODO(): you need to make sure this insert will not push out any cache entry,
+            // because the page could hold a lock on that page and this page may miss the update.
+            // However, this page's read is still a valid read and the other update may not required to
+            // be seen for multiversion Transaction concurrency control, but this may critical for the 2PL algorithms.
+            handle = page_cache->Insert(page_id, mr, kInternalPageSize, Deallocate_MR);
 //        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 //        this->unlock_addr(lock_addr, cxt, coro_id, false);
 //#ifndef NDEBUG
@@ -1508,8 +1597,11 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //        auto qp_type = std::string("default");
 //        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID) == 0);
 //#endif
+        }
     }
-        assert(page->hdr.level < 100);
+        assert(mr!= nullptr);
+
+    assert(page->hdr.level < 100);
     assert(result.level != 0);
     //          assert(!from_cache);
 
@@ -1602,7 +1694,7 @@ local_reread:
             page_cache->Release(handle);
 
 
-            return internal_page_search(sib_ptr, k, result, level, isroot, cxt, coro_id);
+            return internal_page_search(sib_ptr, k, result, level, isroot, nullptr, cxt, coro_id);
         }else{
             nested_retry_counter = 0;
             page_cache->Release(handle);
@@ -2217,12 +2309,13 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
     // We can also say if need_split
     if (sibling_addr != GlobalAddress::Null()){
+        ibv_mr* page_hint = nullptr;
         auto p = path_stack[coro_id][level+1];
         //check whether the node split is for a root node.
         if (UNLIKELY(p == GlobalAddress::Null() )){
             //TODO: we probably need a update root lock for the code below.
             g_root_ptr = GlobalAddress::Null();
-            p = get_root_ptr();
+            p = get_root_ptr(page_hint);
             //TODO: tHERE COULd be a bug in the get_root_ptr so that the CAS for update_new_root will be failed.
 
             if (path_stack[coro_id][level] == p){
@@ -2249,11 +2342,12 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             fall_back_level = level + 1;
 
             p = path_stack[coro_id][fall_back_level];
+            page_hint = nullptr;
             if ( p == GlobalAddress::Null()){
                 // insert it top-down. this function will keep searching until it is found
                 insert_internal(split_key,sibling_addr, cxt, coro_id, level);
             }else{
-                    if(!internal_page_search(p, k, result, fall_back_level, false, cxt, coro_id)){
+                    if(!internal_page_search(p, k, result, fall_back_level, false, page_hint, cxt, coro_id)){
                         // if the upper level is still a stale node, just insert the node by top down method.
                         insert_internal(split_key,sibling_addr, cxt, coro_id, level);
 //                        level = level + 1; // move to upper level
@@ -2264,6 +2358,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
                             // the page was found successful by one step back, then we can set the p as new node.
                             // do not need to chanve level.
                             p = result.next_level;
+                            page_hint = nullptr;
                             goto re_insert;
 //                    level = result.level - 1;
                         }else{
@@ -2584,11 +2679,12 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 #endif
     if (sibling_addr != GlobalAddress::Null()){
         auto p = path_stack[coro_id][level+1];
+        ibv_mr* page_hint = nullptr;
         //check whether the node split is for a root node.
         if (UNLIKELY(p == GlobalAddress::Null() )){
             //TODO: we probably need a update root global lock (accross compute nodes) for the code below.
             g_root_ptr = GlobalAddress::Null();
-            p = get_root_ptr();
+            p = get_root_ptr(page_hint);
             //TODO: If withoutnthe global lock, a new root may be further pop up during for the two code above
 
             if (path_stack[coro_id][level] == p){
@@ -2622,7 +2718,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
                 // insert it top-down. this function will keep searching until it is found
                 insert_internal(split_key,sibling_addr, cxt, coro_id, level);
             }else{
-                if(!internal_page_search(p, k, result, fall_back_level, false, cxt, coro_id)){
+                if(!internal_page_search(p, k, result, fall_back_level, false, nullptr, cxt, coro_id)){
                     // if the upper level is still a stale node, just insert the node by top down method.
                     insert_internal(split_key,sibling_addr, cxt, coro_id, level);
 //                        level = level + 1; // move to upper level

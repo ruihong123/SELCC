@@ -78,8 +78,8 @@ public:
 //  GlobalAddress root_ptr_ptr; // the address which stores root pointer;
 // TODO: not make it as a fixed
 
-    ibv_mr cached_root_page_mr{}; // useful when we want to reduce the hash table access in cache with id. (avoid pointer swizzling)
-    InternalPage* cached_root_page_ptr;
+    ibv_mr* cached_root_page_mr; // useful when we want to reduce the hash table access in cache with id. (avoid pointer swizzling)
+//    InternalPage* cached_root_page_ptr;
   std::atomic<GlobalAddress> g_root_ptr = GlobalAddress::Null();
   static thread_local size_t round_robin_cur;
 
@@ -100,7 +100,7 @@ public:
   void before_operation(CoroContext *cxt, int coro_id);
 
   GlobalAddress get_root_ptr_ptr();
-  GlobalAddress get_root_ptr();
+  GlobalAddress get_root_ptr(ibv_mr*& root_hint);
 
   void coro_worker(CoroYield &yield, RequstGen *gen, int coro_id);
 //  void coro_master(CoroYield &yield, int coro_cnt);
@@ -135,7 +135,7 @@ public:
     // next level if it is not leaf page. If it is a leaf page, just put the value in the
     // result. this funciton = fetch the page + internal page serach + leafpage search + re-read
     bool internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int &level, bool isroot,
-                              CoroContext *cxt, int coro_id);
+                              ibv_mr *page_hint = nullptr, CoroContext *cxt = nullptr, int coro_id = 0);
     bool leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int level, CoroContext *cxt,
                           int coro_id);
 //        void internal_page_search(const Key &k, SearchResult &result);

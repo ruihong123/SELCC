@@ -15,6 +15,8 @@ namespace DSMEngine{
         uint8_t level;
         GlobalAddress slibing;
         GlobalAddress next_level;
+        // for future pointer swizzling design
+        ibv_mr* page_hint = nullptr;
 #ifndef NDEBUG
         Key this_key;
         Key later_key;

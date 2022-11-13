@@ -145,6 +145,7 @@ class LRUCache {
   void Ref(LRUHandle* e);
 //    void Ref_in_LookUp(LRUHandle* e);
   void Unref(LRUHandle* e);
+//    void Unref_WithoutLock(LRUHandle* e);
   bool FinishErase(LRUHandle* e) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Initialized before use.
@@ -222,6 +223,7 @@ void LRUCache::Unref(LRUHandle* e) {
   assert(e->refs > 0);
   e->refs--;
   if (e->refs == 0) {  // Deallocate.
+      //Finish erase will only goes here, or directly return. it will neve goes to next if clause
     assert(!e->in_cache);
     (*e->deleter)(e->key(), e->value);
     free(e);
@@ -231,6 +233,33 @@ void LRUCache::Unref(LRUHandle* e) {
     LRU_Append(&lru_, e);
   }
 }
+//void DSMEngine::LRUCache::Unref_WithoutLock(LRUHandle *e) {
+//    assert(e->refs > 0);
+////    e->refs--;
+//    if (e->refs.load() == 1) {  // Deallocate.
+//        WriteLock l(&mutex_);
+//        if (e->refs.fetch_sub(1) == 1){
+//            //Finish erase will only goes here, or directly return. it will neve goes to next if clause
+//            assert(!e->in_cache);
+//            (*e->deleter)(e->key(), e->value);
+//            free(e);
+//        }
+//        return;
+//
+//    } else if (e->in_cache && e->refs.load() == 2) {
+//
+//        WriteLock l(&mutex_);
+//        if (e->in_cache && e->refs.fetch_sub(1) == 2){
+//            // No longer in use; move to lru_ list.
+//            LRU_Remove(e);// remove from in_use list move to LRU list.
+//            LRU_Append(&lru_, e);
+//        }
+//        return;
+//
+//    }
+//    e->refs.fetch_sub(1);
+//}
+
 
 void LRUCache::LRU_Remove(LRUHandle* e) {
   e->next->prev = e->prev;
@@ -369,7 +398,8 @@ void LRUCache::Prune() {
   }
 }
 
-static const int kNumShardBits = 6;
+
+    static const int kNumShardBits = 6;
 static const int kNumShards = 1 << kNumShardBits;
 
 class ShardedLRUCache : public Cache {
