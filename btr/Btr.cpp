@@ -209,7 +209,7 @@ GlobalAddress Btr::get_root_ptr(ibv_mr*& root_hint) {
 
       return root_ptr;
   } else {
-      assert(((InternalPage*)cached_root_page_mr->addr)->hdr.this_page_g_ptr == root_ptr);
+//      assert(((InternalPage*)cached_root_page_mr->addr)->hdr.this_page_g_ptr == root_ptr);
       root_hint = cached_root_page_mr;
     return root_ptr;
   }
