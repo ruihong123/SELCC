@@ -601,7 +601,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
     retry:
-#ifdef PROCESSANALYSIS
+#ifdef PROCESSANALYSISRDMA
     auto start = std::chrono::high_resolution_clock::now();
 #endif
         retry_cnt++;
@@ -629,7 +629,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         assert(page_addr.nodeID == lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(&sr[0], 2, page_addr.nodeID);
 //        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-#ifdef PROCESSANALYSIS
+#ifdef PROCESSANALYSISRDMA
         if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
@@ -1394,6 +1394,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
         mr = page_hint;
         page_buffer = mr->addr;
         header = (Header *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage, hdr)));
+        // if is root, then we should always bypass the cache.
         if (header->this_page_g_ptr == page_addr) {
             // if this page mr is in-use and is the local cache for page_addr
             skip_cache = true;
@@ -1423,6 +1424,8 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             }
             assert(page->hdr.level < 100);
             page->check_invalidation_and_refetch_outside_lock(page_addr, rdma_mg, mr);
+        }else if(isroot){
+            return false;
         }
 
     }
