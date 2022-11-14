@@ -81,6 +81,7 @@ public:
     std::atomic<ibv_mr*> cached_root_page_mr; // useful when we want to reduce the hash table access in cache with id. (avoid pointer swizzling)
 //    InternalPage* cached_root_page_ptr;
   std::atomic<GlobalAddress> g_root_ptr = GlobalAddress::Null();
+    std::atomic<uint8_t>   tree_height = 0;
   static thread_local size_t round_robin_cur;
 
   // static thread_local int coro_id;
@@ -91,7 +92,7 @@ public:
   std::vector<LocalLockNode *> local_locks;
 
   Cache * page_cache;
-  uint8_t tree_height = 0;
+
 #ifndef NDEBUG
 #endif
 //    std::atomic<int> cache_invalid_counter;
@@ -101,7 +102,7 @@ public:
 
   GlobalAddress get_root_ptr_ptr();
   GlobalAddress get_root_ptr(ibv_mr*& root_hint);
-
+    void refetch_rootnode();
   void coro_worker(CoroYield &yield, RequstGen *gen, int coro_id);
 //  void coro_master(CoroYield &yield, int coro_cnt);
   // broadcast the new root to all other memroy servers, if memory server and compute

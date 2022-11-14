@@ -129,6 +129,9 @@ class LRUCache {
                         size_t charge,
                         void (*deleter)(const Slice& key, void* value));
   Cache::Handle* Lookup(const Slice& key, uint32_t hash);
+  Cache::Handle* LookupInsert(const Slice& key, uint32_t hash, void* value,
+                              size_t charge,
+                              void (*deleter)(const Slice& key, void* value));
   void Release(Cache::Handle* handle);
   void Erase(const Slice& key, uint32_t hash);
   void Prune();
@@ -459,6 +462,9 @@ class ShardedLRUCache : public Cache {
 //      printf("Look up: refer to handle %p\n", handle);
     return shard_[Shard(hash)].Lookup(key, hash);
   }
+    Handle* LookupInsert(const Slice& key, uint32_t hash, void* value,
+                         size_t charge,
+                         void (*deleter)(const Slice& key, void* value));
   void Release(Handle* handle) override {
     LRUHandle* h = reinterpret_cast<LRUHandle*>(handle);
 //      printf("release handle %p\n", handle);

@@ -92,7 +92,10 @@ class DSMEngine_EXPORT Cache {
   // must call this->Release(handle) when the returned mapping is no
   // longer needed.
   virtual Handle* Lookup(const Slice& key) = 0;
-
+  //Atomic cache look up and Insert a new handle atomically for the key if not found.
+  virtual Handle* LookupInsert(const Slice& key, uint32_t hash, void* value,
+                                size_t charge,
+                                void (*deleter)(const Slice& key, void* value));
   // Release a mapping returned by a previous Lookup().
   // REQUIRES: handle must not have been released yet.
   // REQUIRES: handle must have been returned by a method on *this.
