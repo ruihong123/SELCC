@@ -256,6 +256,7 @@ namespace DSMEngine{
     public:
         LeafPage(GlobalAddress this_page_g_ptr, uint32_t level = 0) {
             hdr.level = level;
+            hdr.this_page_g_ptr = this_page_g_ptr;
             records[0].value = kValueNull;
 
             front_version = 0;
@@ -265,6 +266,7 @@ namespace DSMEngine{
             local_lock_meta.issued_ticket = 0;
             local_lock_meta.hand_over = 0;
             local_lock_meta.hand_time = 0;
+
 //            embedding_lock = 1;
         }
 
