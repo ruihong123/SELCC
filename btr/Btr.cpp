@@ -176,9 +176,14 @@ GlobalAddress Btr::get_root_ptr(ibv_mr*& root_hint) {
       root_hint = cached_root_page_mr.load();
       if (root_ptr == GlobalAddress::Null()) {
 //          assert(cached_root_page_mr = nullptr);
-            // TODO: an alternative design is to insert this page into the cache.
-            rdma_mg->Deallocate_Local_RDMA_Slot(cached_root_page_mr.load()->addr, Internal_and_Leaf);
-            delete cached_root_page_mr.load();
+            // TODO: an alternative design is to insert this page into the cache. How to make sure there is no
+            //  reader reading this old root note? If we do not deallocate it there will be registered memory leak
+            //  we can lazy recycle this registered memory. Or we just ignore this memory leak because it will
+            //  only happen at the root page.
+
+//            rdma_mg->Deallocate_Local_RDMA_Slot(cached_root_page_mr.load()->addr, Internal_and_Leaf);
+//            delete cached_root_page_mr.load();
+
           ibv_mr* local_mr = rdma_mg->Get_local_CAS_mr();
 
           ibv_mr remote_mr{};
@@ -199,8 +204,8 @@ GlobalAddress Btr::get_root_ptr(ibv_mr*& root_hint) {
           ibv_mr* temp_mr = new ibv_mr{};
 
           // try to init tree and install root pointer
-          rdma_mg->Allocate_Local_RDMA_Slot(*cached_root_page_mr, Internal_and_Leaf);// local allocate
-          memset(cached_root_page_mr.load()->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
+          rdma_mg->Allocate_Local_RDMA_Slot(*temp_mr, Internal_and_Leaf);// local allocate
+          memset(temp_mr->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
           //Read a larger enough data for the root node thorugh it may oversize the page but it is ok since we only read the data.
           rdma_mg->RDMA_Read(root_ptr, cached_root_page_mr, kInternalPageSize,IBV_SEND_SIGNALED,1,Internal_and_Leaf);
           cached_root_page_mr.store(temp_mr);
@@ -258,26 +263,42 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
                            GlobalAddress right, int level,
                            GlobalAddress old_root, CoroContext *cxt,
                            int coro_id) {
+    //Acquire global lock for the root update.
+    GlobalAddress lock_addr = {.nodeID = 1, .offset = 0};
+    auto cas_buffer = rdma_mg->Get_local_CAS_mr();
+    rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, 1, IBV_SEND_SIGNALED,1, LockTable);
 
-  auto page_buffer = rdma_mg->Get_local_read_mr();
-  auto cas_buffer = rdma_mg->Get_local_CAS_mr();
+    std::unique_lock<std::mutex> l(mtx);
+    // TODO: recycle the olde registered memory, but we need to make sure that there
+    // is no pending access onver that old mr. (Temporarily not recyle it)
+    ibv_mr* page_buffer = new ibv_mr{};
+
+    // try to init tree and install root pointer
+    rdma_mg->Allocate_Local_RDMA_Slot(*page_buffer, Internal_and_Leaf);// local allocate
+    memset(cached_root_page_mr.load()->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
+//  auto page_buffer = rdma_mg->Get_local_read_mr();
+
     assert(left != GlobalAddress::Null());
     assert(right != GlobalAddress::Null());
-  auto new_root = new(page_buffer->addr) InternalPage(left, k, right, GlobalAddress(), level);
     assert(level < 100);
   auto new_root_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1);
     if(++round_robin_cur == rdma_mg->memory_nodes.size()){
         round_robin_cur = 0;
     }
-  // The code below is just for debugging
+    auto new_root = new(page_buffer->addr) InternalPage(left, k, right, new_root_addr, level);
+
+    // The code below is just for debugging
 //    new_root_addr.mark = 3;
 //    new_root->front_version++;
 //    new_root->rear_version = new_root->front_version;
   // set local cache for root address
   g_root_ptr.store(new_root_addr,std::memory_order_seq_cst);
+    cached_root_page_mr.store(page_buffer);
     tree_height = level;
+
   rdma_mg->RDMA_Write(new_root_addr, page_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-    ibv_mr remote_mr = *rdma_mg->global_index_table;
+    l.unlock();
+  ibv_mr remote_mr = *rdma_mg->global_index_table;
     // find the table enty according to the id
     remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*tree_id);
     //TODO: The new root seems not be updated by the CAS, the old root and new_root addr are the same
@@ -298,6 +319,8 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
   } else {
     std::cout << "cas root fail " << std::endl;
   }
+  *(uint64_t*)cas_buffer->addr = 0;
+  rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED,1, LockTable);
 
   return false;
 }
@@ -2324,6 +2347,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             //TODO: tHERE COULd be a bug in the get_root_ptr so that the CAS for update_new_root will be failed.
 
             if (path_stack[coro_id][level] == p){
+                // TODO: grab a global lock for updating the root.
+
                 update_new_root(path_stack[coro_id][level],  split_key, sibling_addr,level+1,path_stack[coro_id][level], cxt, coro_id);
                 return true;
             }else{
