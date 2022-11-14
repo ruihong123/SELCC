@@ -587,8 +587,20 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
 //    printf("lock %lu and read page offset %lu", lock_addr.offset, page_addr.offset);
     bool hand_over = acquire_local_lock(lock_addr, cxt, coro_id);
     if (hand_over) {
-
+#ifdef RDMAPROCESSANALYSIS
+        auto start = std::chrono::high_resolution_clock::now();
+#endif
         rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+#ifdef RDMAPROCESSANALYSIS
+        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+            printf("one RDMA READ round trip uses (%ld) ns\n", duration.count());
+            TimePrintCounter[RDMA_Manager::thread_id] = 0;
+        }else{
+            TimePrintCounter[RDMA_Manager::thread_id]++;
+        }
+#endif
         return;
     }
 
@@ -599,7 +611,7 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
     retry:
-#ifdef PROCESSANALYSISRDMA
+#ifdef RDMAPROCESSANALYSIS
     auto start = std::chrono::high_resolution_clock::now();
 #endif
         retry_cnt++;
@@ -627,11 +639,11 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         assert(page_addr.nodeID == lock_addr.nodeID);
         rdma_mg->Batch_Submit_WRs(&sr[0], 2, page_addr.nodeID);
 //        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-#ifdef PROCESSANALYSISRDMA
+#ifdef RDMAPROCESSANALYSIS
         if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-            printf("one RDMA round trip uses (%ld) ns\n", duration.count());
+            printf("RDMA write combined round trip uses (%ld) ns\n", duration.count());
             TimePrintCounter[RDMA_Manager::thread_id] = 0;
         }else{
             TimePrintCounter[RDMA_Manager::thread_id]++;
@@ -2740,9 +2752,9 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
           auto stop = std::chrono::high_resolution_clock::now();
           auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
           printf("leaf pages write back uses (%ld) ns\n", duration.count());
-          TimePrintCounter[RDMA_Manager::thread_id] = 0;
+//          TimePrintCounter[RDMA_Manager::thread_id] = 0;
       }else{
-          TimePrintCounter[RDMA_Manager::thread_id]++;
+//          TimePrintCounter[RDMA_Manager::thread_id]++;
       }
 #endif
     return true;
