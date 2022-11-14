@@ -464,7 +464,7 @@ class ShardedLRUCache : public Cache {
   }
     Handle* LookupInsert(const Slice& key, uint32_t hash, void* value,
                          size_t charge,
-                         void (*deleter)(const Slice& key, void* value));
+                         void (*deleter)(const Slice& key, void* value)) override{};
   void Release(Handle* handle) override {
     LRUHandle* h = reinterpret_cast<LRUHandle*>(handle);
 //      printf("release handle %p\n", handle);
