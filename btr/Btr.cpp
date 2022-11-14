@@ -1803,7 +1803,7 @@ local_reread:
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
 //#ifndef NDEBUG
-            printf("cache release (%ld) ns\n", duration.count());
+            printf("cache release for level %d (%ld) ns\n", level,duration.count());
 //          TimePrintCounter = 0;
         }
 //#endif
