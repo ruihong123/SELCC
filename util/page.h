@@ -254,7 +254,7 @@ namespace DSMEngine{
         friend class Btr;
 
     public:
-        LeafPage(uint32_t level = 0) {
+        LeafPage(GlobalAddress this_page_g_ptr, uint32_t level = 0) {
             hdr.level = level;
             records[0].value = kValueNull;
 

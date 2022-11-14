@@ -93,7 +93,7 @@ Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id),
         if(++round_robin_cur == rdma_mg->memory_nodes.size()){
             round_robin_cur = 0;
         }
-        auto root_page = new (cached_root_page_mr->addr) LeafPage;
+        auto root_page = new(cached_root_page_mr->addr) LeafPage(g_root_ptr, 0);
 
         root_page->front_version++;
         root_page->rear_version = root_page->front_version;
@@ -2623,7 +2623,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 //      printf("Allocate slot for page 3 %p\n", sibling_addr);
       rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal_and_Leaf);
 //      memset(sibling_mr->addr, 0, kLeafPageSize);
-    auto sibling = new (sibling_mr->addr) LeafPage(page->hdr.level);
+    auto sibling = new(sibling_mr->addr) LeafPage(sibling_addr, page->hdr.level);
     //TODO: add the sibling to the local cache.
     // std::cout << "addr " <<  sibling_addr << " | level " <<
     // (int)(page->hdr.level) << std::endl;
