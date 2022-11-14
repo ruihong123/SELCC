@@ -812,7 +812,7 @@ next: // Internal_and_Leaf page search
 
 //#endif
 
-    if (!internal_page_search(p, k, result, level, isroot, nullptr, cxt, coro_id)) {
+    if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
             p = get_root_ptr(page_hint);
             level = -1;
@@ -1037,7 +1037,7 @@ int level = -1;
     }
 //#endif
 
-    if (!internal_page_search(p, k, result, level, isroot, nullptr, cxt, coro_id)) {
+    if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
         //The traverser failed to move to the next level
         if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
             p = get_root_ptr(page_hint);
