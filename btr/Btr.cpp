@@ -86,7 +86,7 @@ Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id),
   // try to init tree and install root pointer
     rdma_mg->Allocate_Local_RDMA_Slot(*cached_root_page_mr, Internal_and_Leaf);// local allocate
     memset(cached_root_page_mr->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
-    if (rdma_mg->node_id == 0){
+    if (DSMEngine::RDMA_Manager::node_id == 0){
         // only the first compute node create the root node for index
         g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1); // remote allocation.
         printf("root pointer is %d, %lu\n", g_root_ptr.load().nodeID, g_root_ptr.load().offset);
@@ -204,13 +204,13 @@ GlobalAddress Btr::get_root_ptr(ibv_mr*& root_hint) {
           memset(cached_root_page_mr->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
           //Read a larger enough data for the root node thorugh it may oversize the page but it is ok since we only read the data.
           rdma_mg->RDMA_Read(root_ptr, cached_root_page_mr, kInternalPageSize,IBV_SEND_SIGNALED,1,Internal_and_Leaf);
-
+          root_hint = cached_root_page_mr;
       }
 
       return root_ptr;
   } else {
 //      assert(((InternalPage*)cached_root_page_mr->addr)->hdr.this_page_g_ptr == root_ptr);
-      root_hint = cached_root_page_mr;
+//      root_hint = cached_root_page_mr;
     return root_ptr;
   }
 
