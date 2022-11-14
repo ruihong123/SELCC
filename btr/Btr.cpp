@@ -264,7 +264,9 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
                            GlobalAddress old_root, CoroContext *cxt,
                            int coro_id) {
     //Acquire global lock for the root update.
-    GlobalAddress lock_addr = {.nodeID = 1, .offset = 0};
+    GlobalAddress lock_addr = {};
+    lock_addr.nodeID = 1;
+    lock_addr.offset = 0;
     auto cas_buffer = rdma_mg->Get_local_CAS_mr();
     rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, 1, IBV_SEND_SIGNALED,1, LockTable);
 
