@@ -1399,6 +1399,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
     }
 
     if(!skip_cache){
+        assert(!isroot);
         handle = page_cache->Lookup(page_id);
 #ifdef PROCESSANALYSIS
         if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
