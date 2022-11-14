@@ -207,7 +207,7 @@ GlobalAddress Btr::get_root_ptr(ibv_mr*& root_hint) {
           rdma_mg->Allocate_Local_RDMA_Slot(*temp_mr, Internal_and_Leaf);// local allocate
           memset(temp_mr->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
           //Read a larger enough data for the root node thorugh it may oversize the page but it is ok since we only read the data.
-          rdma_mg->RDMA_Read(root_ptr, cached_root_page_mr, kInternalPageSize,IBV_SEND_SIGNALED,1,Internal_and_Leaf);
+          rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize,IBV_SEND_SIGNALED,1,Internal_and_Leaf);
           cached_root_page_mr.store(temp_mr);
           g_root_ptr.store(root_ptr);
 
