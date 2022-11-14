@@ -1689,7 +1689,10 @@ local_reread:
           if(upper_layer_handle){
               InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
               Recieve_page_invalidation(upper_page);
+
               page_cache->Release(upper_layer_handle);
+
+
           }
 
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
@@ -1721,13 +1724,18 @@ local_reread:
             // The release should always happen in the end of the function, other wise the
             // page will be overwrittened. When you run release, this means the page buffer will
             // sooner be overwritten.
-            page_cache->Release(handle);
+            if(!skip_cache){
+                page_cache->Release(handle);
+            }
+
 
 
             return internal_page_search(sib_ptr, k, result, level, isroot, nullptr, cxt, coro_id);
         }else{
             nested_retry_counter = 0;
-            page_cache->Release(handle);
+            if(!skip_cache){
+                page_cache->Release(handle);
+            }
             DEBUG_PRINT("retry over two times place 1\n");
             return false;
         }
@@ -1765,7 +1773,9 @@ local_reread:
     //
     //          }
         nested_retry_counter = 0;
-        page_cache->Release(handle);
+        if(!skip_cache){
+            page_cache->Release(handle);
+        }
         DEBUG_PRINT_CONDITION("retry place 2\n");
       return false;
     }
@@ -1782,7 +1792,9 @@ local_reread:
 #endif
 
 
-  page_cache->Release(handle);
+        if(!skip_cache){
+            page_cache->Release(handle);
+        }
 
 #ifdef PROCESSANALYSIS
         if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
