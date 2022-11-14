@@ -278,7 +278,7 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
 
     // try to init tree and install root pointer
     rdma_mg->Allocate_Local_RDMA_Slot(*page_buffer, Internal_and_Leaf);// local allocate
-    memset(cached_root_page_mr.load()->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
+    memset(page_buffer->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
 //  auto page_buffer = rdma_mg->Get_local_read_mr();
 
     assert(left != GlobalAddress::Null());
@@ -2424,12 +2424,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         //check whether the node split is for a root node.
         if (UNLIKELY(p == GlobalAddress::Null() )){
             // First acquire local lock
-
             std::unique_lock<std::mutex> l(mtx);
-
-
             p = g_root_ptr.load();
-
             uint8_t height = tree_height;
             //TODO: tHERE COULd be a bug in the get_root_ptr so that the CAS for update_new_root will be failed.
 
@@ -2830,18 +2826,51 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
         ibv_mr* page_hint = nullptr;
         //check whether the node split is for a root node.
         if (UNLIKELY(p == GlobalAddress::Null() )){
-            //TODO: we probably need a update root global lock (accross compute nodes) for the code below.
-            g_root_ptr = GlobalAddress::Null();
-            p = get_root_ptr(page_hint);
-            //TODO: If withoutnthe global lock, a new root may be further pop up during for the two code above
+            // First acquire local lock
+            std::unique_lock<std::mutex> l(mtx);
+            p = g_root_ptr.load();
+            uint8_t height = tree_height;
+            //TODO: tHERE COULd be a bug in the get_root_ptr so that the CAS for update_new_root will be failed.
 
-            if (path_stack[coro_id][level] == p){
-                update_new_root(path_stack[coro_id][level],  split_key, sibling_addr,level+1,path_stack[coro_id][level], cxt, coro_id);
-                return true;
-            }else{
+            if (path_stack[coro_id][level] == p && height == level){
+                //Acquire global lock for the root update.
+                GlobalAddress lock_addr = {};
+                // root node lock addr. but this could result in a deadlock for transaction cc.
+                lock_addr.nodeID = 1;
+                lock_addr.offset = 0;
+                auto cas_buffer = rdma_mg->Get_local_CAS_mr();
+                //aquire the global lock
+                acquire_global_lock:
+                *(uint64_t*)cas_buffer->addr = 0;
+                rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, 1, IBV_SEND_SIGNALED,1, LockTable);
+                if ((*(uint64_t*) cas_buffer->addr) != 0){
+                    goto acquire_global_lock;
+                }
+                refetch_rootnode();
+                p = g_root_ptr.load();
+                if (path_stack[coro_id][level] == p && height == level) {
+                    update_new_root(path_stack[coro_id][level], split_key, sibling_addr, level + 1,
+                                    path_stack[coro_id][level], cxt, coro_id);
+                    *(uint64_t *) cas_buffer->addr = 0;
+
+                    rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
+
+                    return true;
+                }
+//                l.unlock();
+                *(uint64_t *) cas_buffer->addr = 0;
+
+                rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
+
+            }
+            l.unlock();
+
+            {
                 //find the upper level
                 //TODO: shall I implement a function that search a ptr at particular level.
-//                insert_internal( split_key, sibling_addr,0,0,level +1);
+                printf(" rare case the tranverse during the root update\n");
+
+                return insert_internal(split_key, sibling_addr,  cxt, coro_id, level);
             }
 
 
