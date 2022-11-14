@@ -85,7 +85,7 @@ Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id),
     cached_root_page_mr = new ibv_mr{};
   // try to init tree and install root pointer
     rdma_mg->Allocate_Local_RDMA_Slot(*cached_root_page_mr, Internal_and_Leaf);// local allocate
-    memset(cached_root_page_mr->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
+    memset(cached_root_page_mr.load()->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
     if (DSMEngine::RDMA_Manager::node_id == 0){
         // only the first compute node create the root node for index
         g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1); // remote allocation.
@@ -93,7 +93,7 @@ Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id),
         if(++round_robin_cur == rdma_mg->memory_nodes.size()){
             round_robin_cur = 0;
         }
-        auto root_page = new(cached_root_page_mr->addr) LeafPage(g_root_ptr, 0);
+        auto root_page = new(cached_root_page_mr.load()->addr) LeafPage(g_root_ptr, 0);
 
         root_page->front_version++;
         root_page->rear_version = root_page->front_version;
@@ -110,7 +110,7 @@ Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id),
 
     }else{
         rdma_mg->Allocate_Local_RDMA_Slot(*cached_root_page_mr, Internal_and_Leaf);// local allocate
-        memset(cached_root_page_mr->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
+        memset(cached_root_page_mr.load()->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
 //        rdma_mg->Allocate_Local_RDMA_Slot()
         ibv_mr* dummy_mr;
         get_root_ptr(dummy_mr);
@@ -166,17 +166,19 @@ GlobalAddress Btr::get_root_ptr_ptr() {
 GlobalAddress Btr::get_root_ptr(ibv_mr*& root_hint) {
     //Note it is okay if cached_root_page_mr is an older version for the g_root_ptr, because when we use the
     // page we will check whether this page is correct or not
-    root_hint = cached_root_page_mr;
+
     GlobalAddress root_ptr = g_root_ptr.load();
+        root_hint = cached_root_page_mr.load();
   if (root_ptr == GlobalAddress::Null()) {
       std::unique_lock<std::mutex> l(mtx);
-      root_hint = cached_root_page_mr;
+
       root_ptr = g_root_ptr.load();
+      root_hint = cached_root_page_mr.load();
       if (root_ptr == GlobalAddress::Null()) {
 //          assert(cached_root_page_mr = nullptr);
             // TODO: an alternative design is to insert this page into the cache.
-            rdma_mg->Deallocate_Local_RDMA_Slot(cached_root_page_mr->addr, Internal_and_Leaf);
-            delete cached_root_page_mr;
+            rdma_mg->Deallocate_Local_RDMA_Slot(cached_root_page_mr.load()->addr, Internal_and_Leaf);
+            delete cached_root_page_mr.load();
           ibv_mr* local_mr = rdma_mg->Get_local_CAS_mr();
 
           ibv_mr remote_mr{};
@@ -191,20 +193,22 @@ GlobalAddress Btr::get_root_ptr(ibv_mr*& root_hint) {
               rdma_mg->RDMA_Read(&remote_mr, local_mr, sizeof(GlobalAddress), IBV_SEND_SIGNALED, 1, 1);
           }
           assert(*(GlobalAddress*)local_mr->addr != GlobalAddress::Null());
-          g_root_ptr.store(*(GlobalAddress*)local_mr->addr);
-
-          std::cout << "Get new root" << g_root_ptr <<std::endl;
-          root_ptr = g_root_ptr.load();
-          assert(g_root_ptr != GlobalAddress::Null());
+          root_ptr = *(GlobalAddress*)local_mr->addr;
 
           //Try to rebuild a local mr for the new root, the old root may
-          cached_root_page_mr = new ibv_mr{};
+          ibv_mr* temp_mr = new ibv_mr{};
+
           // try to init tree and install root pointer
           rdma_mg->Allocate_Local_RDMA_Slot(*cached_root_page_mr, Internal_and_Leaf);// local allocate
-          memset(cached_root_page_mr->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
+          memset(cached_root_page_mr.load()->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
           //Read a larger enough data for the root node thorugh it may oversize the page but it is ok since we only read the data.
           rdma_mg->RDMA_Read(root_ptr, cached_root_page_mr, kInternalPageSize,IBV_SEND_SIGNALED,1,Internal_and_Leaf);
-          root_hint = cached_root_page_mr;
+          cached_root_page_mr.store(temp_mr);
+          g_root_ptr.store(root_ptr);
+
+          std::cout << "Get new root" << g_root_ptr <<std::endl;
+          assert(g_root_ptr != GlobalAddress::Null());
+          root_hint = temp_mr;
       }
 
       return root_ptr;
@@ -1399,7 +1403,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
     }
 
     if(!skip_cache){
-//        assert(!isroot);
+        assert(!isroot);
         handle = page_cache->Lookup(page_id);
 #ifdef PROCESSANALYSIS
         if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
