@@ -1730,9 +1730,9 @@ local_reread:
                 page_cache->Release(handle);
             }
 
-
-
-            return internal_page_search(sib_ptr, k, result, level, isroot, nullptr, cxt, coro_id);
+            isroot = false;
+            page_hint = nullptr;
+            return internal_page_search(sib_ptr, k, result, level, isroot, page_hint, cxt, coro_id);
         }else{
             nested_retry_counter = 0;
             if(!skip_cache){
