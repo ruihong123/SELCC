@@ -78,7 +78,25 @@ namespace DSMEngine{
 //            key = {};
         }
     } __attribute__((packed));
+#ifdef CACHECOHERENCEPROTOCOL
+    class LeafEntry {
+    public:
+//        uint8_t f_version : 4;
+        Key key = {};
+        char key_padding[KEY_PADDING] = "";
+        Value value = {};
+        char value_padding[VALUE_PADDING] = "";
+//        uint8_t r_version : 4;
 
+        LeafEntry() {
+//            f_version = 0;
+//            r_version = 0;
+            value = kValueNull;
+            key = 0;
+//      key = {};
+        }
+    } __attribute__((packed));
+#else
     class LeafEntry {
     public:
         uint8_t f_version : 4;
@@ -96,6 +114,7 @@ namespace DSMEngine{
 //      key = {};
         }
     } __attribute__((packed));
+#endif
     //TODO (potential bug): recalcuclate the kInternalCardinality, if we take alignment into consideration
     // the caculation below may not correct.
     struct Local_Meta {
@@ -238,7 +257,66 @@ namespace DSMEngine{
                                  GlobalAddress value, GlobalAddress root, int level,
                                  CoroContext *cxt, int coro_id);
     };
+#ifdef CACHECOHERENCEPROTOCOL
+    class LeafPage {
+//    private:
+        Local_Meta local_lock_meta;
+        alignas(8) uint64_t global_lock;
+        // if busy we will not cache it in cache, switch back to the Naive
+        alignas(8) uint8_t busy;
+        uint8_t front_version;
+        Header hdr;
+        LeafEntry records[kLeafCardinality] = {};
 
+//  uint8_t padding[LeafPagePadding];
+        uint8_t rear_version;
+
+        friend class Btr;
+
+    public:
+        LeafPage(GlobalAddress this_page_g_ptr, uint32_t level = 0) {
+            hdr.level = level;
+            hdr.this_page_g_ptr = this_page_g_ptr;
+            records[0].value = kValueNull;
+
+            front_version = 0;
+            rear_version = 0;
+            local_lock_meta.local_lock_byte = 0;
+            local_lock_meta.current_ticket = 0;
+            local_lock_meta.issued_ticket = 0;
+            local_lock_meta.hand_over = 0;
+            local_lock_meta.hand_time = 0;
+
+//            embedding_lock = 1;
+        }
+
+//        void set_consistent() {
+//            front_version++;
+//            rear_version = front_version;
+//#ifdef CONFIG_ENABLE_CRC
+//            this->crc =
+//        CityHash32((char *)&front_version, (&rear_version) - (&front_version));
+//#endif
+//        }
+        void local_metadata_init(){
+            __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
+            local_lock_meta.current_ticket = 0;
+            local_lock_meta.issued_ticket = 0;
+
+            local_lock_meta.hand_over = 0;
+            local_lock_meta.hand_time = 0;
+        }
+
+
+        void debug() const {
+            std::cout << "LeafPage@ ";
+            hdr.debug();
+            std::cout << "version: [" << (int)front_version << ", " << (int)rear_version
+                      << "]" << std::endl;
+        }
+        void leaf_page_search(const Key &k, SearchResult &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr);
+    };
+#else
     class LeafPage {
 //    private:
         Local_Meta local_lock_meta;
@@ -304,7 +382,7 @@ namespace DSMEngine{
         }
         void leaf_page_search(const Key &k, SearchResult &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr);
     } __attribute__((packed));
-
+#endif
 }
 
 

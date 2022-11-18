@@ -22,6 +22,8 @@
 
 #include "DSMEngine/export.h"
 #include "DSMEngine/slice.h"
+#include <shared_mutex>
+
 #include "Config.h"
 namespace DSMEngine {
 
@@ -62,6 +64,11 @@ class DSMEngine_EXPORT Cache {
     public:
         void* value;
         std::atomic<uint32_t> refs;     // References, including table_cache reference, if present.
+        //TODO: the internal node may not need the rw_mtx below, maybe we can delete them.
+        std::atomic<bool> remote_lock_urge;
+        std::atomic<int> remote_lock_status; // 0 unlocked, 1 read locked, 2 write lock
+        int strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
+        std::shared_mutex rw_mtx;
         void (*deleter)(const Slice&, void* value);
     };
   Cache(const Cache&) = delete;
@@ -93,7 +100,7 @@ class DSMEngine_EXPORT Cache {
   // longer needed.
   virtual Handle* Lookup(const Slice& key) = 0;
   //Atomic cache look up and Insert a new handle atomically for the key if not found.
-  virtual Handle* LookupInsert(const Slice& key, uint32_t hash, void* value,
+  virtual Handle* LookupInsert(const Slice& key, void* value,
                                 size_t charge,
                                 void (*deleter)(const Slice& key, void* value)) = 0;
   // Release a mapping returned by a previous Lookup().

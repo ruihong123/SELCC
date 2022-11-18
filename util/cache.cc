@@ -310,6 +310,54 @@ Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
     }
     return reinterpret_cast<Cache::Handle*>(e);
 }
+Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash, void *value, size_t charge,
+                                                 void (*deleter)(const Slice &, void *)) {
+    SpinLock l(&mutex_);
+    //TOTHINK(ruihong): shoul we update the lru list after look up a key?
+    //  Answer: Ref will refer this key and later, the outer function has to call
+    // Unref or release which will update the lRU list.
+    LRUHandle* e = table_.Lookup(key, hash);
+    if (e != nullptr) {
+        Ref(e);
+        return reinterpret_cast<Cache::Handle*>(e);
+    }else{
+        LRUHandle* e =
+                reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));
+        if (value!= nullptr){
+            e->value = value;
+        }
+
+        e->deleter = deleter;
+        e->charge = charge;
+        e->key_length = key.size();
+        e->hash = hash;
+        e->in_cache = false;
+        e->refs = 1;  // for the returned handle.
+        std::memcpy(e->key_data, key.data(), key.size());
+        if (capacity_ > 0) {
+            e->refs++;  // for the table_cache's reference. refer here and unrefer outside
+            e->in_cache = true;
+            LRU_Append(&in_use_, e);// Finally it will be pushed into LRU list
+            usage_ += charge;
+            FinishErase(table_.Insert(e));//table_.Insert(e) will return LRUhandle with duplicate key as e, and then delete it by FinishErase
+        } else {  // don't do caching. (capacity_==0 is supported and turns off caching.)
+            // next is read by key() in an assert, so it must be initialized
+            e->next = nullptr;
+        }
+        assert(usage_ <= capacity_);
+        // This will remove some entry from LRU if the table_cache over size.
+        while (usage_ > capacity_ && lru_.next != &lru_) {
+            LRUHandle* old = lru_.next;
+            assert(old->refs == 1);
+            bool erased = FinishErase(table_.Remove(old->key(), old->hash));
+            if (!erased) {  // to avoid unused variable when compiled NDEBUG
+                assert(erased);
+            }
+        }
+
+        return reinterpret_cast<Cache::Handle*>(e);
+    }
+}
 void LRUCache::Release(Cache::Handle* handle) {
 //  MutexLock l(&mutex_);
 //  WriteLock l(&mutex_);
@@ -402,7 +450,9 @@ void LRUCache::Prune() {
 }
 
 
-    static const int kNumShardBits = 6;
+
+
+        static const int kNumShardBits = 6;
 static const int kNumShards = 1 << kNumShardBits;
 
 class ShardedLRUCache : public Cache {
@@ -462,9 +512,14 @@ class ShardedLRUCache : public Cache {
 //      printf("Look up: refer to handle %p\n", handle);
     return shard_[Shard(hash)].Lookup(key, hash);
   }
-    Handle* LookupInsert(const Slice& key, uint32_t hash, void* value,
+    Handle* LookupInsert(const Slice& key,  void* value,
                          size_t charge,
-                         void (*deleter)(const Slice& key, void* value)) override{};
+                         void (*deleter)(const Slice& key, void* value)) override{
+
+                assert(capacity_ >= 1000);
+                const uint32_t hash = HashSlice(key);
+                return shard_[Shard(hash)].LookupInsert(key, hash, value, charge, deleter);
+  };
   void Release(Handle* handle) override {
     LRUHandle* h = reinterpret_cast<LRUHandle*>(handle);
 //      printf("release handle %p\n", handle);

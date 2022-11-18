@@ -547,9 +547,9 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
             assert(page_addr.nodeID == remote_lock_addr.nodeID);
             rdma_mg->Batch_Submit_WRs(sr, 0, page_addr.nodeID);
         }else{
+
 #ifndef NDEBUG
             auto page = (InternalPage*) page_buffer->addr;
-//            assert(page->global_lock == 1);
             if (page->hdr.level >0){
                 assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
 
@@ -721,7 +721,229 @@ void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
         assert(page->local_lock_meta.local_lock_byte == 1);
 
     }
+    /**
+     * | write lock holder id 1 byte | read holder number 1byte| reader holder bitmap 47 bit| starving preventer|
+     * @param received_state
+     * @return
+     */
+    uint64_t Btr::renew_swap_by_received_state_readlock(uint64_t &received_state) {
+        uint64_t returned_state = 0;
+        if(received_state == 0){
+            // The first time try to lock or last time lock failed because of an unlock.
+            // read lock holder should equals 1, and fill the bitmap for this node id.
+            returned_state = 1ull << 48;
+            returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
 
+        }else if(received_state >= 1ull << 56){
+            // THere is a write lock on, we can only keep trying to read lock it.
+            returned_state = 1ull << 48;
+            returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
+        }else{
+            // There has already been a read lock holder.
+            uint64_t current_Rlock_holder_num = (received_state >> 48) % 256;
+            assert(current_Rlock_holder_num <= 255);
+            current_Rlock_holder_num++;
+            //
+            returned_state = returned_state | (current_Rlock_holder_num << 48);
+            returned_state = returned_state | (received_state << 16 >>16);
+            assert(received_state & (1ull << RDMA_Manager::node_id/2 == 0));
+
+            returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
+        }
+        return returned_state;
+    }
+    uint64_t Btr::renew_swap_by_received_state_readunlock(uint64_t &received_state) {
+        uint64_t returned_state = 0;
+        if(received_state == ((1ull << 48) |(1ull << RDMA_Manager::node_id/2))){
+            // The first time try to lock or last time lock failed because of an unlock.
+            // read lock holder should equals 1, and fill the bitmap for this node id.
+            returned_state = 1ull << 48;
+            returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
+
+        }else if(received_state >= 1ull << 56){
+            assert(false);
+            printf("read lock is on during the write lock");
+            exit(0);
+        }else{
+            // There has already been another read lock holder.
+            uint64_t current_Rlock_holder_num = (received_state >> 48) % 256;
+            assert(current_Rlock_holder_num > 0);
+            current_Rlock_holder_num--;
+            //decrease the number of lock holder
+            returned_state = returned_state | (current_Rlock_holder_num << 48);
+            returned_state = returned_state | (received_state << 16 >>16);
+            assert(received_state & (1ull << RDMA_Manager::node_id/2 == 1));
+            // clear the node id bit.
+            returned_state = returned_state & ~(1ull << RDMA_Manager::node_id/2);
+        }
+        return returned_state;
+    }
+    uint64_t Btr::renew_swap_by_received_state_readupgrade(uint64_t &received_state) {
+        return 0;
+    }
+
+    void Btr::global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+                                         GlobalAddress lock_addr, ibv_mr* cas_buffer, uint64_t tag, CoroContext *cxt,
+                                         int coro_id) {
+        uint64_t swap = 0;
+        uint64_t compare = 0;
+        uint64_t retry_cnt = 0;
+        uint64_t pre_tag = 0;
+        uint64_t conflict_tag = 0;
+        *(uint64_t *)cas_buffer->addr = 0;
+
+    retry:
+        retry_cnt++;
+        compare = *(uint64_t *)cas_buffer->addr;
+        swap = renew_swap_by_received_state_readlock(*(uint64_t *) cas_buffer->addr);
+        if (retry_cnt > 300000) {
+            std::cout << "Deadlock " << lock_addr << std::endl;
+
+            std::cout << rdma_mg->GetMemoryNodeNum() << ", "
+                      << " locked by node  " << (conflict_tag) << std::endl;
+            assert(false);
+            exit(0);
+        }
+        struct ibv_send_wr sr[2];
+        struct ibv_sge sge[2];
+        //Only the second RDMA issue a completion
+        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Internal_and_Leaf);
+        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+        sr[0].next = &sr[1];
+        *(uint64_t *)cas_buffer->addr = 0;
+        assert(page_addr.nodeID == lock_addr.nodeID);
+        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+
+        if ((*(uint64_t*) cas_buffer->addr) != compare){
+//            conflict_tag = *(uint64_t*)cas_buffer->addr;
+//            if (conflict_tag != pre_tag) {
+//                retry_cnt = 0;
+//                pre_tag = conflict_tag;
+//            }
+            goto retry;
+        }
+
+    }
+    //TODO: there is a potential lock upgrade deadlock, how to solve it?
+    // potential solution: If not upgrade the lock after sending the message, the node should
+    // unlock the read lock and then acquire the write lock by seperated RDMAs.
+    // to avoid starvation, the updade RPC should let the reader release the lock with starvation preventer on.
+    bool Btr::global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id) {
+        uint64_t retry_cnt = 0;
+        uint64_t pre_tag = 0;
+        uint64_t conflict_tag = 0;
+        *(uint64_t *)cas_buffer->addr = 0;
+
+    retry:
+        retry_cnt++;
+        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2) << 56;
+        uint64_t compare = 0;
+        if (retry_cnt > 300000) {
+            std::cout << "Deadlock for write lock " << lock_addr << std::endl;
+
+            std::cout << rdma_mg->GetMemoryNodeNum() << ", "
+                      << " locked by node  " << (conflict_tag) << std::endl;
+            assert(false);
+            exit(0);
+        }
+        struct ibv_send_wr sr[2];
+        struct ibv_sge sge[2];
+        //Only the second RDMA issue a completion
+        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Internal_and_Leaf);
+//        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+//        sr[0].next = &sr[1];
+//        *(uint64_t *)cas_buffer->addr = 0;
+//        assert(page_addr.nodeID == lock_addr.nodeID);
+        rdma_mg->Batch_Submit_WRs(sr, 1, lock_addr.nodeID);
+
+        if ((*(uint64_t*) cas_buffer->addr) != compare){
+            //TODO: If try one time, issue an RPC if try multiple times try to seperate the
+            // upgrade into read release and acquire write lock.
+//            conflict_tag = *(uint64_t*)cas_buffer->addr;
+//            if (conflict_tag != pre_tag) {
+//                retry_cnt = 0;
+//                pre_tag = conflict_tag;
+//            }
+            goto retry;
+        }
+        return true;
+    }
+    void Btr::global_Wlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+                                         GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
+                                         int coro_id) {
+
+        uint64_t retry_cnt = 0;
+        uint64_t pre_tag = 0;
+        uint64_t conflict_tag = 0;
+        *(uint64_t *)cas_buffer->addr = 0;
+
+        retry:
+        retry_cnt++;
+        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2) << 56;
+        uint64_t compare = 0;
+        if (retry_cnt > 300000) {
+            std::cout << "Deadlock for write lock " << lock_addr << std::endl;
+
+            std::cout << rdma_mg->GetMemoryNodeNum() << ", "
+                      << " locked by node  " << (conflict_tag) << std::endl;
+            assert(false);
+            exit(0);
+        }
+        struct ibv_send_wr sr[2];
+        struct ibv_sge sge[2];
+        //Only the second RDMA issue a completion
+        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Internal_and_Leaf);
+        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+        sr[0].next = &sr[1];
+        *(uint64_t *)cas_buffer->addr = 0;
+        assert(page_addr.nodeID == lock_addr.nodeID);
+        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+
+        if ((*(uint64_t*) cas_buffer->addr) != compare){
+//            conflict_tag = *(uint64_t*)cas_buffer->addr;
+//            if (conflict_tag != pre_tag) {
+//                retry_cnt = 0;
+//                pre_tag = conflict_tag;
+//            }
+            goto retry;
+        }
+    }
+
+    void Btr::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id) {
+        // TODO: an alternative and better design for read unlock is to use RDMA FAA.
+        uint64_t swap = 0;
+        uint64_t compare =  0;
+        uint64_t retry_cnt = 0;
+        uint64_t pre_tag = 0;
+        uint64_t conflict_tag = 0;
+        *(uint64_t *)cas_buffer->addr = (1ull << 48) |(1ull << RDMA_Manager::node_id/2);
+
+    retry:
+        retry_cnt++;
+        compare = *(uint64_t *)cas_buffer->addr;
+        swap = renew_swap_by_received_state_readunlock(*(uint64_t *) cas_buffer->addr);
+        if (retry_cnt > 300000) {
+            std::cout << "Deadlock " << lock_addr << std::endl;
+
+            std::cout << rdma_mg->GetMemoryNodeNum() << ", "
+                      << " locked by node  " << (conflict_tag) << std::endl;
+            assert(false);
+            exit(0);
+        }
+        struct ibv_send_wr sr[2];
+        struct ibv_sge sge[2];
+        //Only the second RDMA issue a completion
+        rdma_mg->RDMA_CAS(lock_addr, cas_buffer, compare, swap, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
+
+        if ((*(uint64_t*) cas_buffer->addr) != compare){
+//            conflict_tag = *(uint64_t*)cas_buffer->addr;
+//            if (conflict_tag != pre_tag) {
+//                retry_cnt = 0;
+//                pre_tag = conflict_tag;
+//            }
+            goto retry;
+        }
+    }
 
     //void Btr::lock_bench(const Key &k, CoroContext *cxt, int coro_id) {
 //  uint64_t lock_index = CityHash64((char *)&k, sizeof(k)) % define::kNumOfLock;
@@ -1702,7 +1924,7 @@ local_reread:
           Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
           if(upper_layer_handle){
               InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-              Recieve_page_invalidation(upper_page);
+              make_page_invalidated(upper_page);
 
               page_cache->Release(upper_layer_handle);
 
@@ -1770,7 +1992,7 @@ local_reread:
           if(upper_layer_handle){
               InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
 
-              Recieve_page_invalidation(upper_page);
+              make_page_invalidated(upper_page);
               page_cache->Release(upper_layer_handle);
           }
 //          page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
@@ -1823,8 +2045,177 @@ local_reread:
 
   return true;
 }
+#ifdef CACHECOHERENCEPROTOCOL
+    bool Btr::leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int level, CoroContext *cxt,
+                               int coro_id) {
+        int counter = 0;
+        GlobalAddress lock_addr;
+        lock_addr.nodeID = page_addr.nodeID;
 
-bool Btr::leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int level, CoroContext *cxt,
+        lock_addr.offset = page_addr.offset + STRUCT_OFFSET(InternalPage,global_lock);
+        // TODO: We need to implement the lock coupling. how to avoid unnecessary RDMA for lock coupling?
+        //
+        Slice page_id((char*)&page_addr, sizeof(GlobalAddress));
+        Cache::Handle* handle = nullptr;
+        void* page_buffer;
+        Header * header;
+        LeafPage* page;
+        ibv_mr* mr;
+        assert(level == 0);
+        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+        handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+#ifdef PROCESSANALYSIS
+        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+//#ifndef NDEBUG
+            printf("cache look up for level %d is (%ld) ns, \n", level, duration.count());
+//          TimePrintCounter = 0;
+        }
+//#endif
+#endif
+        // TODO: use real pointer to bypass the cache hash table. We need overwrittened function for internal page search,
+        //  given an local address (now the global address is given). Or we make it the same function with both global ptr and local ptr,
+        //  and let the function to figure out the situation.
+
+
+
+#ifndef NDEBUG
+        int rdma_refetch_times = 0;
+#endif
+//        if (handle != nullptr){
+        assert(handle!= nullptr);
+        std::shared_lock<std::shared_mutex> l(handle->rw_mtx);
+
+        if(handle->strategy == 1){
+            if(handle->value) {
+                mr = (ibv_mr*)handle->value;
+
+
+            }else{
+                mr = new ibv_mr{};
+                rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
+
+//        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
+//               page_addr, mr->addr, HashSlice(page_id), level);
+                handle->value = mr;
+
+            }
+            // If the remote read lock is not on, lock it
+            if (handle->remote_lock_status == 0){
+                global_Rlock_and_read_page(mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
+                                           1, cxt, coro_id);
+                handle->remote_lock_status.store(1);
+
+            }
+        }else{
+            assert(handle->remote_lock_status == 0);
+            // if the strategy is 2 then the page actually should not cached in the page.
+            assert(!handle->value);
+            //TODO: access it over thread local mr and do not cache it.
+
+        }
+        //TODO: how to make the optimistic latch free within this funciton
+
+        page_buffer = mr->addr;
+        header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(InternalPage, hdr)));
+        page = (LeafPage *)page_buffer;
+        memset(&result, 0, sizeof(result));
+        path_stack[coro_id][result.level] = page_addr;
+
+//        page->global_lock = 1;
+
+
+//        rdma_mg->RDMA_Read(page_addr, mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+//        DEBUG_arg("cache miss and RDMA read %p", page_addr);
+        //
+        assert(page->hdr.this_page_g_ptr = page_addr);
+
+        result.is_leaf = header->level == 0;
+        result.level = header->level;
+        level = result.level;
+
+            assert(result.is_leaf );
+            assert(result.level == 0 );
+            assert(page->hdr.level < 100);
+            //TODO: acquire the remote read lock. and keep trying until success.
+//            page->check_invalidation_and_refetch_outside_lock(page_addr, rdma_mg, mr);
+        assert(result.level == 0);
+        if (k >= page->hdr.highest) { // should turn right, the highest is not included
+//        printf("should turn right ");
+//              if (page->hdr.sibling_ptr != GlobalAddress::Null()){
+            // erase the upper level from the cache
+            int last_level = 1;
+            if (path_stack[coro_id][last_level] != GlobalAddress::Null()){
+//            DEBUG_arg("Erase the page 3 %p\n", path_stack[coro_id][last_level]);
+                Slice upper_node_page_id((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress));
+                // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+                // the page to check whether the page has been evicted.
+                Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+                if(upper_layer_handle){
+                    InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
+                    make_page_invalidated(upper_page);
+                    page_cache->Release(upper_layer_handle);
+
+                }
+//            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
+
+            }
+            // In case that there is a long distance(num. of sibiling pointers) between current node and the target node
+            if (nested_retry_counter <= 2){
+                nested_retry_counter++;
+                result.slibing = page->hdr.sibling_ptr;
+                return true;
+            }else{
+                nested_retry_counter = 0;
+                DEBUG_PRINT_CONDITION("retry place 3\n");
+                return false;
+            }
+
+        }
+        nested_retry_counter = 0;
+        if ((k < page->hdr.lowest )) { // cache is stale
+            // erase the upper node from the cache and refetch the upper node to continue.
+            int last_level = 1;
+            if (path_stack[coro_id][last_level] != GlobalAddress::Null()){
+                //TODO(POTENTIAL bug): add a lock for the page when erase it. other wise other threads may
+                // modify the page based on a stale cached page.
+//            DEBUG_arg("Erase the page 4 %p\n", path_stack[coro_id][last_level]);
+                Slice upper_node_page_id((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress));
+                // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+                // the page to check whether the page has been evicted.
+                Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+                if(upper_layer_handle){
+                    InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
+                    make_page_invalidated(upper_page);
+                    page_cache->Release(upper_layer_handle);
+                }
+//            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
+
+            }
+            DEBUG_PRINT_CONDITION("retry place 4\n");
+            return false;// false means need to fall back
+        }
+//#ifdef PROCESSANALYSIS
+//    start = std::chrono::high_resolution_clock::now();
+//#endif
+        page->leaf_page_search(k, result, *mr, page_addr);
+//#ifdef PROCESSANALYSIS
+//    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+//        auto stop = std::chrono::high_resolution_clock::now();
+//        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+//        printf("leaf page search the page uses (%ld) ns\n", duration.count());
+//          TimePrintCounter[RDMA_Manager::thread_id] = 0;
+//    }else{
+//          TimePrintCounter[RDMA_Manager::thread_id]++;
+//    }
+//#endif
+        handle->remote_lock_status.store(0);
+        global_RUnlock(lock_addr, cas_mr,  cxt, coro_id);
+        return true;
+    }
+#else
+    bool Btr::leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int level, CoroContext *cxt,
                            int coro_id) {
     int counter = 0;
 re_read:
@@ -1945,6 +2336,8 @@ re_read:
 //#endif
     return true;
 }
+#endif
+
 // This function will return true unless it found that the key is smaller than the lower bound of a searched node.
 // When this function return false the upper layer should backoff in the tree.
 bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int level, CoroContext *cxt, int coro_id) {
@@ -2144,7 +2537,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
             if(upper_layer_handle){
                 InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                Recieve_page_invalidation(upper_page);
+                make_page_invalidated(upper_page);
                 page_cache->Release(upper_layer_handle);
             }
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
@@ -2209,7 +2602,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
             if(upper_layer_handle){
                 InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                Recieve_page_invalidation(upper_page);
+                make_page_invalidated(upper_page);
                 page_cache->Release(upper_layer_handle);
             }
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
@@ -2551,8 +2944,411 @@ acquire_global_lock:
 //    assert(false);
 //  }
 }
+#ifdef CACHECOHERENCEPROTOCOL
+    bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v, Key &split_key, GlobalAddress &sibling_addr,
+                              GlobalAddress root, int level, CoroContext *cxt, int coro_id) {
 
-bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v, Key &split_key, GlobalAddress &sibling_addr,
+
+        int counter = 0;
+        GlobalAddress lock_addr;
+        lock_addr.nodeID = page_addr.nodeID;
+
+        lock_addr.offset = page_addr.offset + STRUCT_OFFSET(InternalPage,global_lock);
+        // TODO: We need to implement the lock coupling. how to avoid unnecessary RDMA for lock coupling?
+        //
+        Slice page_id((char*)&page_addr, sizeof(GlobalAddress));
+        Cache::Handle* handle = nullptr;
+        void* page_buffer;
+        Header * header;
+        LeafPage* page;
+        ibv_mr* local_mr;
+        assert(level == 0);
+        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+
+        handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+        assert(handle!= nullptr);
+        std::unique_lock<std::shared_mutex> l(handle->rw_mtx);
+        //TODO: Can I early release the local lock if the strategy is 1
+
+        if(handle->strategy == 1){
+
+            if(handle->value)
+            {
+                // This means the page has already be in the cache.
+                local_mr = (ibv_mr*)handle->value;
+
+
+            }else{
+                // This means the page was not in the cache before
+                local_mr = new ibv_mr{};
+                rdma_mg->Allocate_Local_RDMA_Slot(*local_mr, Internal_and_Leaf);
+
+//        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
+//               page_addr, mr->addr, HashSlice(page_id), level);
+                handle->value = local_mr;
+
+            }
+            // If the remote read lock is not on, lock it
+            if (handle->remote_lock_status == 0){
+                global_Wlock_and_read_page(local_mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
+                                           1, cxt, coro_id);
+                handle->remote_lock_status.store(1);
+
+            }else if (handle->remote_lock_status == 1){
+                if (!global_Rlock_update(lock_addr, cas_mr, cxt, coro_id)){
+                    //TODO: if return false, we need to seperate it into two
+                }
+            }
+        }else{
+            // if the strategy is 2 then the page actually should not cached in the page.
+            assert(!handle->value);
+            //TODO: access it over thread local mr and do not cache it.
+        }
+
+
+
+
+
+
+
+
+        // TODO: under some situation the lock is not released
+
+        page = (LeafPage *)page_buffer;
+
+        assert(page->hdr.level == level);
+//        assert(page->check_consistent());
+        path_stack[coro_id][page->hdr.level] = page_addr;
+        // It is possible that the key is larger than the highest key
+        // The range of a page is [lowest,largest).
+        // TODO: find out why sometimes the node is far from the target node that it need multiple times of
+        //  sibling access.
+        //
+        //  Note that it is normal to see that the local buffer are always the same accross the nested
+        //  funciton call, because they are sharing the same local buffer.
+        if (k >= page->hdr.highest) {
+            if (page->hdr.sibling_ptr != GlobalAddress::Null()){
+//                this->unlock_addr(lock_addr, cxt, coro_id, false);
+                if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
+//                DEBUG_arg("Erase the page 5 %p\n", path_stack[coro_id][1]);
+                    Slice upper_node_page_id((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress));
+                    // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+                    //  the page to check whether the page has been evicted.
+                    Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+                    if(upper_layer_handle){
+                        InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
+                        make_page_invalidated(upper_page);
+                        page_cache->Release(upper_layer_handle);
+                    }
+
+//                page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
+                }
+//            this->unlock_addr(lock_addr, cxt, coro_id, true);
+                if (nested_retry_counter <= 2){
+
+                    nested_retry_counter++;
+                    if (handle->strategy == 2){
+                        unlock_addr(lock_addr,cxt, coro_id, false);
+                    }
+                    page_cache->Release(handle);
+                    return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt, coro_id);
+                }else{
+
+//                assert(false);
+                    DEBUG_PRINT_CONDITION("retry place 7");
+                    nested_retry_counter = 0;
+                    if (handle->strategy == 2){
+                        unlock_addr(lock_addr,cxt, coro_id, false);
+                    }
+                    page_cache->Release(handle);
+                    return false;
+                }
+            }else{
+                // impossible because the right most leaf node 's max is KeyMax
+                assert(false);
+            }
+
+        }
+        nested_retry_counter = 0;
+        if (k < page->hdr.lowest ) {
+            // if key is smaller than the lower bound, the insert has to be restart from the
+            // upper level. because the sibling pointer only points to larger one.
+
+            if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
+//            DEBUG_arg("Erase the page 6 %p\n", path_stack[coro_id][1]);
+                Slice upper_node_page_id((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress));
+                // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+                //  the page to check whether the page has been evicted.
+                Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+                if(upper_layer_handle){
+                    InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
+                    make_page_invalidated(upper_page);
+                    page_cache->Release(upper_layer_handle);
+                }
+
+//            page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
+            }
+//            this->unlock_addr(lock_addr, cxt, coro_id, false);
+            if (handle->strategy == 2){
+                unlock_addr(lock_addr,cxt, coro_id, false);
+            }
+            page_cache->Release(handle);
+            DEBUG_PRINT_CONDITION("retry place 8\n");
+            return false;// result in fall back search on the higher level.
+        }
+        // Clear the retry counter, in case that there is a sibling call.
+
+        assert(k >= page->hdr.lowest);
+        assert(k < page->hdr.highest);
+// TODO: Check whether the key is larger than the largest key of this node.
+//  if yes, update the header.
+        int cnt = 0;
+        int empty_index = -1;
+        char *update_addr = nullptr;
+        // It is problematic to just check whether the value is empty, because it is possible
+        // that the buffer is not initialized as 0
+#ifdef PROCESSANALYSIS
+        start = std::chrono::high_resolution_clock::now();
+#endif
+        // TODO: make the key-value stored with order, do not use this unordered page structure.
+        //  Or use the key to check whether this holder is empty.
+        page->front_version++;
+        for (int i = 0; i < kLeafCardinality; ++i) {
+
+            auto &r = page->records[i];
+            if (r.value != kValueNull) {
+                cnt++;
+                if (r.key == k) {
+                    r.value = v;
+                    // ADD MORE weight for write.
+//        memcpy(r.value_padding, padding, VALUE_PADDING);
+
+//                    r.f_version++;
+//                    r.r_version = r.f_version;
+                    update_addr = (char *)&r;
+                    break;
+                }
+            } else if (empty_index == -1) {
+                empty_index = i;
+            }
+        }
+
+        assert(cnt != kLeafCardinality);
+
+        if (update_addr == nullptr) { // insert new item
+            if (empty_index == -1) {
+                printf("%d cnt\n", cnt);
+                assert(false);
+            }
+
+            auto &r = page->records[empty_index];
+            r.key = k;
+            r.value = v;
+//    memcpy(r.value_padding, padding, VALUE_PADDING);
+//            r.f_version++;
+//            r.r_version = r.f_version;
+
+            update_addr = (char *)&r;
+
+            cnt++;
+        }
+
+        bool need_split = cnt == kLeafCardinality;
+        if (!need_split) {
+            assert(update_addr);
+            ibv_mr target_mr = *local_mr;
+            int offset = (update_addr - (char *) page);
+            LADD(target_mr.addr, offset);
+            if (handle->strategy == 2){
+
+                // If the page currently is in busy mode, we directly release the global lock.
+                global_write_page_and_unlock(
+                        &target_mr, GADD(page_addr, offset),
+                        sizeof(LeafEntry), lock_addr, cxt, coro_id, false);
+            }
+            page_cache->Release(handle);
+//            write_page_and_unlock(
+//                    &target_mr, GADD(page_addr, offset),
+//                    sizeof(LeafEntry), lock_addr, cxt, coro_id, false);
+
+            return true;
+        } else {
+            std::sort(
+                    page->records, page->records + kLeafCardinality,
+                    [](const LeafEntry &a, const LeafEntry &b) { return a.key < b.key; });
+        }
+
+
+//  Key split_key;
+//  GlobalAddress sibling_addr;
+        if (need_split) { // need split
+//      printf("Node split\n");
+            sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1);
+            if(++round_robin_cur == rdma_mg->memory_nodes.size()){
+                round_robin_cur = 0;
+            }
+            //TODO: use a thread local sibling memory region to reduce the allocator contention.
+            ibv_mr* sibling_mr = new ibv_mr{};
+//      printf("Allocate slot for page 3 %p\n", sibling_addr);
+            rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal_and_Leaf);
+//      memset(sibling_mr->addr, 0, kLeafPageSize);
+            auto sibling = new(sibling_mr->addr) LeafPage(sibling_addr, page->hdr.level);
+            //TODO: add the sibling to the local cache.
+            // std::cout << "addr " <<  sibling_addr << " | level " <<
+            // (int)(page->hdr.level) << std::endl;
+            sibling->front_version ++;
+            int m = cnt / 2;
+            split_key = page->records[m].key;
+            assert(split_key > page->hdr.lowest);
+            assert(split_key < page->hdr.highest);
+
+            for (int i = m; i < cnt; ++i) { // move
+                sibling->records[i - m].key = page->records[i].key;
+                sibling->records[i - m].value = page->records[i].value;
+                page->records[i].key = 0;
+                page->records[i].value = kValueNull;
+            }
+            //We don't care about the last index in the leaf nodes actually,
+            // because we iterate all the slots to find an entry.
+            page->hdr.last_index -= (cnt - m);
+//      assert(page_addr == root || page->hdr.last_index == m-1);
+            sibling->hdr.last_index += (cnt - m);
+//      assert(sibling->hdr.last_index == cnt -m -1);
+            sibling->hdr.lowest = split_key;
+            sibling->hdr.highest = page->hdr.highest;
+            page->hdr.highest = split_key;
+
+            // link
+            sibling->hdr.sibling_ptr = page->hdr.sibling_ptr;
+            page->hdr.sibling_ptr = sibling_addr;
+            sibling->rear_version =  sibling->front_version;
+//    sibling->set_consistent();
+            rdma_mg->RDMA_Write(sibling_addr, sibling_mr,kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
+            delete sibling_mr;
+
+        }else{
+            sibling_addr = GlobalAddress::Null();
+        }
+        page->rear_version = page->front_version;
+//  page->set_consistent();
+        if (handle->strategy == 2){
+            // unlock and write back the whole page because a page split has happend.
+            ibv_mr temp_mr = *local_mr;
+            GlobalAddress temp_page_add = page_addr;
+            temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
+            temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
+            temp_mr.length = temp_mr.length - RDMA_OFFSET;
+            assert(page->global_lock = 1);
+            assert(page->hdr.valid_page);
+            global_write_page_and_unlock(&temp_mr, temp_page_add, kLeafPageSize -RDMA_OFFSET, lock_addr, cxt, coro_id, false);
+        }
+        page_cache->Release(handle);
+//        write_page_and_unlock(local_mr, page_addr, kLeafPageSize,
+//                              lock_addr, cxt, coro_id, false);
+
+        if (sibling_addr != GlobalAddress::Null()){
+            auto p = path_stack[coro_id][level+1];
+            ibv_mr* page_hint = nullptr;
+            //check whether the node split is for a root node.
+            if (UNLIKELY(p == GlobalAddress::Null() )){
+                // First acquire local lock
+                std::unique_lock<std::mutex> l(mtx);
+                p = g_root_ptr.load();
+                uint8_t height = tree_height;
+                //TODO: tHERE COULd be a bug in the get_root_ptr so that the CAS for update_new_root will be failed.
+
+                if (path_stack[coro_id][level] == p && height == level){
+                    //Acquire global lock for the root update.
+                    GlobalAddress lock_addr = {};
+                    // root node lock addr. but this could result in a deadlock for transaction cc.
+                    lock_addr.nodeID = 1;
+                    lock_addr.offset = 0;
+                    auto cas_buffer = rdma_mg->Get_local_CAS_mr();
+                    //aquire the global lock
+                    acquire_global_lock:
+                    *(uint64_t*)cas_buffer->addr = 0;
+                    rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, 1, IBV_SEND_SIGNALED,1, LockTable);
+                    if ((*(uint64_t*) cas_buffer->addr) != 0){
+                        goto acquire_global_lock;
+                    }
+                    refetch_rootnode();
+                    p = g_root_ptr.load();
+                    if (path_stack[coro_id][level] == p && height == level) {
+                        update_new_root(path_stack[coro_id][level], split_key, sibling_addr, level + 1,
+                                        path_stack[coro_id][level], cxt, coro_id);
+                        *(uint64_t *) cas_buffer->addr = 0;
+
+                        rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
+
+                        return true;
+                    }
+//                l.unlock();
+                    *(uint64_t *) cas_buffer->addr = 0;
+
+                    rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
+
+                }
+                l.unlock();
+
+                {
+                    //find the upper level
+                    //TODO: shall I implement a function that search a ptr at particular level.
+                    printf(" rare case the tranverse during the root update\n");
+
+                    return insert_internal(split_key, sibling_addr,  cxt, coro_id, level);
+                }
+
+
+            }
+            assert(p != GlobalAddress::Null());
+            // if not a root split go ahead and insert in the upper level.
+            level = level +1;
+            //*****************Now it is not a root update, insert to the upper level******************
+            SearchResult result{};
+            memset(&result, 0, sizeof(SearchResult));
+            int fall_back_level = 0;
+            re_insert:
+
+            if (UNLIKELY(!internal_page_store(p, split_key, sibling_addr, level, cxt, coro_id))){
+                //this path should be a rare case.
+
+                // fall back to upper level in the cache to search for the right node at this level
+                fall_back_level = level + 1;
+
+                p = path_stack[coro_id][fall_back_level];
+                if ( p == GlobalAddress::Null()){
+                    // insert it top-down. this function will keep searching until it is found
+                    insert_internal(split_key,sibling_addr, cxt, coro_id, level);
+                }else{
+                    if(!internal_page_search(p, k, result, fall_back_level, false, nullptr, cxt, coro_id)){
+                        // if the upper level is still a stale node, just insert the node by top down method.
+                        insert_internal(split_key,sibling_addr, cxt, coro_id, level);
+//                        level = level + 1; // move to upper level
+//                        p = path_stack[coro_id][level];// move the pointer to upper level
+                    }else{
+
+                        if (result.next_level != GlobalAddress::Null()){
+                            // the page was found successful by one step back, then we can set the p as new node.
+                            // do not need to chanve level.
+                            p = result.next_level;
+                            goto re_insert;
+//                    level = result.level - 1;
+                        }else{
+                            assert(false);
+                        }
+                    }
+
+                }
+
+            }
+        }
+
+
+        return true;
+    }
+#else
+    bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v, Key &split_key, GlobalAddress &sibling_addr,
                      GlobalAddress root, int level, CoroContext *cxt, int coro_id) {
 
 
@@ -2933,6 +3729,8 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
 
   return true;
 }
+#endif
+
 
 // Need BIG FIX
     bool Btr::leaf_page_del(GlobalAddress page_addr, const Key &k, int level,
@@ -2958,7 +3756,7 @@ bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v,
     auto page = (LeafPage *)page_buffer;
 
     assert(page->hdr.level == level);
-    assert(page->check_consistent());
+//    assert(page->check_consistent());
     path_stack[coro_id][page->hdr.level] = page_addr;
     if (k >= page->hdr.highest) {
         this->unlock_addr(lock_addr, cxt, coro_id, false);
@@ -3242,7 +4040,7 @@ inline void Btr::releases_local_lock(Local_Meta * local_lock_meta) {
     unlock_lock(local_lock_meta);
 //        node.ticket_lock.fetch_add((1ull << 32));
 }
-void Btr::Recieve_page_invalidation(InternalPage *upper_page) {
+void Btr::make_page_invalidated(InternalPage *upper_page) {
     //TODO invalidate page with version, may be reuse the current and issue version?
     uint8_t expected = 0;
     if(try_lock(&upper_page->local_lock_meta)){

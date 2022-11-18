@@ -233,8 +233,40 @@ namespace DSMEngine{
 
         }
     }
-
+#ifdef CACHECOHERENCEPROTOCOL
     void LeafPage::leaf_page_search(const Key &k, SearchResult &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr) {
+//    re_read:
+        Value target_value_buff{};
+//        uint8_t front_v = front_version;
+        asm volatile ("sfence\n" : : );
+        asm volatile ("lfence\n" : : );
+        asm volatile ("mfence\n" : : );
+        //TODO: If record verisons are not consistent, we need to reread the page.
+        // or refetch the record. or we just remove the byteaddressable write and then do not
+        // use record level version.
+        for (int i = 0; i < kLeafCardinality; ++i) {
+            auto &r = records[i];
+
+            if (r.key == k && r.value != kValueNull ) {
+                target_value_buff = r.value;
+                asm volatile ("sfence\n" : : );
+                asm volatile ("lfence\n" : : );
+                asm volatile ("mfence\n" : : );
+//                uint8_t rear_v = rear_version;
+//                if (front_v!= rear_v)// version checking
+//                    //TODO: reread from the remote side.
+//                    goto re _read;
+
+//                memcpy(result.value_padding, r.value_padding, VALUE_PADDING);
+//      result.value_padding = r.value_padding;
+                break;
+            }
+        }
+        result.val = target_value_buff;
+    }
+}
+#else
+void LeafPage::leaf_page_search(const Key &k, SearchResult &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr) {
 //    re_read:
         Value target_value_buff{};
 //        uint8_t front_v = front_version;
@@ -273,3 +305,4 @@ namespace DSMEngine{
         result.val = target_value_buff;
     }
 }
+#endif
