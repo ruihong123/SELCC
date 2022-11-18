@@ -66,10 +66,11 @@ class DSMEngine_EXPORT Cache {
         std::atomic<uint32_t> refs;     // References, including table_cache reference, if present.
         //TODO: the internal node may not need the rw_mtx below, maybe we can delete them.
         std::atomic<bool> remote_lock_urge;
-        std::atomic<int> remote_lock_status; // 0 unlocked, 1 read locked, 2 write lock
+        std::atomic<int> remote_lock_status = 0; // 0 unlocked, 1 read locked, 2 write lock
+        GlobalAddress gptr = GlobalAddress::Null();
         int strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
         std::shared_mutex rw_mtx;
-        void (*deleter)(const Slice&, void* value);
+        void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode);
     };
   Cache(const Cache&) = delete;
   Cache& operator=(const Cache&) = delete;
@@ -81,6 +82,9 @@ class DSMEngine_EXPORT Cache {
   // Opaque handle to an entry stored in the table_cache.
 
   virtual size_t GetCapacity() = 0;
+
+  //TODO: change the slice key to GlobalAddress& key.
+
   // Insert a mapping from key->value into the table_cache and assign it
   // the specified charge against the total table_cache capacity.
   //
@@ -91,7 +95,7 @@ class DSMEngine_EXPORT Cache {
   // When the inserted entry is no longer needed, the key and
   // value will be passed to "deleter".
   virtual Handle* Insert(const Slice& key, void* value, size_t charge,
-                         void (*deleter)(const Slice& key, void* value)) = 0;
+                         void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode)) = 0;
 
   // If the table_cache has no mapping for "key", returns nullptr.
   //
@@ -102,7 +106,7 @@ class DSMEngine_EXPORT Cache {
   //Atomic cache look up and Insert a new handle atomically for the key if not found.
   virtual Handle* LookupInsert(const Slice& key, void* value,
                                 size_t charge,
-                                void (*deleter)(const Slice& key, void* value)) = 0;
+                                void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode)) = 0;
   // Release a mapping returned by a previous Lookup().
   // REQUIRES: handle must not have been released yet.
   // REQUIRES: handle must have been returned by a method on *this.

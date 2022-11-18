@@ -407,7 +407,28 @@ class RDMA_Manager {
            Chunk_type pool_name, std::string qp_type = "default");
   int RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare, uint64_t swap, size_t send_flag, int poll_num,
                uint16_t target_node_id, std::string qp_type = "default");
-  void Prepare_WR_CAS(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t compare,
+    /**
+       * | write lock holder id 1 byte | read holder number 1byte| reader holder bitmap 47 bit| starving preventer|
+       * @param received_state
+       * @return
+       */
+    uint64_t renew_swap_by_received_state_readlock(uint64_t& received_state);
+    uint64_t renew_swap_by_received_state_readunlock(uint64_t& received_state);
+    uint64_t renew_swap_by_received_state_readupgrade(uint64_t& received_state);
+    void global_unlock_addr(GlobalAddress remote_lock_add, CoroContext *cxt= nullptr, int coro_id = 0, bool async = false);
+    void global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
+                                    ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt= nullptr, int coro_id = 0);
+    //TODO: there is a potential lock upgrade deadlock, how to solve it?
+    // potential solution: If not upgrade the lock after sending the message, the node should
+    // unlock the read lock and then acquire the write lock by seperated RDMAs.
+    // to avoid starvation, the updade RPC should let the reader release the lock with starvation preventer on.
+    bool global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt= nullptr, int coro_id = 0);
+    void global_Wlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
+                                    ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt= nullptr, int coro_id = 0);
+    void global_write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+                                      GlobalAddress remote_lock_addr, CoroContext *cxt = nullptr, int coro_id = 0, bool async = false);
+    void global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt = nullptr, int coro_id = 0);
+    void Prepare_WR_CAS(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t compare,
                       uint64_t swap, size_t send_flag, Chunk_type pool_name);
   void Prepare_WR_Read(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress remote_ptr, ibv_mr *local_mr, size_t msg_size,
                        size_t send_flag, Chunk_type pool_name);

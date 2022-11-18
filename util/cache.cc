@@ -127,11 +127,11 @@ class LRUCache {
   // Like Cache methods, but with an extra "hash" parameter.
   Cache::Handle* Insert(const Slice& key, uint32_t hash, void* value,
                         size_t charge,
-                        void (*deleter)(const Slice& key, void* value));
+                        void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode));
   Cache::Handle* Lookup(const Slice& key, uint32_t hash);
   Cache::Handle* LookupInsert(const Slice& key, uint32_t hash, void* value,
                               size_t charge,
-                              void (*deleter)(const Slice& key, void* value));
+                              void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode));
   void Release(Cache::Handle* handle);
   void Erase(const Slice& key, uint32_t hash);
   void Prune();
@@ -228,7 +228,7 @@ void LRUCache::Unref(LRUHandle* e) {
   if (e->refs == 0) {  // Deallocate.
       //Finish erase will only goes here, or directly return. it will neve goes to next if clause
     assert(!e->in_cache);
-    (*e->deleter)(e->key(), e->value);
+    (*e->deleter)(e->gptr, e->value, e->strategy, e->remote_lock_status);
     free(e);
   } else if (e->in_cache && e->refs == 1) {
     // No longer in use; move to lru_ list.
@@ -311,7 +311,7 @@ Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
     return reinterpret_cast<Cache::Handle*>(e);
 }
 Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash, void *value, size_t charge,
-                                                 void (*deleter)(const Slice &, void *)) {
+                                                 void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode)) {
     SpinLock l(&mutex_);
     //TOTHINK(ruihong): shoul we update the lru list after look up a key?
     //  Answer: Ref will refer this key and later, the outer function has to call
@@ -369,8 +369,7 @@ void LRUCache::Release(Cache::Handle* handle) {
 // the cache, but it may not garbage-collected right away.
 Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
                                 size_t charge,
-                                void (*deleter)(const Slice& key,
-                                                void* value)) {
+                                void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode)) {
 //  MutexLock l(&mutex_);
 
   //TODO: set the LRUHandle within the page, so that we can check the reference, during the direct access, or we reserver
@@ -483,7 +482,7 @@ class ShardedLRUCache : public Cache {
     // if there has already been a cache entry with the same key, the old one will be
     // removed from the cache, but it may not be garbage collected right away
   Handle* Insert(const Slice& key, void* value, size_t charge,
-                 void (*deleter)(const Slice& key, void* value)) override {
+                 void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode)) override {
 #ifndef NDEBUG
         assert(capacity_ >= 1000);
         if (TotalCharge() > 0.9 * capacity_ ){
@@ -514,7 +513,7 @@ class ShardedLRUCache : public Cache {
   }
     Handle* LookupInsert(const Slice& key,  void* value,
                          size_t charge,
-                         void (*deleter)(const Slice& key, void* value)) override{
+                         void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode)) override{
 
                 assert(capacity_ >= 1000);
                 const uint32_t hash = HashSlice(key);

@@ -119,28 +119,28 @@ public:
   bool try_lock_addr(GlobalAddress lock_addr, uint64_t tag, ibv_mr *buf,
                      CoroContext *cxt, int coro_id);
   void unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro_id, bool async);
-        void global_unlock_addr(GlobalAddress remote_lock_add, CoroContext *cxt, int coro_id, bool async);
+//        void global_unlock_addr(GlobalAddress remote_lock_add, CoroContext *cxt, int coro_id, bool async);
 
         void write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress remote_lock_addr,
                         CoroContext *cxt, int coro_id, bool async);
-    void global_write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
-                                      GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async);
+//    void global_write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+//                                      GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async);
   void lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
                           int page_size, ibv_mr *cas_buffer,
                           GlobalAddress lock_addr, uint64_t tag,
                           CoroContext *cxt, int coro_id);
   //Be careful, do not overwrite the global lock byte, the global lock should in a write lock state for RDMA write.
-    void global_lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
-                                   ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id);
-    uint64_t renew_swap_by_received_state_readlock(uint64_t& received_state);
-    uint64_t renew_swap_by_received_state_readunlock(uint64_t& received_state);
-    uint64_t renew_swap_by_received_state_readupgrade(uint64_t& received_state);
-    void global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
-                                       ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id);
-    bool global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id);
-    void global_Wlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
-                                       ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id);
-        void global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id);
+//    void global_lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
+//                                   ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id);
+//    uint64_t renew_swap_by_received_state_readlock(uint64_t& received_state);
+//    uint64_t renew_swap_by_received_state_readunlock(uint64_t& received_state);
+//    uint64_t renew_swap_by_received_state_readupgrade(uint64_t& received_state);
+//    void global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
+//                                       ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id);
+//    bool global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id);
+//    void global_Wlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
+//                                       ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id);
+//        void global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id);
 // Write unlock can share the function for the global_write_page_and_unlock.
         //    void global_WUnlock_and_write_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
         //                                       ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id);
@@ -185,21 +185,6 @@ public:
 class Btr_iter{
     // TODO: implement btree iterator for range query.
 };
-    static void Deallocate_MR(const Slice& key, void* value) {
-        auto mr = (ibv_mr*) value;
-        Btr::rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
-        delete mr;
-//        delete tf->table_compute;
-////  delete tf->file;
-//        delete tf;
-    }
-    static void Deallocate_MR_WITH_CCP(const Slice& key, void* value) {
-        auto mr = (ibv_mr*) value;
-        Btr::rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
-        delete mr;
-//        delete tf->table_compute;
-////  delete tf->file;
-//        delete tf;
-    }
+
 }
 #endif // _TREE_H_

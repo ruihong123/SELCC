@@ -26,6 +26,8 @@ uint64_t hot_filter_count[MAX_APP_THREAD][8];
 uint64_t latency[MAX_APP_THREAD][LATENCY_WINDOWS];
 extern bool Show_Me_The_Print;
 int TimePrintCounter[MAX_APP_THREAD];
+
+
 namespace DSMEngine {
 bool enter_debug = false;
 
@@ -61,7 +63,26 @@ struct CoroDeadline {
 //thread_local Timer timer;
 thread_local std::queue<uint16_t> hot_wait_queue;
 thread_local std::priority_queue<CoroDeadline> deadline_queue;
+static void Deallocate_MR(const GlobalAddress g_ptr, void* value, int strategy, int lock_mode) {
+    auto mr = (ibv_mr*) value;
+    Btr::rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
+    delete mr;
+}
+static void Deallocate_MR_WITH_CCP(const GlobalAddress g_ptr, void* value, int strategy, int lock_mode) {
+    if (strategy == 0){
+        if (lock_mode == 1){
+            // RDMA read unlock
+            Btr::rdma_mg->global_RUnlock(g_ptr, Btr::rdma_mg->Get_local_CAS_mr());
+        }else{
+            // RDMA write unlock and write back the data.
 
+        }
+    }
+    auto mr = (ibv_mr*) value;
+    Btr::rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
+    delete mr;
+
+}
 Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id), page_cache(cache_ptr){
     if (rdma_mg == nullptr){
         rdma_mg = mg;
@@ -446,25 +467,93 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
 
   releases_local_lock(lock_addr);
 }
-    void Btr::global_unlock_addr(GlobalAddress remote_lock_add, CoroContext *cxt, int coro_id, bool async) {
-//        bool hand_over_other = can_hand_over(local_lock_meta);
-//        if (hand_over_other) {
-//            releases_local_lock(local_lock_meta);
-//            return;
-//        }
-
-        auto cas_buf = rdma_mg->Get_local_CAS_mr();
-//    std::cout << "unlock " << lock_addr << std::endl;
-        *(uint64_t*)cas_buf->addr = 0;
-        if (async) {
-            // send flag 0 means there is no flag
-            rdma_mg->RDMA_Write(remote_lock_add, cas_buf,  sizeof(uint64_t), 0,0,Internal_and_Leaf);
-        } else {
-//      std::cout << "Unlock the remote lock" << lock_addr << std::endl;
-            rdma_mg->RDMA_Write(remote_lock_add, cas_buf,  sizeof(uint64_t), IBV_SEND_SIGNALED,1,Internal_and_Leaf);
-//            assert(*(uint64_t*)cas_buf->addr == 1);
+    void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
+                                 int page_size, ibv_mr *cas_buffer,
+                                 GlobalAddress lock_addr, uint64_t tag,
+                                 CoroContext *cxt, int coro_id) {
+        // Can put lock and page read in a door bell batch.
+//    printf("lock %lu and read page offset %lu", lock_addr.offset, page_addr.offset);
+        bool hand_over = acquire_local_lock(lock_addr, cxt, coro_id);
+        if (hand_over) {
+#ifdef RDMAPROCESSANALYSIS
+            auto start = std::chrono::high_resolution_clock::now();
+#endif
+            rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+#ifdef RDMAPROCESSANALYSIS
+            if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+                auto stop = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+                printf("one RDMA READ round trip uses (%ld) ns\n", duration.count());
+                TimePrintCounter[RDMA_Manager::thread_id] = 0;
+            }else{
+                TimePrintCounter[RDMA_Manager::thread_id]++;
+            }
+#endif
+            return;
         }
-//        releases_local_lock(lock_addr);
+
+
+        {
+//        printf( "try to lock the %p\n", lock_addr);
+            uint64_t retry_cnt = 0;
+            uint64_t pre_tag = 0;
+            uint64_t conflict_tag = 0;
+            retry:
+#ifdef RDMAPROCESSANALYSIS
+            auto start = std::chrono::high_resolution_clock::now();
+#endif
+            retry_cnt++;
+            if (retry_cnt > 10000000) {
+                std::cout << "Deadlock " << lock_addr << std::endl;
+
+                std::cout << rdma_mg->GetMemoryNodeNum() << ", "
+                          << " locked by node  " << (conflict_tag) << std::endl;
+                assert(false);
+                exit(0);
+            }
+            struct ibv_send_wr sr[2];
+            struct ibv_sge sge[2];
+
+            rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED, LockTable);
+            rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+
+//        rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED|IBV_SEND_FENCE,1, LockTable);
+//        rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
+
+//        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+
+            sr[0].next = &sr[1];
+            *(uint64_t *)cas_buffer->addr = 0;
+            assert(page_addr.nodeID == lock_addr.nodeID);
+            rdma_mg->Batch_Submit_WRs(&sr[0], 2, page_addr.nodeID);
+//        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+#ifdef RDMAPROCESSANALYSIS
+            if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+                auto stop = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+                printf("RDMA write combined round trip uses (%ld) ns\n", duration.count());
+                TimePrintCounter[RDMA_Manager::thread_id] = 0;
+            }else{
+                TimePrintCounter[RDMA_Manager::thread_id]++;
+            }
+#endif
+            if ((*(uint64_t*) cas_buffer->addr) != 0){
+                conflict_tag = *(uint64_t*)cas_buffer->addr;
+                if (conflict_tag != pre_tag) {
+                    retry_cnt = 0;
+                    pre_tag = conflict_tag;
+                }
+//      lock_fail[rdma_mg->getMyThreadID()][0]++;
+                goto retry;
+            }
+//        LeafPage* page = (LeafPage*) page_buffer->addr;
+//        assert(page)
+
+        }
+//    printf( "successfully lock the %p\n", lock_addr);
+
+//  rdma_mg->read_sync(page_buffer, page_addr, page_size, cxt);
+//  pattern[rdma_mg->getMyThreadID()][page_addr.nodeID]++;
     }
 // is it posisble that muliptle writer write to the same remote page at the same time (corner cases)?
     void Btr::write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
@@ -528,422 +617,341 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
 
   releases_local_lock(remote_lock_addr);
 }
-    void Btr::global_write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
-                                           GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
-
-        struct ibv_send_wr sr[2];
-        struct ibv_sge sge[2];
-
-        if (async){
-
-            rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
-            ibv_mr* local_CAS_mr = rdma_mg->Get_local_CAS_mr();
-//        *(uint64_t*) local_CAS_mr->addr = 0;
-            rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_FENCE, Internal_and_Leaf);
-            sr[0].next = &sr[1];
-
-
-            *(uint64_t *)local_CAS_mr->addr = 0;
-            assert(page_addr.nodeID == remote_lock_addr.nodeID);
-            rdma_mg->Batch_Submit_WRs(sr, 0, page_addr.nodeID);
-        }else{
-
-#ifndef NDEBUG
-            auto page = (InternalPage*) page_buffer->addr;
-            if (page->hdr.level >0){
-                assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
-
-            }
-#endif
-
-//        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
-
-            rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
-            ibv_mr* local_CAS_mr = rdma_mg->Get_local_CAS_mr();
-            *(uint64_t *)local_CAS_mr->addr = 0;
-            //TODO: WHY the remote lock is not unlocked by this function?
-//        rdma_mg->RDMA_CAS( remote_lock_addr, local_CAS_mr, 1,0, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
-//        assert(*(uint64_t *)local_CAS_mr->addr == 1);
-
-            rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED|IBV_SEND_FENCE, Internal_and_Leaf);
-            sr[0].next = &sr[1];
-
-
-
-            assert(page_addr.nodeID == remote_lock_addr.nodeID);
-            rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-        }
-#ifndef NDEBUG
-//        printf("Reease global lock for %p\n", page_addr);
-
-#endif
-//        releases_local_lock(remote_lock_addr);
-    }
-void Btr::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
-                             int page_size, ibv_mr *cas_buffer,
-                             GlobalAddress lock_addr, uint64_t tag,
-                             CoroContext *cxt, int coro_id) {
-    // Can put lock and page read in a door bell batch.
-//    printf("lock %lu and read page offset %lu", lock_addr.offset, page_addr.offset);
-    bool hand_over = acquire_local_lock(lock_addr, cxt, coro_id);
-    if (hand_over) {
-#ifdef RDMAPROCESSANALYSIS
-        auto start = std::chrono::high_resolution_clock::now();
-#endif
-        rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-#ifdef RDMAPROCESSANALYSIS
-        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-            auto stop = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-            printf("one RDMA READ round trip uses (%ld) ns\n", duration.count());
-            TimePrintCounter[RDMA_Manager::thread_id] = 0;
-        }else{
-            TimePrintCounter[RDMA_Manager::thread_id]++;
-        }
-#endif
-        return;
-    }
-
-
-    {
-//        printf( "try to lock the %p\n", lock_addr);
-        uint64_t retry_cnt = 0;
-        uint64_t pre_tag = 0;
-        uint64_t conflict_tag = 0;
-    retry:
-#ifdef RDMAPROCESSANALYSIS
-    auto start = std::chrono::high_resolution_clock::now();
-#endif
-        retry_cnt++;
-        if (retry_cnt > 10000000) {
-            std::cout << "Deadlock " << lock_addr << std::endl;
-
-            std::cout << rdma_mg->GetMemoryNodeNum() << ", "
-                      << " locked by node  " << (conflict_tag) << std::endl;
-            assert(false);
-            exit(0);
-        }
-        struct ibv_send_wr sr[2];
-        struct ibv_sge sge[2];
-
-        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED, LockTable);
-        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
-
-//        rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED|IBV_SEND_FENCE,1, LockTable);
-//        rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
-
-//        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
-
-        sr[0].next = &sr[1];
-        *(uint64_t *)cas_buffer->addr = 0;
-        assert(page_addr.nodeID == lock_addr.nodeID);
-        rdma_mg->Batch_Submit_WRs(&sr[0], 2, page_addr.nodeID);
-//        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-#ifdef RDMAPROCESSANALYSIS
-        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-            auto stop = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-            printf("RDMA write combined round trip uses (%ld) ns\n", duration.count());
-            TimePrintCounter[RDMA_Manager::thread_id] = 0;
-        }else{
-            TimePrintCounter[RDMA_Manager::thread_id]++;
-        }
-#endif
-        if ((*(uint64_t*) cas_buffer->addr) != 0){
-            conflict_tag = *(uint64_t*)cas_buffer->addr;
-            if (conflict_tag != pre_tag) {
-                retry_cnt = 0;
-                pre_tag = conflict_tag;
-            }
-//      lock_fail[rdma_mg->getMyThreadID()][0]++;
-            goto retry;
-        }
-//        LeafPage* page = (LeafPage*) page_buffer->addr;
-//        assert(page)
-
-    }
-//    printf( "successfully lock the %p\n", lock_addr);
-
-//  rdma_mg->read_sync(page_buffer, page_addr, page_size, cxt);
-//  pattern[rdma_mg->getMyThreadID()][page_addr.nodeID]++;
-}
-    void
-    Btr::global_lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
-                                   ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id) {
-
-
-            uint64_t retry_cnt = 0;
-            uint64_t pre_tag = 0;
-            uint64_t conflict_tag = 0;
-#ifndef NDEBUG
-//        printf("Acquire global lock for %p\n", page_addr);
-#endif
-#ifndef NDEBUG
-        InternalPage* page = (InternalPage*)((char*)page_buffer->addr - RDMA_OFFSET);
-        assert(page->local_lock_meta.local_lock_byte == 1);
-#endif
-            retry:
-            retry_cnt++;
-            if (retry_cnt > 300000) {
-                std::cout << "Deadlock " << lock_addr << std::endl;
-
-                std::cout << rdma_mg->GetMemoryNodeNum() << ", "
-                          << " locked by node  " << (conflict_tag) << std::endl;
-                assert(false);
-                exit(0);
-            }
-            struct ibv_send_wr sr[2];
-            struct ibv_sge sge[2];
-//        printf("Acquire global lock for %p\n", page_addr);
-        assert(page->local_lock_meta.local_lock_byte == 1);
-        //Only the second RDMA issue a completion
-            rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, 0, Internal_and_Leaf);
-            rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
-//        rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED|IBV_SEND_FENCE,1, LockTable);
-//        rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
-
-//        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
-        assert(page->local_lock_meta.local_lock_byte == 1);
-            sr[0].next = &sr[1];
-            *(uint64_t *)cas_buffer->addr = 0;
-            assert(page_addr.nodeID == lock_addr.nodeID);
-            rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-
-            if ((*(uint64_t*) cas_buffer->addr) != 0){
-                conflict_tag = *(uint64_t*)cas_buffer->addr;
-                if (conflict_tag != pre_tag) {
-                    retry_cnt = 0;
-                    pre_tag = conflict_tag;
-                }
-//      lock_fail[rdma_mg->getMyThreadID()][0]++;
-                goto retry;
-            }
-        assert(page->local_lock_meta.local_lock_byte == 1);
-
-    }
-    /**
-     * | write lock holder id 1 byte | read holder number 1byte| reader holder bitmap 47 bit| starving preventer|
-     * @param received_state
-     * @return
-     */
-    uint64_t Btr::renew_swap_by_received_state_readlock(uint64_t &received_state) {
-        uint64_t returned_state = 0;
-        if(received_state == 0){
-            // The first time try to lock or last time lock failed because of an unlock.
-            // read lock holder should equals 1, and fill the bitmap for this node id.
-            returned_state = 1ull << 48;
-            returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
-
-        }else if(received_state >= 1ull << 56){
-            // THere is a write lock on, we can only keep trying to read lock it.
-            returned_state = 1ull << 48;
-            returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
-        }else{
-            // There has already been a read lock holder.
-            uint64_t current_Rlock_holder_num = (received_state >> 48) % 256;
-            assert(current_Rlock_holder_num <= 255);
-            current_Rlock_holder_num++;
-            //
-            returned_state = returned_state | (current_Rlock_holder_num << 48);
-            returned_state = returned_state | (received_state << 16 >>16);
-            assert(received_state & (1ull << RDMA_Manager::node_id/2 == 0));
-
-            returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
-        }
-        return returned_state;
-    }
-    uint64_t Btr::renew_swap_by_received_state_readunlock(uint64_t &received_state) {
-        uint64_t returned_state = 0;
-        if(received_state == ((1ull << 48) |(1ull << RDMA_Manager::node_id/2))){
-            // The first time try to lock or last time lock failed because of an unlock.
-            // read lock holder should equals 1, and fill the bitmap for this node id.
-            returned_state = 1ull << 48;
-            returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
-
-        }else if(received_state >= 1ull << 56){
-            assert(false);
-            printf("read lock is on during the write lock");
-            exit(0);
-        }else{
-            // There has already been another read lock holder.
-            uint64_t current_Rlock_holder_num = (received_state >> 48) % 256;
-            assert(current_Rlock_holder_num > 0);
-            current_Rlock_holder_num--;
-            //decrease the number of lock holder
-            returned_state = returned_state | (current_Rlock_holder_num << 48);
-            returned_state = returned_state | (received_state << 16 >>16);
-            assert(received_state & (1ull << RDMA_Manager::node_id/2 == 1));
-            // clear the node id bit.
-            returned_state = returned_state & ~(1ull << RDMA_Manager::node_id/2);
-        }
-        return returned_state;
-    }
-    uint64_t Btr::renew_swap_by_received_state_readupgrade(uint64_t &received_state) {
-        return 0;
-    }
-
-    void Btr::global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
-                                         GlobalAddress lock_addr, ibv_mr* cas_buffer, uint64_t tag, CoroContext *cxt,
-                                         int coro_id) {
-        uint64_t swap = 0;
-        uint64_t compare = 0;
-        uint64_t retry_cnt = 0;
-        uint64_t pre_tag = 0;
-        uint64_t conflict_tag = 0;
-        *(uint64_t *)cas_buffer->addr = 0;
-
-    retry:
-        retry_cnt++;
-        compare = *(uint64_t *)cas_buffer->addr;
-        swap = renew_swap_by_received_state_readlock(*(uint64_t *) cas_buffer->addr);
-        if (retry_cnt > 300000) {
-            std::cout << "Deadlock " << lock_addr << std::endl;
-
-            std::cout << rdma_mg->GetMemoryNodeNum() << ", "
-                      << " locked by node  " << (conflict_tag) << std::endl;
-            assert(false);
-            exit(0);
-        }
-        struct ibv_send_wr sr[2];
-        struct ibv_sge sge[2];
-        //Only the second RDMA issue a completion
-        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Internal_and_Leaf);
-        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
-        sr[0].next = &sr[1];
-        *(uint64_t *)cas_buffer->addr = 0;
-        assert(page_addr.nodeID == lock_addr.nodeID);
-        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-
-        if ((*(uint64_t*) cas_buffer->addr) != compare){
-//            conflict_tag = *(uint64_t*)cas_buffer->addr;
-//            if (conflict_tag != pre_tag) {
-//                retry_cnt = 0;
-//                pre_tag = conflict_tag;
+//    void Btr::global_write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+//                                           GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
+//
+//        struct ibv_send_wr sr[2];
+//        struct ibv_sge sge[2];
+//
+//        if (async){
+//
+//            rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
+//            ibv_mr* local_CAS_mr = rdma_mg->Get_local_CAS_mr();
+////        *(uint64_t*) local_CAS_mr->addr = 0;
+//            rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_FENCE, Internal_and_Leaf);
+//            sr[0].next = &sr[1];
+//
+//
+//            *(uint64_t *)local_CAS_mr->addr = 0;
+//            assert(page_addr.nodeID == remote_lock_addr.nodeID);
+//            rdma_mg->Batch_Submit_WRs(sr, 0, page_addr.nodeID);
+//        }else{
+//
+//#ifndef NDEBUG
+//            auto page = (InternalPage*) page_buffer->addr;
+//            if (page->hdr.level >0){
+//                assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
+//
 //            }
-            goto retry;
-        }
+//#endif
+//
+////        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
+//
+//            rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
+//            ibv_mr* local_CAS_mr = rdma_mg->Get_local_CAS_mr();
+//            *(uint64_t *)local_CAS_mr->addr = 0;
+//            //TODO: WHY the remote lock is not unlocked by this function?
+////        rdma_mg->RDMA_CAS( remote_lock_addr, local_CAS_mr, 1,0, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
+////        assert(*(uint64_t *)local_CAS_mr->addr == 1);
+//
+//            rdma_mg->Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED|IBV_SEND_FENCE, Internal_and_Leaf);
+//            sr[0].next = &sr[1];
+//
+//
+//
+//            assert(page_addr.nodeID == remote_lock_addr.nodeID);
+//            rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+//        }
+//#ifndef NDEBUG
+////        printf("Reease global lock for %p\n", page_addr);
+//
+//#endif
+////        releases_local_lock(remote_lock_addr);
+//    }
 
-    }
-    //TODO: there is a potential lock upgrade deadlock, how to solve it?
-    // potential solution: If not upgrade the lock after sending the message, the node should
-    // unlock the read lock and then acquire the write lock by seperated RDMAs.
-    // to avoid starvation, the updade RPC should let the reader release the lock with starvation preventer on.
-    bool Btr::global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id) {
-        uint64_t retry_cnt = 0;
-        uint64_t pre_tag = 0;
-        uint64_t conflict_tag = 0;
-        *(uint64_t *)cas_buffer->addr = 0;
-
-    retry:
-        retry_cnt++;
-        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2) << 56;
-        uint64_t compare = 0;
-        if (retry_cnt > 300000) {
-            std::cout << "Deadlock for write lock " << lock_addr << std::endl;
-
-            std::cout << rdma_mg->GetMemoryNodeNum() << ", "
-                      << " locked by node  " << (conflict_tag) << std::endl;
-            assert(false);
-            exit(0);
-        }
-        struct ibv_send_wr sr[2];
-        struct ibv_sge sge[2];
-        //Only the second RDMA issue a completion
-        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Internal_and_Leaf);
+//    void Btr::global_unlock_addr(GlobalAddress remote_lock_add, CoroContext *cxt, int coro_id, bool async) {
+//        auto cas_buf = rdma_mg->Get_local_CAS_mr();
+////    std::cout << "unlock " << lock_addr << std::endl;
+//        *(uint64_t*)cas_buf->addr = 0;
+//        if (async) {
+//            // send flag 0 means there is no flag
+//            rdma_mg->RDMA_Write(remote_lock_add, cas_buf,  sizeof(uint64_t), 0,0,Internal_and_Leaf);
+//        } else {
+////      std::cout << "Unlock the remote lock" << lock_addr << std::endl;
+//            rdma_mg->RDMA_Write(remote_lock_add, cas_buf,  sizeof(uint64_t), IBV_SEND_SIGNALED,1,Internal_and_Leaf);
+////            assert(*(uint64_t*)cas_buf->addr == 1);
+//        }
+////        releases_local_lock(lock_addr);
+//    }
+//    void Btr::global_lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
+//                                   ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id) {
+//
+//
+//            uint64_t retry_cnt = 0;
+//            uint64_t pre_tag = 0;
+//            uint64_t conflict_tag = 0;
+//#ifndef NDEBUG
+////        printf("Acquire global lock for %p\n", page_addr);
+//#endif
+//#ifndef NDEBUG
+//        InternalPage* page = (InternalPage*)((char*)page_buffer->addr - RDMA_OFFSET);
+//        assert(page->local_lock_meta.local_lock_byte == 1);
+//#endif
+//            retry:
+//            retry_cnt++;
+//            if (retry_cnt > 300000) {
+//                std::cout << "Deadlock " << lock_addr << std::endl;
+//
+//                std::cout << rdma_mg->GetMemoryNodeNum() << ", "
+//                          << " locked by node  " << (conflict_tag) << std::endl;
+//                assert(false);
+//                exit(0);
+//            }
+//            struct ibv_send_wr sr[2];
+//            struct ibv_sge sge[2];
+////        printf("Acquire global lock for %p\n", page_addr);
+//        assert(page->local_lock_meta.local_lock_byte == 1);
+//        //Only the second RDMA issue a completion
+//            rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, 0, tag, 0, Internal_and_Leaf);
+//            rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+////        rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, tag, IBV_SEND_SIGNALED|IBV_SEND_FENCE,1, LockTable);
+////        rdma_mg->RDMA_Read(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
+//
+////        rdma_mg->Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+//        assert(page->local_lock_meta.local_lock_byte == 1);
+//            sr[0].next = &sr[1];
+//            *(uint64_t *)cas_buffer->addr = 0;
+//            assert(page_addr.nodeID == lock_addr.nodeID);
+//            rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+//
+//            if ((*(uint64_t*) cas_buffer->addr) != 0){
+//                conflict_tag = *(uint64_t*)cas_buffer->addr;
+//                if (conflict_tag != pre_tag) {
+//                    retry_cnt = 0;
+//                    pre_tag = conflict_tag;
+//                }
+////      lock_fail[rdma_mg->getMyThreadID()][0]++;
+//                goto retry;
+//            }
+//        assert(page->local_lock_meta.local_lock_byte == 1);
+//
+//    }
+//
+//    uint64_t Btr::renew_swap_by_received_state_readlock(uint64_t &received_state) {
+//        uint64_t returned_state = 0;
+//        if(received_state == 0){
+//            // The first time try to lock or last time lock failed because of an unlock.
+//            // read lock holder should equals 1, and fill the bitmap for this node id.
+//            returned_state = 1ull << 48;
+//            returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
+//
+//        }else if(received_state >= 1ull << 56){
+//            // THere is a write lock on, we can only keep trying to read lock it.
+//            returned_state = 1ull << 48;
+//            returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
+//        }else{
+//            // There has already been a read lock holder.
+//            uint64_t current_Rlock_holder_num = (received_state >> 48) % 256;
+//            assert(current_Rlock_holder_num <= 255);
+//            current_Rlock_holder_num++;
+//            //
+//            returned_state = returned_state | (current_Rlock_holder_num << 48);
+//            returned_state = returned_state | (received_state << 16 >>16);
+//            assert(received_state & (1ull << RDMA_Manager::node_id/2 == 0));
+//
+//            returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
+//        }
+//        return returned_state;
+//    }
+//    uint64_t Btr::renew_swap_by_received_state_readunlock(uint64_t &received_state) {
+//        uint64_t returned_state = 0;
+//        if(received_state == ((1ull << 48) |(1ull << RDMA_Manager::node_id/2))){
+//            // The first time try to lock or last time lock failed because of an unlock.
+//            // read lock holder should equals 1, and fill the bitmap for this node id.
+//            returned_state = 1ull << 48;
+//            returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
+//
+//        }else if(received_state >= 1ull << 56){
+//            assert(false);
+//            printf("read lock is on during the write lock");
+//            exit(0);
+//        }else{
+//            // There has already been another read lock holder.
+//            uint64_t current_Rlock_holder_num = (received_state >> 48) % 256;
+//            assert(current_Rlock_holder_num > 0);
+//            current_Rlock_holder_num--;
+//            //decrease the number of lock holder
+//            returned_state = returned_state | (current_Rlock_holder_num << 48);
+//            returned_state = returned_state | (received_state << 16 >>16);
+//            assert(received_state & (1ull << RDMA_Manager::node_id/2 == 1));
+//            // clear the node id bit.
+//            returned_state = returned_state & ~(1ull << RDMA_Manager::node_id/2);
+//        }
+//        return returned_state;
+//    }
+//    uint64_t Btr::renew_swap_by_received_state_readupgrade(uint64_t &received_state) {
+//        return 0;
+//    }
+//
+//    void Btr::global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+//                                         GlobalAddress lock_addr, ibv_mr* cas_buffer, uint64_t tag, CoroContext *cxt,
+//                                         int coro_id) {
+//        uint64_t swap = 0;
+//        uint64_t compare = 0;
+//        uint64_t retry_cnt = 0;
+//        uint64_t pre_tag = 0;
+//        uint64_t conflict_tag = 0;
+//        *(uint64_t *)cas_buffer->addr = 0;
+//
+//    retry:
+//        retry_cnt++;
+//        compare = *(uint64_t *)cas_buffer->addr;
+//        swap = renew_swap_by_received_state_readlock(*(uint64_t *) cas_buffer->addr);
+//        if (retry_cnt > 300000) {
+//            std::cout << "Deadlock " << lock_addr << std::endl;
+//
+//            std::cout << rdma_mg->GetMemoryNodeNum() << ", "
+//                      << " locked by node  " << (conflict_tag) << std::endl;
+//            assert(false);
+//            exit(0);
+//        }
+//        struct ibv_send_wr sr[2];
+//        struct ibv_sge sge[2];
+//        //Only the second RDMA issue a completion
+//        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Internal_and_Leaf);
 //        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
 //        sr[0].next = &sr[1];
 //        *(uint64_t *)cas_buffer->addr = 0;
 //        assert(page_addr.nodeID == lock_addr.nodeID);
-        rdma_mg->Batch_Submit_WRs(sr, 1, lock_addr.nodeID);
+//        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+//
+//        if ((*(uint64_t*) cas_buffer->addr) != compare){
+////            conflict_tag = *(uint64_t*)cas_buffer->addr;
+////            if (conflict_tag != pre_tag) {
+////                retry_cnt = 0;
+////                pre_tag = conflict_tag;
+////            }
+//            goto retry;
+//        }
+//
+//    }
 
-        if ((*(uint64_t*) cas_buffer->addr) != compare){
-            //TODO: If try one time, issue an RPC if try multiple times try to seperate the
-            // upgrade into read release and acquire write lock.
-//            conflict_tag = *(uint64_t*)cas_buffer->addr;
-//            if (conflict_tag != pre_tag) {
-//                retry_cnt = 0;
-//                pre_tag = conflict_tag;
-//            }
-            goto retry;
-        }
-        return true;
-    }
-    void Btr::global_Wlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
-                                         GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
-                                         int coro_id) {
-
-        uint64_t retry_cnt = 0;
-        uint64_t pre_tag = 0;
-        uint64_t conflict_tag = 0;
-        *(uint64_t *)cas_buffer->addr = 0;
-
-        retry:
-        retry_cnt++;
-        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2) << 56;
-        uint64_t compare = 0;
-        if (retry_cnt > 300000) {
-            std::cout << "Deadlock for write lock " << lock_addr << std::endl;
-
-            std::cout << rdma_mg->GetMemoryNodeNum() << ", "
-                      << " locked by node  " << (conflict_tag) << std::endl;
-            assert(false);
-            exit(0);
-        }
-        struct ibv_send_wr sr[2];
-        struct ibv_sge sge[2];
-        //Only the second RDMA issue a completion
-        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Internal_and_Leaf);
-        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
-        sr[0].next = &sr[1];
-        *(uint64_t *)cas_buffer->addr = 0;
-        assert(page_addr.nodeID == lock_addr.nodeID);
-        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-
-        if ((*(uint64_t*) cas_buffer->addr) != compare){
-//            conflict_tag = *(uint64_t*)cas_buffer->addr;
-//            if (conflict_tag != pre_tag) {
-//                retry_cnt = 0;
-//                pre_tag = conflict_tag;
-//            }
-            goto retry;
-        }
-    }
-
-    void Btr::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id) {
-        // TODO: an alternative and better design for read unlock is to use RDMA FAA.
-        uint64_t swap = 0;
-        uint64_t compare =  0;
-        uint64_t retry_cnt = 0;
-        uint64_t pre_tag = 0;
-        uint64_t conflict_tag = 0;
-        *(uint64_t *)cas_buffer->addr = (1ull << 48) |(1ull << RDMA_Manager::node_id/2);
-
-    retry:
-        retry_cnt++;
-        compare = *(uint64_t *)cas_buffer->addr;
-        swap = renew_swap_by_received_state_readunlock(*(uint64_t *) cas_buffer->addr);
-        if (retry_cnt > 300000) {
-            std::cout << "Deadlock " << lock_addr << std::endl;
-
-            std::cout << rdma_mg->GetMemoryNodeNum() << ", "
-                      << " locked by node  " << (conflict_tag) << std::endl;
-            assert(false);
-            exit(0);
-        }
-        struct ibv_send_wr sr[2];
-        struct ibv_sge sge[2];
-        //Only the second RDMA issue a completion
-        rdma_mg->RDMA_CAS(lock_addr, cas_buffer, compare, swap, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
-
-        if ((*(uint64_t*) cas_buffer->addr) != compare){
-//            conflict_tag = *(uint64_t*)cas_buffer->addr;
-//            if (conflict_tag != pre_tag) {
-//                retry_cnt = 0;
-//                pre_tag = conflict_tag;
-//            }
-            goto retry;
-        }
-    }
+//    bool Btr::global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id) {
+//        uint64_t retry_cnt = 0;
+//        uint64_t pre_tag = 0;
+//        uint64_t conflict_tag = 0;
+//        *(uint64_t *)cas_buffer->addr = 0;
+//
+//    retry:
+//        retry_cnt++;
+//        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2) << 56;
+//        uint64_t compare = 0;
+//        if (retry_cnt > 300000) {
+//            std::cout << "Deadlock for write lock " << lock_addr << std::endl;
+//
+//            std::cout << rdma_mg->GetMemoryNodeNum() << ", "
+//                      << " locked by node  " << (conflict_tag) << std::endl;
+//            assert(false);
+//            exit(0);
+//        }
+//        struct ibv_send_wr sr[2];
+//        struct ibv_sge sge[2];
+//        //Only the second RDMA issue a completion
+//        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Internal_and_Leaf);
+////        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+////        sr[0].next = &sr[1];
+////        *(uint64_t *)cas_buffer->addr = 0;
+////        assert(page_addr.nodeID == lock_addr.nodeID);
+//        rdma_mg->Batch_Submit_WRs(sr, 1, lock_addr.nodeID);
+//
+//        if ((*(uint64_t*) cas_buffer->addr) != compare){
+//            //TODO: If try one time, issue an RPC if try multiple times try to seperate the
+//            // upgrade into read release and acquire write lock.
+////            conflict_tag = *(uint64_t*)cas_buffer->addr;
+////            if (conflict_tag != pre_tag) {
+////                retry_cnt = 0;
+////                pre_tag = conflict_tag;
+////            }
+//            goto retry;
+//        }
+//        return true;
+//    }
+//    void Btr::global_Wlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+//                                         GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
+//                                         int coro_id) {
+//
+//        uint64_t retry_cnt = 0;
+//        uint64_t pre_tag = 0;
+//        uint64_t conflict_tag = 0;
+//        *(uint64_t *)cas_buffer->addr = 0;
+//
+//        retry:
+//        retry_cnt++;
+//        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2) << 56;
+//        uint64_t compare = 0;
+//        if (retry_cnt > 300000) {
+//            std::cout << "Deadlock for write lock " << lock_addr << std::endl;
+//
+//            std::cout << rdma_mg->GetMemoryNodeNum() << ", "
+//                      << " locked by node  " << (conflict_tag) << std::endl;
+//            assert(false);
+//            exit(0);
+//        }
+//        struct ibv_send_wr sr[2];
+//        struct ibv_sge sge[2];
+//        //Only the second RDMA issue a completion
+//        rdma_mg->Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Internal_and_Leaf);
+//        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+//        sr[0].next = &sr[1];
+//        *(uint64_t *)cas_buffer->addr = 0;
+//        assert(page_addr.nodeID == lock_addr.nodeID);
+//        rdma_mg->Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+//
+//        if ((*(uint64_t*) cas_buffer->addr) != compare){
+////            conflict_tag = *(uint64_t*)cas_buffer->addr;
+////            if (conflict_tag != pre_tag) {
+////                retry_cnt = 0;
+////                pre_tag = conflict_tag;
+////            }
+//            goto retry;
+//        }
+//    }
+//
+//    void Btr::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id) {
+//        // TODO: an alternative and better design for read unlock is to use RDMA FAA.
+//        uint64_t swap = 0;
+//        uint64_t compare =  0;
+//        uint64_t retry_cnt = 0;
+//        uint64_t pre_tag = 0;
+//        uint64_t conflict_tag = 0;
+//        *(uint64_t *)cas_buffer->addr = (1ull << 48) |(1ull << RDMA_Manager::node_id/2);
+//
+//    retry:
+//        retry_cnt++;
+//        compare = *(uint64_t *)cas_buffer->addr;
+//        swap = renew_swap_by_received_state_readunlock(*(uint64_t *) cas_buffer->addr);
+//        if (retry_cnt > 300000) {
+//            std::cout << "Deadlock " << lock_addr << std::endl;
+//
+//            std::cout << rdma_mg->GetMemoryNodeNum() << ", "
+//                      << " locked by node  " << (conflict_tag) << std::endl;
+//            assert(false);
+//            exit(0);
+//        }
+//        struct ibv_send_wr sr[2];
+//        struct ibv_sge sge[2];
+//        //Only the second RDMA issue a completion
+//        rdma_mg->RDMA_CAS(lock_addr, cas_buffer, compare, swap, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
+//
+//        if ((*(uint64_t*) cas_buffer->addr) != compare){
+////            conflict_tag = *(uint64_t*)cas_buffer->addr;
+////            if (conflict_tag != pre_tag) {
+////                retry_cnt = 0;
+////                pre_tag = conflict_tag;
+////            }
+//            goto retry;
+//        }
+//    }
 
     //void Btr::lock_bench(const Key &k, CoroContext *cxt, int coro_id) {
 //  uint64_t lock_index = CityHash64((char *)&k, sizeof(k)) % define::kNumOfLock;
@@ -2103,7 +2111,7 @@ local_reread:
             }
             // If the remote read lock is not on, lock it
             if (handle->remote_lock_status == 0){
-                global_Rlock_and_read_page(mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
+                rdma_mg->global_Rlock_and_read_page(mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
                                            1, cxt, coro_id);
                 handle->remote_lock_status.store(1);
 
@@ -2211,7 +2219,7 @@ local_reread:
 //    }
 //#endif
         handle->remote_lock_status.store(0);
-        global_RUnlock(lock_addr, cas_mr,  cxt, coro_id);
+        rdma_mg->global_RUnlock(lock_addr, cas_mr,  cxt, coro_id);
         return true;
     }
 #else
@@ -2404,7 +2412,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
                 temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
                 temp_mr.length = temp_mr.length - RDMA_OFFSET;
                 assert(page->local_lock_meta.local_lock_byte == 1);
-                global_lock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
+                rdma_mg->global_Wlock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
                                           lock_addr, cas_mr, 1, cxt, coro_id);
 //            usleep(1);
             }
@@ -2456,7 +2464,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
                 temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
                 temp_mr.length = temp_mr.length - RDMA_OFFSET;
                 assert(page->local_lock_meta.local_lock_byte == 1);
-                global_lock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
+                rdma_mg->global_Wlock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
                                           lock_addr, cas_mr, 1, cxt, coro_id);
 //            usleep(1);
             }
@@ -2491,7 +2499,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             //Skip the local lock metadata
             //TOTHINK: The RDMA read may result in the local spin lock not work if they are in the same cache line.
             // The RDMA read may result in a false
-            global_lock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
+            rdma_mg->global_Wlock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
                                       lock_addr, cas_mr, 1, cxt, coro_id);
             assert(page->local_lock_meta.local_lock_byte == 1);
 
@@ -2558,7 +2566,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             }else{
 
                 assert(page->global_lock = 1);
-                global_unlock_addr(lock_addr,cxt,coro_id, false);
+                rdma_mg->global_unlock_addr(lock_addr,cxt,coro_id, false);
                 releases_local_lock(&page->local_lock_meta);
             }
 
@@ -2577,7 +2585,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             }else{
 
                 assert(page->global_lock = 1);
-                global_unlock_addr(lock_addr,cxt,coro_id, false);
+                rdma_mg->global_unlock_addr(lock_addr,cxt,coro_id, false);
                 releases_local_lock(&page->local_lock_meta);
             }
 //            return false;
@@ -2614,7 +2622,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         }else{
 
             assert(page->global_lock = 1);
-            global_unlock_addr(lock_addr,cxt,coro_id, false);
+            rdma_mg->global_unlock_addr(lock_addr,cxt,coro_id, false);
 //            global_write_page_and_unlock(&temp_mr, temp_page_add, kInternalPageSize -RDMA_OFFSET, lock_addr, cxt, coro_id, false);
             releases_local_lock(&page->local_lock_meta);
         }
@@ -2810,7 +2818,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             temp_mr.length = temp_mr.length - RDMA_OFFSET;
             assert(page->global_lock = 1);
             assert(page->hdr.valid_page);
-            global_write_page_and_unlock(&temp_mr, temp_page_add, kInternalPageSize -RDMA_OFFSET, lock_addr, cxt, coro_id, false);
+            rdma_mg->global_write_page_and_unlock(&temp_mr, temp_page_add, kInternalPageSize -RDMA_OFFSET, lock_addr, cxt, coro_id, false);
             releases_local_lock(&page->local_lock_meta);
         }
 //        write_page_and_unlock(local_buffer, page_addr, kInternalPageSize,
@@ -2990,12 +2998,12 @@ acquire_global_lock:
             }
             // If the remote read lock is not on, lock it
             if (handle->remote_lock_status == 0){
-                global_Wlock_and_read_page(local_mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
+                rdma_mg->global_Wlock_and_read_page(local_mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
                                            1, cxt, coro_id);
                 handle->remote_lock_status.store(1);
 
             }else if (handle->remote_lock_status == 1){
-                if (!global_Rlock_update(lock_addr, cas_mr, cxt, coro_id)){
+                if (!rdma_mg->global_Rlock_update(lock_addr, cas_mr, cxt, coro_id)){
                     //TODO: if return false, we need to seperate it into two
                 }
             }
@@ -3162,7 +3170,7 @@ acquire_global_lock:
             if (handle->strategy == 2){
 
                 // If the page currently is in busy mode, we directly release the global lock.
-                global_write_page_and_unlock(
+                rdma_mg->global_write_page_and_unlock(
                         &target_mr, GADD(page_addr, offset),
                         sizeof(LeafEntry), lock_addr, cxt, coro_id, false);
             }
@@ -3241,7 +3249,7 @@ acquire_global_lock:
             temp_mr.length = temp_mr.length - RDMA_OFFSET;
             assert(page->global_lock = 1);
             assert(page->hdr.valid_page);
-            global_write_page_and_unlock(&temp_mr, temp_page_add, kLeafPageSize -RDMA_OFFSET, lock_addr, cxt, coro_id, false);
+            rdma_mg->global_write_page_and_unlock(&temp_mr, temp_page_add, kLeafPageSize -RDMA_OFFSET, lock_addr, cxt, coro_id, false);
         }
         page_cache->Release(handle);
 //        write_page_and_unlock(local_mr, page_addr, kLeafPageSize,
