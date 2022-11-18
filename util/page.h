@@ -145,7 +145,7 @@ namespace DSMEngine{
 //        std::atomic<uint8_t> front_version;
 //        uint8_t front_version;
         alignas(8) uint64_t global_lock;
-        alignas(8) uint64_t reference_bitmap;
+        uint8_t busy;;
         uint8_t front_version = 0;
         Header hdr;
         InternalEntry records[kInternalCardinality] = {};
@@ -263,7 +263,7 @@ namespace DSMEngine{
         Local_Meta local_lock_meta;
         alignas(8) uint64_t global_lock;
         // if busy we will not cache it in cache, switch back to the Naive
-        alignas(8) uint8_t busy;
+        uint8_t busy;
         uint8_t front_version;
         Header hdr;
         LeafEntry records[kLeafCardinality] = {};
