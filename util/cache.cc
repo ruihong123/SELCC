@@ -326,6 +326,9 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
         if (value!= nullptr){
             e->value = value;
         }
+        e->remote_lock_status = 0;
+        e->remote_lock_urge = false;
+        e->strategy = 1;
 
         e->deleter = deleter;
         e->charge = charge;
@@ -376,6 +379,11 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
   // a place hodler for the address pointer to the LRU handle of the page.
   LRUHandle* e =
       reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));
+
+    e->remote_lock_status = 0;
+    e->remote_lock_urge = false;
+    e->strategy = 1;
+
   e->value = value;
   e->deleter = deleter;
   e->charge = charge;

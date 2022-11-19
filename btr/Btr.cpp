@@ -2985,11 +2985,11 @@ acquire_global_lock:
                 // This means the page has already be in the cache.
                 local_mr = (ibv_mr*)handle->value;
 
-
             }else{
                 // This means the page was not in the cache before
                 local_mr = new ibv_mr{};
                 rdma_mg->Allocate_Local_RDMA_Slot(*local_mr, Internal_and_Leaf);
+                assert(handle->remote_lock_status == 0);
 
 //        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
 //               page_addr, mr->addr, HashSlice(page_id), level);
