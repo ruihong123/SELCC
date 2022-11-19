@@ -329,6 +329,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
         e->remote_lock_status = 0;
         e->remote_lock_urge = false;
         e->strategy = 1;
+        e->gptr = *(GlobalAddress*)key.data();
 
         e->deleter = deleter;
         e->charge = charge;
@@ -383,6 +384,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
     e->remote_lock_status = 0;
     e->remote_lock_urge = false;
     e->strategy = 1;
+    e->gptr = *(GlobalAddress*)key.data();
 
   e->value = value;
   e->deleter = deleter;

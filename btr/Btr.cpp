@@ -3008,7 +3008,8 @@ acquire_global_lock:
 
             }else if (handle->remote_lock_status == 1){
                 if (!rdma_mg->global_Rlock_update(lock_addr, cas_mr, cxt, coro_id)){
-                    //TODO: if return false, we need to seperate it into two
+                    //TODO: if return false, we need to seperate it into two one is  release the read lock another
+                    // is to writelock the page and read the page.
                     handle->remote_lock_status.store(2);
 
                 }
@@ -3028,7 +3029,7 @@ acquire_global_lock:
 
 
         // TODO: under some situation the lock is not released
-
+        page_buffer = local_mr->addr;
         page = (LeafPage *)page_buffer;
 
         assert(page->hdr.level == level);
