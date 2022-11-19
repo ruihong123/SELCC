@@ -2414,7 +2414,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
                 assert(page->local_lock_meta.local_lock_byte == 1);
                 rdma_mg->global_Wlock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
                                           lock_addr, cas_mr, 1, cxt, coro_id);
-                handle->remote_lock_status.store(2);
+//                handle->remote_lock_status.store(2);
 //            usleep(1);
             }
             assert(page->local_lock_meta.local_lock_byte == 1);
@@ -2467,7 +2467,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
                 assert(page->local_lock_meta.local_lock_byte == 1);
                 rdma_mg->global_Wlock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
                                           lock_addr, cas_mr, 1, cxt, coro_id);
-                handle->remote_lock_status.store(2);
+//                handle->remote_lock_status.store(2);
 
 //            usleep(1);
             }
@@ -2504,7 +2504,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             // The RDMA read may result in a false
             rdma_mg->global_Wlock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
                                       lock_addr, cas_mr, 1, cxt, coro_id);
-            handle->remote_lock_status.store(2);
+//            handle->remote_lock_status.store(2);
             assert(page->local_lock_meta.local_lock_byte == 1);
 
 
