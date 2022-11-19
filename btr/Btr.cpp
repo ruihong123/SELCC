@@ -2414,6 +2414,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
                 assert(page->local_lock_meta.local_lock_byte == 1);
                 rdma_mg->global_Wlock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
                                           lock_addr, cas_mr, 1, cxt, coro_id);
+                handle->remote_lock_status.store(2);
 //            usleep(1);
             }
             assert(page->local_lock_meta.local_lock_byte == 1);
@@ -2466,6 +2467,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
                 assert(page->local_lock_meta.local_lock_byte == 1);
                 rdma_mg->global_Wlock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
                                           lock_addr, cas_mr, 1, cxt, coro_id);
+                handle->remote_lock_status.store(2);
+
 //            usleep(1);
             }
             assert(page->local_lock_meta.local_lock_byte == 1);
@@ -2501,6 +2504,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             // The RDMA read may result in a false
             rdma_mg->global_Wlock_and_read_page(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
                                       lock_addr, cas_mr, 1, cxt, coro_id);
+            handle->remote_lock_status.store(2);
             assert(page->local_lock_meta.local_lock_byte == 1);
 
 
@@ -3000,14 +3004,17 @@ acquire_global_lock:
             if (handle->remote_lock_status == 0){
                 rdma_mg->global_Wlock_and_read_page(local_mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
                                            1, cxt, coro_id);
-                handle->remote_lock_status.store(1);
+                handle->remote_lock_status.store(2);
 
             }else if (handle->remote_lock_status == 1){
                 if (!rdma_mg->global_Rlock_update(lock_addr, cas_mr, cxt, coro_id)){
                     //TODO: if return false, we need to seperate it into two
+                    handle->remote_lock_status.store(2);
+
                 }
             }
         }else{
+            assert(handle->strategy == 2);
             // if the strategy is 2 then the page actually should not cached in the page.
             assert(!handle->value);
             //TODO: access it over thread local mr and do not cache it.
@@ -3067,6 +3074,7 @@ acquire_global_lock:
                     nested_retry_counter = 0;
                     if (handle->strategy == 2){
                         unlock_addr(lock_addr,cxt, coro_id, false);
+                        handle->remote_lock_status.store(0);
                     }
                     page_cache->Release(handle);
                     return false;
@@ -3173,6 +3181,8 @@ acquire_global_lock:
                 rdma_mg->global_write_page_and_unlock(
                         &target_mr, GADD(page_addr, offset),
                         sizeof(LeafEntry), lock_addr, cxt, coro_id, false);
+                handle->remote_lock_status.store(0);
+
             }
             page_cache->Release(handle);
 //            write_page_and_unlock(

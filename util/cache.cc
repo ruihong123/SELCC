@@ -321,11 +321,11 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
         Ref(e);
         return reinterpret_cast<Cache::Handle*>(e);
     }else{
+        // This LRU handle is not initialized.
         LRUHandle* e =
                 reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));
-        if (value!= nullptr){
-            e->value = value;
-        }
+
+        e->value = value;
         e->remote_lock_status = 0;
         e->remote_lock_urge = false;
         e->strategy = 1;
