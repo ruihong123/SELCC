@@ -264,7 +264,7 @@ namespace DSMEngine{
         // if busy we will not cache it in cache, switch back to the Naive
         alignas(8) uint64_t global_lock;
         uint8_t busy;
-//        uint8_t front_version;
+        uint8_t front_version;
         Header hdr;
         LeafEntry records[kLeafCardinality] = {};
 
