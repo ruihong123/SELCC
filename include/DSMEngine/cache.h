@@ -159,14 +159,14 @@ class DSMEngine_EXPORT Cache {
         size_t key_length;
         std::atomic<bool> in_cache;     // Whether entry is in the table_cache.
         uint32_t hash;     // Hash of key(); used for fast sharding and comparisons
-        char key_data[1];  // Beginning of key
+//        char key_data[1];  // Beginning of key
 
         Slice key() const {
             // next_ is only equal to this if the LRU handle is the list head of an
             // empty list. List heads never have meaningful keys.
             assert(next != this);
-
-            return Slice(key_data, key_length);
+            assert(key_length == 8);
+            return Slice((char*)&gptr, key_length);
         }
     };
 class LocalBuffer {

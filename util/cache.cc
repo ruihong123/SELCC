@@ -322,8 +322,8 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
         return reinterpret_cast<Cache::Handle*>(e);
     }else{
         // This LRU handle is not initialized.
-        LRUHandle* e =
-                reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));
+        e = new LRUHandle();
+//                reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));
 
         e->value = value;
         e->remote_lock_status = 0;
@@ -337,7 +337,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
         e->hash = hash;
         e->in_cache = false;
         e->refs = 1;  // for the returned handle.
-        std::memcpy(e->key_data, key.data(), key.size());
+//        std::memcpy(e->key_data, key.data(), key.size());
         if (capacity_ > 0) {
             e->refs++;  // for the table_cache's reference. refer here and unrefer outside
             e->in_cache = true;
@@ -378,8 +378,8 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
 
   //TODO: set the LRUHandle within the page, so that we can check the reference, during the direct access, or we reserver
   // a place hodler for the address pointer to the LRU handle of the page.
-  LRUHandle* e =
-      reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));
+  LRUHandle* e = new LRUHandle();
+//      reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));
 
     e->remote_lock_status = 0;
     e->remote_lock_urge = false;
@@ -393,7 +393,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
   e->hash = hash;
   e->in_cache = false;
   e->refs = 1;  // for the returned handle.
-  std::memcpy(e->key_data, key.data(), key.size());
+//  std::memcpy(e->key_data, key.data(), key.size());
 //  WriteLock l(&mutex_);
   SpinLock l(&mutex_);
   if (capacity_ > 0) {

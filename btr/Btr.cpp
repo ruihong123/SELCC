@@ -69,16 +69,24 @@ static void Deallocate_MR(const GlobalAddress g_ptr, void* value, int strategy, 
     delete mr;
 }
 static void Deallocate_MR_WITH_CCP(const GlobalAddress g_ptr, void* value, int strategy, int lock_mode) {
+    auto mr = (ibv_mr*) value;
     if (strategy == 0){
         if (lock_mode == 1){
             // RDMA read unlock
             Btr::rdma_mg->global_RUnlock(g_ptr, Btr::rdma_mg->Get_local_CAS_mr());
         }else{
-            // RDMA write unlock and write back the data.
+            GlobalAddress lock_gptr = g_ptr;
+            lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
 
+//            ibv_mr* local_mr = (ibv_mr*)value;
+            assert(mr->addr!= 0 );
+            assert(((LeafPage*)mr->addr)->global_lock);
+            // RDMA write unlock and write back the data.
+            Btr::rdma_mg->global_write_page_and_unlock(mr, g_ptr, kLeafPageSize, lock_gptr,
+                                                       nullptr, 0);
         }
     }
-    auto mr = (ibv_mr*) value;
+
     Btr::rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
     delete mr;
 
