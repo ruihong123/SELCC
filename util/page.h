@@ -259,7 +259,7 @@ namespace DSMEngine{
     };
 #ifdef CACHECOHERENCEPROTOCOL
     class LeafPage {
-//    private:
+    public:
         Local_Meta local_lock_meta;
         // if busy we will not cache it in cache, switch back to the Naive
         alignas(8) uint64_t global_lock;
