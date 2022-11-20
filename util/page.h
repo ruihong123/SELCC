@@ -262,8 +262,9 @@ namespace DSMEngine{
 //    private:
         Local_Meta local_lock_meta;
         // if busy we will not cache it in cache, switch back to the Naive
+        alignas(8) uint64_t global_lock;
         uint8_t busy;
-        uint8_t front_version;
+//        uint8_t front_version;
         Header hdr;
         LeafEntry records[kLeafCardinality] = {};
 
@@ -315,7 +316,7 @@ namespace DSMEngine{
         }
         void leaf_page_search(const Key &k, SearchResult &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr);
 
-        alignas(8) uint64_t global_lock;
+
     };
 #else
     class LeafPage {
