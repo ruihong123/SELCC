@@ -2556,12 +2556,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
         }else{
             // There has already been a read lock holder.
-            uint64_t current_Rlock_holder_num = (received_state >> 48) % 256;
-            assert(current_Rlock_holder_num <= 255);
-            current_Rlock_holder_num++;
+//            uint64_t current_Rlock_holder_num = (received_state >> 48) % 256;
+//            assert(current_Rlock_holder_num <= 255);
+//            current_Rlock_holder_num++;
             //
-            returned_state = returned_state | (current_Rlock_holder_num << 48);
-            returned_state = returned_state | (received_state << 16 >>16);
+//            returned_state = returned_state | (current_Rlock_holder_num << 48);
+//            returned_state = returned_state | (received_state << 16 >>16);
             assert(received_state & (1ull << RDMA_Manager::node_id/2 == 0));
 
             returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
@@ -2582,12 +2582,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             exit(0);
         }else{
             // There has already been another read lock holder.
-            uint64_t current_Rlock_holder_num = (received_state >> 48) % 256;
-            assert(current_Rlock_holder_num > 0);
-            current_Rlock_holder_num--;
-            //decrease the number of lock holder
-            returned_state = returned_state | (current_Rlock_holder_num << 48);
-            returned_state = returned_state | (received_state << 16 >>16);
+//            uint64_t current_Rlock_holder_num = (received_state >> 48) % 256;
+//            assert(current_Rlock_holder_num > 0);
+//            current_Rlock_holder_num--;
+//            //decrease the number of lock holder
+//            returned_state = returned_state | (current_Rlock_holder_num << 48);
+//            returned_state = returned_state | (received_state << 16 >>16);
             assert(received_state & (1ull << RDMA_Manager::node_id/2 == 1));
             // clear the node id bit.
             returned_state = returned_state & ~(1ull << RDMA_Manager::node_id/2);
