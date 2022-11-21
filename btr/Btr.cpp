@@ -75,7 +75,7 @@ static void Deallocate_MR_WITH_CCP(const GlobalAddress g_ptr, void* value, int s
             // RDMA read unlock
             printf("release the read lock during the handle destroy\n ");
             Btr::rdma_mg->global_RUnlock(g_ptr, Btr::rdma_mg->Get_local_CAS_mr());
-        }else{
+        }else if(lock_mode == 2){
 
             // TODO: shall we not consider the global lock word when flushing back the page?
             GlobalAddress lock_gptr = g_ptr;
@@ -87,6 +87,9 @@ static void Deallocate_MR_WITH_CCP(const GlobalAddress g_ptr, void* value, int s
             // RDMA write unlock and write back the data.
             Btr::rdma_mg->global_write_page_and_unlock(mr, g_ptr, kLeafPageSize, lock_gptr,
                                                        nullptr, 0);
+        }else{
+            //TODO: delete the assert when you implement the invalidation RPC.
+            assert(false);
         }
     }
 
