@@ -76,6 +76,8 @@ static void Deallocate_MR_WITH_CCP(const GlobalAddress g_ptr, void* value, int s
             printf("release the read lock during the handle destroy\n ");
             Btr::rdma_mg->global_RUnlock(g_ptr, Btr::rdma_mg->Get_local_CAS_mr());
         }else{
+
+            // TODO: shall we not consider the global lock word when flushing back the page?
             GlobalAddress lock_gptr = g_ptr;
             lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
             printf("release the write lock and write back data during the handle destroy\n ");
@@ -3028,6 +3030,7 @@ acquire_global_lock:
             // if the strategy is 2 then the page actually should not cached in the page.
             assert(!handle->value);
             //TODO: access it over thread local mr and do not cache it.
+            assert(false);
         }
 
 
