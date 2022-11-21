@@ -70,7 +70,7 @@ static void Deallocate_MR(const GlobalAddress g_ptr, void* value, int strategy, 
 }
 static void Deallocate_MR_WITH_CCP(const GlobalAddress g_ptr, void* value, int strategy, int lock_mode) {
     auto mr = (ibv_mr*) value;
-    if (strategy == 0){
+    if (strategy == 1){
         if (lock_mode == 1){
             // RDMA read unlock
             printf("release the read lock during the handle destroy\n ");
