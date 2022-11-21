@@ -88,11 +88,13 @@ static void Deallocate_MR_WITH_CCP(const GlobalAddress g_ptr, void* value, int s
             Btr::rdma_mg->global_write_page_and_unlock(mr, g_ptr, kLeafPageSize, lock_gptr,
                                                        nullptr, 0);
         }else{
-            //TODO: delete the assert when you implement the invalidation RPC.
+            //TODO: delete the two asserts below when you implement the invalidation RPC.
             assert(false);
         }
+    }else{
+        assert(false);
     }
-
+    printf("Deallocate mr for %lu\n", g_ptr.offset);
     Btr::rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
     delete mr;
 
