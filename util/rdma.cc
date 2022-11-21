@@ -2744,7 +2744,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
-//        *(uint64_t*) local_CAS_mr->addr = 0;
+            *(uint64_t*) local_CAS_mr->addr = 0;
             Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_FENCE, Internal_and_Leaf);
             sr[0].next = &sr[1];
 
