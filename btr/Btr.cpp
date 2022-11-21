@@ -68,14 +68,16 @@ static void Deallocate_MR(const GlobalAddress g_ptr, void* value, int strategy, 
     Btr::rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
     delete mr;
 }
-static void Deallocate_MR_WITH_CCP(const GlobalAddress g_ptr, void* value, int strategy, int lock_mode) {
+static void Deallocate_MR_WITH_CCP(const GlobalAddress g_ptr, void* value, int strategy, int remote_lock_status) {
+
+    // TODO; Do we need the lock during this deleter? Answer: Probably not, because it is guaratee to have only on thread comes here.
     auto mr = (ibv_mr*) value;
     if (strategy == 1){
-        if (lock_mode == 1){
+        if (remote_lock_status == 1){
             // RDMA read unlock
             printf("release the read lock during the handle destroy\n ");
             Btr::rdma_mg->global_RUnlock(g_ptr, Btr::rdma_mg->Get_local_CAS_mr());
-        }else if(lock_mode == 2){
+        }else if(remote_lock_status == 2){
 
             // TODO: shall we not consider the global lock word when flushing back the page?
             GlobalAddress lock_gptr = g_ptr;
@@ -85,8 +87,8 @@ static void Deallocate_MR_WITH_CCP(const GlobalAddress g_ptr, void* value, int s
             assert(mr->addr!= nullptr );
             assert(((LeafPage*)mr->addr)->global_lock);
             // RDMA write unlock and write back the data.
-            Btr::rdma_mg->global_write_page_and_unlock(mr, g_ptr, kLeafPageSize, lock_gptr,
-                                                       nullptr, 0);
+            Btr::rdma_mg->global_write_page_and_Wunlock(mr, g_ptr, kLeafPageSize, lock_gptr,
+                                                        nullptr, 0);
         }else{
             //TODO: delete the two asserts below when you implement the invalidation RPC.
             assert(false);
@@ -2084,7 +2086,7 @@ local_reread:
         void* page_buffer;
         Header * header;
         LeafPage* page;
-        ibv_mr* mr;
+        ibv_mr* mr = nullptr;
         assert(level == 0);
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
         handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
@@ -2109,9 +2111,14 @@ local_reread:
 #endif
 //        if (handle != nullptr){
         assert(handle!= nullptr);
+        std::shared_lock<std::shared_mutex> r_l(handle->rw_mtx);
+
         //TODO; put the mutex inside the cache. Can we guarantee the correctness of strategy.
-            if(handle->strategy == 1){
-                std::unique_lock<std::shared_mutex> w_l(handle->rw_mtx);
+        if(handle->strategy.load() == 1 && handle->remote_lock_status.load() == 0){
+            // upgrade the lock the write lock.
+            r_l.unlock();
+            std::unique_lock<std::shared_mutex> w_l(handle->rw_mtx);
+            if (handle->strategy.load() == 1 && handle->remote_lock_status.load() == 0){
                 if(handle->value) {
                     mr = (ibv_mr*)handle->value;
 
@@ -2127,23 +2134,36 @@ local_reread:
                     handle->value = mr;
 
                 }
-                //TODO: THE RDMA read lock acquire should be protected.
-                // If the remote read lock is not on, lock it
-                if (handle->remote_lock_status == 0){
-                    rdma_mg->global_Rlock_and_read_page(mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
-                                                        1, cxt, coro_id);
-                    handle->remote_lock_status.store(1);
-
-                }
-            }else{
-                assert(handle->remote_lock_status == 0);
-                // if the strategy is 2 then the page actually should not cached in the page.
-                assert(!handle->value);
-                //TODO: access it over thread local mr and do not cache it.
-
+                rdma_mg->global_Rlock_and_read_page(mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
+                                                    1, cxt, coro_id);
+                handle->remote_lock_status.store(1);
             }
+//            else{
+//                assert(handle->value != nullptr);
+//                mr = (ibv_mr*)handle->value;
+//            }
 
-        std::shared_lock<std::shared_mutex> r_l(handle->rw_mtx);
+            w_l.unlock();
+            r_l.lock();
+        }
+        if (handle->strategy.load() == 2){
+            // TODO: optimistic latch free RDMA read.
+        }
+        if (handle->remote_lock_status.load() != 0){
+            assert(handle->value != nullptr);
+            mr = (ibv_mr*)handle->value;
+        }
+
+
+//        else{
+//            if (handle->strategy.load() == 1)
+//            assert(handle->remote_lock_status == 0);
+//            // if the strategy is 2 then the page actually should not cached in the page.
+//            assert(!handle->value);
+//            //TODO: access it over thread local mr and do not cache it.
+//
+//        }
+
         //TODO: how to make the optimistic latch free within this funciton
 
         page_buffer = mr->addr;
@@ -2843,7 +2863,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             temp_mr.length = temp_mr.length - RDMA_OFFSET;
             assert(page->global_lock = 1);
             assert(page->hdr.valid_page);
-            rdma_mg->global_write_page_and_unlock(&temp_mr, temp_page_add, kInternalPageSize -RDMA_OFFSET, lock_addr, cxt, coro_id, false);
+            rdma_mg->global_write_page_and_Wunlock(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET, lock_addr,
+                                                   cxt, coro_id, false);
             releases_local_lock(&page->local_lock_meta);
         }
 //        write_page_and_unlock(local_buffer, page_addr, kInternalPageSize,
@@ -3201,7 +3222,7 @@ acquire_global_lock:
             if (handle->strategy == 2){
 
                 // If the page currently is in busy mode, we directly release the global lock.
-                rdma_mg->global_write_page_and_unlock(
+                rdma_mg->global_write_page_and_Wunlock(
                         &target_mr, GADD(page_addr, offset),
                         sizeof(LeafEntry), lock_addr, cxt, coro_id, false);
                 handle->remote_lock_status.store(0);
@@ -3282,7 +3303,8 @@ acquire_global_lock:
             temp_mr.length = temp_mr.length - RDMA_OFFSET;
             assert(page->global_lock = 1);
             assert(page->hdr.valid_page);
-            rdma_mg->global_write_page_and_unlock(&temp_mr, temp_page_add, kLeafPageSize -RDMA_OFFSET, lock_addr, cxt, coro_id, false);
+            rdma_mg->global_write_page_and_Wunlock(&temp_mr, temp_page_add, kLeafPageSize - RDMA_OFFSET, lock_addr, cxt,
+                                                   coro_id, false);
         }
         page_cache->Release(handle);
 //        write_page_and_unlock(local_mr, page_addr, kLeafPageSize,

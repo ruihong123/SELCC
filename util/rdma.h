@@ -425,8 +425,8 @@ class RDMA_Manager {
     bool global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt= nullptr, int coro_id = 0);
     void global_Wlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
                                     ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt= nullptr, int coro_id = 0);
-    void global_write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
-                                      GlobalAddress remote_lock_addr, CoroContext *cxt = nullptr, int coro_id = 0, bool async = false);
+    void global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+                                       GlobalAddress remote_lock_addr, CoroContext *cxt = nullptr, int coro_id = 0, bool async = false);
     void global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt = nullptr, int coro_id = 0);
     void Prepare_WR_CAS(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t compare,
                       uint64_t swap, size_t send_flag, Chunk_type pool_name);

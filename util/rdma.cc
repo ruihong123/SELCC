@@ -2635,7 +2635,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         }
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
-        //Only the second RDMA issue a completion
+        //Only the second RDMA issue a completion,
+        // TODO: We may add a fense for the first request to avoid corruption of the async unlock.
+        // The async write back and unlock can result in corrupted data during the buffer recycle.
         Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Internal_and_Leaf);
         Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
         sr[0].next = &sr[1];
@@ -2689,6 +2691,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //                retry_cnt = 0;
 //                pre_tag = conflict_tag;
 //            }
+            if (retry_cnt > 2 && ((*(uint64_t*) cas_buffer->addr) & (1ull << node_id/2)) > 0){
+                // send RPC for lock releasing
+            }
             goto retry;
         }
         return true;
@@ -2734,8 +2739,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             goto retry;
         }
     }
-    void RDMA_Manager::global_write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
-                                           GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
+    void RDMA_Manager::global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+                                                     GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
 
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
@@ -2761,7 +2766,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
             *(uint64_t *)local_CAS_mr->addr = 0;
-            //TODO: WHY the remote lock is not unlocked by this function?
+            //TODO: THe RDMA write unlock can not be guaranteed to be finished after the page write.
+            // The RDMA CAS be started strictly after the RDMA write at the remote NIC according to
+            // https://docs.nvidia.com/networking/display/MLNXOFEDv451010/Out-of-Order+%28OOO%29+Data+Placement+Experimental+Verbs
+            // So it's better to make Unlock another RDMA CAS.
 //        rdma_mg->RDMA_CAS( remote_lock_addr, local_CAS_mr, 1,0, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
 //        assert(*(uint64_t *)local_CAS_mr->addr == 1);
 
