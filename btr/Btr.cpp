@@ -77,9 +77,9 @@ static void Deallocate_MR_WITH_CCP(const GlobalAddress g_ptr, void* value, int s
         }else{
             GlobalAddress lock_gptr = g_ptr;
             lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
-
+            printf("release the write lock and write back data during the handle destroy\n ");
 //            ibv_mr* local_mr = (ibv_mr*)value;
-            assert(mr->addr!= 0 );
+            assert(mr->addr!= nullptr );
             assert(((LeafPage*)mr->addr)->global_lock);
             // RDMA write unlock and write back the data.
             Btr::rdma_mg->global_write_page_and_unlock(mr, g_ptr, kLeafPageSize, lock_gptr,
