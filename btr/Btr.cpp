@@ -2109,36 +2109,41 @@ local_reread:
 #endif
 //        if (handle != nullptr){
         assert(handle!= nullptr);
-        std::shared_lock<std::shared_mutex> l(handle->rw_mtx);
+        //TODO; put the mutex inside the cache. Can we guarantee the correctness of strategy.
+            if(handle->strategy == 1){
+                std::unique_lock<std::shared_mutex> w_l(handle->rw_mtx);
+                if(handle->value) {
+                    mr = (ibv_mr*)handle->value;
 
-        if(handle->strategy == 1){
-            if(handle->value) {
-                mr = (ibv_mr*)handle->value;
 
-
-            }else{
-                mr = new ibv_mr{};
-                rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
+                }else{
+                    mr = new ibv_mr{};
+                    rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
 
 //        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
 //               page_addr, mr->addr, HashSlice(page_id), level);
-                handle->value = mr;
+
+                    //TODO: this is not guarantted to be atomic, mulitple reader can cause memory leak
+                    handle->value = mr;
+
+                }
+                //TODO: THE RDMA read lock acquire should be protected.
+                // If the remote read lock is not on, lock it
+                if (handle->remote_lock_status == 0){
+                    rdma_mg->global_Rlock_and_read_page(mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
+                                                        1, cxt, coro_id);
+                    handle->remote_lock_status.store(1);
+
+                }
+            }else{
+                assert(handle->remote_lock_status == 0);
+                // if the strategy is 2 then the page actually should not cached in the page.
+                assert(!handle->value);
+                //TODO: access it over thread local mr and do not cache it.
 
             }
-            // If the remote read lock is not on, lock it
-            if (handle->remote_lock_status == 0){
-                rdma_mg->global_Rlock_and_read_page(mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
-                                           1, cxt, coro_id);
-                handle->remote_lock_status.store(1);
 
-            }
-        }else{
-            assert(handle->remote_lock_status == 0);
-            // if the strategy is 2 then the page actually should not cached in the page.
-            assert(!handle->value);
-            //TODO: access it over thread local mr and do not cache it.
-
-        }
+        std::shared_lock<std::shared_mutex> r_l(handle->rw_mtx);
         //TODO: how to make the optimistic latch free within this funciton
 
         page_buffer = mr->addr;
