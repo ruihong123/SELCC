@@ -358,11 +358,11 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
             LRU_Append(&in_use_, e);// Finally it will be pushed into LRU list
             usage_ += charge;
             FinishErase(table_.Insert(e), &l);//table_.Insert(e) will return LRUhandle with duplicate key as e, and then delete it by FinishErase
-//#ifndef NDEBUG
-//            if (e->gptr.offset < 9480863232){
-//                printf("page of %lu is inserted into the cache", e->gptr.offset);
-//            }
-//#endif
+#ifndef NDEBUG
+            if (e->gptr.offset < 9480863232){
+                printf("page of %lu is inserted into the cache", e->gptr.offset);
+            }
+#endif
         } else {  // don't do caching. (capacity_==0 is supported and turns off caching.)
             // next is read by key() in an assert, so it must be initialized
             e->next = nullptr;
