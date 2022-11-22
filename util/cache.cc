@@ -148,9 +148,9 @@ class LRUCache {
   void LRU_Append(LRUHandle* list, LRUHandle* e);
   void Ref(LRUHandle* e);
 //    void Ref_in_LookUp(LRUHandle* e);
-  void Unref(LRUHandle* e);
+    void Unref(LRUHandle *e, SpinLock *spin_l);
 //    void Unref_WithoutLock(LRUHandle* e);
-  bool FinishErase(LRUHandle* e) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+    bool FinishErase(LRUHandle *e, SpinLock *spin_l) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Initialized before use.
   size_t capacity_;
@@ -187,7 +187,7 @@ LRUCache::~LRUCache() {
     assert(e->in_cache);
     e->in_cache = false;
     assert(e->refs == 1);  // Invariant of lru_ list.
-    Unref(e);
+      Unref(e, nullptr);
     e = next;
   }
 }
@@ -223,12 +223,16 @@ LRUCache::~LRUCache() {
 //    mutex_.ReadUnlock();
 //}
 
-void LRUCache::Unref(LRUHandle* e) {
+void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
   assert(e->refs > 0);
   e->refs--;
   if (e->refs == 0) {  // Deallocate.
       //Finish erase will only goes here, or directly return. it will neve goes to next if clause
-        mutex_.unlock();
+//        mutex_.unlock();
+      if (spin_l!= nullptr){
+          //Early releasing the lock to avoid the RDMA lock releasing in the critical section.
+          spin_l->Unlock();
+      }
       assert(!e->in_cache);
     (*e->deleter)(e->gptr, e->value, e->strategy, e->remote_lock_status);
 //    free(e);
@@ -346,7 +350,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
             e->in_cache = true;
             LRU_Append(&in_use_, e);// Finally it will be pushed into LRU list
             usage_ += charge;
-            FinishErase(table_.Insert(e));//table_.Insert(e) will return LRUhandle with duplicate key as e, and then delete it by FinishErase
+            FinishErase(table_.Insert(e), nullptr);//table_.Insert(e) will return LRUhandle with duplicate key as e, and then delete it by FinishErase
         } else {  // don't do caching. (capacity_==0 is supported and turns off caching.)
             // next is read by key() in an assert, so it must be initialized
             e->next = nullptr;
@@ -356,7 +360,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
         while (usage_ > capacity_ && lru_.next != &lru_) {
             LRUHandle* old = lru_.next;
             assert(old->refs == 1);
-            bool erased = FinishErase(table_.Remove(old->key(), old->hash));
+            bool erased = FinishErase(table_.Remove(old->key(), old->hash), nullptr);
             if (!erased) {  // to avoid unused variable when compiled NDEBUG
                 assert(erased);
             }
@@ -369,7 +373,7 @@ void LRUCache::Release(Cache::Handle* handle) {
 //  MutexLock l(&mutex_);
 //  WriteLock l(&mutex_);
   SpinLock l(&mutex_);
-  Unref(reinterpret_cast<LRUHandle*>(handle));
+    Unref(reinterpret_cast<LRUHandle *>(handle), &l);
 //    assert(reinterpret_cast<LRUHandle*>(handle)->refs != 0);
 }
 //If the inserted key has already existed, then the old LRU handle will be removed from
@@ -404,17 +408,20 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
     e->in_cache = true;
     LRU_Append(&in_use_, e);// Finally it will be pushed into LRU list
     usage_ += charge;
-    FinishErase(table_.Insert(e));//table_.Insert(e) will return LRUhandle with duplicate key as e, and then delete it by FinishErase
+      FinishErase(table_.Insert(e), &l);//table_.Insert(e) will return LRUhandle with duplicate key as e, and then delete it by FinishErase
   } else {  // don't do caching. (capacity_==0 is supported and turns off caching.)
     // next is read by key() in an assert, so it must be initialized
     e->next = nullptr;
   }
+    if (!l.check_own()){
+        l.Lock();
+    }
         assert(usage_ <= capacity_ + kLeafPageSize + kInternalPageSize);
   // This will remove some entry from LRU if the table_cache over size.
   while (usage_ > capacity_ && lru_.next != &lru_) {
     LRUHandle* old = lru_.next;
     assert(old->refs == 1);
-    bool erased = FinishErase(table_.Remove(old->key(), old->hash));
+    bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
     if (!erased) {  // to avoid unused variable when compiled NDEBUG
       assert(erased);
     }
@@ -426,7 +433,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
 // If e != nullptr, finish removing *e from the table_cache;
 // it must have already been removed from the hash table.  Return whether e != nullptr.
 // Remove the handle from LRU and change the usage.
-bool LRUCache::FinishErase(LRUHandle* e) {
+bool LRUCache::FinishErase(LRUHandle *e, SpinLock *spin_l) {
   if (e != nullptr) {
     assert(e->in_cache);
     LRU_Remove(e);
@@ -434,7 +441,7 @@ bool LRUCache::FinishErase(LRUHandle* e) {
     usage_ -= e->charge;
   // decrease the reference of cache, making it not pinned by cache, but it
   // can still be pinned outside the cache.
-    Unref(e);
+      Unref(e, spin_l);
 
   }
   return e != nullptr;
@@ -444,7 +451,7 @@ void LRUCache::Erase(const Slice& key, uint32_t hash) {
 //  MutexLock l(&mutex_);
 //  WriteLock l(&mutex_);
   SpinLock l(&mutex_);
-  FinishErase(table_.Remove(key, hash));
+    FinishErase(table_.Remove(key, hash), &l);
 }
 
 void LRUCache::Prune() {
@@ -454,7 +461,7 @@ void LRUCache::Prune() {
   while (lru_.next != &lru_) {
     LRUHandle* e = lru_.next;
     assert(e->refs == 1);
-    bool erased = FinishErase(table_.Remove(e->key(), e->hash));
+    bool erased = FinishErase(table_.Remove(e->key(), e->hash), nullptr);
     if (!erased) {  // to avoid unused variable when compiled NDEBUG
       assert(erased);
     }

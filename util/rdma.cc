@@ -2772,7 +2772,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // So it's better to make Unlock another RDMA CAS.
 //        rdma_mg->RDMA_CAS( remote_lock_addr, local_CAS_mr, 1,0, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
 //        assert(*(uint64_t *)local_CAS_mr->addr == 1);
-
+            //We can apply async unlock here to reduce the latency.
             Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_SIGNALED|IBV_SEND_FENCE, Internal_and_Leaf);
             sr[0].next = &sr[1];
 

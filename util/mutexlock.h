@@ -80,16 +80,34 @@ class SpinMutex {
 class SpinLock {
  public:
   explicit SpinLock(SpinMutex *mu) : mu_(mu) {
+
     this->mu_->lock();
+      owns = true;
   }
   // No copying allowed
   SpinLock(const SpinLock &) = delete;
   void operator=(const SpinLock &) = delete;
+    void Lock(){
+        this->mu_->lock();
+        owns = true;
+    }
+    bool check_own(){
+        return owns;
+    }
+    void Unlock(){
+        owns = false;
+        this->mu_->unlock();
+    }
+  ~SpinLock() {
+      if(owns){
+          this->mu_->unlock();
+      }
 
-  ~SpinLock() { this->mu_->unlock(); }
+  }
 
  private:
   SpinMutex *const mu_;
+  bool owns;
 };
 
 //
