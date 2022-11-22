@@ -375,6 +375,11 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
         while (usage_ > capacity_ && lru_.next != &lru_) {
             LRUHandle* old = lru_.next;
             assert(old->refs == 1);
+#ifndef NDEBUG
+            if (old->gptr.offset < 9480863232){
+                printf("page of %lu is extracted from the LRUlist", e->gptr.offset);
+            }
+#endif
             bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
             if (!l.check_own()){
                 l.Lock();
