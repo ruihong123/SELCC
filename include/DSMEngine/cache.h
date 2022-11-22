@@ -62,7 +62,7 @@ class DSMEngine_EXPORT Cache {
   Cache() = default;
     struct Handle {
     public:
-        void* value;
+        void* value = nullptr;
         std::atomic<uint32_t> refs;     // References, including table_cache reference, if present.
         //TODO: the internal node may not need the rw_mtx below, maybe we can delete them.
         std::atomic<bool> remote_lock_urge;

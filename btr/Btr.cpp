@@ -3027,14 +3027,22 @@ acquire_global_lock:
         //TODO: Can I early release the local lock if the strategy is 1
 
         if(handle->strategy == 1){
-
+#ifndef NDEBUG
+            bool hint_of_existence = false;
+#endif
             if(handle->value)
             {
+#ifndef NDEBUG
+                hint_of_existence = true;
+#endif
                 // This means the page has already be in the cache.
                 local_mr = (ibv_mr*)handle->value;
                 //TODO: delete the line below.
                 assert(handle->remote_lock_status != 0);
             }else{
+#ifndef NDEBUG
+                hint_of_existence = false;
+#endif
                 // This means the page was not in the cache before
                 local_mr = new ibv_mr{};
                 rdma_mg->Allocate_Local_RDMA_Slot(*local_mr, Internal_and_Leaf);
