@@ -84,7 +84,7 @@ static void Deallocate_MR_WITH_CCP(const GlobalAddress g_ptr, void* value, int s
             // TODO: shall we not consider the global lock word when flushing back the page?
             GlobalAddress lock_gptr = g_ptr;
             lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
-            printf("release the write lock at %lu and write back data during the handle destroy\n ", lock_gptr.offset);
+            printf("release the write lock at %lu and write back data during the handle destroy ", lock_gptr.offset);
 //            ibv_mr* local_mr = (ibv_mr*)value;
             assert(mr->addr!= nullptr );
             assert(((LeafPage*)mr->addr)->global_lock);
@@ -98,7 +98,7 @@ static void Deallocate_MR_WITH_CCP(const GlobalAddress g_ptr, void* value, int s
     }else{
         assert(false);
     }
-    printf("Deallocate mr for %lu\n", g_ptr.offset);
+    printf("Deallocate mr for %lu", g_ptr.offset);
     Btr::rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
     delete mr;
 
