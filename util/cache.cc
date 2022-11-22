@@ -227,7 +227,7 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
   assert(e->refs > 0);
   e->refs--;
   if (e->refs == 0) {  // Deallocate.
-      //Finish erase will only goes here, or directly return. it will neve goes to next if clause
+      //Finish erase will only goes here, or directly return. it will never goes to next if clause
 //        mutex_.unlock();
       if (spin_l!= nullptr){
           //Early releasing the lock to avoid the RDMA lock releasing in the critical section.
@@ -364,6 +364,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
             if (!erased) {  // to avoid unused variable when compiled NDEBUG
                 assert(erased);
             }
+
         }
 
         return reinterpret_cast<Cache::Handle*>(e);
@@ -419,9 +420,14 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
         assert(usage_ <= capacity_ + kLeafPageSize + kInternalPageSize);
   // This will remove some entry from LRU if the table_cache over size.
   while (usage_ > capacity_ && lru_.next != &lru_) {
+
     LRUHandle* old = lru_.next;
     assert(old->refs == 1);
     bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
+    //some times the finsih Erase will release the spinlock to let other threads working during the RDMA lock releasing.
+      if (!l.check_own()){
+          l.Lock();
+      }
     if (!erased) {  // to avoid unused variable when compiled NDEBUG
       assert(erased);
     }
