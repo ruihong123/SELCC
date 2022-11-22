@@ -29,6 +29,7 @@ namespace DSMEngine{
             is_mmap_work = false;
             //Use aligned alloc to enable the atomic variables. aligned to cache line size at least.
             res = aligned_alloc(128, size);
+            memset(res, 0,size);
             assert(res != NULL);
             return res;
         }else{
