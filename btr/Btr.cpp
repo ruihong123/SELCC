@@ -3030,7 +3030,8 @@ acquire_global_lock:
             {
                 // This means the page has already be in the cache.
                 local_mr = (ibv_mr*)handle->value;
-
+                //TODO: delete the line below.
+                assert(handle->remote_lock_status != 0);
             }else{
                 // This means the page was not in the cache before
                 local_mr = new ibv_mr{};
@@ -3305,6 +3306,7 @@ acquire_global_lock:
             assert(page->hdr.valid_page);
             rdma_mg->global_write_page_and_Wunlock(&temp_mr, temp_page_add, kLeafPageSize - RDMA_OFFSET, lock_addr, cxt,
                                                    coro_id, false);
+            handle->remote_lock_status.store(0);
         }
         page_cache->Release(handle);
 //        write_page_and_unlock(local_mr, page_addr, kLeafPageSize,
