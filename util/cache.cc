@@ -54,12 +54,12 @@ class HandleTable {
   }
 
   LRUHandle* Remove(const Slice& key, uint32_t hash) {
-#ifndef NDEBUG
-      GlobalAddress gprt = (*(GlobalAddress*)(key.data()));
-      if (gprt.offset < 9480863232){
-          printf("page of %lu is removed from the cache table", gprt.offset);
-      }
-#endif
+//#ifndef NDEBUG
+//      GlobalAddress gprt = (*(GlobalAddress*)(key.data()));
+//      if (gprt.offset < 9480863232){
+//          printf("page of %lu is removed from the cache table", gprt.offset);
+//      }
+//#endif
     LRUHandle** ptr = FindPointer(key, hash);
     LRUHandle* result = *ptr;
     //TODO: only erase those lru handles which has been accessed. THis can prevent
@@ -375,11 +375,11 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
         while (usage_ > capacity_ && lru_.next != &lru_) {
             LRUHandle* old = lru_.next;
             assert(old->refs == 1);
-#ifndef NDEBUG
-            if (old->gptr.offset < 9480863232){
-                printf("page of %lu is extracted from the LRUlist", e->gptr.offset);
-            }
-#endif
+//#ifndef NDEBUG
+//            if (old->gptr.offset < 9480863232){
+//                printf("page of %lu is extracted from the LRUlist", e->gptr.offset);
+//            }
+//#endif
             bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
             if (!l.check_own()){
                 l.Lock();
