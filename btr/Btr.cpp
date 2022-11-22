@@ -77,6 +77,8 @@ static void Deallocate_MR_WITH_CCP(const GlobalAddress g_ptr, void* value, int s
             // RDMA read unlock
             printf("release the read lock during the handle destroy\n ");
             Btr::rdma_mg->global_RUnlock(g_ptr, Btr::rdma_mg->Get_local_CAS_mr());
+            //TODO: delete the line below.
+            assert(false);
         }else if(remote_lock_status == 2){
 
             // TODO: shall we not consider the global lock word when flushing back the page?
