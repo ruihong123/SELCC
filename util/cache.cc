@@ -63,6 +63,7 @@ class HandleTable {
       *ptr = result->next_hash;// ptr is the "next_hash" in the handle previous to the result
       --elems_;
     }
+      assert(result!= nullptr);
     return result;
   }
 
