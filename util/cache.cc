@@ -229,11 +229,7 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
   if (e->refs == 0) {  // Deallocate.
       //Finish erase will only goes here, or directly return. it will never goes to next if clause
 //        mutex_.unlock();
-#ifndef NDEBUG
-      if (e->gptr.offset < 9480863232){
-          printf("page of %lu is removed from the cache", e->gptr.offset);
-      }
-#endif
+
       if (spin_l!= nullptr){
           //Early releasing the lock to avoid the RDMA lock releasing in the critical section.
           spin_l->Unlock();
@@ -451,6 +447,11 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
 // it must have already been removed from the hash table.  Return whether e != nullptr.
 // Remove the handle from LRU and change the usage.
 bool LRUCache::FinishErase(LRUHandle *e, SpinLock *spin_l) {
+#ifndef NDEBUG
+            if (e->gptr.offset < 9480863232){
+                printf("page of %lu is removed from the cache", e->gptr.offset);
+            }
+#endif
   if (e != nullptr) {
     assert(e->in_cache);
     LRU_Remove(e);
