@@ -229,6 +229,11 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
   if (e->refs == 0) {  // Deallocate.
       //Finish erase will only goes here, or directly return. it will never goes to next if clause
 //        mutex_.unlock();
+#ifndef NDEBUG
+      if (e->gptr.offset < 9480863232){
+          printf("page of %lu is removed from the cache", e->gptr.offset);
+      }
+#endif
       if (spin_l!= nullptr){
           //Early releasing the lock to avoid the RDMA lock releasing in the critical section.
           spin_l->Unlock();
