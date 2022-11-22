@@ -447,12 +447,13 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
 // it must have already been removed from the hash table.  Return whether e != nullptr.
 // Remove the handle from LRU and change the usage.
 bool LRUCache::FinishErase(LRUHandle *e, SpinLock *spin_l) {
-#ifndef NDEBUG
-            if (e->gptr.offset < 9480863232){
-                printf("page of %lu is removed from the cache", e->gptr.offset);
-            }
-#endif
+
   if (e != nullptr) {
+#ifndef NDEBUG
+      if (e->gptr.offset < 9480863232){
+          printf("page of %lu is removed from the cache", e->gptr.offset);
+      }
+#endif
     assert(e->in_cache);
     LRU_Remove(e);
     e->in_cache = false;
