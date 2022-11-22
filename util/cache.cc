@@ -350,7 +350,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
             e->in_cache = true;
             LRU_Append(&in_use_, e);// Finally it will be pushed into LRU list
             usage_ += charge;
-            FinishErase(table_.Insert(e), nullptr);//table_.Insert(e) will return LRUhandle with duplicate key as e, and then delete it by FinishErase
+            FinishErase(table_.Insert(e), &l);//table_.Insert(e) will return LRUhandle with duplicate key as e, and then delete it by FinishErase
         } else {  // don't do caching. (capacity_==0 is supported and turns off caching.)
             // next is read by key() in an assert, so it must be initialized
             e->next = nullptr;
@@ -363,7 +363,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
         while (usage_ > capacity_ && lru_.next != &lru_) {
             LRUHandle* old = lru_.next;
             assert(old->refs == 1);
-            bool erased = FinishErase(table_.Remove(old->key(), old->hash), nullptr);
+            bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
             if (!l.check_own()){
                 l.Lock();
             }
