@@ -228,7 +228,7 @@ void LRUCache::Unref(LRUHandle* e) {
   e->refs--;
   if (e->refs == 0) {  // Deallocate.
       //Finish erase will only goes here, or directly return. it will neve goes to next if clause
-//        mutex_.unlock();
+        mutex_.unlock();
       assert(!e->in_cache);
     (*e->deleter)(e->gptr, e->value, e->strategy, e->remote_lock_status);
 //    free(e);
