@@ -279,11 +279,19 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
 
 
 void LRUCache::LRU_Remove(LRUHandle* e) {
+#ifndef NDEBUG
+    if (e->gptr.offset < 9480863232){
+        printf("page %lu is being remove from a LRU list", e->gptr.offset);
+    }
+#endif
   e->next->prev = e->prev;
   e->prev->next = e->next;
 }
 
 void LRUCache::LRU_Append(LRUHandle* list, LRUHandle* e) {
+    if (e->gptr.offset < 9480863232){
+        printf("page %lu is being append to a LRU list", e->gptr.offset);
+    }
   // Make "e" newest entry by inserting just before *list
   e->next = list;
   e->prev = list->prev;
