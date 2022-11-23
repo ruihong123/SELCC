@@ -3065,6 +3065,8 @@ acquire_global_lock:
                     // is to writelock the page and read the page.
                     handle->remote_lock_status.store(2);
 
+                }else{
+                    handle->remote_lock_status.store(2);
                 }
             }
         }else{
