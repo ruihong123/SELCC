@@ -247,7 +247,7 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
   } else if (e->in_cache && e->refs == 1) {
 #ifndef NDEBUG
       if (e->gptr.offset < 9480863232){
-          printf("page of %lu is removed from the inuse list and apped to LRU list", e->gptr.offset);
+          printf("page of %lu is removed from the inuse list and apped to LRU list\n", e->gptr.offset);
       }
 #endif
     // No longer in use; move to lru_ list.
@@ -482,7 +482,7 @@ bool LRUCache::FinishErase(LRUHandle *e, SpinLock *spin_l) {
   if (e != nullptr) {
 #ifndef NDEBUG
       if (e->gptr.offset < 9480863232){
-          printf("page of %lu is removed from the cache", e->gptr.offset);
+          printf("page of %lu is removed from the cache\n", e->gptr.offset);
       }
 #endif
     assert(e->in_cache);
