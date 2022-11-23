@@ -96,9 +96,11 @@ class HandleTable {
     }
 #ifndef NDEBUG
       if (*ptr == nullptr){
-          void* returned_ptr = page_cache_shadow[key.ToGlobalAddress()];
-          assert(returned_ptr == nullptr);
-      }
+//          void* returned_ptr = page_cache_shadow[key.ToGlobalAddress()];
+          assert(page_cache_shadow.find(key.ToGlobalAddress()) == page_cache_shadow.end());
+      }else{
+          assert(page_cache_shadow.find(key.ToGlobalAddress()) != page_cache_shadow.end());
+        }
 #endif
     // This iterator will stop at the LRUHandle whose next_hash is nullptr or its nexthash's
     // key and hash value is the target.
