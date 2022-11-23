@@ -348,6 +348,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
     LRUHandle* e = table_.Lookup(key, hash);
     if (e != nullptr) {
         Ref(e);
+//        assert(e->refs <=2);
         DEBUG_PRINT("cache hit when searching the leaf node");
         return reinterpret_cast<Cache::Handle*>(e);
     }else{
@@ -492,6 +493,7 @@ bool LRUCache::FinishErase(LRUHandle *e, SpinLock *spin_l) {
     usage_ -= e->charge;
   // decrease the reference of cache, making it not pinned by cache, but it
   // can still be pinned outside the cache.
+//      assert(e->refs <=2);
       Unref(e, spin_l);
 
   }
