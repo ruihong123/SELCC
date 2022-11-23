@@ -349,7 +349,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
     if (e != nullptr) {
         Ref(e);
 //        assert(e->refs <=2);
-        DEBUG_PRINT("cache hit when searching the leaf node");
+//        DEBUG_PRINT("cache hit when searching the leaf node");
         return reinterpret_cast<Cache::Handle*>(e);
     }else{
         // This LRU handle is not initialized.
