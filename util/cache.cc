@@ -58,7 +58,7 @@ class HandleTable {
     return old;
   }
 
-  LRUHandle* Remove(const Slice& key, uint32_t hash) {
+  LRUHandle* Remove(Slice key, uint32_t hash) {
 #ifndef NDEBUG
       GlobalAddress gprt = key.ToGlobalAddress();
           printf("page of %lu is removed from the cache table", gprt.offset);
