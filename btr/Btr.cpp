@@ -3320,7 +3320,7 @@ acquire_global_lock:
                                                    coro_id, false);
             handle->remote_lock_status.store(0);
         }
-//        page_cache->Release(handle);
+        page_cache->Release(handle);
 //        write_page_and_unlock(local_mr, page_addr, kLeafPageSize,
 //                              lock_addr, cxt, coro_id, false);
 
