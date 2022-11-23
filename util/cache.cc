@@ -89,7 +89,7 @@ class HandleTable {
   // Return a pointer to slot that points to a table_cache entry that
   // matches key/hash.  If there is no such table_cache entry, return a
   // pointer to the trailing slot in the corresponding linked list.
-  LRUHandle** FindPointer(const Slice& key, uint32_t hash) {
+  LRUHandle** FindPointer(Slice key, uint32_t hash) {
     LRUHandle** ptr = &list_[hash & (length_ - 1)];
     while (*ptr != nullptr && ((*ptr)->hash != hash || key != (*ptr)->key())) {
       ptr = &(*ptr)->next_hash;
