@@ -71,6 +71,13 @@ class DSMEngine_EXPORT Cache {
         std::atomic<int> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
         std::shared_mutex rw_mtx;
         void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode);
+        ~Handle(){
+#ifndef NDEBUG
+            if (gptr.offset < 9480863232){
+                printf("Handle of page %lu is being deleted", gptr.offset);
+            }
+#endif
+        }
 
     };
   Cache(const Cache&) = delete;
