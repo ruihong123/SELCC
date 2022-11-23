@@ -348,6 +348,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
     LRUHandle* e = table_.Lookup(key, hash);
     if (e != nullptr) {
         Ref(e);
+        DEBUG_PRINT("cache hit when searching the leaf node");
         return reinterpret_cast<Cache::Handle*>(e);
     }else{
         // This LRU handle is not initialized.
