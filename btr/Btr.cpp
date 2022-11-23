@@ -2000,7 +2000,7 @@ local_reread:
             if(!skip_cache){
                 page_cache->Release(handle);
             }
-            DEBUG_PRINT("retry over two times place 1\n");
+//            DEBUG_PRINT("retry over two times place 1\n");
             return false;
         }
 
