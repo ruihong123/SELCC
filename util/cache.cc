@@ -54,12 +54,12 @@ class HandleTable {
   }
 
   LRUHandle* Remove(const Slice& key, uint32_t hash) {
-//#ifndef NDEBUG
-//      GlobalAddress gprt = (*(GlobalAddress*)(key.data()));
-//      if (gprt.offset < 9480863232){
-//          printf("page of %lu is removed from the cache table", gprt.offset);
-//      }
-//#endif
+#ifndef NDEBUG
+      GlobalAddress gprt = (*(GlobalAddress*)(key.data()));
+      if (gprt.offset < 9480863232){
+          printf("page of %lu is removed from the cache table", gprt.offset);
+      }
+#endif
     LRUHandle** ptr = FindPointer(key, hash);
     LRUHandle* result = *ptr;
     //TODO: only erase those lru handles which has been accessed. THis can prevent
@@ -279,19 +279,21 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
 
 
 void LRUCache::LRU_Remove(LRUHandle* e) {
-#ifndef NDEBUG
-    if (e->gptr.offset < 9480863232){
-        printf("page %lu is being remove from a LRU list", e->gptr.offset);
-    }
-#endif
+//#ifndef NDEBUG
+//    if (e->gptr.offset < 9480863232){
+//        printf("page %lu is being remove from a LRU list", e->gptr.offset);
+//    }
+//#endif
   e->next->prev = e->prev;
   e->prev->next = e->next;
 }
 
 void LRUCache::LRU_Append(LRUHandle* list, LRUHandle* e) {
-    if (e->gptr.offset < 9480863232){
-        printf("page %lu is being append to a LRU list", e->gptr.offset);
-    }
+//#ifndef NDEBUG
+//    if (e->gptr.offset < 9480863232){
+//        printf("page %lu is being append to a LRU list", e->gptr.offset);
+//    }
+//#endif
   // Make "e" newest entry by inserting just before *list
   e->next = list;
   e->prev = list->prev;
@@ -383,11 +385,11 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
         while (usage_ > capacity_ && lru_.next != &lru_) {
             LRUHandle* old = lru_.next;
             assert(old->refs == 1);
-#ifndef NDEBUG
-            if (old->gptr.offset < 9480863232){
-                printf("page of %lu is extracted from the LRUlist", e->gptr.offset);
-            }
-#endif
+//#ifndef NDEBUG
+//            if (old->gptr.offset < 9480863232){
+//                printf("page of %lu is extracted from the LRUlist", e->gptr.offset);
+//            }
+//#endif
             bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
             if (!l.check_own()){
                 l.Lock();
