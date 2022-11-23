@@ -245,11 +245,11 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
 //    free(e);
     delete e;
   } else if (e->in_cache && e->refs == 1) {
-#ifndef NDEBUG
-      if (e->gptr.offset < 9480863232){
-          printf("page of %lu is removed from the inuse list and apped to LRU list\n", e->gptr.offset);
-      }
-#endif
+//#ifndef NDEBUG
+//      if (e->gptr.offset < 9480863232){
+//          printf("page of %lu is removed from the inuse list and apped to LRU list\n", e->gptr.offset);
+//      }
+//#endif
     // No longer in use; move to lru_ list.
     LRU_Remove(e);// remove from in_use list move to LRU list.
     LRU_Append(&lru_, e);
@@ -284,11 +284,11 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
 
 
 void LRUCache::LRU_Remove(LRUHandle* e) {
-//#ifndef NDEBUG
-//    if (e->gptr.offset < 9480863232){
-//        printf("page %lu is being remove from a LRU list", e->gptr.offset);
-//    }
-//#endif
+#ifndef NDEBUG
+    if (e->gptr.offset < 5480863232){
+        printf("page %lu is being remove from a LRU list", e->gptr.offset);
+    }
+#endif
   e->next->prev = e->prev;
   e->prev->next = e->next;
 }
@@ -480,11 +480,11 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
 bool LRUCache::FinishErase(LRUHandle *e, SpinLock *spin_l) {
 
   if (e != nullptr) {
-#ifndef NDEBUG
-      if (e->gptr.offset < 9480863232){
-          printf("page of %lu is removed from the cache\n", e->gptr.offset);
-      }
-#endif
+//#ifndef NDEBUG
+//      if (e->gptr.offset < 9480863232){
+//          printf("page of %lu is removed from the cache\n", e->gptr.offset);
+//      }
+//#endif
     assert(e->in_cache);
     LRU_Remove(e);
     e->in_cache = false;
