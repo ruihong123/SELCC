@@ -72,11 +72,11 @@ class DSMEngine_EXPORT Cache {
         std::shared_mutex rw_mtx;
         void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode);
         ~Handle(){
-//#ifndef NDEBUG
+#ifndef NDEBUG
 //            if (gptr.offset < 9480863232){
-//                printf("Handle of page %lu is being deleted", gptr.offset);
+                printf("Handle of page %lu is being deleted", gptr.offset);
 //            }
-//#endif
+#endif
         }
 
     };
