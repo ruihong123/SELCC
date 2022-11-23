@@ -50,15 +50,19 @@ class HandleTable {
         Resize();
       }
     }
+#ifndef NDEBUG
+        GlobalAddress gprt = h->key().ToGlobalAddress();
+            printf("page of %lu is inserted into the cache table", gprt.offset);
+        page_cache_shadow.insert({gprt, h});
+#endif
     return old;
   }
 
   LRUHandle* Remove(const Slice& key, uint32_t hash) {
 #ifndef NDEBUG
-      GlobalAddress gprt = (*(GlobalAddress*)(key.data()));
-      if (gprt.offset < 9480863232){
+      GlobalAddress gprt = key.ToGlobalAddress();
           printf("page of %lu is removed from the cache table", gprt.offset);
-      }
+      int erased_num  = page_cache_shadow.erase(key.ToGlobalAddress());
 #endif
     LRUHandle** ptr = FindPointer(key, hash);
     LRUHandle* result = *ptr;
@@ -68,8 +72,8 @@ class HandleTable {
         //*ptr belongs to the Handle previous to the result.
       *ptr = result->next_hash;// ptr is the "next_hash" in the handle previous to the result
       --elems_;
+        assert(erased_num == 1);
     }
-      assert(result!= nullptr);
     return result;
   }
 
@@ -79,7 +83,9 @@ class HandleTable {
   uint32_t length_;
   uint32_t elems_;
   LRUHandle** list_;
-
+#ifndef NDEBUG
+        std::unordered_map<uint64_t , void*> page_cache_shadow;
+#endif
   // Return a pointer to slot that points to a table_cache entry that
   // matches key/hash.  If there is no such table_cache entry, return a
   // pointer to the trailing slot in the corresponding linked list.
@@ -88,6 +94,12 @@ class HandleTable {
     while (*ptr != nullptr && ((*ptr)->hash != hash || key != (*ptr)->key())) {
       ptr = &(*ptr)->next_hash;
     }
+#ifndef NDEBUG
+      if (*ptr == nullptr){
+          void* returned_ptr = page_cache_shadow.at(key.ToGlobalAddress());
+          assert(returned_ptr == nullptr);
+      }
+#endif
     // This iterator will stop at the LRUHandle whose next_hash is nullptr or its nexthash's
     // key and hash value is the target.
     return ptr;

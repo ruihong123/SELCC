@@ -97,6 +97,9 @@ class DSMEngine_EXPORT Slice {
     memcpy((void*)(data_ + size_), (void*)p , size);
     size_+= size;
   }
+  GlobalAddress ToGlobalAddress(){
+      return * (GlobalAddress*)data_;
+  }
  private:
   const char* data_;
   size_t size_;

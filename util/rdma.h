@@ -573,6 +573,8 @@ class RDMA_Manager {
   std::mutex global_resources_mtx;
   ibv_mr* global_index_table = nullptr;
   ibv_mr* global_lock_table = nullptr;
+
+
 #ifdef PROCESSANALYSIS
   static std::atomic<uint64_t> RDMAReadTimeElapseSum;
   static std::atomic<uint64_t> ReadCount;

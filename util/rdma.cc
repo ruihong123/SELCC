@@ -2738,6 +2738,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            }
             goto retry;
         }
+
     }
     void RDMA_Manager::global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                                      GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
