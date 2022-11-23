@@ -285,7 +285,7 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
 
 void LRUCache::LRU_Remove(LRUHandle* e) {
 #ifndef NDEBUG
-    if (e->gptr.offset < 5480863232){
+    if (e->gptr.offset < 10480863232){
         printf("page %lu is being remove from a LRU list", e->gptr.offset);
     }
 #endif
