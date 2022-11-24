@@ -369,7 +369,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
 //        DEBUG_PRINT("cache hit when searching the leaf node");
         return reinterpret_cast<Cache::Handle*>(e);
     }else{
-        DEBUG_PRINT_arg("Did not find cache entry for %lu", e->key().ToGlobalAddress().offset);
+        DEBUG_PRINT_arg("Did not find cache entry for %lu", (*(GlobalAddress*)key.data()).offset);
         // This LRU handle is not initialized.
         e = new LRUHandle();
 //                reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));
