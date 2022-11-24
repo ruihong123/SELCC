@@ -54,7 +54,7 @@ class HandleTable {
     }
 #ifndef NDEBUG
         GlobalAddress gprt = h->key().ToGlobalAddress();
-        fprintf(stdout, "page of %lu is inserted into the cache table", gprt.offset);
+        fprintf(stdout, "page of %lu is inserted into the cache table\n", gprt.offset);
         page_cache_shadow.insert({gprt, h});
 #endif
     return old;
@@ -369,7 +369,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
 //        DEBUG_PRINT("cache hit when searching the leaf node");
         return reinterpret_cast<Cache::Handle*>(e);
     }else{
-        fprintf(stdout, "Did not find cache entry for %lu", (*(GlobalAddress*)key.data()).offset);
+        fprintf(stdout, "Did not find cache entry for %lu\n", (*(GlobalAddress*)key.data()).offset);
         // This LRU handle is not initialized.
         e = new LRUHandle();
 //                reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));

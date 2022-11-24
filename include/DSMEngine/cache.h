@@ -74,7 +74,7 @@ class DSMEngine_EXPORT Cache {
         ~Handle(){
 #ifndef NDEBUG
 //            if (gptr.offset < 9480863232){
-                printf("Handle of page %lu is being deleted", gptr.offset);
+//                printf("Handle of page %lu is being deleted\n", gptr.offset);
 //            }
 #endif
         }
