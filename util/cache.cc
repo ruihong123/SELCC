@@ -32,10 +32,12 @@ class HandleTable {
   ~HandleTable() { delete[] list_; }
 
   LRUHandle* Lookup(const Slice& key, uint32_t hash) {
-    return *FindPointer(key, hash);
+      assert(elems_ == page_cache_shadow.size());
+      return *FindPointer(key, hash);
   }
     //
   LRUHandle* Insert(LRUHandle* h) {
+    assert(elems_ == page_cache_shadow.size());
     LRUHandle** ptr = FindPointer(h->key(), h->hash);
     LRUHandle* old = *ptr;
     // if we find a LRUhandle whose key is same as h, we replace that LRUhandle
@@ -59,10 +61,11 @@ class HandleTable {
   }
 
   LRUHandle* Remove(Slice key, uint32_t hash) {
+      assert(elems_ == page_cache_shadow.size());
 #ifndef NDEBUG
       GlobalAddress gprt = key.ToGlobalAddress();
           printf("page of %lu is removed from the cache table", gprt.offset);
-      int erased_num  = page_cache_shadow.erase(key.ToGlobalAddress());
+      auto erased_num  = page_cache_shadow.erase(key.ToGlobalAddress());
 #endif
     LRUHandle** ptr = FindPointer(key, hash);
     LRUHandle* result = *ptr;
@@ -94,14 +97,14 @@ class HandleTable {
     while (*ptr != nullptr && ((*ptr)->hash != hash || key != (*ptr)->key())) {
       ptr = &(*ptr)->next_hash;
     }
-#ifndef NDEBUG
-      if (*ptr == nullptr){
-//          void* returned_ptr = page_cache_shadow[key.ToGlobalAddress()];
-          assert(page_cache_shadow.find(key.ToGlobalAddress()) == page_cache_shadow.end());
-      }else{
-          assert(page_cache_shadow.find(key.ToGlobalAddress()) != page_cache_shadow.end());
-        }
-#endif
+//#ifndef NDEBUG
+//      if (*ptr == nullptr){
+////          void* returned_ptr = page_cache_shadow[key.ToGlobalAddress()];
+//          assert(page_cache_shadow.find(key.ToGlobalAddress()) == page_cache_shadow.end());
+//      }else{
+//          assert(page_cache_shadow.find(key.ToGlobalAddress()) != page_cache_shadow.end());
+//        }
+//#endif
     // This iterator will stop at the LRUHandle whose next_hash is nullptr or its nexthash's
     // key and hash value is the target.
     return ptr;
