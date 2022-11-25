@@ -2710,7 +2710,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         retry:
         retry_cnt++;
         // We need a + 1 for the id, because id 0 conflict with the unlock bit
-        uint64_t swap = ((uint64_t)RDMA_Manager::thread_id/2 + 1) << 56;
+        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
         uint64_t compare = 0;
         if (retry_cnt > 300000) {
             std::cout << "Deadlock for write lock " << lock_addr << std::endl;

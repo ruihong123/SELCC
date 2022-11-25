@@ -262,7 +262,7 @@ namespace DSMEngine{
     public:
         Local_Meta local_lock_meta;
         // if busy we will not cache it in cache, switch back to the Naive
-        alignas(8) uint64_t global_lock;
+        alignas(8) uint64_t global_lock = 0;
         uint8_t busy;
         uint8_t front_version;
         Header hdr;
