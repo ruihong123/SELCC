@@ -360,7 +360,7 @@ int main(int argc, char *argv[]) {
 
   rdma_mg->sync_with_computes_Cside();
 
-  for (int i = 0; i < kThreadCount; i++) {
+  for (int i = 2; i < kThreadCount; i++) {
     th[i] = std::thread(thread_run, i);
   }
 

@@ -277,6 +277,7 @@ namespace DSMEngine{
         LeafPage(GlobalAddress this_page_g_ptr, uint32_t level = 0) {
             hdr.level = level;
             hdr.this_page_g_ptr = this_page_g_ptr;
+            global_lock = 0;
             records[0].value = kValueNull;
 
             front_version = 0;
