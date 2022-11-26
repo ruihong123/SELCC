@@ -2546,7 +2546,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t returned_state = 0;
         if(received_state == 0){
             // The first time try to lock or last time lock failed because of an unlock.
-            // read lock holder should equals 1, and fill the bitmap for this node id.
+            // and fill the bitmap for this node id.
             returned_state = 1ull << 48;
             returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
 
@@ -2566,6 +2566,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
         }
+        assert(returned_state >> 56 ==0);
         return returned_state;
     }
     uint64_t RDMA_Manager::renew_swap_by_received_state_readunlock(uint64_t &received_state) {
@@ -2592,6 +2593,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // clear the node id bit.
             returned_state = returned_state & ~(1ull << RDMA_Manager::node_id/2);
         }
+        assert(returned_state >> 56 ==0);
         return returned_state;
     }
     uint64_t RDMA_Manager::renew_swap_by_received_state_readupgrade(uint64_t &received_state) {
