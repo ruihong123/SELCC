@@ -1674,7 +1674,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             //If this is the leaf node, directly return let leaf page search to handle it.
             if (result.level == 0){
                 // if the root node is the leaf node this path will happen.
-                printf("root and leaf are the same\n");
+                printf("root and leaf are the same 1\n");
                 if (page->check_lock_state() && k >= page->hdr.highest){
                     std::unique_lock<std::mutex> l(mtx);
                     if (page_addr == g_root_ptr.load()){
@@ -1754,7 +1754,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             path_stack[coro_id][result.level] = page_addr;
             if (result.level == 0){
                 // if the root node is the leaf node this path will happen.
-                printf("root and leaf are the same\n");
+                printf("root and leaf are the same 2\n");
                 if (page->check_lock_state() && k >= page->hdr.highest){
                     std::unique_lock<std::mutex> l(mtx);
                     if (page_addr == g_root_ptr.load()){
@@ -1825,7 +1825,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             //check level first because the rearversion's position depends on the leaf node or internal node
             if (result.level == 0){
                 // if the root node is the leaf node this path will happen.
-                printf("root and leaf are the same\n");
+                printf("root and leaf are the same 3\n");
                 if (page->check_lock_state() && k >= page->hdr.highest){
                     std::unique_lock<std::mutex> l(mtx);
                     if (page_addr == g_root_ptr.load()){
