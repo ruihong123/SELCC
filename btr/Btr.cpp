@@ -2136,6 +2136,7 @@ local_reread:
                     handle->value = mr;
 
                 }
+
                 rdma_mg->global_Rlock_and_read_page(mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
                                                     1, cxt, coro_id);
                 handle->remote_lock_status.store(1);
@@ -2261,11 +2262,13 @@ local_reread:
 //          TimePrintCounter[RDMA_Manager::thread_id]++;
 //    }
 //#endif
-        if (handle->remote_lock_status.load() == 1){
+        if ( handle->strategy==2){
+            assert(handle->remote_lock_status==0);
             rdma_mg->global_RUnlock(lock_addr, cas_mr,  cxt, coro_id);
+            handle->remote_lock_status.store(0);
         }
 
-        handle->remote_lock_status.store(0);
+
         return true;
     }
 #else
