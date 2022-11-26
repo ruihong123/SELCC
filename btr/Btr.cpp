@@ -2261,8 +2261,11 @@ local_reread:
 //          TimePrintCounter[RDMA_Manager::thread_id]++;
 //    }
 //#endif
+        if (handle->remote_lock_status.load() == 1){
+            rdma_mg->global_RUnlock(lock_addr, cas_mr,  cxt, coro_id);
+        }
+
         handle->remote_lock_status.store(0);
-        rdma_mg->global_RUnlock(lock_addr, cas_mr,  cxt, coro_id);
         return true;
     }
 #else
