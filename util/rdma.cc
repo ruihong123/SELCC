@@ -68,6 +68,7 @@ void General_Destroy(void* ptr){
     : total_registered_size(0),
       Table_Size(remote_block_size),
       read_buffer(new ThreadLocalPtr(&Destroy_mr)),
+      message_buffer(new ThreadLocalPtr(&Destroy_mr)),
       CAS_buffer(new ThreadLocalPtr(&Destroy_mr)),
 //      qp_local_write_flush(new ThreadLocalPtr(&UnrefHandle_qp)),
 //      cq_local_write_flush(new ThreadLocalPtr(&UnrefHandle_cq)),
