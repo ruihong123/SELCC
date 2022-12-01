@@ -249,7 +249,8 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
       } else if (receive_msg_buf->command == put_qp_info) {
           rdma_mg->post_receive<RDMA_Request>(&recv_mr[buffer_position],compute_node_id,client_ip);
           std::unique_lock<std::shared_mutex> l(qp_info_mtx);
-          qp_info_map_xcompute.insert({receive_msg_buf->content.qp_config_xcompute.node_id_pairs,receive_msg_buf->content.qp_config_xcompute});
+          uint32_t target_node_id_pair = receive_msg_buf->content.qp_config_xcompute.node_id_pairs;
+          qp_info_map_xcompute.insert({target_node_id_pair,receive_msg_buf->content.qp_config_xcompute});
           if (qp_info_map_xcompute.size() == rdma_mg->GetComputeNodeNum()*(rdma_mg->GetComputeNodeNum()-1)){
               ready_for_get.store(true);
           }
