@@ -2954,6 +2954,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         retry_cnt++;
         compare = *(uint64_t *)cas_buffer->addr;
         swap = renew_swap_by_received_state_readlock(*(uint64_t *) cas_buffer->addr);
+        assert(swap>0);
         if (retry_cnt > 300000) {
             std::cout << "Deadlock " << lock_addr << std::endl;
 
