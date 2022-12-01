@@ -1827,6 +1827,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             if (result.level == 0){
                 // if the root node is the leaf node this path will happen.
                 printf("root and leaf are the same 3\n");
+                assert(false);
                 if (page->check_lock_state() && k >= page->hdr.highest){
                     std::unique_lock<std::mutex> l(mtx);
                     if (page_addr == g_root_ptr.load()){
