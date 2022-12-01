@@ -424,6 +424,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
             }
 
         }
+        assert(usage_ <= capacity_);
 
         return reinterpret_cast<Cache::Handle*>(e);
     }
