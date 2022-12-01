@@ -14,20 +14,15 @@
 namespace DSMEngine {
 
 std::shared_ptr<RDMA_Manager> Memory_Node_Keeper::rdma_mg = std::shared_ptr<RDMA_Manager>();
-DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
-                                                  uint32_t tcp_port, int pr_s)
+DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint32_t tcp_port, int pr_s,
+                                                  DSMEngine::config_t &config)
     : pr_size(pr_s),
 
       usesubcompaction(use_sub_compaction)
 
 {
-    struct DSMEngine::config_t config = {
-        NULL,  /* dev_name */
-        NULL,  /* server_name */
-      tcp_port, /* tcp_port */
-        1,	 /* ib_port */
-        1, /* gid_idx */
-        0};
+    //check whether the node id is correct.
+    assert(config.node_id%2 == 1);
     //  size_t write_block_size = 4*1024*1024;
     //  size_t read_block_size = 4*1024;
     size_t table_size = 16*1024;
@@ -160,7 +155,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
 //      shutdown(socket_fd, 2);
 //    close(socket_fd);
     //  post_send<int>(res->mr_send, client_ip);
-    ibv_wc wc[3] = {};
+
     rdma_mg->connection_counter.fetch_add(1);
 //    std::thread* thread_sync;
     if (rdma_mg->connection_counter.load() == rdma_mg->compute_nodes.size()
@@ -182,6 +177,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
     //  receive_msg_buf->content.qp_config.qp_num = ntohl(receive_msg_buf->content.qp_config.qp_num);
     //  receive_msg_buf->content.qp_config.lid = ntohs(receive_msg_buf->content.qp_config.lid);
     //  ibv_wc wc[3] = {};
+      ibv_wc wc[3] = {};
     // TODO: implement a heart beat mechanism.
     int buffer_position = 0;
     int miss_poll_counter = 0;
@@ -250,6 +246,16 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction,
                                             compute_node_id,
                                             client_ip);
         sync_option_handler(receive_msg_buf, client_ip, compute_node_id);
+      } else if (receive_msg_buf->command == put_qp_info) {
+          rdma_mg->post_receive<RDMA_Request>(&recv_mr[buffer_position],compute_node_id,client_ip);
+          std::unique_lock<std::shared_mutex> l(qp_info_mtx);
+          qp_info_map_xcompute.insert({receive_msg_buf->content.qp_config_xcompute.node_id_pairs,receive_msg_buf->content.qp_config_xcompute});
+          if (qp_info_map_xcompute.size() == rdma_mg->GetComputeNodeNum()*(rdma_mg->GetComputeNodeNum()-1)){
+              ready_for_get.store(true);
+          }
+      } else if (receive_msg_buf->command == get_qp_info) {
+          rdma_mg->post_receive<RDMA_Request>(&recv_mr[buffer_position],compute_node_id,client_ip);
+          Get_qp_info_handler(receive_msg_buf, client_ip, compute_node_id);
       } else if (receive_msg_buf->command == qp_reset_) {// depracated functions
         //THis should not be called because the recevei mr will be reset and the buffer
         // counter will be reset as 0
@@ -464,7 +470,7 @@ int Memory_Node_Keeper::server_sock_connect(const char* servername, int port) {
   send_pointer->content.qp_config.lid = rdma_mg->res->port_attr.lid;
   memcpy(send_pointer->content.qp_config.gid, &(rdma_mg->res->my_gid), 16);
   send_pointer->received = true;
-  registered_qp_config* remote_con_data = new registered_qp_config(request->content.qp_config);
+  Registered_qp_config* remote_con_data = new Registered_qp_config(request->content.qp_config);
   std::shared_lock<std::shared_mutex> l1(rdma_mg->qp_cq_map_mutex);
   //keep the remote qp information
     rdma_mg->qp_main_connection_info_Mside.insert({new_qp_id,remote_con_data});
@@ -549,7 +555,35 @@ int Memory_Node_Keeper::server_sock_connect(const char* servername, int port) {
     delete request;
   }
 
+    void Memory_Node_Keeper::Get_qp_info_handler(RDMA_Request *request, std::string &client_ip, uint8_t target_node_id) {
+        DEBUG_PRINT("handling get qp info \n");
+        int rc;
 
-  }
+        ibv_mr* send_mr = rdma_mg->Get_local_message_mr();
+        RDMA_Reply* send_pointer = (RDMA_Reply*)send_mr->addr;
+//        std::unique_lock<std::mutex> l(qp_info_mtx);
+        while(ready_for_get.load() == false);
+        std::shared_lock<std::shared_mutex> l(qp_info_mtx);
+        auto target_qp_info = qp_info_map_xcompute.at(request->content.target_id_pair);
+        assert(request->buffer != nullptr);
+        assert(request->rkey != 0);
+
+        /* exchange using TCP sockets info required to connect QPs */
+        send_pointer->content.qp_config_xcompute = target_qp_info;
+//        send_pointer->content.qp_config.lid = rdma_mg->res->port_attr.lid;
+//        memcpy(send_pointer->content.qp_config.gid, &(rdma_mg->res->my_gid), 16);
+        send_pointer->received = true;
+        Registered_qp_config* remote_con_data = new Registered_qp_config(request->content.qp_config);
+
+
+        rdma_mg->RDMA_Write(request->buffer, request->rkey, send_mr,
+                            sizeof(RDMA_Reply), client_ip, IBV_SEND_SIGNALED, 1, target_node_id);
+//        rdma_mg->Deallocate_Local_RDMA_Slot(send_mr->addr, Message);
+        delete request;
+    }
+
+
+
+}
 
 

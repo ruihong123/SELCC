@@ -17,6 +17,7 @@ namespace DSMEngine {
                     tcp_port, /* tcp_port */
                     1,	 /* ib_port */
                     1, /* gid_idx */
+                    0,
                     0};
             rdma_mg = RDMA_Manager::Get_Instance(config);
             rdma_mg->Mempool_initialize(DataChunk, INDEX_BLOCK, 0);

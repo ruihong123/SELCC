@@ -31,7 +31,7 @@ const int kMaxThread = 32;
 
 int kReadRatio;
 int kThreadCount;
-int ThisNodeID;
+uint16_t ThisNodeID;
 
 //int kComputeNodeCount;
 //int kMemoryNodeCount;
@@ -150,7 +150,7 @@ void thread_run(int id) {
     while (warmup_cnt.load() != kThreadCount)
       ;
     printf("node %d finish\n", rdma_mg->node_id);
-    rdma_mg->sync_with_computes_Cside();
+      rdma_mg->sync_with_computes_Cside();
 
     uint64_t ns = bench_timer.end();
     printf("warmup time %lds\n", ns / 1000 / 1000 / 1000);
@@ -338,9 +338,10 @@ int main(int argc, char *argv[]) {
             19843, /* tcp_port */
             1,	 /* ib_port */ //physical
             1, /* gid_idx */
-            4*10*1024*1024 /*initial local buffer size*/
+            4*10*1024*1024, /*initial local buffer size*/
+            ThisNodeID
     };
-    DSMEngine::RDMA_Manager::node_id = ThisNodeID;
+//    DSMEngine::RDMA_Manager::node_id = ThisNodeID;
 
     rdma_mg = DSMEngine::RDMA_Manager::Get_Instance(config);
     DSMEngine::Cache* cache_ptr = DSMEngine::NewLRUCache(define::kIndexCacheSize*define::MB);
@@ -358,7 +359,7 @@ int main(int argc, char *argv[]) {
   }
 #endif
 
-  rdma_mg->sync_with_computes_Cside();
+    rdma_mg->sync_with_computes_Cside();
 
   for (int i = 0; i < kThreadCount; i++) {
     th[i] = std::thread(thread_run, i);

@@ -12,6 +12,7 @@ int main() {
             tcp_port, /* tcp_port */
             1,	 /* ib_port */
             1, /* gid_idx */
+            0,
             0};
     RDMA_Manager* rdma_mg;
     rdma_mg = RDMA_Manager::Get_Instance(config);

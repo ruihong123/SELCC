@@ -10,7 +10,7 @@ int main(int argc,char* argv[])
   if (argc == 4){
     uint32_t tcp_port;
     int pr_size;
-    int Memory_server_id;
+    uint16_t Memory_server_id;
     char* value = argv[1];
     std::stringstream strValue1;
     strValue1 << value;
@@ -25,11 +25,27 @@ int main(int argc,char* argv[])
     //  strValue.str("");
     strValue3 << value;
     strValue3 >> Memory_server_id;
-     mn_keeper = new DSMEngine::Memory_Node_Keeper(true, tcp_port, pr_size);
-     DSMEngine::RDMA_Manager::node_id = 2* Memory_server_id + 1;
+      struct DSMEngine::config_t config = {
+              NULL,  /* dev_name */
+              NULL,  /* server_name */
+              tcp_port, /* tcp_port */
+              1,	 /* ib_port */
+              1, /* gid_idx */
+              0,
+              Memory_server_id};
+     mn_keeper = new DSMEngine::Memory_Node_Keeper(true, tcp_port, pr_size, config);
+//     DSMEngine::RDMA_Manager::node_id = 2* Memory_server_id + 1;
   }else{
-    mn_keeper = new DSMEngine::Memory_Node_Keeper(true, 19843, 88);
-    DSMEngine::RDMA_Manager::node_id = 1;
+      struct DSMEngine::config_t config = {
+              NULL,  /* dev_name */
+              NULL,  /* server_name */
+              19843, /* tcp_port */
+              1,	 /* ib_port */
+              1, /* gid_idx */
+              0,
+              1};
+    mn_keeper = new DSMEngine::Memory_Node_Keeper(true, 19843, 88, config);
+//    DSMEngine::RDMA_Manager::node_id = 1;
   }
 
   mn_keeper->SetBackgroundThreads(12, DSMEngine::ThreadPoolType::CompactionThreadPool);
