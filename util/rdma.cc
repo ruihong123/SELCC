@@ -2873,10 +2873,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
 
         }else if(received_state >= 1ull << 56){
+//            assert(false);
             // THere is a write lock on, we can only keep trying to read lock it.
 //            returned_state = 1ull << 48;
             returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
         }else{
+//            assert(false);
             // There has already been a read lock holder.
 //            uint64_t current_Rlock_holder_num = (received_state >> 48) % 256;
 //            assert(current_Rlock_holder_num <= 255);
@@ -2892,10 +2894,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         return returned_state;
     }
     uint64_t RDMA_Manager::renew_swap_by_received_state_readunlock(uint64_t &received_state) {
+        // Note current implementation has not consider the starvation yet.
         uint64_t returned_state = 0;
         if(received_state == ((1ull << RDMA_Manager::node_id/2))){
 
-            returned_state = 1ull << 48;
+//            returned_state = 1ull << 48;
             returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
 
         }else if(received_state >= 1ull << 56){

@@ -2281,7 +2281,7 @@ local_reread:
 //    }
 //#endif
         if ( handle->strategy==2){
-            assert(handle->remote_lock_status==0);
+//            assert(handle->remote_lock_status==0);
             rdma_mg->global_RUnlock(lock_addr, cas_mr,  cxt, coro_id);
             handle->remote_lock_status.store(0);
         }
