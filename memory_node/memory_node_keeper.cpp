@@ -156,9 +156,9 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
 //    close(socket_fd);
     //  post_send<int>(res->mr_send, client_ip);
 
-    rdma_mg->connection_counter.fetch_add(1);
+    rdma_mg->memory_connection_counter.fetch_add(1);
 //    std::thread* thread_sync;
-    if (rdma_mg->connection_counter.load() == rdma_mg->compute_nodes.size()
+    if (rdma_mg->memory_connection_counter.load() == rdma_mg->compute_nodes.size()
         && rdma_mg->node_id == 1){
       std::thread thread_sync(&RDMA_Manager::sync_with_computes_Mside, rdma_mg.get());
       //Need to be detached.

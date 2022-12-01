@@ -719,7 +719,8 @@ void RDMA_Manager::Client_Set_Up_Resources() {
     fprintf(stderr, "failed to create resources\n");
     return;
   }
-  std::vector<std::thread> threads;
+  std::vector<std::thread> memory_handler_threads;
+        std::vector<std::thread> compute_handler_threads;
   for(int i = 0; i < memory_nodes.size(); i++){
     uint16_t target_node_id =  2*i+1;
     res->sock_map[target_node_id] =
@@ -731,18 +732,23 @@ void RDMA_Manager::Client_Set_Up_Resources() {
     }
 //    assert(memory_nodes.size() == 2);
     //TODO: use mulitple thread to initialize the queue pairs.
-    threads.emplace_back(&RDMA_Manager::Get_Remote_qp_Info_Then_Connect,this,target_node_id);
+    memory_handler_threads.emplace_back(&RDMA_Manager::Get_Remote_qp_Info_Then_Connect, this, target_node_id);
 //    Get_Remote_qp_Info_Then_Connect(shard_target_node_id);
-    threads.back().detach();
+    memory_handler_threads.back().detach();
   }
-
-
-  while (connection_counter.load() != memory_nodes.size());
-    // connect with the compute nodes below.
     for(int i = 0; i < compute_nodes.size(); i++){
         uint16_t target_node_id =  2*i;
+        compute_handler_threads.emplace_back(&RDMA_Manager::Cross_Computes_RPC_Threads, this, target_node_id);
+        compute_handler_threads.back().detach();
 
     }
+
+  while (memory_connection_counter.load() != memory_nodes.size())
+  while (compute_connection_counter.load() != memory_nodes.size());
+  // check whether all the compute nodes are ready.
+        sync_with_computes_Cside();
+    // connect with the compute nodes below.
+
 //  for (auto & thread : threads) {
 //    thread.join();
 //  }
@@ -974,7 +980,7 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
   //    printf("The main qp not create correctly");
   //    return false;
   //  }
-  connection_counter.fetch_add(1);
+  memory_connection_counter.fetch_add(1);
   compute_message_handling_thread(qp_type, target_node_id);
   return false;
 }
@@ -1006,8 +1012,9 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
             post_receive_xcompute(&j, target_node_id, i);
         }
     }
+    memory_connection_counter.fetch_add(1);
     //Do we need to sync below?, probably not at below, should be synced outside this function.
-    sync_with_computes_Cside();
+
     ibv_wc wc[3] = {};
     int buffer_position = 0;
     int miss_poll_counter = 0;

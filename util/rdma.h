@@ -596,7 +596,8 @@ class RDMA_Manager {
 
   std::map<uint16_t, std::string> compute_nodes{};
   std::map<uint16_t, std::string> memory_nodes{};
-  std::atomic<uint64_t> connection_counter = 0;// Reuse by both compute nodes and memory nodes
+  std::atomic<uint64_t> memory_connection_counter = 0;// Reuse by both compute nodes and memory nodes
+    std::atomic<uint64_t> compute_connection_counter = 0;
   std::map<std::string, std::pair<ibv_cq*, ibv_cq*>> cq_map_Mside; /* CQ Map */
   std::map<std::string, ibv_qp*> qp_map_Mside; /* QP Map */
   std::map<std::string, Registered_qp_config*> qp_main_connection_info_Mside;
