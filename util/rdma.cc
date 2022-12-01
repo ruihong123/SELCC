@@ -2869,12 +2869,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         if(received_state == 0){
             // The first time try to lock or last time lock failed because of an unlock.
             // and fill the bitmap for this node id.
-            returned_state = 1ull << 48;
+//            returned_state = 1ull << 48;
             returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
 
         }else if(received_state >= 1ull << 56){
             // THere is a write lock on, we can only keep trying to read lock it.
-            returned_state = 1ull << 48;
+//            returned_state = 1ull << 48;
             returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
         }else{
             // There has already been a read lock holder.
@@ -2893,15 +2893,14 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
     }
     uint64_t RDMA_Manager::renew_swap_by_received_state_readunlock(uint64_t &received_state) {
         uint64_t returned_state = 0;
-        if(received_state == ((1ull << 48) |(1ull << RDMA_Manager::node_id/2))){
-            // The first time try to lock or last time lock failed because of an unlock.
-            // read lock holder should equals 1, and fill the bitmap for this node id.
+        if(received_state == ((1ull << RDMA_Manager::node_id/2))){
+
             returned_state = 1ull << 48;
             returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
 
         }else if(received_state >= 1ull << 56){
             assert(false);
-            printf("read lock is on during the write lock");
+            printf("trying read unlock during the write lock");
             exit(0);
         }else{
             // There has already been another read lock holder.
@@ -2913,7 +2912,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            returned_state = returned_state | (received_state << 16 >>16);
             assert(received_state & (1ull << RDMA_Manager::node_id/2 == 1));
             // clear the node id bit.
-            returned_state = returned_state & ~(1ull << RDMA_Manager::node_id/2);
+            returned_state = received_state & ~(1ull << RDMA_Manager::node_id/2);
         }
         assert(returned_state >> 56 ==0);
         return returned_state;
@@ -2924,6 +2923,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
     void RDMA_Manager::global_unlock_addr(GlobalAddress remote_lock_add, CoroContext *cxt, int coro_id, bool async) {
         auto cas_buf = Get_local_CAS_mr();
 //    std::cout << "unlock " << lock_addr << std::endl;
+        //TODO: Make the unlock based on RDMA so that it is gurantee to be consistent with RDMA FAA,
+        // otherwise (RDMA write to do the unlock) the lock has to be set at the end of the page to guarantee the
+        // consistency.
         *(uint64_t*)cas_buf->addr = 0;
         if (async) {
             // send flag 0 means there is no flag
@@ -3114,7 +3116,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
-        *(uint64_t *)cas_buffer->addr = (1ull << 48) |(1ull << RDMA_Manager::node_id/2);
+        *(uint64_t *)cas_buffer->addr = (1ull << RDMA_Manager::node_id/2);
 
         retry:
         retry_cnt++;
