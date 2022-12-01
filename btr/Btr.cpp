@@ -2217,10 +2217,22 @@ local_reread:
             if (nested_retry_counter <= 2){
                 nested_retry_counter++;
                 result.slibing = page->hdr.sibling_ptr;
+                if (handle->strategy == 2){
+                    rdma_mg->global_RUnlock(lock_addr, cas_mr, cxt, coro_id);
+                    handle->remote_lock_status.store(0);
+                }
+                assert(handle);
+                page_cache->Release(handle);
                 return true;
             }else{
                 nested_retry_counter = 0;
                 DEBUG_PRINT_CONDITION("retry place 3\n");
+                if (handle->strategy == 2){
+                    rdma_mg->global_RUnlock(lock_addr, cas_mr, cxt, coro_id);
+                    handle->remote_lock_status.store(0);
+                }
+                assert(handle);
+                page_cache->Release(handle);
                 return false;
             }
 
@@ -2246,6 +2258,12 @@ local_reread:
 
             }
             DEBUG_PRINT_CONDITION("retry place 4\n");
+            if (handle->strategy == 2){
+                rdma_mg->global_RUnlock(lock_addr, cas_mr, cxt, coro_id);
+                handle->remote_lock_status.store(0);
+            }
+            assert(handle);
+            page_cache->Release(handle);
             return false;// false means need to fall back
         }
 //#ifdef PROCESSANALYSIS
@@ -2268,7 +2286,7 @@ local_reread:
             handle->remote_lock_status.store(0);
         }
 
-
+        page_cache->Release(handle);
         return true;
     }
 #else
@@ -3126,7 +3144,7 @@ acquire_global_lock:
 
                     nested_retry_counter++;
                     if (handle->strategy == 2){
-                        unlock_addr(lock_addr,cxt, coro_id, false);
+                        rdma_mg->global_unlock_addr(lock_addr,cxt, coro_id, false);
                     }
                     page_cache->Release(handle);
                     return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt, coro_id);
@@ -3136,7 +3154,7 @@ acquire_global_lock:
                     DEBUG_PRINT_CONDITION("retry place 7");
                     nested_retry_counter = 0;
                     if (handle->strategy == 2){
-                        unlock_addr(lock_addr,cxt, coro_id, false);
+                        rdma_mg->global_unlock_addr(lock_addr,cxt, coro_id, false);
                         handle->remote_lock_status.store(0);
                     }
                     page_cache->Release(handle);
@@ -3169,7 +3187,7 @@ acquire_global_lock:
             }
 //            this->unlock_addr(lock_addr, cxt, coro_id, false);
             if (handle->strategy == 2){
-                unlock_addr(lock_addr,cxt, coro_id, false);
+                rdma_mg->global_unlock_addr(lock_addr,cxt, coro_id, false);
             }
             page_cache->Release(handle);
             DEBUG_PRINT_CONDITION("retry place 8\n");
