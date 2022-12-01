@@ -738,14 +738,18 @@ void RDMA_Manager::Client_Set_Up_Resources() {
     memory_handler_threads.back().detach();
   }
     for(int i = 0; i < compute_nodes.size(); i++){
+
         uint16_t target_node_id =  2*i;
-        compute_handler_threads.emplace_back(&RDMA_Manager::Cross_Computes_RPC_Threads, this, target_node_id);
-        compute_handler_threads.back().detach();
+        if (target_node_id != node_id){
+            compute_handler_threads.emplace_back(&RDMA_Manager::Cross_Computes_RPC_Threads, this, target_node_id);
+            compute_handler_threads.back().detach();
+        }
+
 
     }
 
   while (memory_connection_counter.load() != memory_nodes.size())
-  while (compute_connection_counter.load() != memory_nodes.size());
+  while (compute_connection_counter.load() != compute_nodes.size()-1);
   // check whether all the compute nodes are ready.
         sync_with_computes_Cside();
     // connect with the compute nodes below.
