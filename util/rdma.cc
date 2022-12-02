@@ -2983,7 +2983,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            }
             goto retry;
         }
-        printf("Acquire lock for %lu", page_addr.offset);
+//        printf("Acquire lock for %lu", page_addr.offset);
 //        assert(compare!=0);
 
     }
