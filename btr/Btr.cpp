@@ -2120,6 +2120,7 @@ local_reread:
         //TODO; put the mutex inside the cache. Can we guarantee the correctness of strategy.
         if(handle->strategy.load() == 1 && handle->remote_lock_status.load() == 0){
             // upgrade the lock the write lock.
+            //Can we use the std::call_once here?
             r_l.unlock();
             std::unique_lock<std::shared_mutex> w_l(handle->rw_mtx);
             if (handle->strategy.load() == 1 && handle->remote_lock_status.load() == 0){

@@ -2983,6 +2983,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            }
             goto retry;
         }
+        printf("Acquire lock for %lu", page_addr.offset);
+//        assert(compare!=0);
 
     }
     bool RDMA_Manager::global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id) {
@@ -3147,6 +3149,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            }
             goto retry;
         }
+        printf("Release lock for %lu", lock_addr.offset-8);
     }
 
 // int RDMA_Manager::post_atomic(int opcode)
