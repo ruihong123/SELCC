@@ -1028,10 +1028,11 @@ next: // Internal_and_Leaf page search
         page_hint = nullptr;
         // if the root and sibling are the same, it is also okay because the
         // p will not be changed
-        if (result.slibing != GlobalAddress::Null()) { // turn right
+
+        if (level!= target_level && result.slibing != GlobalAddress::Null()) { // turn right
             p = result.slibing;
 
-        }else if (result.next_level != GlobalAddress::Null()){
+        }else if (level!= target_level && result.next_level != GlobalAddress::Null()){
             assert(result.next_level != GlobalAddress::Null());
             p = result.next_level;
             level = result.level - 1;
