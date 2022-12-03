@@ -2,9 +2,11 @@
 #include <util/rdma.h>
 #include "Common.h"
 #include "HugePageAlloc.h"
+//#include "port/port_posix.h"
 //#include "DSMEngine/env.h"
 #ifdef RDMAPROCESSANALYSIS
 extern int TimePrintCounter[MAX_APP_THREAD];
+extern bool Show_Me_The_Print;
 #endif
 namespace DSMEngine {
 uint16_t RDMA_Manager::node_id = 0;
@@ -2983,7 +2985,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            }
             goto retry;
         }
-//        printf("Acquire lock for %lu", page_addr.offset);
+        assert(swap != 0);
+//        DEBUG_PRINT_CONDITION("Acquire lock for");
+
+        DEBUG_PRINT_CONDITION_arg("Acquire lock for %lu", page_addr.offset);
 //        assert(compare!=0);
 
     }

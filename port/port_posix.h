@@ -87,10 +87,12 @@
 #define DEBUG_PRINT_arg(x,y)
 #define DEBUG_PRINT(x)
 #define DEBUG_PRINT_CONDITION(x)
+#define DEBUG_PRINT_CONDITION_arg(x,y)
 #else
 #define DEBUG_PRINT_arg(x,y) printf(x,y)
 #define DEBUG_PRINT(x) printf(x)
 #define DEBUG_PRINT_CONDITION(x) if(Show_Me_The_Print) {printf(x);}
+#define DEBUG_PRINT_CONDITION_arg(x,y) if(Show_Me_The_Print) {printf(x,y);}
 #endif
 //#define TIMEPRINT
 #define WITHMEMORYVERSIONSET
