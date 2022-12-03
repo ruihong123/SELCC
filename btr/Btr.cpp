@@ -73,17 +73,19 @@ static void Deallocate_MR_WITH_CCP(const GlobalAddress g_ptr, void* value, int s
     // TODO; Do we need the lock during this deleter? Answer: Probably not, because it is guaratee to have only on thread comes here.
     auto mr = (ibv_mr*) value;
     if (strategy == 1){
+        GlobalAddress lock_gptr = g_ptr;
+        lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
         if (remote_lock_status == 1){
+
             // RDMA read unlock
             printf("release the read lock during the handle destroy\n ");
-            Btr::rdma_mg->global_RUnlock(g_ptr, Btr::rdma_mg->Get_local_CAS_mr());
+            Btr::rdma_mg->global_RUnlock(lock_gptr, Btr::rdma_mg->Get_local_CAS_mr());
             //TODO: delete the line below.
             assert(false);
         }else if(remote_lock_status == 2){
 
             // TODO: shall we not consider the global lock word when flushing back the page?
-            GlobalAddress lock_gptr = g_ptr;
-            lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
+
 //            printf("release the write lock at %lu and write back data during the handle destroy\n ", lock_gptr.offset);
 //            ibv_mr* local_mr = (ibv_mr*)value;
             assert(mr->addr!= nullptr );
