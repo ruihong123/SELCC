@@ -3127,7 +3127,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         }
         assert(swap != 0);
 //        DEBUG_PRINT_CONDITION("Acquire lock for");
-        DEBUG_PRINT_CONDITION_arg("Acquire lock for %lu", page_addr.offset);
+//        DEBUG_PRINT_CONDITION_arg("Acquire lock for %lu", page_addr.offset);
 //        assert(compare!=0);
 
     }
@@ -3208,7 +3208,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            }
             goto retry;
         }
-        printf("Release lock for %lu", lock_addr.offset-8);
+//        printf("Release lock for %lu", lock_addr.offset-8);
     }
 #else
     void RDMA_Manager::global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
@@ -3253,7 +3253,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
 
 
-        DEBUG_PRINT_CONDITION_arg("Acquire lock for %lu", page_addr.offset);
+//        DEBUG_PRINT_CONDITION_arg("Acquire lock for %lu", page_addr.offset);
 //        assert(compare!=0);
 
     }
@@ -3326,7 +3326,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t return_data = (*(uint64_t*) cas_buffer->addr);
         assert((return_data & (1ull << (RDMA_Manager::node_id/2 + 1))) == 1);
 
-        printf("Release lock for %lu", lock_addr.offset-8);
+//        printf("Release lock for %lu", lock_addr.offset-8);
     }
 #endif
     void RDMA_Manager::global_Wlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
