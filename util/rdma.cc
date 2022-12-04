@@ -2888,6 +2888,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             //
 //            returned_state = returned_state | (current_Rlock_holder_num << 48);
 //            returned_state = returned_state | (received_state << 16 >>16);
+
+//TOTHINK: It is possible that the unlocking for an cache entry being evicted,
+// interleave with the an lock acquire for the same page later
             assert(received_state & (1ull << RDMA_Manager::node_id/2 == 0));
 
             returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
@@ -2901,7 +2904,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         if(received_state == ((1ull << RDMA_Manager::node_id/2))){
 
 //            returned_state = 1ull << 48;
-            returned_state = returned_state | (1ull << RDMA_Manager::node_id/2);
+            returned_state = received_state & ~(1ull << RDMA_Manager::node_id/2);
 
         }else if(received_state >= 1ull << 56){
             assert(false);
@@ -2987,7 +2990,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         }
         assert(swap != 0);
 //        DEBUG_PRINT_CONDITION("Acquire lock for");
-
         DEBUG_PRINT_CONDITION_arg("Acquire lock for %lu", page_addr.offset);
 //        assert(compare!=0);
 
