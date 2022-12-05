@@ -2120,6 +2120,7 @@ local_reread:
 
         //TODO; put the mutex inside the cache. Can we guarantee the correctness of strategy.
         if(handle->strategy.load() == 1 && handle->remote_lock_status.load() == 0){
+            cache_miss[RDMA_Manager::thread_id][0]++;
             // upgrade the lock the write lock.
             //Can we use the std::call_once here?
             r_l.unlock();
@@ -2154,9 +2155,11 @@ local_reread:
             r_l.lock();
         }
         if (handle->strategy.load() == 2){
+            cache_miss[RDMA_Manager::thread_id][0]++;
             // TODO: optimistic latch free RDMA read.
         }
         if (handle->remote_lock_status.load() != 0){
+            cache_hit[RDMA_Manager::thread_id][0]++;
             assert(handle->value != nullptr);
             mr = (ibv_mr*)handle->value;
         }
