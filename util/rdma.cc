@@ -3281,7 +3281,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
         //Only the second RDMA issue a completion
-        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Internal_and_Leaf);
+        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, IBV_SEND_SIGNALED, Internal_and_Leaf);
 //        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
 //        sr[0].next = &sr[1];
 //        *(uint64_t *)cas_buffer->addr = 0;
