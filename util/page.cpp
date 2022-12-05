@@ -9,7 +9,11 @@ namespace DSMEngine{
     bool InternalPage::internal_page_search(const Key &k, SearchResult &result, uint16_t current_ticket) {
 
         assert(k >= hdr.lowest);
-        assert(k < hdr.highest);
+//        assert(k < hdr.highest);
+        uint64_t local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
+        if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
+            return false;
+        }
 
         Key highest_buffer = 0;
         highest_buffer = hdr.highest;
@@ -67,7 +71,7 @@ namespace DSMEngine{
 //            asm volatile ("sfence\n" : : );
 //            asm volatile ("lfence\n" : : );
 //            asm volatile ("mfence\n" : : );
-            uint64_t local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
+            local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
             if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
                 return false;
             }
@@ -100,7 +104,7 @@ namespace DSMEngine{
         result.this_key = records[right].key;
         result.later_key = records[right + 1].key;
 #endif
-        uint64_t local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
+        local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
         if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
             return false;
         }
