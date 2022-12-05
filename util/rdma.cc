@@ -3246,6 +3246,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
         // TODO: if the starvation bit is on then we release and wait the lock.
         if ( (return_value >> 56) > 0  ){
+            assert(false);
             assert((return_value & (1ull << node_id)) == 0);
 //            Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, -add, 0, Internal_and_Leaf);
             RDMA_FAA(lock_addr, cas_buffer, -add, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
