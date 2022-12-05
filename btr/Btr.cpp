@@ -2079,6 +2079,9 @@ local_reread:
 #ifdef CACHECOHERENCEPROTOCOL
     bool Btr::leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int level, CoroContext *cxt,
                                int coro_id) {
+#ifdef PROCESSANALYSIS
+        auto start = std::chrono::high_resolution_clock::now();
+#endif
         int counter = 0;
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
