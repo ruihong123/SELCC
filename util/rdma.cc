@@ -3243,6 +3243,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         assert(page_addr.nodeID == lock_addr.nodeID);
         Batch_Submit_WRs(sr, 1, page_addr.nodeID);
         uint64_t return_value = *(uint64_t*) cas_buffer->addr;
+        // TODO: if the assert below is false wait for 2us because there could be a RDMA lock release for this lock ongoing.
         assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
         // TODO: if the starvation bit is on then we release and wait the lock.
         if ( (return_value >> 56) > 0  ){
@@ -3264,11 +3265,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
         *(uint64_t *)cas_buffer->addr = 0;
-
+        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2) << 56;
+        uint64_t compare = (1ull << (RDMA_Manager::node_id/2 + 1));
         retry:
         retry_cnt++;
-        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2) << 56;
-        uint64_t compare = 0;
+
         if (retry_cnt > 300000) {
             std::cout << "Deadlock for write lock " << lock_addr << std::endl;
 
@@ -3295,7 +3296,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //                retry_cnt = 0;
 //                pre_tag = conflict_tag;
 //            }
-            if (retry_cnt > 2 && ((*(uint64_t*) cas_buffer->addr) & (1ull << node_id/2)) > 0){
+            if (retry_cnt > 2 ){
                 // send RPC for lock releasing
             }
             goto retry;

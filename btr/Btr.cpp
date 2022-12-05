@@ -78,7 +78,7 @@ static void Deallocate_MR_WITH_CCP(const GlobalAddress g_ptr, void* value, int s
         if (remote_lock_status == 1){
 
             // RDMA read unlock
-            printf("release the read lock during the handle destroy\n ");
+//            printf("release the read lock during the handle destroy\n ");
             Btr::rdma_mg->global_RUnlock(lock_gptr, Btr::rdma_mg->Get_local_CAS_mr());
         }else if(remote_lock_status == 2){
 
