@@ -3037,7 +3037,9 @@ acquire_global_lock:
 #ifdef CACHECOHERENCEPROTOCOL
     bool Btr::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v, Key &split_key, GlobalAddress &sibling_addr,
                               GlobalAddress root, int level, CoroContext *cxt, int coro_id) {
-
+#ifdef PROCESSANALYSIS
+        auto start = std::chrono::high_resolution_clock::now();
+#endif
 
         int counter = 0;
         GlobalAddress lock_addr;
