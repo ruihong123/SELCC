@@ -3214,7 +3214,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
     void RDMA_Manager::global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                                   GlobalAddress lock_addr, ibv_mr* cas_buffer, uint64_t tag, CoroContext *cxt,
                                                   int coro_id) {
-        uint64_t add = 1ull << (1ull << (RDMA_Manager::node_id/2 +1));
+        uint64_t add = (1ull << (RDMA_Manager::node_id/2 +1));
         uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
@@ -3304,7 +3304,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
     }
     void RDMA_Manager::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id) {
         // TODO: an alternative and better design for read unlock is to use RDMA FAA.
-        uint64_t add =(1ull << (RDMA_Manager::node_id/2 +1));
+        uint64_t add = (1ull << (RDMA_Manager::node_id/2 +1));
         uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
