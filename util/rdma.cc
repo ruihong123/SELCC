@@ -3243,6 +3243,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         assert(page_addr.nodeID == lock_addr.nodeID);
         Batch_Submit_WRs(sr, 1, page_addr.nodeID);
         uint64_t return_value = *(uint64_t*) cas_buffer->addr;
+        assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
         // TODO: if the starvation bit is on then we release and wait the lock.
         if ( (return_value >> 56) > 0  ){
             assert((return_value & (1ull << node_id)) == 0);
