@@ -2141,7 +2141,7 @@ local_reread:
                     handle->value = mr;
 
                 }
-
+                DEBUG_PRINT_CONDITION("iSSUE rdma TO Fetch data\n");
                 rdma_mg->global_Rlock_and_read_page(mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
                                                     1, cxt, coro_id);
                 handle->remote_lock_status.store(1);
