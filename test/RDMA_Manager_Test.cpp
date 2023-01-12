@@ -17,6 +17,7 @@ namespace DSMEngine {
                     tcp_port, /* tcp_port */
                     1,	 /* ib_port */
                     1, /* gid_idx */
+                    0,
                     0};
             rdma_mg = RDMA_Manager::Get_Instance(config);
             rdma_mg->Mempool_initialize(DataChunk, INDEX_BLOCK, 0);
@@ -27,10 +28,17 @@ namespace DSMEngine {
         DSMEngine::RDMA_Manager* rdma_mg;
     };
 
-    TEST_F(RDMA_Manager_Test, Allocation) {
+    TEST_F(RDMA_Manager_Test, LocalAllocation) {
         ibv_mr mr{};
         rdma_mg->Allocate_Local_RDMA_Slot(mr, DataChunk);
         ASSERT_EQ(rdma_mg->name_to_mem_pool.at(DataChunk).size(), 1);
+        GlobalAddress gptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 1);
+        assert(gptr != GlobalAddress::Null());
+    }
+
+    TEST_F(RDMA_Manager_Test, RemoteAllocation) {
+        GlobalAddress gptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 1);
+        assert(gptr != GlobalAddress::Null());
     }
 }
 int main(int argc, char** argv) {

@@ -23,13 +23,18 @@ namespace DSMEngine{
 
         }
 
-        if (res == MAP_FAILED) {
-            assert(is_mmap_work == true);
+        if (res == MAP_FAILED || res == nullptr) {
+//            assert(is_mmap_work == true);
             printf("mmap failed!\n");
             is_mmap_work = false;
-            res = malloc(size);
+            //Use aligned alloc to enable the atomic variables. aligned to cache line size at least.
+            res = aligned_alloc(128, size);
+            auto set_ret = memset(res, 0,size);
+            assert(set_ret != nullptr);
+            assert(res != NULL);
             return res;
         }else{
+            printf("The returned pointer is %p size is %zu\n", res, size);
             return res;
         }
 

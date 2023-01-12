@@ -82,17 +82,26 @@
 // when targeting older platforms.
 #define fdatasync fsync
 #endif
+//extern bool Show_Me_The_Print;
 #ifdef NDEBUG
-#define DEBUG_arg(x,y)
-#define DEBUG(x)
+#define DEBUG_PRINT_arg(x,y)
+#define DEBUG_PRINT(x)
+#define DEBUG_PRINT_CONDITION(x)
+#define DEBUG_PRINT_CONDITION_arg(x,y)
 #else
-#define DEBUG_arg(x,y) printf(x,y)
-#define DEBUG(x) printf(x)
+#define DEBUG_PRINT_arg(x,y) printf(x,y)
+#define DEBUG_PRINT(x) printf(x)
+#define DEBUG_PRINT_CONDITION(x) if(Show_Me_The_Print) {printf(x);}
+#define DEBUG_PRINT_CONDITION_arg(x,y) if(Show_Me_The_Print) {printf(x,y);}
 #endif
 //#define TIMEPRINT
 #define WITHMEMORYVERSIONSET
 //#define WITHPERSISTENCE
 //#define PROCESSANALYSIS
+//#define RDMAPROCESSANALYSIS
+#define RDMAFAAFORREADLOCK
+#define CACHECOHERENCEPROTOCOL
+#define TIMEPRINTGAP 100000
 #define BYTEADDRESSABLE
 #define NEARDATACOMPACTION
 //#define GETANALYSIS
@@ -101,6 +110,7 @@
 
 //#define BLOOMANALYSIS
 #include "port/thread_annotations.h"
+
 namespace DSMEngine {
 
 extern const bool kDefaultToAdaptiveMutex;
@@ -167,6 +177,9 @@ class RWMutex {
 
  private:
   pthread_rwlock_t mu_; // the underlying platform mutex
+#ifndef NDEBUG
+  int lock_state_;
+#endif
 };
 
 class CondVar {

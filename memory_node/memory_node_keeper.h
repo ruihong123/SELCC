@@ -24,7 +24,7 @@ namespace DSMEngine {
 class Memory_Node_Keeper {
  public:
 //  friend class RDMA_Manager;
-  Memory_Node_Keeper(bool use_sub_compaction, uint32_t tcp_port, int pr_s);
+    Memory_Node_Keeper(bool use_sub_compaction, uint32_t tcp_port, int pr_s, DSMEngine::config_t &config);
   ~Memory_Node_Keeper();
 //  void Schedule(
 //      void (*background_work_function)(void* background_work_arg),
@@ -57,8 +57,9 @@ class Memory_Node_Keeper {
   ThreadPool Compactor_pool_;
   ThreadPool Message_handler_pool_;
   ThreadPool Persistency_bg_pool_;
-  std::mutex versionset_mtx;
-
+  std::shared_mutex qp_info_mtx;
+    std::map<uint32_t, Registered_qp_config_xcompute> qp_info_map_xcompute;
+    std::atomic<bool> ready_for_get = false;
   std::atomic<bool> check_point_t_ready = true;
   std::mutex merger_mtx;
 //  std::mutex test_compaction_mutex;
@@ -69,6 +70,11 @@ class Memory_Node_Keeper {
 #endif
 
   int server_sock_connect(const char* servername, int port);
+  /***
+   * RPC handling threads, every connection to the compute node should have at least one RPC handling threads.
+   * @param client_ip
+   * @param socket_fd
+   */
   void server_communication_thread(std::string client_ip, int socket_fd);
   void create_mr_handler(RDMA_Request* request, std::string& client_ip,
                          uint8_t target_node_id);
@@ -86,6 +92,8 @@ class Memory_Node_Keeper {
                         int socket_fd, uint8_t target_node_id);
   void sync_option_handler(RDMA_Request* request, std::string& client_ip,
                            uint8_t target_node_id);
+    void Get_qp_info_handler(RDMA_Request* request, std::string& client_ip,
+                             uint8_t target_node_id);
 //  void version_unpin_handler(RDMA_Request* request, std::string& client_ip);
 
 };

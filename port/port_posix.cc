@@ -25,8 +25,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <cstdlib>
-//#include "logging/logging.h"
-
+bool Show_Me_The_Print = false;
 namespace DSMEngine {
 
 // We want to give users opportunity to default all the mutexes to adaptive if
@@ -42,7 +41,6 @@ extern const bool kDefaultToAdaptiveMutex = true;
 #else
 extern const bool kDefaultToAdaptiveMutex = false;
 #endif
-
 namespace port {
 
 static int PthreadCall(const char* label, int result) {
@@ -146,18 +144,47 @@ void CondVar::SignalAll() {
 }
 
 RWMutex::RWMutex() {
+#ifndef NDEBUG
+    lock_state_ = 0;
+#endif
   PthreadCall("init mutex", pthread_rwlock_init(&mu_, nullptr));
 }
 
 RWMutex::~RWMutex() { PthreadCall("destroy mutex", pthread_rwlock_destroy(&mu_)); }
 
-void RWMutex::ReadLock() { PthreadCall("read lock", pthread_rwlock_rdlock(&mu_)); }
+void RWMutex::ReadLock() {
 
-void RWMutex::WriteLock() { PthreadCall("write lock", pthread_rwlock_wrlock(&mu_)); }
+    PthreadCall("read lock", pthread_rwlock_rdlock(&mu_));
+//#ifndef NDEBUG
+////    assert(lock_state_ == 0);
+//
+//    lock_state_ = 1;
+//#endif
+}
 
-void RWMutex::ReadUnlock() { PthreadCall("read unlock", pthread_rwlock_unlock(&mu_)); }
+void RWMutex::WriteLock() {
+    PthreadCall("write lock", pthread_rwlock_wrlock(&mu_));
+//#ifndef NDEBUG
+//    assert(lock_state_ == 0);
+//    lock_state_ = 2;
+//#endif
+}
 
-void RWMutex::WriteUnlock() { PthreadCall("write unlock", pthread_rwlock_unlock(&mu_)); }
+void RWMutex::ReadUnlock() {
+//#ifndef NDEBUG
+////    assert(lock_state_ == 1);
+//    lock_state_ = 0;
+//#endif
+    PthreadCall("read unlock", pthread_rwlock_unlock(&mu_));
+}
+
+void RWMutex::WriteUnlock() {
+//#ifndef NDEBUG
+//    assert(lock_state_ == 2);
+//    lock_state_ = 0;
+//#endif
+    PthreadCall("write unlock", pthread_rwlock_unlock(&mu_));
+}
 
 int PhysicalCoreID() {
 #if defined(ROCKSDB_SCHED_GETCPU_PRESENT) && defined(__x86_64__) && \
@@ -231,7 +258,7 @@ static size_t GetPageSize() {
     return static_cast<size_t>(v);
   }
 #endif
-  // Default assume 4KB
+  // Internal_and_Leaf assume 4KB
   return 4U * 1024U;
 }
 

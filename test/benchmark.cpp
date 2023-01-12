@@ -18,26 +18,28 @@ const int kCoroCnt = 3;
 
 const int kTthreadUpper = 23;
 
-uint64_t cache_miss[MAX_APP_THREAD][8];
-uint64_t cache_hit[MAX_APP_THREAD][8];
-uint64_t invalid_counter[MAX_APP_THREAD][8];
-uint64_t lock_fail[MAX_APP_THREAD][8];
-uint64_t pattern[MAX_APP_THREAD][8];
-uint64_t hot_filter_count[MAX_APP_THREAD][8];
-uint64_t hierarchy_lock[MAX_APP_THREAD][8];
-uint64_t handover_count[MAX_APP_THREAD][8];
-
+extern uint64_t cache_miss[MAX_APP_THREAD][8];
+extern uint64_t cache_hit[MAX_APP_THREAD][8];
+extern uint64_t invalid_counter[MAX_APP_THREAD][8];
+extern uint64_t lock_fail[MAX_APP_THREAD][8];
+extern uint64_t pattern[MAX_APP_THREAD][8];
+extern uint64_t hot_filter_count[MAX_APP_THREAD][8];
+extern uint64_t hierarchy_lock[MAX_APP_THREAD][8];
+extern uint64_t handover_count[MAX_APP_THREAD][8];
+extern bool Show_Me_The_Print;
 const int kMaxThread = 32;
 
 int kReadRatio;
 int kThreadCount;
-int kComputeNodeCount;
-int kMemoryNodeCount;
+uint16_t ThisNodeID;
+
+//int kComputeNodeCount;
+//int kMemoryNodeCount;
 bool table_scan = false;
 bool use_range_query = true;
 
 //uint64_t kKeySpace = 64 * define::MB;
-uint64_t kKeySpace = 100*1024*1024; // bigdata
+uint64_t kKeySpace = 12*1024*1024; // bigdata
 //uint64_t kKeySpace = 50*1024*1024; //cloudlab
 double kWarmRatio = 0.8;
 
@@ -47,7 +49,7 @@ std::thread th[kMaxThread];
 uint64_t tp[kMaxThread][8];
 
 volatile bool need_stop;
-uint64_t latency[MAX_APP_THREAD][LATENCY_WINDOWS];
+extern uint64_t latency[MAX_APP_THREAD][LATENCY_WINDOWS];
 uint64_t latency_th_all[LATENCY_WINDOWS];
 
 DSMEngine::Btr *tree;
@@ -106,7 +108,7 @@ void thread_run(int id) {
 
 #ifndef BENCH_LOCK
   uint64_t all_thread = kThreadCount * rdma_mg->GetComputeNodeNum();
-  uint64_t my_id = kThreadCount * rdma_mg->node_id + id;
+  uint64_t my_id = kThreadCount * (DSMEngine::RDMA_Manager::node_id)/2 + id;
 
   printf("I am %d\n", my_id);
 
@@ -120,12 +122,12 @@ void thread_run(int id) {
   for (uint64_t i = 1; i < end_warm_key; ++i) {
       // we can not sequentially pop up the data. Otherwise there will be a bug.
       if (i % all_thread == my_id) {
-//      tree->insert(i, i * 2);
-        tree->insert(to_key(i), i * 2);
+        tree->insert(i, i * 2);
+//        tree->insert(to_key(i), i * 2);
 //        tree->insert(rand.Next()%(kKeySpace), i * 2);
 
         }
-      if (i % 4000000 == 0 && id ==0){
+      if (i % 1000000 == 0 && id ==0){
           printf("warm up number: %lu\n", i);
       }
   }
@@ -148,7 +150,7 @@ void thread_run(int id) {
     while (warmup_cnt.load() != kThreadCount)
       ;
     printf("node %d finish\n", rdma_mg->node_id);
-    rdma_mg->sync_with_computes_Cside();
+      rdma_mg->sync_with_computes_Cside();
 
     uint64_t ns = bench_timer.end();
     printf("warmup time %lds\n", ns / 1000 / 1000 / 1000);
@@ -228,8 +230,6 @@ void thread_run(int id) {
     } else {
       v = 12;
       tree->insert(key, v);
-
-
     }
     print_counter++;
     if (print_counter%100000 == 0)
@@ -258,23 +258,25 @@ void thread_run(int id) {
 }
 
 void parse_args(int argc, char *argv[]) {
-  if (argc != 6) {
-    printf("Usage: ./benchmark kComputeNodeCount kMemoryNodeCount kReadRatio kThreadCount tablescan\n");
+  if (argc != 5) {
+    printf("Usage: ./benchmark kReadRatio kThreadCount ThisNodeID tablescan\n");
     exit(-1);
   }
 
-    kComputeNodeCount = atoi(argv[1]);
-    kMemoryNodeCount = atoi(argv[2]);
-    kReadRatio = atoi(argv[3]);
-    kThreadCount = atoi(argv[4]);
-    int scan_number = atoi(argv[5]);
+//    kComputeNodeCount = atoi(argv[1]);
+//    kMemoryNodeCount = atoi(argv[2]);
+    kReadRatio = atoi(argv[1]);
+    kThreadCount = atoi(argv[2]);
+
+    int scan_number = atoi(argv[3]);
+    ThisNodeID = atoi(argv[4]);
+
     if(scan_number == 0)
         table_scan = false;
     else
         table_scan = true;
 
-    printf("kComputeNodeCount %d, kMemoryNodeCount %d, kReadRatio %d, kThreadCount %d, tablescan %d\n", kComputeNodeCount,
-           kMemoryNodeCount, kReadRatio, kThreadCount, scan_number);
+    printf("kReadRatio %d, kThreadCount %d, tablescan %d, ThisNodeID %d\n", kReadRatio, kThreadCount, table_scan, ThisNodeID);
 }
 
 void cal_latency() {
@@ -336,12 +338,16 @@ int main(int argc, char *argv[]) {
             19843, /* tcp_port */
             1,	 /* ib_port */ //physical
             1, /* gid_idx */
-            4*10*1024*1024 /*initial local buffer size*/
+            4*10*1024*1024, /*initial local buffer size*/
+            ThisNodeID
     };
-    rdma_mg = DSMEngine::RDMA_Manager::Get_Instance(config);
+//    DSMEngine::RDMA_Manager::node_id = ThisNodeID;
 
+    rdma_mg = DSMEngine::RDMA_Manager::Get_Instance(config);
+    DSMEngine::Cache* cache_ptr = DSMEngine::NewLRUCache(define::kIndexCacheSize*define::MB);
+    assert(cache_ptr->GetCapacity()> 10000);
 //  rdma_mg->registerThread();
-  tree = new DSMEngine::Btr(rdma_mg);
+  tree = new DSMEngine::Btr(rdma_mg, cache_ptr, 0);
 
 #ifndef BENCH_LOCK
   if (DSMEngine::RDMA_Manager::node_id == 0) {
@@ -353,7 +359,7 @@ int main(int argc, char *argv[]) {
   }
 #endif
 
-  rdma_mg->sync_with_computes_Cside();
+    rdma_mg->sync_with_computes_Cside();
 
   for (int i = 0; i < kThreadCount; i++) {
     th[i] = std::thread(thread_run, i);
@@ -363,7 +369,9 @@ int main(int argc, char *argv[]) {
   while (!ready.load())
     ;
 #endif
-
+#ifndef NDEBUG
+  Show_Me_The_Print  = true;
+#endif
   timespec s, e;
   uint64_t pre_tp = 0;
   uint64_t pre_ths[MAX_APP_THREAD];

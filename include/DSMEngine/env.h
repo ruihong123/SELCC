@@ -64,7 +64,7 @@ class DSMEngine_EXPORT Env {
   // system.  Sophisticated users may wish to provide their own Env
   // implementation instead of relying on this default environment.
   //
-  // The result of Default() belongs to DSMEngine and must never be deleted.
+  // The result of Internal_and_Leaf() belongs to DSMEngine and must never be deleted.
   static Env* Default();
 
   // Create an object that sequentially reads the file with the specified name.

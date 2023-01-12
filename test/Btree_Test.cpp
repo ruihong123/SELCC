@@ -21,22 +21,35 @@ namespace DSMEngine {
             rdma_mg = RDMA_Manager::Get_Instance(config);
             rdma_mg->Mempool_initialize(DataChunk, INDEX_BLOCK, 0);
             rdma_mg->node_id = 0;
-            tree = new Btr(rdma_mg);
+            tree = new Btr(rdma_mg, nullptr, 0);
         }
 
 
 
         DSMEngine::RDMA_Manager* rdma_mg;
         Btr* tree;
+        std::map<Key, Value> in_memory_records;
 
     };
 
     TEST_F(Btree_Test, loading) {
         for (int i = 0; i < 1000000; ++i) {
-            tree->insert(i,i);
+            Key k = i;
+            Value v = i;
+            tree->insert(k,v);
+            in_memory_records.insert({k,v});
+
         }
 
         ASSERT_EQ(rdma_mg->name_to_mem_pool.at(DataChunk).size(), 1);
+    }
+    TEST_F(Btree_Test, retrieval) {
+        for (int i = 0; i < 1000000; ++i) {
+            Key k = i;
+            Value v;
+            tree->search(i, v);
+            ASSERT_EQ(in_memory_records.at(k),v);
+        }
     }
 }
 int main(int argc, char** argv) {

@@ -24,6 +24,8 @@
 
 #define LATENCY_WINDOWS 1000000
 
+
+
 #define STRUCT_OFFSET(type, field)                                             \
   (char *)&((type *)(0))->field - (char *)((type *)(0))
 
@@ -49,19 +51,19 @@
 
 #define DIR_MESSAGE_NR 128
 
-#define kInternalPageSize 1024
+#define kInternalPageSize 2*1024
 
-#define kLeafPageSize 16*1024
+#define kLeafPageSize 2*1024
 
 #define KEY_PADDING 12
 
 #define VALUE_PADDING 392
 // }
 
-void bindCore(uint16_t core);
+void bindCore(uint16_t thread_id);
 char *getIP();
 char *getMac();
-
+constexpr int mem_cst_seq = __ATOMIC_SEQ_CST;
 inline int bits_in(std::uint64_t u) {
   auto bs = std::bitset<64>(u);
   return bs.count();
@@ -79,7 +81,7 @@ struct CoroContext {
 };
 
 namespace define {
-
+//use the define::GB instead of 1024*1024*1024, because bydefault, the number is int which is smaller or equal than 1 GB.
 constexpr uint64_t MB = 1024ull * 1024;
 constexpr uint64_t GB = 1024ull * MB;
 constexpr uint16_t kCacheLineSize = 64;
@@ -108,7 +110,7 @@ constexpr int64_t kPerCoroRdmaBuf = 128 * 1024;
 
 constexpr uint8_t kMaxHandOverTime = 8;
 
-constexpr int kIndexCacheSize = 10000; // MB
+constexpr int kIndexCacheSize = 2048; // MB
 } // namespace define
 
 static inline unsigned long long asm_rdtsc(void) {
@@ -179,6 +181,10 @@ inline GlobalAddress GADD(const GlobalAddress &addr, int off) {
     auto ret = addr;
     ret.offset += off;
     return ret;
+}
+// THis function will directly modify the reference.
+inline void LADD(void*& addr, int off) {
+    addr = (void*)((char*)addr + off);
 }
 
 inline bool operator==(const GlobalAddress &lhs, const GlobalAddress &rhs) {

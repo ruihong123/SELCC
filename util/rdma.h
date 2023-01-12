@@ -25,10 +25,12 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include "util/thread_local.h"
+//#include "page.h"
 //#include "HugePageAlloc.h"
 #include "Common.h"
 #include "port/port_posix.h"
 #include "mutexlock.h"
+#include "ThreadPool.h"
 #include <atomic>
 #include <chrono>
 #include <iostream>
@@ -37,6 +39,7 @@
 #include <shared_mutex>
 #include <vector>
 #include <list>
+#include <cstdint>
 //#include <boost/lockfree/spsc_queue.hpp>
 #define _mm_clflush(addr)\
 	asm volatile("clflush %0" : "+m" (*(volatile char *)(addr)))
@@ -71,11 +74,10 @@
 #define FILTER_BLOCK  (2*1024*1024)
 namespace DSMEngine {
 
-enum Chunk_type {Default, LockTable, Message, Version_edit, IndexChunk, FilterChunk, FlushBuffer, DataChunk};
-static const char * EnumStrings[] = { "Message", "Version_edit",
-      "IndexChunk", "FilterChunk", "FlushBuffer", "Default" };
+enum Chunk_type {Internal_and_Leaf, LockTable, Message, Version_edit, IndexChunk, FilterChunk, FlushBuffer, DataChunk};
+static const char * EnumStrings[] = { "Internal_and_Leaf", "LockTable", "Message", "Version_edit", "IndexChunk", "FilterChunk", "FlushBuffer", "DataChunk"};
 
-static char config_file_name[100] = "../connection_bigdata.conf";
+static char config_file_name[100] = "../connection.conf";
 
 struct config_t {
   const char* dev_name;    /* IB device name */
@@ -84,16 +86,35 @@ struct config_t {
   int ib_port; /* local IB port to work with, or physically port number */
   int gid_idx; /* gid index to use */
   int init_local_buffer_size; /*initial local SST buffer size*/
+  uint16_t node_id;
 };
+//enum Multi_Exchange_Type {
+//    invalid_ME = 0,
+//    exchange_qps,
+//    compute_synchronization
+//};
+
+
 /* structure to exchange data which is needed to connect the QPs */
-struct registered_qp_config {
+struct Registered_qp_config {
   uint32_t qp_num; /* QP number */
   uint16_t lid;    /* LID of the IB port */
   uint8_t gid[16]; /* gid */
   uint16_t node_id;
 } __attribute__((packed));
+#define NUM_QP_ACCROSS_COMPUTE 1
+struct Registered_qp_config_xcompute {
+    uint32_t qp_num[NUM_QP_ACCROSS_COMPUTE]; /* QP numbers */
+    uint16_t lid;    /* LID of the IB port */
+    uint8_t gid[16]; /* gid */
+    uint32_t node_id_pairs; // this node (16 bytes) & target nodeid <<16 (16 bytes)
+} __attribute__((packed));
+//struct Multinode_Exchange_request{
+//    Multi_Exchange_Type type;
+//    Registered_qp_config qp_info;
+//};
 using QP_Map = std::map<uint16_t, ibv_qp*>;
-using QP_Info_Map = std::map<uint16_t, registered_qp_config*>;
+using QP_Info_Map = std::map<uint16_t, Registered_qp_config*>;
 using CQ_Map = std::map<uint16_t, ibv_cq*>;
 struct install_versionedit {
   bool trival;
@@ -119,7 +140,7 @@ struct New_Root {
 
 } __attribute__((packed));
 enum RDMA_Command_Type {
-  invalid_command_,
+  invalid_command_ = 0,
   create_qp_,
   create_mr_,
   near_data_compaction,
@@ -127,7 +148,12 @@ enum RDMA_Command_Type {
   version_unpin_,
   sync_option,
   qp_reset_,
-  broadcast_root
+  broadcast_root,
+  page_invalidation,
+  put_qp_info,
+  get_qp_info,
+  release_write_lock,
+  release_read_lock
 
 
 };
@@ -145,7 +171,8 @@ struct sst_gc {
 // when receive a message from the main queue pair.
 union RDMA_Request_Content {
   size_t mem_size;
-  registered_qp_config qp_config;
+  Registered_qp_config qp_config;
+  Registered_qp_config_xcompute qp_config_xcompute;
   fs_sync_command fs_sync_cmd;
   install_versionedit ive;
   sst_gc gc;
@@ -153,10 +180,12 @@ union RDMA_Request_Content {
   sst_unpin psu;
   size_t unpinned_version_id;
   New_Root root_broadcast;
+  uint16_t target_id_pair;
 };
 union RDMA_Reply_Content {
   ibv_mr mr;
-  registered_qp_config qp_config;
+  Registered_qp_config qp_config;
+  Registered_qp_config_xcompute qp_config_xcompute;
   install_versionedit ive;
 };
 struct RDMA_Request {
@@ -280,7 +309,7 @@ struct resources {
  // TODO: we can have mulitple cq_map and qp_maps to broaden the RPC bandwidth.
   std::map<uint16_t, std::pair<ibv_cq*, ibv_cq*>> cq_map; /* CQ Map */
   std::map<uint16_t, ibv_qp*> qp_map; /* QP Map */
-  std::map<uint16_t, registered_qp_config*> qp_main_connection_info;
+  std::map<uint16_t, Registered_qp_config*> qp_main_connection_info;
   struct ibv_mr* mr_receive = nullptr;   /* MR handle for receive_buf */
   struct ibv_mr* mr_send = nullptr;      /* MR handle for send_buf */
   //  struct ibv_mr* mr_SST = nullptr;                        /* MR handle for SST_buf */ struct ibv_mr* mr_remote;                     /* remote MR handle for computing node */
@@ -331,17 +360,24 @@ class RDMA_Manager {
    * RDMA set up create all the resources, and create one query pair for RDMA send & Receive.
    */
   void Client_Set_Up_Resources();
+//  void Socket_listening()
   void Initialize_threadlocal_map();
   // Set up the socket connection to remote shared memory.
   bool Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id);
-
+  void Cross_Computes_RPC_Threads(uint16_t target_node_id);
+    void Put_qp_info_into_RemoteM(uint16_t target_node_id,
+                                  std::array<ibv_cq *, NUM_QP_ACCROSS_COMPUTE * 2> *cq_arr,
+                                  std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUTE> *qp_arr);
+    Registered_qp_config_xcompute Get_qp_info_from_RemoteM(uint16_t target_node_id);
   //Computes node sync compute sides (block function)
   void sync_with_computes_Cside();
+    void sync_with_computes_Mside();
   // For the non-cached page only.
   ibv_mr* Get_local_read_mr();
+    ibv_mr* Get_local_message_mr();
     ibv_mr* Get_local_CAS_mr();
   //Computes node sync memory sides (block function)
-  void sync_with_computes_Mside();
+
   void broadcast_to_computes_through_socket();
   ibv_mr* create_index_table();
   ibv_mr* create_lock_table();
@@ -375,7 +411,7 @@ class RDMA_Manager {
   // The RPC to bulk deallocation.
 //  void Memory_Deallocation_RPC(uint16_t target_node_id);
   //TODO: Make it register not per 1GB, allocate and register the memory all at once.
-  ibv_mr * Preregister_Memory(int gb_number); //Pre register the memroy do not allocate bit map
+  ibv_mr * Preregister_Memory(size_t gb_number); //Pre register the memroy do not allocate bit map
   // Remote Memory registering will call RDMA send and receive to the remote memory it also push the new SST bit map to the Remote_Leaf_Node_Bitmap
   bool Remote_Memory_Register(size_t size, uint16_t target_node_id, Chunk_type pool_name);
   int Remote_Memory_Deregister();
@@ -400,13 +436,44 @@ class RDMA_Manager {
   int RDMA_Write_Imme(void* addr, uint32_t rkey, ibv_mr* local_mr,
                       size_t msg_size, std::string qp_type, size_t send_flag,
                       int poll_num, unsigned int imme, uint16_t target_node_id);
+  // Return 0 mean success
   int RDMA_CAS(GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t compare,
                uint64_t swap, size_t send_flag, int poll_num,
            Chunk_type pool_name, std::string qp_type = "default");
+  int RDMA_FAA(GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t add, size_t send_flag, int poll_num,
+                 Chunk_type pool_name, std::string qp_type = "default");
   int RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare, uint64_t swap, size_t send_flag, int poll_num,
                uint16_t target_node_id, std::string qp_type = "default");
-  void Prepare_WR_CAS(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t compare,
+    /**
+       * | write lock holder id 1 byte | read holder number 1byte| reader holder bitmap 47 bit| starving preventer|
+       * @param received_state
+       * @return
+       */
+    uint64_t renew_swap_by_received_state_readlock(uint64_t& received_state);
+    uint64_t renew_swap_by_received_state_readunlock(uint64_t& received_state);
+    uint64_t renew_swap_by_received_state_readupgrade(uint64_t& received_state);
+
+
+    void global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
+                                    ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt= nullptr, int coro_id = 0);
+    void global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt = nullptr, int coro_id = 0);
+    //TODO: there is a potential lock upgrade deadlock, how to solve it?
+    // potential solution: If not upgrade the lock after sending the message, the node should
+    // unlock the read lock and then acquire the write lock by seperated RDMAs.
+    // to avoid starvation, the updade RPC should let the reader release the lock with starvation preventer on.
+    bool global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt= nullptr, int coro_id = 0);
+
+
+    void global_Wlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
+                                    ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt= nullptr, int coro_id = 0);
+    void global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+                                       GlobalAddress remote_lock_addr, CoroContext *cxt = nullptr, int coro_id = 0, bool async = false);
+    void global_unlock_addr(GlobalAddress remote_lock_add, CoroContext *cxt= nullptr, int coro_id = 0, bool async = false);
+
+    void Prepare_WR_CAS(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t compare,
                       uint64_t swap, size_t send_flag, Chunk_type pool_name);
+    void Prepare_WR_FAA(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t add,
+                        size_t send_flag, Chunk_type pool_name);
   void Prepare_WR_Read(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress remote_ptr, ibv_mr *local_mr, size_t msg_size,
                        size_t send_flag, Chunk_type pool_name);
   void Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress remote_ptr, ibv_mr *local_mr, size_t msg_size,
@@ -440,6 +507,8 @@ class RDMA_Manager {
   int try_poll_completions(ibv_wc* wc_p, int num_entries,
                                        std::string& qp_type, bool send_cq,
                                        uint16_t target_node_id);
+    int try_poll_completions_xcompute(ibv_wc *wc_p, int num_entries, bool send_cq, uint16_t target_node_id,
+                                      int num_of_cp);
   void fs_serialization(
       char*& buff, size_t& size, std::string& db_name,
       std::unordered_map<std::string, SST_Metadata*>& file_to_sst_meta,
@@ -452,12 +521,16 @@ class RDMA_Manager {
   //  void mem_pool_serialization
   bool poll_reply_buffer(RDMA_Reply* rdma_reply);
   // TODO: Make all the variable more smart pointers.
+//#ifndef NDEBUG
+    static thread_local int thread_id;
+//#endif
   resources* res = nullptr;
   std::vector<ibv_mr*>
       remote_mem_pool; /* a vector for all the remote memory regions*/
  // TODO: seperate the pool for different shards
   std::vector<ibv_mr*>
-      local_mem_pool; /* a vector for all the local memory regions.*/
+      local_mem_regions; /* a vector for all the local memory regions.*/
+  ibv_mr* preregistered_region;
   std::list<ibv_mr*> pre_allocated_pool;
 //  std::map<void*, In_Use_Array*>* Remote_Leaf_Node_Bitmap;
 //TODO: seperate the remote registered memory as different chunk types. similar to name_to_mem_pool
@@ -493,22 +566,19 @@ class RDMA_Manager {
   std::map<uint16_t, ThreadLocalPtr*> qp_local_write_compact;
   std::map<uint16_t, ThreadLocalPtr*> cq_local_write_compact;
   std::map<uint16_t, ThreadLocalPtr*> local_write_compact_qp_info;
+    std::map<uint16_t, std::array<ibv_qp*, NUM_QP_ACCROSS_COMPUTE>*> qp_xcompute;
+    std::map<uint16_t, std::array<ibv_cq*, NUM_QP_ACCROSS_COMPUTE*2>*> cq_xcompute;
+//    std::map<uint16_t, Registered_qp_config_xcompute*> qp_xcompute_info;
   std::map<uint16_t, ThreadLocalPtr*> qp_data_default;
   std::map<uint16_t, ThreadLocalPtr*> cq_data_default;
   std::map<uint16_t, ThreadLocalPtr*> local_read_qp_info;
   ThreadLocalPtr* read_buffer;
+  ThreadLocalPtr* message_buffer;
   ThreadLocalPtr* CAS_buffer;
-//  ThreadLocalPtr* qp_local_write_flush;
-//  ThreadLocalPtr* cq_local_write_flush;
-//  ThreadLocalPtr* local_write_flush_qp_info;
-//  ThreadLocalPtr* qp_local_write_compact;
-//  ThreadLocalPtr* cq_local_write_compact;
-//  ThreadLocalPtr* local_write_compact_qp_info;
-//  ThreadLocalPtr* qp_data_default;
-//  ThreadLocalPtr* cq_data_default;
-//  ThreadLocalPtr* local_read_qp_info;
-  //  thread_local static std::unique_ptr<ibv_qp, QP_Deleter> qp_local_write_flush;
-  //  thread_local static std::unique_ptr<ibv_cq, CQ_Deleter> cq_local_write_flush;
+  ThreadPool bg_threads;
+
+  // TODO: replace the std::map<void*, In_Use_Array*> as a thread local vector of In_Use_Array*, so that
+  // the conflict can be minimized.
   std::unordered_map<Chunk_type, std::map<void*, In_Use_Array*>>
       name_to_mem_pool;
   std::unordered_map<Chunk_type, size_t> name_to_chunksize;
@@ -536,13 +606,17 @@ class RDMA_Manager {
 
   std::map<uint16_t, std::string> compute_nodes{};
   std::map<uint16_t, std::string> memory_nodes{};
-  std::atomic<uint64_t> connection_counter = 0;// Reuse by both compute nodes and memory nodes
+  std::atomic<uint64_t> memory_connection_counter = 0;// Reuse by both compute nodes and memory nodes
+    std::atomic<uint64_t> compute_connection_counter = 0;
   std::map<std::string, std::pair<ibv_cq*, ibv_cq*>> cq_map_Mside; /* CQ Map */
   std::map<std::string, ibv_qp*> qp_map_Mside; /* QP Map */
-  std::map<std::string, registered_qp_config*> qp_main_connection_info_Mside;
+  std::map<std::string, Registered_qp_config*> qp_main_connection_info_Mside;
   // This global index table is in the node 0;
+  std::mutex global_resources_mtx;
   ibv_mr* global_index_table = nullptr;
-    ibv_mr* global_lock_table = nullptr;
+  ibv_mr* global_lock_table = nullptr;
+
+
 #ifdef PROCESSANALYSIS
   static std::atomic<uint64_t> RDMAReadTimeElapseSum;
   static std::atomic<uint64_t> ReadCount;
@@ -663,17 +737,21 @@ class RDMA_Manager {
   int modify_qp_to_rts(struct ibv_qp* qp);
   ibv_qp* create_qp(uint16_t target_node_id, bool seperated_cq,
                     std::string& qp_type);
+  void create_qp_xcompute(uint16_t target_node_id, std::array<ibv_cq *, NUM_QP_ACCROSS_COMPUTE * 2> *cq_arr,
+                          std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUTE> *qp_arr);
   ibv_qp* create_qp_Mside(bool seperated_cq, std::string& qp_id);
   //q_id is for the remote qp informantion fetching
   int connect_qp(ibv_qp* qp, std::string& qp_type, uint16_t target_node_id);
   int connect_qp_Mside(ibv_qp* qp, std::string& q_id);
-  int connect_qp(ibv_qp* qp, registered_qp_config* remote_con_data);
+  int connect_qp(ibv_qp* qp, Registered_qp_config* remote_con_data);
+    int connect_qp_xcompute(std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUTE> *qp_arr, Registered_qp_config_xcompute* remote_con_data);
   int resources_destroy();
   void print_config(void);
   void usage(const char* argv0);
 
   int post_receive(ibv_mr** mr_list, size_t sge_size, std::string qp_type,
                    uint16_t target_node_id);
+    int post_receive_xcompute(ibv_mr *mr, uint16_t target_node_id, int num_of_qp);
   int post_send(ibv_mr** mr_list, size_t sge_size, std::string qp_type,
                 uint16_t target_node_id);
   template <typename T>
@@ -720,8 +798,8 @@ class RDMA_Manager {
         qp = static_cast<ibv_qp*>(qp_data_default.at(target_node_id)->Get());
       }
       rc = ibv_post_recv(qp, &rr, &bad_wr);
-    }else if (qp_type == "write_local_flush"){
-      qp = static_cast<ibv_qp*>(qp_local_write_flush.at(target_node_id)->Get());
+    }else if (qp_type == "Xcompute"){
+      qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[0]);
       if (qp == NULL) {
         Remote_Query_Pair_Connection(qp_type,target_node_id);
         qp = static_cast<ibv_qp*>(qp_local_write_flush.at(target_node_id)->Get());

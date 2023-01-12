@@ -1,11 +1,13 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.10)
 project(MemoryEngine)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DROCKSDB_SUPPORT_THREAD_LOCAL -Wall -Wextra -pthread ")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DROCKSDB_SUPPORT_THREAD_LOCAL -Wall -Wextra -pthread ") #-fsanitize=address
+#set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -Wextra -pthread")
+#set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -O0 -ggdb -Wall -Wextra -pthread")
 include_directories(
         "${PROJECT_SOURCE_DIR}"
 #        "${PROJECT_SOURCE_DIR}/third_party/googletest/googlemock"
@@ -76,6 +78,7 @@ target_include_directories(DSMEngine
 
         )
 enable_testing()
+#message(STATUS "cmake flag is release ${CMAKE_CXX_FLAGS_RELEASE}")
 # This project is tested using GoogleTest.
 add_subdirectory("third_party/googletest")
 find_package(ibverbs REQUIRED)
@@ -84,14 +87,14 @@ if(WITH_NUMA)
     find_package(NUMA REQUIRED)
     add_definitions(-DNUMA)
     include_directories(${NUMA_INCLUDE_DIR})
-    target_link_libraries(TimberSaw NUMA::NUMA)
+    target_link_libraries(DSMEngine NUMA::NUMA)
 endif()
-add_executable(MemoryEngine_Compute main.cpp)
+add_executable(TestTrial trial_test.cpp)
 add_executable(memory_server "server.cc"
         "memory_node/memory_node_keeper.h"
         "memory_node/memory_node_keeper.cpp")
 add_executable(btree_bench test/benchmark.cpp)
-target_link_libraries(MemoryEngine_Compute DSMEngine)
+target_link_libraries(TestTrial DSMEngine)
 target_link_libraries(memory_server DSMEngine)
 target_link_libraries(btree_bench DSMEngine)
 

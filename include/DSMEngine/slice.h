@@ -21,7 +21,7 @@
 #include <string>
 
 #include "DSMEngine/export.h"
-
+#include "Common.h"
 namespace DSMEngine {
 //TODO: make the size of slice extensible from outside.
 class DSMEngine_EXPORT Slice {
@@ -96,6 +96,9 @@ class DSMEngine_EXPORT Slice {
 //    assert(size_+size <= buffer_limit);
     memcpy((void*)(data_ + size_), (void*)p , size);
     size_+= size;
+  }
+  GlobalAddress ToGlobalAddress(){
+      return * (GlobalAddress*)data_;
   }
  private:
   const char* data_;

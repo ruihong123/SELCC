@@ -22,8 +22,34 @@
 
 #include "DSMEngine/export.h"
 #include "DSMEngine/slice.h"
+#include <shared_mutex>
+
 #include "Config.h"
 namespace DSMEngine {
+
+
+
+    // LRU table_cache implementation
+//
+// Cache entries have an "in_cache" boolean indicating whether the table_cache has a
+// reference on the entry.  The only ways that this can become false without the
+// entry being passed to its "deleter" are via Erase(), via Insert() when
+// an element with a duplicate key is inserted, or on destruction of the table_cache.
+//
+// The table_cache keeps two linked lists of items in the table_cache.  All items in the
+// table_cache are in one list or the other, and never both.  Items still referenced
+// by clients but erased from the table_cache are in neither list.  The lists are:
+// - in-use:  contains the items currently referenced by clients, in no
+//   particular order.  (This list is used for invariant checking.  If we
+//   removed the check, elements that would otherwise be on this list could be
+//   left as disconnected singleton lists.)
+// - LRU:  contains the items not currently referenced by clients, in LRU order
+// Elements are moved between these lists by the Ref() and Unref() methods,
+// when they detect an element in the table_cache acquiring or losing its only
+// external reference.
+
+// An entry is a variable length heap-allocated structure.  Entries
+// are kept in a circular doubly linked list ordered by access time.
 
 class DSMEngine_EXPORT Cache;
 
@@ -34,7 +60,26 @@ DSMEngine_EXPORT Cache* NewLRUCache(size_t capacity);
 class DSMEngine_EXPORT Cache {
  public:
   Cache() = default;
+    struct Handle {
+    public:
+        void* value = nullptr;
+        std::atomic<uint32_t> refs;     // References, including table_cache reference, if present.
+        //TODO: the internal node may not need the rw_mtx below, maybe we can delete them.
+        std::atomic<bool> remote_lock_urge;
+        std::atomic<int> remote_lock_status = 0; // 0 unlocked, 1 read locked, 2 write lock
+        GlobalAddress gptr = GlobalAddress::Null();
+        std::atomic<int> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
+        std::shared_mutex rw_mtx;
+        void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode);
+        ~Handle(){
+#ifndef NDEBUG
+//            if (gptr.offset < 9480863232){
+//                printf("Handle of page %lu is being deleted\n", gptr.offset);
+//            }
+#endif
+        }
 
+    };
   Cache(const Cache&) = delete;
   Cache& operator=(const Cache&) = delete;
 
@@ -43,8 +88,11 @@ class DSMEngine_EXPORT Cache {
   virtual ~Cache();
 
   // Opaque handle to an entry stored in the table_cache.
-  struct Handle {};
+
   virtual size_t GetCapacity() = 0;
+
+  //TODO: change the slice key to GlobalAddress& key.
+
   // Insert a mapping from key->value into the table_cache and assign it
   // the specified charge against the total table_cache capacity.
   //
@@ -55,7 +103,7 @@ class DSMEngine_EXPORT Cache {
   // When the inserted entry is no longer needed, the key and
   // value will be passed to "deleter".
   virtual Handle* Insert(const Slice& key, void* value, size_t charge,
-                         void (*deleter)(const Slice& key, void* value)) = 0;
+                         void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode)) = 0;
 
   // If the table_cache has no mapping for "key", returns nullptr.
   //
@@ -63,7 +111,10 @@ class DSMEngine_EXPORT Cache {
   // must call this->Release(handle) when the returned mapping is no
   // longer needed.
   virtual Handle* Lookup(const Slice& key) = 0;
-
+  //Atomic cache look up and Insert a new handle atomically for the key if not found.
+  virtual Handle* LookupInsert(const Slice& key, void* value,
+                                size_t charge,
+                                void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode)) = 0;
   // Release a mapping returned by a previous Lookup().
   // REQUIRES: handle must not have been released yet.
   // REQUIRES: handle must have been returned by a method on *this.
@@ -89,7 +140,7 @@ class DSMEngine_EXPORT Cache {
 
   // Remove all table_cache entries that are not actively in use.  Memory-constrained
   // applications may wish to call this method to reduce memory usage.
-  // Default implementation of Prune() does nothing.  Subclasses are strongly
+  // Internal_and_Leaf implementation of Prune() does nothing.  Subclasses are strongly
   // encouraged to override the default implementation.  A future release of
   // DSMEngine may change Prune() to a pure abstract method.
   virtual void Prune() {}
@@ -106,7 +157,26 @@ class DSMEngine_EXPORT Cache {
   struct Rep;
   Rep* rep_;
 };
+    struct LRUHandle : Cache::Handle {
 
+
+        LRUHandle* next_hash;// Next LRUhandle in the hash
+        LRUHandle* next;
+        LRUHandle* prev;
+        size_t charge;  // TODO(opt): Only allow uint32_t?
+        size_t key_length;
+        std::atomic<bool> in_cache;     // Whether entry is in the table_cache.
+        uint32_t hash;     // Hash of key(); used for fast sharding and comparisons
+//        char key_data[1];  // Beginning of key
+
+        Slice key() const {
+            // next_ is only equal to this if the LRU handle is the list head of an
+            // empty list. List heads never have meaningful keys.
+            assert(next != this);
+            assert(key_length == 8);
+            return Slice((char*)&gptr, key_length);
+        }
+    };
 class LocalBuffer {
 
     public:
