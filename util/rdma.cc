@@ -1020,7 +1020,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
             post_receive_xcompute(&j, target_node_id, i);
         }
     }
-    memory_connection_counter.fetch_add(1);
+    compute_connection_counter.fetch_add(1);
     //Do we need to sync below?, probably not at below, should be synced outside this function.
 
     ibv_wc wc[3] = {};
