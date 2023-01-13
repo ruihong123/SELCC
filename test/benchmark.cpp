@@ -259,7 +259,7 @@ void thread_run(int id) {
 
 void parse_args(int argc, char *argv[]) {
   if (argc != 5) {
-    printf("Usage: ./benchmark kReadRatio kThreadCount ThisNodeID tablescan\n");
+    printf("Usage: ./btree_bench kReadRatio kThreadCount ThisNodeID tablescan\n");
     exit(-1);
   }
 
