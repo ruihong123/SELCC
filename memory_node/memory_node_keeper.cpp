@@ -269,6 +269,8 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
         DEBUG_PRINT("QP has been reconnect from the memory node side\n");
         //TODO: Pause all the background tasks because the remote qp is not ready.
         // stop sending back messasges. The compute node may not reconnect its qp yet!
+      } else if (receive_msg_buf->command == heart_beat) {
+          //TODO: heartbeat for failure recovery.
 
       } else if (receive_msg_buf->command == broadcast_root) {
           rdma_mg->post_receive<RDMA_Request>(&recv_mr[buffer_position],

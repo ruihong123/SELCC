@@ -153,7 +153,8 @@ enum RDMA_Command_Type {
   put_qp_info,
   get_qp_info,
   release_write_lock,
-  release_read_lock
+  release_read_lock,
+  heart_beat
 
 
 };
@@ -415,6 +416,7 @@ class RDMA_Manager {
   ibv_mr * Preregister_Memory(size_t gb_number); //Pre register the memroy do not allocate bit map
   // Remote Memory registering will call RDMA send and receive to the remote memory it also push the new SST bit map to the Remote_Leaf_Node_Bitmap
   bool Remote_Memory_Register(size_t size, uint16_t target_node_id, Chunk_type pool_name);
+  bool Send_heart_beat();
   int Remote_Memory_Deregister();
   // new query pair creation and connection to remote Memory by RDMA send and receive
   bool Remote_Query_Pair_Connection(std::string& qp_type,

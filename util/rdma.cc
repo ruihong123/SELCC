@@ -992,7 +992,11 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
   //    printf("The main qp not create correctly");
   //    return false;
   //  }
+
+  //Check whether the connection is on through the hearbeat message
+    Send_heart_beat();
   memory_connection_counter.fetch_add(1);
+
   compute_message_handling_thread(qp_type, target_node_id);
   return false;
 }
@@ -1124,7 +1128,7 @@ void RDMA_Manager::Put_qp_info_into_RemoteM(uint16_t target_compute_node_id,
     fprintf(stdout, "Local LID = 0x%x\n", res->port_attr.lid);
 //    send_pointer->buffer = receive_mr.addr;
 //    send_pointer->rkey = receive_mr.rkey;
-    RDMA_Reply* receive_pointer;
+//    RDMA_Reply* receive_pointer;
     uint16_t target_memory_node_id = 1;
     //Use node 1 memory node as the place to store the temporary QP information
     post_send<RDMA_Request>(send_mr, target_memory_node_id, std::string("main"));
@@ -4109,7 +4113,35 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
   Deallocate_Local_RDMA_Slot(receive_mr.addr, Message);
   return true;
 }
-bool RDMA_Manager::Remote_Query_Pair_Connection(std::string& qp_type,
+
+    bool RDMA_Manager::Send_heart_beat() {
+        RDMA_Request* send_pointer;
+        ibv_mr* send_mr = Get_local_send_message_mr();
+        send_pointer = (RDMA_Request*)send_mr->addr;
+        send_pointer->command = heart_beat;
+
+
+//    send_pointer->buffer = receive_mr.addr;
+//    send_pointer->rkey = receive_mr.rkey;
+//    RDMA_Reply* receive_pointer;
+        uint16_t target_memory_node_id = 1;
+        //Use node 1 memory node as the place to store the temporary QP information
+        post_send<RDMA_Request>(send_mr, target_memory_node_id, std::string("main"));
+        ibv_wc wc[2] = {};
+
+        if (poll_completion(wc, 1, std::string("main"),
+                            true, target_memory_node_id)){
+//    assert(try_poll_completions(wc, 1, std::string("main"),true) == 0);
+            fprintf(stderr, "failed to poll send for remote memory register\n");
+        }
+        asm volatile ("sfence\n" : : );
+        asm volatile ("lfence\n" : : );
+        asm volatile ("mfence\n" : : );
+        return true;
+    }
+
+
+    bool RDMA_Manager::Remote_Query_Pair_Connection(std::string& qp_type,
                                                 uint16_t target_node_id) {
   ibv_qp* qp = create_qp(target_node_id, false, qp_type);
 
