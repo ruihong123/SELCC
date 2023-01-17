@@ -374,7 +374,8 @@ class RDMA_Manager {
     void sync_with_computes_Mside();
   // For the non-cached page only.
   ibv_mr* Get_local_read_mr();
-    ibv_mr* Get_local_message_mr();
+    ibv_mr* Get_local_send_message_mr();
+    ibv_mr* Get_local_receive_message_mr();
     ibv_mr* Get_local_CAS_mr();
   //Computes node sync memory sides (block function)
 
@@ -573,7 +574,8 @@ class RDMA_Manager {
   std::map<uint16_t, ThreadLocalPtr*> cq_data_default;
   std::map<uint16_t, ThreadLocalPtr*> local_read_qp_info;
   ThreadLocalPtr* read_buffer;
-  ThreadLocalPtr* message_buffer;
+  ThreadLocalPtr* send_message_buffer;
+  ThreadLocalPtr* receive_message_buffer;
   ThreadLocalPtr* CAS_buffer;
   ThreadPool bg_threads;
 

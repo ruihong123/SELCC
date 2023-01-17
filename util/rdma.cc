@@ -71,7 +71,8 @@ void General_Destroy(void* ptr){
     : total_registered_size(0),
       Table_Size(remote_block_size),
       read_buffer(new ThreadLocalPtr(&Destroy_mr)),
-      message_buffer(new ThreadLocalPtr(&Destroy_mr)),
+      send_message_buffer(new ThreadLocalPtr(&Destroy_mr)),
+      receive_message_buffer(new ThreadLocalPtr(&Destroy_mr)),
       CAS_buffer(new ThreadLocalPtr(&Destroy_mr)),
 //      qp_local_write_flush(new ThreadLocalPtr(&UnrefHandle_qp)),
 //      cq_local_write_flush(new ThreadLocalPtr(&UnrefHandle_cq)),
@@ -1097,7 +1098,7 @@ void RDMA_Manager::Put_qp_info_into_RemoteM(uint16_t target_compute_node_id,
                                             std::array<ibv_cq *, NUM_QP_ACCROSS_COMPUTE * 2> *cq_arr,
                                             std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUTE> *qp_arr) {
     RDMA_Request* send_pointer;
-    ibv_mr* send_mr = Get_local_message_mr();
+    ibv_mr* send_mr = Get_local_send_message_mr();
     send_pointer = (RDMA_Request*)send_mr->addr;
     send_pointer->command = put_qp_info;
     for (int i = 0; i < NUM_QP_ACCROSS_COMPUTE; ++i) {
@@ -1149,15 +1150,16 @@ void RDMA_Manager::Put_qp_info_into_RemoteM(uint16_t target_compute_node_id,
 
 Registered_qp_config_xcompute RDMA_Manager::Get_qp_info_from_RemoteM(uint16_t target_compute_node_id) {
     RDMA_Request* send_pointer;
-    ibv_mr* send_mr = Get_local_message_mr();
+    ibv_mr* send_mr = Get_local_send_message_mr();
+    ibv_mr* receive_mr = Get_local_receive_message_mr();
     send_pointer = (RDMA_Request*)send_mr->addr;
     send_pointer->command = get_qp_info;
 
     send_pointer->content.target_id_pair = (node_id << 16) & target_compute_node_id;
-    send_pointer->buffer = send_mr->addr;
-    send_pointer->rkey = send_mr->rkey;
+    send_pointer->buffer = receive_mr->addr;
+    send_pointer->rkey = receive_mr->rkey;
     RDMA_Reply* receive_pointer;
-    receive_pointer = (RDMA_Reply*)send_mr->addr;
+    receive_pointer = (RDMA_Reply*)receive_mr->addr;
     //Clear the reply buffer for the polling.
     *receive_pointer = {};
 //  post_receive<registered_qp_config>(res->mr_receive, std::string("main"));
@@ -1286,16 +1288,30 @@ ibv_mr* RDMA_Manager::Get_local_read_mr() {
     assert(ret + 0);
   return ret;
 }
-    ibv_mr* RDMA_Manager::Get_local_message_mr() {
+    ibv_mr* RDMA_Manager::Get_local_send_message_mr() {
         ibv_mr* ret;
-        ret = (ibv_mr*)message_buffer->Get();
+        ret = (ibv_mr*)send_message_buffer->Get();
         if (ret == nullptr){
             char* buffer = new char[name_to_chunksize.at(Internal_and_Leaf)];
             auto mr_flags =
                     IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
             //  auto start = std::chrono::high_resolution_clock::now();
             ret = ibv_reg_mr(res->pd, buffer, name_to_chunksize.at(Internal_and_Leaf), mr_flags);
-            message_buffer->Reset(ret);
+            send_message_buffer->Reset(ret);
+        }
+        assert(ret + 0);
+        return ret;
+    }
+    ibv_mr* RDMA_Manager::Get_local_receive_message_mr() {
+        ibv_mr* ret;
+        ret = (ibv_mr*)receive_message_buffer->Get();
+        if (ret == nullptr){
+            char* buffer = new char[name_to_chunksize.at(Internal_and_Leaf)];
+            auto mr_flags =
+                    IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
+            //  auto start = std::chrono::high_resolution_clock::now();
+            ret = ibv_reg_mr(res->pd, buffer, name_to_chunksize.at(Internal_and_Leaf), mr_flags);
+            receive_message_buffer->Reset(ret);
         }
         assert(ret + 0);
         return ret;

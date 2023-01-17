@@ -560,7 +560,7 @@ int Memory_Node_Keeper::server_sock_connect(const char* servername, int port) {
         DEBUG_PRINT("handling get qp info \n");
         int rc;
 
-        ibv_mr* send_mr = rdma_mg->Get_local_message_mr();
+        ibv_mr* send_mr = rdma_mg->Get_local_send_message_mr();
         RDMA_Reply* send_pointer = (RDMA_Reply*)send_mr->addr;
 //        std::unique_lock<std::mutex> l(qp_info_mtx);
         while(ready_for_get.load() == false);
