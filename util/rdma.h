@@ -181,7 +181,7 @@ union RDMA_Request_Content {
   sst_unpin psu;
   size_t unpinned_version_id;
   New_Root root_broadcast;
-  uint16_t target_id_pair;
+  uint32_t target_id_pair;
 };
 union RDMA_Reply_Content {
   ibv_mr mr;
