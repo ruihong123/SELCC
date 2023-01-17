@@ -1090,7 +1090,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
 
 
 }
-void RDMA_Manager::Put_qp_info_into_RemoteM(uint16_t target_node_id,
+void RDMA_Manager::Put_qp_info_into_RemoteM(uint16_t target_compute_node_id,
                                             std::array<ibv_cq *, NUM_QP_ACCROSS_COMPUTE * 2> *cq_arr,
                                             std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUTE> *qp_arr) {
     RDMA_Request* send_pointer;
@@ -1116,16 +1116,14 @@ void RDMA_Manager::Put_qp_info_into_RemoteM(uint16_t target_node_id,
         memset(&my_gid, 0, sizeof my_gid);
     send_pointer->content.qp_config_xcompute.lid = res->port_attr.lid;
     memcpy(send_pointer->content.qp_config_xcompute.gid, &my_gid, 16);
-    send_pointer->content.qp_config_xcompute.node_id_pairs = target_node_id & node_id << 16;
+    send_pointer->content.qp_config_xcompute.node_id_pairs = target_compute_node_id & node_id << 16;
     fprintf(stdout, "Local LID = 0x%x\n", res->port_attr.lid);
 //    send_pointer->buffer = receive_mr.addr;
 //    send_pointer->rkey = receive_mr.rkey;
     RDMA_Reply* receive_pointer;
-//    receive_pointer = (RDMA_Reply*)receive_mr.addr;
-    //Clear the reply buffer for the polling.
-//    *receive_pointer = {};
-//  post_receive<registered_qp_config>(res->mr_receive, std::string("main"));
-    post_send<RDMA_Request>(send_mr, 1, std::string("main"));
+    uint16_t target_memory_node_id = 1;
+    //Use node 1 memory node as the place to store the temporary QP information
+    post_send<RDMA_Request>(send_mr, target_memory_node_id, std::string("main"));
     ibv_wc wc[2] = {};
     //  while(wc.opcode != IBV_WC_RECV){
     //    poll_completion(&wc);
@@ -1136,7 +1134,7 @@ void RDMA_Manager::Put_qp_info_into_RemoteM(uint16_t target_node_id,
     //  }
     //  assert(wc.opcode == IBV_WC_RECV);
     if (poll_completion(wc, 1, std::string("main"),
-                        true, 1)){
+                        true, target_memory_node_id)){
 //    assert(try_poll_completions(wc, 1, std::string("main"),true) == 0);
         fprintf(stderr, "failed to poll send for remote memory register\n");
     }

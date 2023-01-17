@@ -365,7 +365,7 @@ class RDMA_Manager {
   // Set up the socket connection to remote shared memory.
   bool Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id);
   void Cross_Computes_RPC_Threads(uint16_t target_node_id);
-    void Put_qp_info_into_RemoteM(uint16_t target_node_id,
+    void Put_qp_info_into_RemoteM(uint16_t target_compute_node_id,
                                   std::array<ibv_cq *, NUM_QP_ACCROSS_COMPUTE * 2> *cq_arr,
                                   std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUTE> *qp_arr);
     Registered_qp_config_xcompute Get_qp_info_from_RemoteM(uint16_t target_node_id);
