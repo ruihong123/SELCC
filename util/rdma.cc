@@ -954,8 +954,10 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
     res->qp_main_connection_info.insert({target_node_id,remote_con_data});
   l.unlock();
   connect_qp(qp, qp_type, target_node_id);
+    //Check whether the connection is on through the hearbeat message
+    Send_heart_beat();
 
-  //  post_receive<int>(res->mr_receive, std::string("main"));
+
   if (sock_sync_data(res->sock_map[target_node_id], 3 * sizeof(ibv_mr), temp_send,
                      temp_receive)) /* just send a dummy char back and forth */
     {
@@ -993,8 +995,7 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
   //    return false;
   //  }
 
-  //Check whether the connection is on through the hearbeat message
-    Send_heart_beat();
+
   memory_connection_counter.fetch_add(1);
 
   compute_message_handling_thread(qp_type, target_node_id);
