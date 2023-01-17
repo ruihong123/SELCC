@@ -1147,13 +1147,13 @@ void RDMA_Manager::Put_qp_info_into_RemoteM(uint16_t target_compute_node_id,
 
 }
 
-Registered_qp_config_xcompute RDMA_Manager::Get_qp_info_from_RemoteM(uint16_t target_node_id) {
+Registered_qp_config_xcompute RDMA_Manager::Get_qp_info_from_RemoteM(uint16_t target_compute_node_id) {
     RDMA_Request* send_pointer;
     ibv_mr* send_mr = Get_local_message_mr();
     send_pointer = (RDMA_Request*)send_mr->addr;
     send_pointer->command = get_qp_info;
 
-    send_pointer->content.target_id_pair = (node_id << 16) & target_node_id;
+    send_pointer->content.target_id_pair = (node_id << 16) & target_compute_node_id;
     send_pointer->buffer = send_mr->addr;
     send_pointer->rkey = send_mr->rkey;
     RDMA_Reply* receive_pointer;
@@ -1161,7 +1161,8 @@ Registered_qp_config_xcompute RDMA_Manager::Get_qp_info_from_RemoteM(uint16_t ta
     //Clear the reply buffer for the polling.
     *receive_pointer = {};
 //  post_receive<registered_qp_config>(res->mr_receive, std::string("main"));
-    post_send<RDMA_Request>(send_mr, target_node_id, std::string("main"));
+    uint16_t target_memory_node_id = 1;
+    post_send<RDMA_Request>(send_mr, target_memory_node_id, std::string("main"));
     ibv_wc wc[2] = {};
     //  while(wc.opcode != IBV_WC_RECV){
     //    poll_completion(&wc);
@@ -1172,7 +1173,7 @@ Registered_qp_config_xcompute RDMA_Manager::Get_qp_info_from_RemoteM(uint16_t ta
     //  }
     //  assert(wc.opcode == IBV_WC_RECV);
     if (poll_completion(wc, 1, std::string("main"),
-                        true, target_node_id)){
+                        true, target_memory_node_id)){
 //    assert(try_poll_completions(wc, 1, std::string("main"),true) == 0);
         fprintf(stderr, "failed to poll send for remote memory register\n");
     }

@@ -368,7 +368,7 @@ class RDMA_Manager {
     void Put_qp_info_into_RemoteM(uint16_t target_compute_node_id,
                                   std::array<ibv_cq *, NUM_QP_ACCROSS_COMPUTE * 2> *cq_arr,
                                   std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUTE> *qp_arr);
-    Registered_qp_config_xcompute Get_qp_info_from_RemoteM(uint16_t target_node_id);
+    Registered_qp_config_xcompute Get_qp_info_from_RemoteM(uint16_t target_compute_node_id);
   //Computes node sync compute sides (block function)
   void sync_with_computes_Cside();
     void sync_with_computes_Mside();
