@@ -43,6 +43,7 @@ namespace DSMEngine{
         int16_t last_index;
         uint8_t level;
         friend class InternalPage;
+        friend class RDMA_Manager;
         friend class LeafPage;
         friend class Btr;
         friend class IndexCache;

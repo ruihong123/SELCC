@@ -31,6 +31,7 @@
 #include "port/port_posix.h"
 #include "mutexlock.h"
 #include "ThreadPool.h"
+#include "DSMEngine/cache.h"
 #include <atomic>
 #include <chrono>
 #include <iostream>
@@ -87,6 +88,7 @@ struct config_t {
   int gid_idx; /* gid index to use */
   int init_local_buffer_size; /*initial local SST buffer size*/
   uint16_t node_id;
+  DSMEngine::Cache* cache_prt;
 };
 //enum Multi_Exchange_Type {
 //    invalid_ME = 0,
@@ -167,6 +169,12 @@ struct sst_gc {
   size_t buffer_size;
 //  file_type type;
 };
+struct RUnlock_message{
+    GlobalAddress page_addr;
+};
+struct WUnlock_message{
+    GlobalAddress page_addr;
+};
 //TODO (ruihong): add the reply message address to avoid request&response conflict for the same queue pair.
 // In other word, the threads will not need to figure out whether this message is a reply or response,
 // when receive a message from the main queue pair.
@@ -182,6 +190,8 @@ union RDMA_Request_Content {
   size_t unpinned_version_id;
   New_Root root_broadcast;
   uint32_t target_id_pair;
+  RUnlock_message R_message;
+  WUnlock_message W_message;
 };
 union RDMA_Reply_Content {
   ibv_mr mr;
@@ -416,6 +426,8 @@ class RDMA_Manager {
   ibv_mr * Preregister_Memory(size_t gb_number); //Pre register the memroy do not allocate bit map
   // Remote Memory registering will call RDMA send and receive to the remote memory it also push the new SST bit map to the Remote_Leaf_Node_Bitmap
   bool Remote_Memory_Register(size_t size, uint16_t target_node_id, Chunk_type pool_name);
+  bool Exclusive_lock_invalidate_RPC(GlobalAddress glovk_ptr, uint16_t target_node_id);
+  bool Shared_lock_invalidate_RPC(GlobalAddress g_ptr, uint16_t target_node_id);
   bool Send_heart_beat();
   int Remote_Memory_Deregister();
   // new query pair creation and connection to remote Memory by RDMA send and receive
@@ -548,13 +560,7 @@ class RDMA_Manager {
     std::map<uint16_t, uint64_t> base_addr_map_lock;
 //    std::map<uint16_t, uint32_t> rkey_map_lock_area_size;
   size_t total_registered_size;
-  //  std::shared_mutex remote_pool_mutex;
-  //  std::map<void*, In_Use_Array>* Write_Local_Mem_Bitmap = nullptr;
-  ////  std::shared_mutex write_pool_mutex;
-  //  std::map<void*, In_Use_Array>* Read_Local_Mem_Bitmap = nullptr;
-  //  std::shared_mutex read_pool_mutex;
-  //  size_t Read_Block_Size;
-  //  size_t Write_Block_Size;
+
   uint64_t Table_Size;
   std::shared_mutex remote_mem_mutex;
 
@@ -590,6 +596,7 @@ class RDMA_Manager {
   std::shared_mutex local_mem_mutex;
   //Compute node is even, memory node is odd.
   static uint16_t node_id;
+  DSMEngine::Cache* page_cache_;
   std::unordered_map<uint16_t, ibv_mr*> comm_thread_recv_mrs;
   std::unordered_map<uint16_t , int> comm_thread_buffer;
 //  std::map<uint16_t, uint64_t*> deallocation_buffers;
@@ -756,7 +763,9 @@ class RDMA_Manager {
   int post_receive(ibv_mr** mr_list, size_t sge_size, std::string qp_type,
                    uint16_t target_node_id);
     int post_receive_xcompute(ibv_mr *mr, uint16_t target_node_id, int num_of_qp);
-  int post_send(ibv_mr** mr_list, size_t sge_size, std::string qp_type,
+    int post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int num_of_qp);
+
+        int post_send(ibv_mr** mr_list, size_t sge_size, std::string qp_type,
                 uint16_t target_node_id);
   template <typename T>
   int post_receive(ibv_mr* mr, uint16_t target_node_id,

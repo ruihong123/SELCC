@@ -331,6 +331,7 @@ int main(int argc, char *argv[]) {
               << BOOST_VERSION % 100                // patch level
               << std::endl;
   parse_args(argc, argv);
+    DSMEngine::Cache* cache_ptr = DSMEngine::NewLRUCache(define::kIndexCacheSize*define::MB);
 
     struct DSMEngine::config_t config = {
             NULL,  /* dev_name */
@@ -339,12 +340,12 @@ int main(int argc, char *argv[]) {
             1,	 /* ib_port */ //physical
             1, /* gid_idx */
             4*10*1024*1024, /*initial local buffer size*/
-            ThisNodeID
+            ThisNodeID,
+            cache_ptr
     };
 //    DSMEngine::RDMA_Manager::node_id = ThisNodeID;
 
     rdma_mg = DSMEngine::RDMA_Manager::Get_Instance(config);
-    DSMEngine::Cache* cache_ptr = DSMEngine::NewLRUCache(define::kIndexCacheSize*define::MB);
     assert(cache_ptr->GetCapacity()> 10000);
 //  rdma_mg->registerThread();
   tree = new DSMEngine::Btr(rdma_mg, cache_ptr, 0);

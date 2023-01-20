@@ -595,6 +595,7 @@ class ShardedLRUCache : public Cache {
 
         return shard_[Shard(hash)].Insert(key, hash, value, charge, deleter);
   }
+  //TODO: Change the search key to GlobalAddress.
   Handle* Lookup(const Slice& key) override {
       assert(capacity_ >= 1000);
     const uint32_t hash = HashSlice(key);
