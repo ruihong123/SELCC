@@ -4223,7 +4223,7 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress glovk_ptr, uint16
     ibv_wc wc[2] = {};
 
 
-    if (poll_completion(wc, 1, std::string("main"), true, target_node_id)){
+    if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, 0)){
         fprintf(stderr, "failed to poll send for remote memory register\n");
         return false;
     }
@@ -4250,11 +4250,11 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress glovk_ptr, uint16
 //    receive_pointer = (RDMA_Reply*)receive_mr.addr;
         //Clear the reply buffer for the polling.
 //    *receive_pointer = {};
-        post_send<RDMA_Request>(send_mr, target_node_id, std::string("main"));
+        post_send_xcompute(send_mr, target_node_id, 0);
         ibv_wc wc[2] = {};
 
 
-        if (poll_completion(wc, 1, std::string("main"), true, target_node_id)){
+        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, 0)){
             fprintf(stderr, "failed to poll send for remote memory register\n");
             return false;
         }
@@ -4993,6 +4993,61 @@ void RDMA_Manager::fs_deserilization(
   ibv_dereg_mr(local_mr);
   free(buff);
 }
+
+    int RDMA_Manager::poll_completion_xcompute(ibv_wc *wc_p, int num_entries, std::string qp_type, bool send_cq,
+                                               uint16_t target_node_id,
+                                               int num_of_cp) {
+// unsigned long start_time_msec;
+        // unsigned long cur_time_msec;
+        // struct timeval cur_time;
+        int poll_result;
+        int poll_num = 0;
+        int rc = 0;
+        ibv_cq* cq;
+        /* poll the completion for a while before giving up of doing it .. */
+        // gettimeofday(&cur_time, NULL);
+        // start_time_msec = (cur_time.tv_sec * 1000) + (cur_time.tv_usec / 1000);
+        if (send_cq)
+            cq = (*cq_xcompute.at(target_node_id))[num_of_cp*2];
+        else
+            cq = (*cq_xcompute.at(target_node_id))[num_of_cp*2+1];
+        do {
+            poll_result = ibv_poll_cq(cq, num_entries, &wc_p[poll_num]);
+            if (poll_result < 0)
+                break;
+            else
+                poll_num = poll_num + poll_result;
+            /*gettimeofday(&cur_time, NULL);
+            cur_time_msec = (cur_time.tv_sec * 1000) + (cur_time.tv_usec / 1000);*/
+        } while (poll_num < num_entries);  // && ((cur_time_msec - start_time_msec) < MAX_POLL_CQ_TIMEOUT));
+        //*(end) = std::chrono::steady_clock::now();
+        // end = std::chrono::steady_clock::now();
+        assert(poll_num == num_entries);
+        if (poll_result < 0) {
+            /* poll CQ failed */
+            fprintf(stderr, "poll CQ failed\n");
+            rc = 1;
+        } else if (poll_result == 0) { /* the CQ is empty */
+            fprintf(stderr, "completion wasn't found in the CQ after timeout\n");
+            rc = 1;
+        } else {
+            /* CQE found */
+            // fprintf(stdout, "completion was found in CQ with status 0x%x\n", wc.status);
+            /* check the completion status (here we don't care about the completion opcode */
+            for (auto i = 0; i < num_entries; i++) {
+                if (wc_p[i].status !=
+                    IBV_WC_SUCCESS)  // TODO:: could be modified into check all the entries in the array
+                {
+                    fprintf(stderr,
+                            "number %d got bad completion with status: 0x%x, vendor syndrome: 0x%x\n",
+                            i, wc_p[i].status, wc_p[i].vendor_err);
+                    assert(false);
+                    rc = 1;
+                }
+            }
+        }
+        return rc;
+    }
 
 
 

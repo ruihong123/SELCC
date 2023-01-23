@@ -499,6 +499,8 @@ class RDMA_Manager {
   // For a thread-local queue pair, the send_cq does not matter.
   int poll_completion(ibv_wc* wc_p, int num_entries, std::string qp_type,
                       bool send_cq, uint16_t target_node_id);
+  int poll_completion_xcompute(ibv_wc *wc_p, int num_entries, std::string qp_type, bool send_cq, uint16_t target_node_id,
+                             int num_of_cp);
   void BatchGarbageCollection(uint64_t* ptr, size_t size);
   bool Deallocate_Local_RDMA_Slot(ibv_mr* mr, ibv_mr* map_pointer,
                                   Chunk_type buffer_type);
