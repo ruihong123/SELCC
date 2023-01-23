@@ -3416,7 +3416,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
         //TODO: send an RPC to the destination every 4 retries.
         if (retry_cnt % 4 ==  2) {
-            assert(compare%2 == 0);
+            assert(compare > 0);
             // the compared value is the real id /2 + 1.
             Exclusive_lock_invalidate_RPC(page_addr, (compare-1)*2);
         }
