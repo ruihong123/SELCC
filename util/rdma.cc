@@ -3282,10 +3282,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint8_t target_compute_node_id = 0;
         retry:
         retry_cnt++;
-        if (retry_cnt % 4 ==  1) {
+        if (retry_cnt % 4 ==  2) {
 //            assert(compare%2 == 0);
             assert(target_compute_node_id != (RDMA_Manager::node_id/2 +1));
-            Shared_lock_invalidate_RPC(page_addr, target_compute_node_id);
+            Exclusive_lock_invalidate_RPC(page_addr, target_compute_node_id);
         }
         if (retry_cnt > 300000) {
             std::cout << "Deadlock " << lock_addr << std::endl;
@@ -3314,7 +3314,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             assert(false);
 //            assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1)))== 0);
 //            Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, -add, 0, Internal_and_Leaf);
-
+            //TODO: check the starvation bit to decide whether there is an immediate retry.
             RDMA_FAA(lock_addr, cas_buffer, -add, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             target_compute_node_id = ((return_value >> 56) - 1)*2;
             goto retry;
@@ -3408,17 +3408,29 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
         *(uint64_t *)cas_buffer->addr = 0;
-        uint64_t compare = 0;
-
-        retry:
+        std::vector<uint16_t> read_invalidation_targets;
+        int write_invalidation_target = -1;
+        int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
+    retry:
         retry_cnt++;
+        uint64_t compare = 0;
         // We need a + 1 for the id, because id 0 conflict with the unlock bit
         uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
         //TODO: send an RPC to the destination every 4 retries.
-        if (retry_cnt % 4 ==  2) {
-            assert(compare > 0);
+        // Check whether the invalidation is write type or read type. If it is a read type
+        // we need to broadcast the message to multiple destination.
+        if (retry_cnt % 3 ==  2) {
+            if (invalidation_RPC_type == 1){
+                assert(!read_invalidation_targets.empty());
+                for (auto iter: read_invalidation_targets) {
+                    Shared_lock_invalidate_RPC(page_addr, iter);
+                }
+            }else if (invalidation_RPC_type == 2){
+                assert(write_invalidation_target >0);
+                Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
+
+            }
             // the compared value is the real id /2 + 1.
-            Exclusive_lock_invalidate_RPC(page_addr, (compare-1)*2);
         }
         if (retry_cnt > 300000) {
             std::cout << "Deadlock for write lock " << lock_addr << std::endl;
@@ -3439,13 +3451,34 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         Batch_Submit_WRs(sr, 1, page_addr.nodeID);
 
         if ((*(uint64_t*) cas_buffer->addr) != compare){
+            // clear the invalidation targets
+            read_invalidation_targets.clear();
+            write_invalidation_target = -1;
+            // use usleep ?
 //            conflict_tag = *(uint64_t*)cas_buffer->addr;
 //            if (conflict_tag != pre_tag) {
 //                retry_cnt = 0;
 //                pre_tag = conflict_tag;
 //            }
-            compare = (*(uint64_t*) cas_buffer->addr)>>56;
-            goto retry;
+            uint64_t cas_value = (*(uint64_t*) cas_buffer->addr);
+            uint64_t write_byte = cas_value >> 56;
+            if (write_byte > 0){
+                invalidation_RPC_type = 2;
+                goto retry;
+            }
+//            uint64_t read_bit_pos = 0;
+            for (uint32_t i = 1; i < 56; ++i) {
+                uint32_t  remain_bit = (cas_value >> i)%2;
+                if (remain_bit == 1){
+                    read_invalidation_targets.push_back((i-1)*2);
+                    invalidation_RPC_type = 1;
+                }
+            }
+            if (!read_invalidation_targets.empty()){
+                goto retry;
+            }
+
+
         }
 
     }
@@ -3454,13 +3487,15 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
-
+    retry:
         if (async){
 
             Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
             *(uint64_t*) local_CAS_mr->addr = 0;
-            //TODO: Make the unlocking based on RDMA CAS.
+            //TODO 1: Make the unlocking based on RDMA CAS.
+            //TODO 2: implement a retry mechanism based on RDMA CAS. THe write unlock can be failed because the RDMA FAA test and reset the lock words.
+
             Prepare_WR_Write(sr[1], sge[1], remote_lock_addr, local_CAS_mr, sizeof(uint64_t), IBV_SEND_FENCE, Internal_and_Leaf);
             sr[0].next = &sr[1];
 
