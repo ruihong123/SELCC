@@ -3819,7 +3819,7 @@ int RDMA_Manager::post_receive_xcompute(ibv_mr *mr, uint16_t target_node_id, int
     memset(&sge, 0, sizeof(sge));
     sge.addr = (uintptr_t)mr->addr;
     assert(mr->length != 0);
-    printf("The length of the mr is %lu", mr->length);
+//    printf("The length of the mr is %lu", mr->length);
     sge.length = mr->length;
     sge.lkey = mr->lkey;
 
