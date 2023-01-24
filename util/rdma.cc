@@ -3409,7 +3409,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t conflict_tag = 0;
         *(uint64_t *)cas_buffer->addr = 0;
         std::vector<uint16_t> read_invalidation_targets;
-        int write_invalidation_target = -1;
+        uint16_t write_invalidation_target = 0-1;
         int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
     retry:
         retry_cnt++;
@@ -3426,7 +3426,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                     Shared_lock_invalidate_RPC(page_addr, iter);
                 }
             }else if (invalidation_RPC_type == 2){
-                assert(write_invalidation_target >0);
+                assert(write_invalidation_target != 0-1);
                 Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
 
             }
@@ -3449,7 +3449,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
         Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-
+        invalidation_RPC_type = 0;
         if ((*(uint64_t*) cas_buffer->addr) != compare){
             // clear the invalidation targets
             read_invalidation_targets.clear();
@@ -3464,6 +3464,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             uint64_t write_byte = cas_value >> 56;
             if (write_byte > 0){
                 invalidation_RPC_type = 2;
+                write_invalidation_target = write_byte;
                 goto retry;
             }
 //            uint64_t read_bit_pos = 0;
