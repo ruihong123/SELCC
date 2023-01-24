@@ -3464,7 +3464,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             uint64_t write_byte = cas_value >> 56;
             if (write_byte > 0){
                 invalidation_RPC_type = 2;
-                write_invalidation_target = write_byte;
+                write_invalidation_target = (write_byte - 1)*2;
                 goto retry;
             }
 //            uint64_t read_bit_pos = 0;
