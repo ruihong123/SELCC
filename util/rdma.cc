@@ -1789,7 +1789,7 @@ int RDMA_Manager::connect_qp_xcompute(std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUT
             fprintf(stderr, "change QP xcompute state to INIT failed\n");
             goto connect_qp_exit;
         }
-
+        fprintf(stderr, "received QP xcompute number is 0x%x\n", remote_con_data->qp_num[i]);
         /* modify the QP to RTR */
         rc = modify_qp_to_rtr((*qp_arr)[i], remote_con_data->qp_num[i], remote_con_data->lid,
                               remote_con_data->gid);
