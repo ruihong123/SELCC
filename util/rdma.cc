@@ -1771,7 +1771,7 @@ int RDMA_Manager::connect_qp_xcompute(std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUT
     if (rdma_config.gid_idx >= 0) {
         uint8_t* p = remote_con_data->gid;
         fprintf(stdout,
-                "Remote GID =%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n ",
+                "Remote xcompute GID  =%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n ",
                 p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10],
                 p[11], p[12], p[13], p[14], p[15]);
     }
@@ -1779,7 +1779,7 @@ int RDMA_Manager::connect_qp_xcompute(std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUT
         /* modify the QP to init */
         rc = modify_qp_to_init((*qp_arr)[i]);
         if (rc) {
-            fprintf(stderr, "change QP state to INIT failed\n");
+            fprintf(stderr, "change QP xcompute state to INIT failed\n");
             goto connect_qp_exit;
         }
 
@@ -1787,15 +1787,15 @@ int RDMA_Manager::connect_qp_xcompute(std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUT
         rc = modify_qp_to_rtr((*qp_arr)[i], remote_con_data->qp_num[i], remote_con_data->lid,
                               remote_con_data->gid);
         if (rc) {
-            fprintf(stderr, "failed to modify QP state to RTR\n");
+            fprintf(stderr, "failed to modify QP xcompute state to RTR\n");
             goto connect_qp_exit;
         }
         rc = modify_qp_to_rts((*qp_arr)[i]);
         if (rc) {
-            fprintf(stderr, "failed to modify QP state to RTS\n");
+            fprintf(stderr, "failed to modify QP xcompute state to RTS\n");
             goto connect_qp_exit;
         }
-        fprintf(stdout, "QP %p state was change to RTS\n", (*qp_arr)[i]);
+        fprintf(stdout, "QP xcompute %p state was change to RTS\n", (*qp_arr)[i]);
     }
 
     /* sync to make sure that both sides are in states that they can connect to prevent packet loose */
