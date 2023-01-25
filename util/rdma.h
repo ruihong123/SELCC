@@ -429,6 +429,7 @@ class RDMA_Manager {
   bool Exclusive_lock_invalidate_RPC(GlobalAddress glovk_ptr, uint16_t target_node_id);
   bool Shared_lock_invalidate_RPC(GlobalAddress g_ptr, uint16_t target_node_id);
   bool Send_heart_beat();
+    bool Send_heart_beat_xcompute(uint16_t target_memory_node_id);
   int Remote_Memory_Deregister();
   // new query pair creation and connection to remote Memory by RDMA send and receive
   bool Remote_Query_Pair_Connection(std::string& qp_type,

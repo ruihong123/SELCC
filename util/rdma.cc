@@ -1030,6 +1030,11 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
             post_receive_xcompute(&j, target_node_id, i);
         }
     }
+    //TODO: delete the code below.
+    if(node_id == 0 && compute_nodes.size() == 2){
+        Send_heart_beat_xcompute(2);
+
+    }
     compute_connection_counter.fetch_add(1);
     //Do we need to sync below?, probably not at below, should be synced outside this function.
 
@@ -1116,6 +1121,8 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                     global_RUnlock(g_ptr, cas_mr);
                 }
 
+            } else if (receive_msg_buf->command == heart_beat) {
+                post_receive_xcompute(&recv_mr[buffer_position],target_node_id,i);
 
 
             } else {
@@ -4317,6 +4324,31 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress glovk_ptr, uint16
 
         if (poll_completion(wc, 1, std::string("main"),
                             true, target_memory_node_id)){
+//    assert(try_poll_completions(wc, 1, std::string("main"),true) == 0);
+            fprintf(stderr, "failed to poll send for remote memory register\n");
+        }
+        asm volatile ("sfence\n" : : );
+        asm volatile ("lfence\n" : : );
+        asm volatile ("mfence\n" : : );
+        return true;
+    }
+    bool RDMA_Manager::Send_heart_beat_xcompute(uint16_t target_memory_node_id) {
+        RDMA_Request* send_pointer;
+        ibv_mr* send_mr = Get_local_send_message_mr();
+        send_pointer = (RDMA_Request*)send_mr->addr;
+        send_pointer->command = heart_beat;
+
+
+//    send_pointer->buffer = receive_mr.addr;
+//    send_pointer->rkey = receive_mr.rkey;
+//    RDMA_Reply* receive_pointer;
+
+        //Use node 1 memory node as the place to store the temporary QP information
+        post_send_xcompute(send_mr, target_memory_node_id, 0);
+        ibv_wc wc[2] = {};
+
+        if (poll_completion_xcompute(wc, 1, std::string("main"),
+                            true, target_memory_node_id, 0)){
 //    assert(try_poll_completions(wc, 1, std::string("main"),true) == 0);
             fprintf(stderr, "failed to poll send for remote memory register\n");
         }
