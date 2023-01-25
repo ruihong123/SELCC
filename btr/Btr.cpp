@@ -2550,6 +2550,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //            usleep(1);
             }
             assert(page->local_lock_meta.local_lock_byte == 1);
+            assert(!page->check_lock_state());
 
 
 //        lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
