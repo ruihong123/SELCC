@@ -1169,7 +1169,7 @@ void RDMA_Manager::Put_qp_info_into_RemoteM(uint16_t target_compute_node_id,
         memset(&my_gid, 0, sizeof my_gid);
     send_pointer->content.qp_config_xcompute.lid = res->port_attr.lid;
     memcpy(send_pointer->content.qp_config_xcompute.gid, &my_gid, 16);
-    send_pointer->content.qp_config_xcompute.node_id_pairs = target_compute_node_id | ((uint32_t)node_id) << 16;
+    send_pointer->content.qp_config_xcompute.node_id_pairs = (uint32_t)target_compute_node_id | ((uint32_t)node_id) << 16;
     fprintf(stdout, "Local LID = 0x%x\n", res->port_attr.lid);
 //    send_pointer->buffer = receive_mr.addr;
 //    send_pointer->rkey = receive_mr.rkey;
@@ -1204,7 +1204,7 @@ Registered_qp_config_xcompute RDMA_Manager::Get_qp_info_from_RemoteM(uint16_t ta
     send_pointer = (RDMA_Request*)send_mr->addr;
     send_pointer->command = get_qp_info;
 
-    send_pointer->content.target_id_pair = (((uint32_t)node_id) << 16) | target_compute_node_id;
+    send_pointer->content.target_id_pair = (((uint32_t)node_id) << 16) | (uint32_t) target_compute_node_id;
     send_pointer->buffer = receive_mr->addr;
     send_pointer->rkey = receive_mr->rkey;
     RDMA_Reply* receive_pointer;
@@ -1571,7 +1571,7 @@ ibv_qp* RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq,
             }
 //            qp_xcompute_info.insert()
 
-            fprintf(stdout, "X compute QPs were created, QP number=0x%x\n", qp->qp_num);
+            fprintf(stdout, "Xcompute QPs were created, QP number=0x%x\n", qp->qp_num);
         }
 //        cp_xcompute.insert({target_node_id, cq_arr});
 //        qp_xcompute.insert({target_node_id, qp_arr});
