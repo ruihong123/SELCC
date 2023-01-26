@@ -1080,6 +1080,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                 // can access the cache from this code.
                 GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
                 Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
+                assert(page_cache_ != nullptr);
                 Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
                 ibv_mr* page_mr = (ibv_mr*)handle->value;
                 GlobalAddress lock_gptr = g_ptr;
