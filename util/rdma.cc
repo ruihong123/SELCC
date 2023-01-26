@@ -1205,7 +1205,7 @@ Registered_qp_config_xcompute RDMA_Manager::Get_qp_info_from_RemoteM(uint16_t ta
     send_pointer = (RDMA_Request*)send_mr->addr;
     send_pointer->command = get_qp_info;
 
-    send_pointer->content.target_id_pair = (((uint32_t)node_id) << 16) | (uint32_t) target_compute_node_id;
+    send_pointer->content.target_id_pair = ((uint32_t)node_id) | ((uint32_t) target_compute_node_id) << 16;
     printf("node id pair is %u 2\n", send_pointer->content.qp_config_xcompute.node_id_pairs);
 
     send_pointer->buffer = receive_mr->addr;
