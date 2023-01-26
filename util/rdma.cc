@@ -1026,7 +1026,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
         Allocate_Local_RDMA_Slot(recv_mr[i], Message);
     }
     for(int i = 0; i<NUM_QP_ACCROSS_COMPUTE; i++) {
-        for (auto j : recv_mr) {
+        for (ibv_mr j : recv_mr) {
             post_receive_xcompute(&j, target_node_id, i);
         }
     }
@@ -1344,11 +1344,11 @@ ibv_mr* RDMA_Manager::Get_local_read_mr() {
         ibv_mr* ret;
         ret = (ibv_mr*)send_message_buffer->Get();
         if (ret == nullptr){
-            char* buffer = new char[name_to_chunksize.at(Internal_and_Leaf)];
+            char* buffer = new char[name_to_chunksize.at(Message)];
             auto mr_flags =
                     IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
             //  auto start = std::chrono::high_resolution_clock::now();
-            ret = ibv_reg_mr(res->pd, buffer, name_to_chunksize.at(Internal_and_Leaf), mr_flags);
+            ret = ibv_reg_mr(res->pd, buffer, name_to_chunksize.at(Message), mr_flags);
             send_message_buffer->Reset(ret);
         }
         assert(ret + 0);
@@ -1358,11 +1358,11 @@ ibv_mr* RDMA_Manager::Get_local_read_mr() {
         ibv_mr* ret;
         ret = (ibv_mr*)receive_message_buffer->Get();
         if (ret == nullptr){
-            char* buffer = new char[name_to_chunksize.at(Internal_and_Leaf)];
+            char* buffer = new char[name_to_chunksize.at(Message)];
             auto mr_flags =
                     IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
             //  auto start = std::chrono::high_resolution_clock::now();
-            ret = ibv_reg_mr(res->pd, buffer, name_to_chunksize.at(Internal_and_Leaf), mr_flags);
+            ret = ibv_reg_mr(res->pd, buffer, name_to_chunksize.at(Message), mr_flags);
             receive_message_buffer->Reset(ret);
         }
         assert(ret + 0);
