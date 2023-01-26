@@ -3878,13 +3878,15 @@ int RDMA_Manager::post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int nu
     //    sge.lkey = res->mr_receive->lkey;
     //  }
 
-    /* prepare the receive work request */
+    /* prepare the send work request */
     memset(&sr, 0, sizeof(sr));
     sr.next = NULL;
     sr.wr_id = 0;
     sr.sg_list = &sge;
     sr.num_sge = 1;
-    /* post the Receive Request to the RQ */
+    sr.opcode = static_cast<ibv_wr_opcode>(IBV_WR_SEND);
+    sr.send_flags = IBV_SEND_SIGNALED;
+    /* post the Send Request to the RQ */
     ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
     rc = ibv_post_send(qp, &sr, &bad_wr);
 
