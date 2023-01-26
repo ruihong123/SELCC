@@ -117,6 +117,7 @@ void General_Destroy(void* ptr){
     if(node_id%2 == 0){
         bg_threads.SetBackgroundThreads(2);
     }
+    page_cache_ = config.cache_prt;
 }
 
 
