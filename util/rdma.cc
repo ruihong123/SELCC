@@ -1026,7 +1026,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
         Allocate_Local_RDMA_Slot(recv_mr[i], Message);
     }
     for(int i = 0; i<NUM_QP_ACCROSS_COMPUTE; i++) {
-        for (auto & j : recv_mr) {
+        for (auto j : recv_mr) {
             post_receive_xcompute(&j, target_node_id, i);
         }
     }
