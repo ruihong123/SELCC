@@ -32,7 +32,7 @@ const int kMaxThread = 32;
 int kReadRatio;
 int kThreadCount;
 uint16_t ThisNodeID;
-
+uint16_t tcp_port;
 //int kComputeNodeCount;
 //int kMemoryNodeCount;
 bool table_scan = false;
@@ -258,8 +258,8 @@ void thread_run(int id) {
 }
 
 void parse_args(int argc, char *argv[]) {
-  if (argc != 5) {
-    printf("Usage: ./btree_bench kReadRatio kThreadCount tablescan ThisNodeID \n");
+  if (argc != 6) {
+    printf("Usage: ./btree_bench kReadRatio kThreadCount tablescan ThisNodeID PortNum\n");
     exit(-1);
   }
 
@@ -270,13 +270,13 @@ void parse_args(int argc, char *argv[]) {
 
     int scan_number = atoi(argv[3]);
     ThisNodeID = atoi(argv[4]);
-
+    tcp_port = atoi(argv[5]);
     if(scan_number == 0)
         table_scan = false;
     else
         table_scan = true;
 
-    printf("kReadRatio %d, kThreadCount %d, tablescan %d, ThisNodeID %d\n", kReadRatio, kThreadCount, table_scan, ThisNodeID);
+    printf("kReadRatio %d, kThreadCount %d, tablescan %d, ThisNodeID %d, PortNum %d\n", kReadRatio, kThreadCount, table_scan, ThisNodeID, tcp_port);
 }
 
 void cal_latency() {
@@ -336,7 +336,7 @@ int main(int argc, char *argv[]) {
     struct DSMEngine::config_t config = {
             NULL,  /* dev_name */
             NULL,  /* server_name */
-            19843, /* tcp_port */
+            tcp_port, /* tcp_port */
             1,	 /* ib_port */ //physical
             1, /* gid_idx */
             4*10*1024*1024, /*initial local buffer size*/
