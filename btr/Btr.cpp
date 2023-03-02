@@ -2544,7 +2544,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
                 temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
                 temp_mr.length = temp_mr.length - RDMA_OFFSET;
                 assert(page->local_lock_meta.local_lock_byte == 1);
-                rdma_mg->global_Wlock_and_read_page_with_INVALID(&temp_mr, temp_page_add,
+                rdma_mg->global_Wlock_and_read_page_without_INVALID(&temp_mr, temp_page_add,
                                                                  kInternalPageSize - RDMA_OFFSET,
                                                                  lock_addr, cas_mr, 1, cxt, coro_id);
 //                handle->remote_lock_status.store(2);
@@ -2583,7 +2583,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             //Skip the local lock metadata
             //TOTHINK: The RDMA read may result in the local spin lock not work if they are in the same cache line.
             // The RDMA read may result in a false
-            rdma_mg->global_Wlock_and_read_page_with_INVALID(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
+            rdma_mg->global_Wlock_and_read_page_without_INVALID(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
                                                              lock_addr, cas_mr, 1, cxt, coro_id);
 //            handle->remote_lock_status.store(2);
             assert(page->local_lock_meta.local_lock_byte == 1);
