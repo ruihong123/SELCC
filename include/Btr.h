@@ -73,7 +73,7 @@ public:
     //  used for the retry counter for nested function call such as sibling pointer access.
     static  thread_local int nested_retry_counter;
     private:
-  std::mutex mtx;// in case of contention
+  std::mutex mtx;// in case of contention in the root
   uint64_t tree_id;
 //  GlobalAddress root_ptr_ptr; // the address which stores root pointer;
 // TODO: not make it as a fixed
@@ -138,7 +138,7 @@ public:
 //    void global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
 //                                       ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id);
 //    bool global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id);
-//    void global_Wlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
+//    void global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
 //                                       ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id);
 //        void global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id);
 // Write unlock can share the function for the global_write_page_and_unlock.

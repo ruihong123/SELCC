@@ -3412,9 +3412,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        printf("Release lock for %lu", lock_addr.offset-8);
     }
 #endif
-    void RDMA_Manager::global_Wlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
-                                         GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
-                                         int coro_id) {
+    void RDMA_Manager::global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+                                                               GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
+                                                               int coro_id) {
 
         uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
@@ -3491,6 +3491,47 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 goto retry;
             }
 
+
+        }
+
+    }
+    void RDMA_Manager::global_Wlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+                                                               GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
+                                                               int coro_id) {
+
+        uint64_t retry_cnt = 0;
+        uint64_t pre_tag = 0;
+        uint64_t conflict_tag = 0;
+        *(uint64_t *)cas_buffer->addr = 0;
+        retry:
+        retry_cnt++;
+        uint64_t compare = 0;
+        // We need a + 1 for the id, because id 0 conflict with the unlock bit
+        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+        //TODO: send an RPC to the destination every 4 retries.
+        // Check whether the invalidation is write type or read type. If it is a read type
+        // we need to broadcast the message to multiple destination.
+
+        if (retry_cnt > 300000) {
+            std::cout << "Deadlock for write lock " << lock_addr << std::endl;
+
+            std::cout << GetMemoryNodeNum() << ", "
+                      << " locked by node  " << (conflict_tag) << std::endl;
+            assert(false);
+            exit(0);
+        }
+        struct ibv_send_wr sr[2];
+        struct ibv_sge sge[2];
+        //Only the second RDMA issue a completion
+        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Internal_and_Leaf);
+        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+        sr[0].next = &sr[1];
+        *(uint64_t *)cas_buffer->addr = 0;
+        assert(page_addr.nodeID == lock_addr.nodeID);
+        Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+        if ((*(uint64_t*) cas_buffer->addr) != compare){
+            // clear the invalidation targets
+            goto retry;
 
         }
 

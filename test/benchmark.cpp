@@ -32,7 +32,7 @@ const int kMaxThread = 32;
 int kReadRatio;
 int kThreadCount;
 uint16_t ThisNodeID;
-uint16_t tcp_port;
+uint16_t tcp_port=19843;
 //int kComputeNodeCount;
 //int kMemoryNodeCount;
 bool table_scan = false;
