@@ -1039,23 +1039,23 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
     //Do we need to sync below?, probably not at below, should be synced outside this function.
 
     ibv_wc wc[3] = {};
-    int buffer_position = 0;
-    int miss_poll_counter = 0;
+    int buffer_position[NUM_QP_ACCROSS_COMPUTE] = {0};
+    int miss_poll_counter[NUM_QP_ACCROSS_COMPUTE] = {0};
     while (true) {
 //      rdma_mg->poll_completion(wc, 1, client_ip, false, compute_node_id);
         // Event driven programming?
         for (int i = 0; i < NUM_QP_ACCROSS_COMPUTE; ++i) {
             if (try_poll_completions_xcompute(wc, 1, false, target_node_id, i) == 0){
                 // exponetial back off to save cpu cycles.
-                if(++miss_poll_counter < 512){
+                if(++miss_poll_counter[i] < 512){
                     continue;
                 }
-                if(++miss_poll_counter < 1024){
+                if(++miss_poll_counter[i] < 1024){
                     usleep(2);
 
                     continue ;
                 }
-                if(++miss_poll_counter < 2048){
+                if(++miss_poll_counter[i] < 2048){
                     usleep(16);
 
                     continue;
@@ -1064,18 +1064,19 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                     continue;
                 }
             }
-            miss_poll_counter = 0;
+            miss_poll_counter[i] = 0;
+            int buff_pos = buffer_position[i];
             // TODO: since we do not copy the received mesage then it is possible that the hnalding time of
             // the function is to long to result in buffer over flow.
             RDMA_Request* receive_msg_buf = new RDMA_Request();
             //TODO change the way we get the recevi buffer, because we may have mulitple channel accross compute nodes.
-            *receive_msg_buf = *(RDMA_Request*)recv_mr[i][buffer_position].addr;
+            *receive_msg_buf = *(RDMA_Request*)recv_mr[i][buff_pos].addr;
 //      memcpy(receive_msg_buf, recv_mr[buffer_position].addr, sizeof(RDMA_Request));
 
             // copy the pointer of receive buf to a new place because
             // it is the same with send buff pointer.
             if (receive_msg_buf->command == release_write_lock) {
-                post_receive_xcompute(&recv_mr[i][buffer_position],target_node_id,i);
+                post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
                 printf("release_write_lock\n");
                 //TODO: Implement a unlock mechanism. Maybe we need to make the cache static so that we
                 // can access the cache from this code.
@@ -1103,7 +1104,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
 
 
             } else if (receive_msg_buf->command == release_read_lock) {
-                post_receive_xcompute(&recv_mr[i][buffer_position],target_node_id,i);
+                post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
                 printf("release_read_lock\n");
                 ibv_mr* cas_mr =  Get_local_CAS_mr();
                 GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
@@ -1126,7 +1127,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
 
             } else if (receive_msg_buf->command == heart_beat) {
                 printf("heart_beat\n");
-                post_receive_xcompute(&recv_mr[i][buffer_position],target_node_id,i);
+                post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
 
 
             } else {
@@ -1135,10 +1136,10 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                 break;
             }
             // increase the buffer index
-            if (buffer_position == R_SIZE-1 ){
-                buffer_position = 0;
+            if (buffer_position[i] == R_SIZE-1 ){
+                buffer_position[i] = 0;
             } else{
-                buffer_position++;
+                buffer_position[i]++;
             }
         }
 
