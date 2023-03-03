@@ -426,7 +426,7 @@ class RDMA_Manager {
   ibv_mr * Preregister_Memory(size_t gb_number); //Pre register the memroy do not allocate bit map
   // Remote Memory registering will call RDMA send and receive to the remote memory it also push the new SST bit map to the Remote_Leaf_Node_Bitmap
   bool Remote_Memory_Register(size_t size, uint16_t target_node_id, Chunk_type pool_name);
-  bool Exclusive_lock_invalidate_RPC(GlobalAddress glovk_ptr, uint16_t target_node_id);
+  bool Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint16_t target_node_id);
   bool Shared_lock_invalidate_RPC(GlobalAddress g_ptr, uint16_t target_node_id);
   bool Send_heart_beat();
     bool Send_heart_beat_xcompute(uint16_t target_memory_node_id);

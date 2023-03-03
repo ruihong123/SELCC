@@ -1022,15 +1022,14 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
     cq_xcompute.insert({target_node_id, cq_arr});
     qp_xcompute.insert({target_node_id, qp_arr});
     l.unlock();
-    ibv_mr recv_mr[R_SIZE] = {};
-    for(int i = 0; i<R_SIZE; i++){
-        Allocate_Local_RDMA_Slot(recv_mr[i], Message);
-    }
-    for(int i = 0; i<NUM_QP_ACCROSS_COMPUTE; i++) {
-        for (ibv_mr j : recv_mr) {
-            post_receive_xcompute(&j, target_node_id, i);
+    ibv_mr recv_mr[NUM_QP_ACCROSS_COMPUTE][R_SIZE] = {};
+    for (int j = 0; j < NUM_QP_ACCROSS_COMPUTE; ++j) {
+        for(int i = 0; i<R_SIZE; i++){
+            Allocate_Local_RDMA_Slot(recv_mr[j][i], Message);
+            post_receive_xcompute(&recv_mr[j][i], target_node_id, j);
         }
     }
+
     //TODO: delete the code below.
     if(node_id == 0 && compute_nodes.size() == 2){
         Send_heart_beat_xcompute(2);
@@ -1069,13 +1068,14 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
             // TODO: since we do not copy the received mesage then it is possible that the hnalding time of
             // the function is to long to result in buffer over flow.
             RDMA_Request* receive_msg_buf = new RDMA_Request();
-            *receive_msg_buf = *(RDMA_Request*)recv_mr[buffer_position].addr;
+            //TODO change the way we get the recevi buffer, because we may have mulitple channel accross compute nodes.
+            *receive_msg_buf = *(RDMA_Request*)recv_mr[i][buffer_position].addr;
 //      memcpy(receive_msg_buf, recv_mr[buffer_position].addr, sizeof(RDMA_Request));
 
             // copy the pointer of receive buf to a new place because
             // it is the same with send buff pointer.
             if (receive_msg_buf->command == release_write_lock) {
-                post_receive_xcompute(&recv_mr[buffer_position],target_node_id,i);
+                post_receive_xcompute(&recv_mr[i][buffer_position],target_node_id,i);
                 //TODO: Implement a unlock mechanism. Maybe we need to make the cache static so that we
                 // can access the cache from this code.
                 GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
@@ -1102,7 +1102,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
 
 
             } else if (receive_msg_buf->command == release_read_lock) {
-                post_receive_xcompute(&recv_mr[buffer_position],target_node_id,i);
+                post_receive_xcompute(&recv_mr[i][buffer_position],target_node_id,i);
 //                sync_option_handler(receive_msg_buf, client_ip, compute_node_id);
                 ibv_mr* cas_mr =  Get_local_CAS_mr();
                 GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
@@ -1124,7 +1124,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                 }
 
             } else if (receive_msg_buf->command == heart_beat) {
-                post_receive_xcompute(&recv_mr[buffer_position],target_node_id,i);
+                post_receive_xcompute(&recv_mr[i][buffer_position],target_node_id,i);
 
 
             } else {
@@ -1143,7 +1143,11 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
     }
     assert(false);
 
-
+    for (int j = 0; j < NUM_QP_ACCROSS_COMPUTE; ++j) {
+        for(int i = 0; i<R_SIZE; i++){
+            Deallocate_Local_RDMA_Slot(recv_mr[j][i].addr, Message);
+        }
+    }
 }
 void RDMA_Manager::Put_qp_info_into_RemoteM(uint16_t target_compute_node_id,
                                             std::array<ibv_cq *, NUM_QP_ACCROSS_COMPUTE * 2> *cq_arr,
@@ -3465,7 +3469,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         if ((*(uint64_t*) cas_buffer->addr) != compare){
             // clear the invalidation targets
             read_invalidation_targets.clear();
-            write_invalidation_target = -1;
+            write_invalidation_target = 0-1;
             // use usleep ?
 //            conflict_tag = *(uint64_t*)cas_buffer->addr;
 //            if (conflict_tag != pre_tag) {
@@ -3476,6 +3480,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             uint64_t write_byte = cas_value >> 56;
             if (write_byte > 0){
                 invalidation_RPC_type = 2;
+                //The CAS record (ID/2+1), so we need to recover the real ID.
                 write_invalidation_target = (write_byte - 1)*2;
                 goto retry;
             }
@@ -4294,7 +4299,7 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
   return true;
 }
 
-bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress glovk_ptr, uint16_t target_node_id) {
+bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint16_t target_node_id) {
     qp_xcompute;
     RDMA_Request* send_pointer;
     ibv_mr* send_mr = Get_local_send_message_mr();
@@ -4302,7 +4307,7 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress glovk_ptr, uint16
 
     send_pointer = (RDMA_Request*)send_mr->addr;
     send_pointer->command = release_write_lock;
-    send_pointer->content.W_message.page_addr = glovk_ptr;
+    send_pointer->content.W_message.page_addr = global_ptr;
 //    send_pointer->buffer = receive_mr.addr;
 //    send_pointer->rkey = receive_mr.rkey;
 
