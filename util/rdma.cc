@@ -3140,7 +3140,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         auto cas_buf = Get_local_CAS_mr();
 //    std::cout << "unlock " << lock_addr << std::endl;
         //TODO: Make the unlock based on RDMA CAS so that it is gurantee to be consistent with RDMA FAA,
-        // otherwise (RDMA write to do the unlock) the lock has to be set at the end of the page to guarantee the
+        // otherwise (RDMA write to do the unlock) the lock word has to be set at the end of the page to guarantee the
         // consistency.
         *(uint64_t*)cas_buf->addr = 0;
         if (async) {

@@ -314,7 +314,7 @@ bool Btr::update_new_root(GlobalAddress left, const Key &k,
     auto cas_buffer = rdma_mg->Get_local_CAS_mr();
 
     // TODO: recycle the olde registered memory, but we need to make sure that there
-    // is no pending access onver that old mr. (Temporarily not recyle it)
+    // is no pending access over that old mr. (Temporarily not recyle it)
     ibv_mr* page_buffer = new ibv_mr{};
 
     // try to init tree and install root pointer
@@ -2926,7 +2926,6 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
             std::unique_lock<std::mutex> l(mtx);
             p = g_root_ptr.load();
             uint8_t height = tree_height;
-            //TODO: tHERE COULd be a bug in the get_root_ptr so that the CAS for update_new_root will be failed.
 
             if (path_stack[coro_id][level] == p && height == level){
                 //Acquire global lock for the root update.
@@ -2935,7 +2934,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
                 lock_addr.nodeID = 1;
                 lock_addr.offset = 0;
                 auto cas_buffer = rdma_mg->Get_local_CAS_mr();
-                //aquire the global lock
+                //aquire the global lock to avoid mulitple node creating the new  root node
 acquire_global_lock:
                 *(uint64_t*)cas_buffer->addr = 0;
                 rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, 1, IBV_SEND_SIGNALED,1, LockTable);
@@ -2966,7 +2965,7 @@ acquire_global_lock:
                 //TODO: shall I implement a function that search a ptr at particular level.
                 printf(" rare case the tranverse during the root update\n");
 
-                return insert_internal(split_key, sibling_addr,  cxt, coro_id, level);
+                return insert_internal(split_key, sibling_addr,  cxt, coro_id, level+1);
             }
 
 
@@ -3373,10 +3372,9 @@ acquire_global_lock:
                 std::unique_lock<std::mutex> l(mtx);
                 p = g_root_ptr.load();
                 uint8_t height = tree_height;
-                //TODO: tHERE COULd be a bug in the get_root_ptr so that the CAS for update_new_root will be failed.
 
                 if (path_stack[coro_id][level] == p && height == level){
-                    //Acquire global lock for the root update.
+                    //aquire the global lock to avoid mulitple node creating the new  root node
                     GlobalAddress lock_addr = {};
                     // root node lock addr. but this could result in a deadlock for transaction cc.
                     lock_addr.nodeID = 1;
@@ -3412,8 +3410,8 @@ acquire_global_lock:
                     //find the upper level
                     //TODO: shall I implement a function that search a ptr at particular level.
                     printf(" rare case the tranverse during the root update\n");
-
-                    return insert_internal(split_key, sibling_addr,  cxt, coro_id, level);
+                    // It is impossinle to insert the internal in level 0.
+                    return insert_internal(split_key, sibling_addr,  cxt, coro_id, level+1);
                 }
 
 
@@ -3438,6 +3436,7 @@ acquire_global_lock:
                     // insert it top-down. this function will keep searching until it is found
                     insert_internal(split_key,sibling_addr, cxt, coro_id, level);
                 }else{
+                    //fall back one step.
                     if(!internal_page_search(p, k, result, fall_back_level, false, nullptr, cxt, coro_id)){
                         // if the upper level is still a stale node, just insert the node by top down method.
                         insert_internal(split_key,sibling_addr, cxt, coro_id, level);
@@ -4093,7 +4092,6 @@ bool Btr::acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt, int 
 //    }
 //    if (local_lock_meta->handover_times < define::kMaxHandOverTime &&)
     assert(local_lock_meta->local_lock_byte == 1);
-    local_lock_meta->hand_time++;
     return local_lock_meta->hand_over;
 
 }
@@ -4120,7 +4118,7 @@ inline bool Btr::can_hand_over(GlobalAddress lock_addr) {
 
   return node.hand_over;
 }
-
+    //Call before release the global lock
     inline bool Btr::can_hand_over(Local_Meta * local_lock_meta) {
 
     uint8_t issued_ticket = __atomic_load_n(&local_lock_meta->current_ticket, mem_cst_seq);
@@ -4136,6 +4134,8 @@ inline bool Btr::can_hand_over(GlobalAddress lock_addr) {
         if (!local_lock_meta->hand_over) {
             local_lock_meta->hand_time = 0;// clear the handtime.
         } else {
+            local_lock_meta->hand_time++;
+
 //    handover_count[rdma_mg->getMyThreadID()][0]++;
         }
 
