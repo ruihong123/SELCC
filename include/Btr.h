@@ -135,15 +135,22 @@ public:
 //    uint64_t renew_swap_by_received_state_readlock(uint64_t& received_state);
 //    uint64_t renew_swap_by_received_state_readunlock(uint64_t& received_state);
 //    uint64_t renew_swap_by_received_state_readupgrade(uint64_t& received_state);
-//    void global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
-//                                       ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id);
-//    bool global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id);
-//    void global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
-//                                       ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id);
-//        void global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id);
+        void global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
+                                   ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id,
+                                   Cache::Handle *handle);
+    bool global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
+                             Cache::Handle *handle);
+    void global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+                                                 GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag,
+                                                 CoroContext *cxt, int coro_id, Cache::Handle *handle);
+        void global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
+                            Cache::Handle *handle);
 // Write unlock can share the function for the global_write_page_and_unlock.
-        //    void global_WUnlock_and_write_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
-        //                                       ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id);
+        void global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
+                                           GlobalAddress lock_addr,
+                                           CoroContext *cxt, int coro_id, Cache::Handle *handle, bool async);
+        void global_unlock_addr(GlobalAddress remote_lock_add, Cache::Handle *handle, CoroContext *cxt, int coro_id,
+                                bool async = false);
 
     // Node ID in GLobalAddress for a tree pointer should be the id in the Memory pool
     // THis funciton will get the page by the page addr and search the pointer for the
@@ -170,13 +177,13 @@ public:
                           int coro_id);
         bool try_lock(Local_Meta *local_lock_meta);
         void unlock_lock(Local_Meta *local_lock_meta);
-    bool acquire_local_lock(Local_Meta *local_lock_meta, CoroContext *cxt,
-                            int coro_id);
+    bool acquire_local_optimistic_lock(Local_Meta *local_lock_meta, CoroContext *cxt,
+                                       int coro_id);
 
   bool can_hand_over(GlobalAddress lock_addr);
         bool can_hand_over(Local_Meta * local_lock_meta);
   void releases_local_lock(GlobalAddress lock_addr);
-        void releases_local_lock(Local_Meta * local_lock_meta);
+        void releases_local_optimistic_lock(Local_Meta * local_lock_meta);
         void make_page_invalidated(InternalPage* upper_page);
         // should be executed with in a local page lock.
         void Initialize_page_invalidation(InternalPage* upper_page);

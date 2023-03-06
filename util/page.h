@@ -127,7 +127,7 @@ namespace DSMEngine{
         uint8_t hand_time;
         uint32_t hand_over;//can be only 1 byte.
     };
-//        constexpr int RDMA_OFFSET  = 64; // cache line offset.
+//        constexpr int RDMA_OFFSET  = 64; // local lock offset.
     constexpr int RDMA_OFFSET  = sizeof(Local_Meta);
     constexpr int kInternalCardinality =
             (kInternalPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) -RDMA_OFFSET) /

@@ -70,7 +70,7 @@ class DSMEngine_EXPORT Cache {
         GlobalAddress gptr = GlobalAddress::Null();
         std::atomic<int> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
         std::shared_mutex rw_mtx;
-        void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode);
+        void (*deleter)(Cache::Handle* handle);
         ~Handle(){
 #ifndef NDEBUG
 //            if (gptr.offset < 9480863232){
@@ -103,7 +103,7 @@ class DSMEngine_EXPORT Cache {
   // When the inserted entry is no longer needed, the key and
   // value will be passed to "deleter".
   virtual Handle* Insert(const Slice& key, void* value, size_t charge,
-                         void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode)) = 0;
+                         void (*deleter)(Cache::Handle* handle)) = 0;
 
   // If the table_cache has no mapping for "key", returns nullptr.
   //
@@ -114,7 +114,7 @@ class DSMEngine_EXPORT Cache {
   //Atomic cache look up and Insert a new handle atomically for the key if not found.
   virtual Handle* LookupInsert(const Slice& key, void* value,
                                 size_t charge,
-                                void (*deleter)(const GlobalAddress, void* value, int strategy, int lock_mode)) = 0;
+                                void (*deleter)(Cache::Handle* handle)) = 0;
   // Release a mapping returned by a previous Lookup().
   // REQUIRES: handle must not have been released yet.
   // REQUIRES: handle must have been returned by a method on *this.

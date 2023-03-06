@@ -1098,6 +1098,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                 std::unique_lock<std::shared_mutex> l(handle->rw_mtx);
                 if (handle->remote_lock_status.load() == 2){
                     global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr,page_mr->length,lock_gptr);
+                    handle->remote_lock_status.store(0);
 
                 }
                     //TODO: what shall we do if the read lock is on
@@ -1123,6 +1124,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                 }
                 if (handle->remote_lock_status.load() == 1){
                     global_RUnlock(g_ptr, cas_mr);
+                    handle->remote_lock_status.store(0);
                 }
 
             } else if (receive_msg_buf->command == heart_beat) {
@@ -3158,7 +3160,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             RDMA_Write(remote_lock_add, cas_buf,  sizeof(uint64_t), IBV_SEND_SIGNALED,1,Internal_and_Leaf);
 //            assert(*(uint64_t*)cas_buf->addr == 1);
         }
-//        releases_local_lock(lock_addr);
+//        releases_local_optimistic_lock(lock_addr);
     }
 #ifndef RDMAFAAFORREADLOCK
     void RDMA_Manager::global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
