@@ -1084,23 +1084,28 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                 Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
                 assert(page_cache_ != nullptr);
                 Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
-                ibv_mr* page_mr = (ibv_mr*)handle->value;
-                GlobalAddress lock_gptr = g_ptr;
-                Header* header = (Header *) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage, hdr)));
-                if (header->level == 0){
-                    lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
+                if (handle){
+                    auto* page_mr = (ibv_mr*)handle->value;
+                    GlobalAddress lock_gptr = g_ptr;
+                    Header* header = (Header *) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage, hdr)));
+                    if (header->level == 0){
+                        lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
 
+                    }else{
+                        // Only the leaf page have eager cache coherence protocol.
+                        assert(false);
+                        lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage, global_lock);
+                    }
+                    std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
+                    if (handle->remote_lock_status.load() == 2){
+                        global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr,page_mr->length,lock_gptr);
+                        handle->remote_lock_status.store(0);
+
+                    }
                 }else{
-                    // Only the leaf page have eager cache coherence protocol.
-                    assert(false);
-                    lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage, global_lock);
+                    printf("Handle not found!\n");
                 }
-                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
-                if (handle->remote_lock_status.load() == 2){
-                    global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr,page_mr->length,lock_gptr);
-                    handle->remote_lock_status.store(0);
 
-                }
                     //TODO: what shall we do if the read lock is on
 
 
