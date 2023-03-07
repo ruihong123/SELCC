@@ -2962,7 +2962,7 @@ acquire_global_lock:
                 // This means the page has already be in the cache.
                 local_mr = (ibv_mr*)handle->value;
                 //TODO: delete the line below.
-                assert(handle->remote_lock_status != 0);
+//                assert(handle->remote_lock_status != 0);
             }else{
 #ifndef NDEBUG
                 hint_of_existence = false;
