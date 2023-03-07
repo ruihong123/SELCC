@@ -1573,8 +1573,8 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
             qp_init_attr.send_cq = cq1;
             qp_init_attr.recv_cq = cq2;
 
-            qp_init_attr.cap.max_send_wr = 128;
-            qp_init_attr.cap.max_recv_wr = 128;
+            qp_init_attr.cap.max_send_wr = 4;
+            qp_init_attr.cap.max_recv_wr = R_SIZE;
             qp_init_attr.cap.max_send_sge = 2;
             qp_init_attr.cap.max_recv_sge = 2;
             //  qp_init_attr.cap.max_inline_data = -1;
