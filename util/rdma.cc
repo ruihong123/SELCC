@@ -915,7 +915,7 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
   } else
     memset(&my_gid, 0, sizeof my_gid);
   /* exchange using TCP sockets info required to connect QPs */
-  ibv_qp* qp = create_qp(target_node_id, true, qp_type);
+  ibv_qp* qp = create_qp(target_node_id, true, qp_type, R_SIZE);
   local_con_data.qp_num = htonl(res->qp_map[target_node_id]->qp_num);
   local_con_data.lid = htons(res->port_attr.lid);
   memcpy(local_con_data.gid, &my_gid, 16);
@@ -1095,7 +1095,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                     assert(false);
                     lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage, global_lock);
                 }
-                std::unique_lock<std::shared_mutex> l(handle->rw_mtx);
+                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                 if (handle->remote_lock_status.load() == 2){
                     global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr,page_mr->length,lock_gptr);
                     handle->remote_lock_status.store(0);
@@ -1457,8 +1457,8 @@ ibv_qp* RDMA_Manager::create_qp_Mside(bool seperated_cq,
   //          p[11], p[12], p[13], p[14], p[15]);
   return qp;
 }
-ibv_qp* RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq,
-                                std::string& qp_type) {
+ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std::string &qp_type,
+                                 uint32_t outstanding_wr) {
   struct ibv_qp_init_attr qp_init_attr;
 
   /* each side will send only one WR, so Completion Queue with 1 entry is enough
@@ -1505,8 +1505,8 @@ ibv_qp* RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq,
     qp_init_attr.recv_cq = cq2;
   else
     qp_init_attr.recv_cq = cq1;
-  qp_init_attr.cap.max_send_wr = 4;
-  qp_init_attr.cap.max_recv_wr = R_SIZE;
+  qp_init_attr.cap.max_send_wr = 2;// at most 2 outstanding
+  qp_init_attr.cap.max_recv_wr = outstanding_wr;
   qp_init_attr.cap.max_send_sge = 30;
   qp_init_attr.cap.max_recv_sge = 30;
   //  qp_init_attr.cap.max_inline_data = -1;
@@ -4419,7 +4419,7 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
 
     bool RDMA_Manager::Remote_Query_Pair_Connection(std::string& qp_type,
                                                 uint16_t target_node_id) {
-  ibv_qp* qp = create_qp(target_node_id, false, qp_type);
+  ibv_qp* qp = create_qp(target_node_id, false, qp_type, 2);
 
   union ibv_gid my_gid;
   int rc;
