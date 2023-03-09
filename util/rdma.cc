@@ -3337,10 +3337,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
         // TODO: if the starvation bit is on then we release and wait the lock.
         if ( (return_value >> 56) > 0  ){
-            assert(false);
+//            assert(false);
 //            assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1)))== 0);
 //            Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, -add, 0, Internal_and_Leaf);
-            //TODO: check the starvation bit to decide whether there is an immediate retry.
+            //TODO: check the starvation bit to decide whether there is an immediate retry. If there is a starvation
+            // unlock the lock this time util see a write lock.
             RDMA_FAA(lock_addr, cas_buffer, -add, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             target_compute_node_id = ((return_value >> 56) - 1)*2;
             goto retry;
