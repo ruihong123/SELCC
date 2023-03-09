@@ -3161,12 +3161,19 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t swap = 0;
         uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
         if (async) {
+            // important!!! we should never use async if we have both read lock and write lock.
             // send flag 0 means there is no flag
             RDMA_CAS(remote_lock_add, cas_buf,  compare, swap, 0,0,Internal_and_Leaf);
         } else {
+    retry:
 //      std::cout << "Unlock the remote lock" << lock_addr << std::endl;
             RDMA_CAS(remote_lock_add, cas_buf,  compare, swap, IBV_SEND_SIGNALED,1,Internal_and_Leaf);
-//            assert(*(uint64_t*)cas_buf->addr == 1);
+            if(*(uint64_t*)cas_buf->addr != compare){
+                // THere is concurrent read lock trying on this lock, but it will released later. If if keep failing
+                // then we can add a stavation bit.
+                assert((*(uint64_t*)cas_buf->addr)<<56 == compare << 56);
+                goto retry;
+            }
         }
 //        releases_local_optimistic_lock(lock_addr);
     }
@@ -3362,7 +3369,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
         *(uint64_t *)cas_buffer->addr = 0;
-        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2) << 56;
+        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
         uint64_t compare = (1ull << (RDMA_Manager::node_id/2 + 1));
         retry:
         retry_cnt++;
@@ -3563,9 +3570,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //TODO: If we want to use async unlock, we need to enlarge the max outstand work request that the queue pair support.
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
-    retry:
         if (async){
-
+            assert(false);
             Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
             *(uint64_t*) local_CAS_mr->addr = 0;
@@ -3580,12 +3586,13 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             *(uint64_t *)local_CAS_mr->addr = 0;
             assert(page_addr.nodeID == remote_lock_addr.nodeID);
             Batch_Submit_WRs(sr, 0, page_addr.nodeID);
+            //TODO: it could be spuriously failed because of the FAA.so we can not have async
         }else{
 
 
 
 //        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
-
+retry:
             Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
             *(uint64_t *)local_CAS_mr->addr = 0;
@@ -3605,7 +3612,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             assert(page_addr.nodeID == remote_lock_addr.nodeID);
             Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-            assert((*(uint64_t*) local_CAS_mr->addr) == compare);
+            if((*(uint64_t*) local_CAS_mr->addr) != compare){
+                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (compare >> 56));
+                goto retry;
+            }
 
         }
     }
