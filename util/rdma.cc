@@ -1111,7 +1111,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
 
             } else if (receive_msg_buf->command == release_read_lock) {
                 post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
-                printf("release_read_lock\n");
+                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
                 ibv_mr* cas_mr =  Get_local_CAS_mr();
                 GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
                 Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
