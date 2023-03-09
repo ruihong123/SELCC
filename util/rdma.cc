@@ -3307,11 +3307,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t conflict_tag = 0;
         *(uint64_t *)cas_buffer->addr = 0;
         uint8_t target_compute_node_id = 0;
+        printf("global read lock at %p \n", page_addr);
         retry:
         retry_cnt++;
         if (retry_cnt % 4 ==  2) {
 //            assert(compare%2 == 0);
-            assert(target_compute_node_id != (RDMA_Manager::node_id/2 +1));
+            assert(target_compute_node_id != (RDMA_Manager::node_id));
             Exclusive_lock_invalidate_RPC(page_addr, target_compute_node_id);
         }
         if (retry_cnt > 300000) {
@@ -3325,7 +3326,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
         //Only the second RDMA issue a completion,
-        // TODO: We may add a fense for the first request to avoid corruption of the async unlock.
+        // TODO: We may add a fence for the first request to avoid corruption of the async unlock.
         // The async write back and unlock can result in corrupted data during the buffer recycle.
         Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, add, 0, Internal_and_Leaf);
         Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
