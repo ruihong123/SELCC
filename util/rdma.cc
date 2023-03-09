@@ -1114,6 +1114,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                 printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
                 ibv_mr* cas_mr =  Get_local_CAS_mr();
                 GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
+
                 Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
                 Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
                 ibv_mr* page_mr = (ibv_mr*)handle->value;
@@ -1128,7 +1129,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                     lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage, global_lock);
                 }
                 if (handle->remote_lock_status.load() == 1){
-                    global_RUnlock(g_ptr, cas_mr);
+                    global_RUnlock(lock_gptr, cas_mr);
                     handle->remote_lock_status.store(0);
                 }
 
@@ -3417,8 +3418,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         }
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
+//        GlobalAddress lock_addr =
         //Only the second RDMA issue a completion
-        RDMA_FAA(lock_addr, cas_buffer, -add, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
+        RDMA_FAA(lock_addr, cas_buffer, -add, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
         uint64_t return_data = (*(uint64_t*) cas_buffer->addr);
         assert((return_data & (1ull << (RDMA_Manager::node_id/2 + 1))) != 0);
 
