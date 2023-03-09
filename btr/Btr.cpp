@@ -2319,14 +2319,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     bool need_split;
     bool insert_success;
     GlobalAddress lock_addr;
-//    lock_addr.nodeID = page_addr.nodeID;
-//    lock_addr.offset = lock_index * sizeof(uint64_t);
     lock_addr.nodeID = page_addr.nodeID;
-
     lock_addr.offset = page_addr.offset + STRUCT_OFFSET(InternalPage,global_lock);
-// Shall the page modification happen over the cached data buffer?
-
-//Yes
 
     ibv_mr* page_mr;
     void * page_buffer;
@@ -2432,6 +2426,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
                 rdma_mg->global_Wlock_and_read_page_without_INVALID(&temp_mr, temp_page_add,
                                                                  kInternalPageSize - RDMA_OFFSET,
                                                                  lock_addr, cas_mr, 1, cxt, coro_id);
+
 //                handle->remote_lock_status.store(2);
 
 //            usleep(1);
@@ -2781,6 +2776,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //            rdma_mg->RDMA_Write(page_addr, local_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             releases_local_optimistic_lock(&page->local_lock_meta);
         }else{
+            //todo: Let the gloabal page unlock and write handle the offset problem. We shall not
+            // let RDMA WRITE over write the global lock words
             ibv_mr temp_mr = *page_mr;
             GlobalAddress temp_page_add = page_addr;
             temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
@@ -2792,7 +2789,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
                                                    cxt, coro_id, false);
             releases_local_optimistic_lock(&page->local_lock_meta);
         }
-//        write_page_and_unlock(local_buffer, page_addr, kInternalPageSize,
+//        write_page_and_unlock(local_buffer, page_addr, kInternalPagpeSize,
 //                              lock_addr, cxt, coro_id, false);
 //        printf("prepare RDMA write request global ptr is %p, local ptr is %p, level is %d\n", page_addr, page_buffer, level);
 
