@@ -146,7 +146,7 @@ namespace DSMEngine{
 //        std::atomic<uint8_t> front_version;
 //        uint8_t front_version;
         alignas(8) uint64_t global_lock;
-        uint8_t busy;;
+        uint8_t busy;
         uint8_t front_version = 0;
         Header hdr;
         InternalEntry records[kInternalCardinality] = {};
