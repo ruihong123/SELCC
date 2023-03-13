@@ -2678,6 +2678,7 @@ int RDMA_Manager::RDMA_CAS(GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t 
 }
 int RDMA_Manager::RDMA_FAA(GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t add, size_t send_flag, int poll_num,
                            Chunk_type pool_name, std::string qp_type) {
+    printf("RDMA faa, TARGET page is %p, add is %d\n", remote_ptr, add);
 //  auto start = std::chrono::high_resolution_clock::now();
     struct ibv_send_wr sr;
     struct ibv_sge sge;

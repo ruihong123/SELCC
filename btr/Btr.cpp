@@ -1972,7 +1972,7 @@ local_reread:
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
 
-        lock_addr.offset = page_addr.offset + STRUCT_OFFSET(InternalPage,global_lock);
+        lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage,global_lock);
         // TODO: We need to implement the lock coupling. how to avoid unnecessary RDMA for lock coupling?
         //
         Slice page_id((char*)&page_addr, sizeof(GlobalAddress));
