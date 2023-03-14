@@ -3631,7 +3631,64 @@ retry:
 
         }
     }
+    void RDMA_Manager::global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+                                                     GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
 
+        //TODO: If we want to use async unlock, we need to enlarge the max outstand work request that the queue pair support.
+        struct ibv_send_wr sr[2];
+        struct ibv_sge sge[2];
+
+        if (async){
+            assert(false);
+            Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
+            ibv_mr* local_CAS_mr = Get_local_CAS_mr();
+            *(uint64_t*) local_CAS_mr->addr = 0;
+            //TODO 1: Make the unlocking based on RDMA CAS.
+            //TODO 2: implement a retry mechanism based on RDMA CAS. THe write unlock can be failed because the RDMA FAA test and reset the lock words.
+            uint64_t swap = 0;
+            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare,swap, 0, Internal_and_Leaf);
+            sr[0].next = &sr[1];
+
+
+            *(uint64_t *)local_CAS_mr->addr = 0;
+            assert(page_addr.nodeID == remote_lock_addr.nodeID);
+            Batch_Submit_WRs(sr, 0, page_addr.nodeID);
+            //TODO: it could be spuriously failed because of the FAA.so we can not have async
+        }else{
+
+
+
+//        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
+            retry:
+
+            //TODO: check whether the page's global lock is still write lock
+            Prepare_WR_Write(sr[0], sge[0],  page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
+            ibv_mr* local_CAS_mr = Get_local_CAS_mr();
+            *(uint64_t *)local_CAS_mr->addr = 0;
+            //TODO: THe RDMA write unlock can not be guaranteed to be finished after the page write.
+            // The RDMA CAS be started strictly after the RDMA write at the remote NIC according to
+            // https://docs.nvidia.com/networking/display/MLNXOFEDv451010/Out-of-Order+%28OOO%29+Data+Placement+Experimental+Verbs
+            // So it's better to make Unlock another RDMA CAS.
+//        rdma_mg->RDMA_CAS( remote_lock_addr, local_CAS_mr, 1,0, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
+//        assert(*(uint64_t *)local_CAS_mr->addr == 1);
+            //We can apply async unlock here to reduce the latency.
+            uint64_t swap = 0;
+            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare,swap, IBV_SEND_SIGNALED, Internal_and_Leaf);
+            sr[0].next = &sr[1];
+
+
+
+            assert(page_addr.nodeID == remote_lock_addr.nodeID);
+            Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+            if((*(uint64_t*) local_CAS_mr->addr) != compare){
+                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (compare >> 56));
+                goto retry;
+            }
+
+        }
+    }
 
 // int RDMA_Manager::post_atomic(int opcode)
 //{

@@ -149,6 +149,9 @@ public:
         void global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
                                            GlobalAddress lock_addr,
                                            CoroContext *cxt, int coro_id, Cache::Handle *handle, bool async);
+        void global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
+                                           GlobalAddress lock_addr,
+                                           CoroContext *cxt, int coro_id, Cache::Handle *handle, bool async);
         void global_unlock_addr(GlobalAddress remote_lock_add, Cache::Handle *handle, CoroContext *cxt, int coro_id,
                                 bool async = false);
 

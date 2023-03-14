@@ -853,6 +853,13 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
                                                coro_id, async);
         handle->remote_lock_status.store(0);
     }
+    void Btr::global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
+                                            GlobalAddress lock_addr,
+                                            CoroContext *cxt, int coro_id, Cache::Handle *handle, bool async) {
+        rdma_mg->global_write_tuple_and_Wunlock(page_buffer, page_addr, size, lock_addr, cxt,
+                                               coro_id, async);
+        handle->remote_lock_status.store(0);
+    }
     void Btr::global_unlock_addr(GlobalAddress remote_lock_add, Cache::Handle *handle, CoroContext *cxt, int coro_id,
                                  bool async) {
         rdma_mg->global_unlock_addr(remote_lock_add,cxt, coro_id, async);
@@ -3158,7 +3165,7 @@ acquire_global_lock:
             if (handle->strategy == 2){
 
                 // If the page currently is in busy mode, we directly release the global lock.
-                global_write_page_and_Wunlock(
+                global_write_tuple_and_Wunlock(
                         &target_mr, GADD(page_addr, offset),
                         sizeof(LeafEntry), lock_addr, cxt, coro_id, handle, false);
 //                handle->remote_lock_status.store(0);
