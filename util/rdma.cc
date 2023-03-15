@@ -1104,7 +1104,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
 
                     }
                 }else{
-                    printf("Handle not found!\n");
+                    printf("Release write lock Handle not found\n");
                 }
 
                     //TODO: what shall we do if the read lock is on
@@ -1118,22 +1118,26 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
 
                 Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
                 Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
-                ibv_mr* page_mr = (ibv_mr*)handle->value;
-                GlobalAddress lock_gptr = g_ptr;
-                Header* header = (Header *) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage, hdr)));
-                if (header->level == 0){
-                    lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
+                if (handle) {
+                    ibv_mr *page_mr = (ibv_mr *) handle->value;
+                    GlobalAddress lock_gptr = g_ptr;
+                    Header *header = (Header *) ((char *) ((ibv_mr *) handle->value)->addr +
+                                                 (STRUCT_OFFSET(InternalPage, hdr)));
+                    if (header->level == 0) {
+                        lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
 
-                }else{
-                    // Only the leaf page have eager cache coherence protocol.
-                    assert(false);
-                    lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage, global_lock);
+                    } else {
+                        // Only the leaf page have eager cache coherence protocol.
+                        assert(false);
+                        lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage, global_lock);
+                    }
+                    if (handle->remote_lock_status.load() == 1) {
+                        global_RUnlock(lock_gptr, cas_mr);
+                        handle->remote_lock_status.store(0);
+                    }
+                }else {
+                    printf("Release read lock Handle not found\n");
                 }
-                if (handle->remote_lock_status.load() == 1){
-                    global_RUnlock(lock_gptr, cas_mr);
-                    handle->remote_lock_status.store(0);
-                }
-
             } else if (receive_msg_buf->command == heart_beat) {
                 printf("heart_beat\n");
                 post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
