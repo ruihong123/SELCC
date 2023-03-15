@@ -3373,16 +3373,18 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         *(uint64_t *)cas_buffer->addr = 0;
         uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
         uint64_t compare = (1ull << (RDMA_Manager::node_id/2 + 1));
+        std::vector<uint16_t> read_invalidation_targets;
+//        int invalidation_RPC_type = 0;
+        read_invalidation_targets.clear();
         retry:
         retry_cnt++;
-
-        if (retry_cnt > 300000) {
-            std::cout << "Deadlock for write lock " << lock_addr << std::endl;
-
-            std::cout << GetMemoryNodeNum() << ", "
-                      << " locked by node  " << (conflict_tag) << std::endl;
-            assert(false);
-            exit(0);
+        GlobalAddress page_addr = lock_addr;
+        page_addr.offset -= STRUCT_OFFSET(LeafPage, global_lock);
+        if (retry_cnt % 4 ==  2) {
+//            assert(compare%2 == 0);
+            for (auto iter: read_invalidation_targets) {
+                Shared_lock_invalidate_RPC(page_addr, iter);
+            }
         }
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
@@ -3393,8 +3395,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        *(uint64_t *)cas_buffer->addr = 0;
 //        assert(page_addr.nodeID == lock_addr.nodeID);
         Batch_Submit_WRs(sr, 1, lock_addr.nodeID);
-
-        if ((*(uint64_t*) cas_buffer->addr) != compare){
+        uint64_t cas_value = (*(uint64_t*) cas_buffer->addr);
+        if ((cas_value) != compare){
             //TODO: If try one time, issue an RPC if try multiple times try to seperate the
             // upgrade into read release and acquire write lock.
 //            conflict_tag = *(uint64_t*)cas_buffer->addr;
@@ -3402,10 +3404,18 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //                retry_cnt = 0;
 //                pre_tag = conflict_tag;
 //            }
-            if (retry_cnt > 2 ){
-                // send RPC for lock releasing
+            for (uint32_t i = 1; i < 56; ++i) {
+                uint32_t  remain_bit = (cas_value >> i)%2;
+                if (remain_bit == 1 && (i-1)*2 != node_id){
+
+                    read_invalidation_targets.push_back((i-1)*2);
+//                    invalidation_RPC_type = 1;
+                }
             }
-            goto retry;
+            if (!read_invalidation_targets.empty()){
+                goto retry;
+            }
+            assert(false);
         }
         return true;
     }
