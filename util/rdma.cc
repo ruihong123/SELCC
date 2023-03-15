@@ -1077,7 +1077,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
             // it is the same with send buff pointer.
             if (receive_msg_buf->command == release_write_lock) {
                 post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
-                printf("release_write_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
+//                printf("release_write_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
                 //TODO: Implement a unlock mechanism. Maybe we need to make the cache static so that we
                 // can access the cache from this code.
                 GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
@@ -1090,7 +1090,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                     Header* header = (Header *) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage, hdr)));
                     if (header->level == 0){
                         lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
-                        printf("Leaf node page %p's global lock state is %lu\n", g_ptr, ((LeafPage*)(page_mr->addr))->global_lock);
+//                        printf("Leaf node page %p's global lock state is %lu\n", g_ptr, ((LeafPage*)(page_mr->addr))->global_lock);
 
                     }else{
                         // Only the leaf page have eager cache coherence protocol.
@@ -1104,7 +1104,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
 
                     }
                 }else{
-                    printf("Release write lock Handle not found\n");
+//                    printf("Release write lock Handle not found\n");
                 }
 
                     //TODO: what shall we do if the read lock is on
@@ -1112,7 +1112,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
 
             } else if (receive_msg_buf->command == release_read_lock) {
                 post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
-                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
+//                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
                 ibv_mr* cas_mr =  Get_local_CAS_mr();
                 GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
 
@@ -1136,7 +1136,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                         handle->remote_lock_status.store(0);
                     }
                 }else {
-                    printf("Release read lock Handle not found\n");
+//                    printf("Release read lock Handle not found\n");
                 }
             } else if (receive_msg_buf->command == heart_beat) {
                 printf("heart_beat\n");
@@ -2683,7 +2683,7 @@ int RDMA_Manager::RDMA_CAS(GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t 
 }
 int RDMA_Manager::RDMA_FAA(GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t add, size_t send_flag, int poll_num,
                            Chunk_type pool_name, std::string qp_type) {
-    printf("RDMA faa, TARGET page is %p, add is %lu\n", remote_ptr, add);
+//    printf("RDMA faa, TARGET page is %p, add is %lu\n", remote_ptr, add);
 //  auto start = std::chrono::high_resolution_clock::now();
     struct ibv_send_wr sr;
     struct ibv_sge sge;
@@ -3322,7 +3322,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t conflict_tag = 0;
         *(uint64_t *)cas_buffer->addr = 0;
         uint8_t target_compute_node_id = 0;
-        printf("global read lock at %p \n", page_addr);
+//        printf("global read lock at %p \n", page_addr);
         retry:
         retry_cnt++;
         if (retry_cnt % 4 ==  2) {
