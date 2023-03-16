@@ -2134,23 +2134,11 @@ local_reread:
             if (nested_retry_counter <= 2){
                 nested_retry_counter++;
                 result.slibing = page->hdr.sibling_ptr;
-                if (handle->strategy == 2){
-                    global_RUnlock(lock_addr, cas_mr, cxt, coro_id, handle);
-//                    handle->remote_lock_status.store(0);
-                }
-                assert(handle);
-                page_cache->Release(handle);
-                return true;
+                goto returntrue;
             }else{
                 nested_retry_counter = 0;
                 DEBUG_PRINT_CONDITION("retry place 3\n");
-                if (handle->strategy == 2){
-                    global_RUnlock(lock_addr, cas_mr, cxt, coro_id, handle);
-//                    handle->remote_lock_status.store(0);
-                }
-                assert(handle);
-                page_cache->Release(handle);
-                return false;
+                goto returnfalse;
             }
 
         }
@@ -2175,13 +2163,7 @@ local_reread:
 
             }
             DEBUG_PRINT_CONDITION("retry place 4\n");
-            if (handle->strategy == 2){
-                global_RUnlock(lock_addr, cas_mr, cxt, coro_id, handle);
-//                handle->remote_lock_status.store(0);
-            }
-            assert(handle);
-            page_cache->Release(handle);
-            return false;// false means need to fall back
+            goto returnfalse;
         }
 //#ifdef PROCESSANALYSIS
 //    start = std::chrono::high_resolution_clock::now();
@@ -2197,14 +2179,28 @@ local_reread:
 //          TimePrintCounter[RDMA_Manager::thread_id]++;
 //    }
 //#endif
-        if ( handle->strategy==2){
-//            assert(handle->remote_lock_status==0);
-            global_RUnlock(lock_addr, cas_mr,  cxt, coro_id, handle);
-//            handle->remote_lock_status.store(0);
+    returntrue:
+        if (handle->strategy == 2){
+            global_RUnlock(lock_addr, cas_mr, cxt, coro_id, handle);
+//                    handle->remote_lock_status.store(0);
         }
-        assert(handle->refs.load() == 1);
+        assert(handle);
+        assert(handle->refs.load() == 2);
         page_cache->Release(handle);
+
         return true;
+    returnfalse:
+        if (handle->strategy == 2){
+            global_RUnlock(lock_addr, cas_mr, cxt, coro_id, handle);
+//                    handle->remote_lock_status.store(0);
+        }
+        assert(handle->refs.load() == 2);
+        assert(handle);
+        page_cache->Release(handle);
+        return false;
+
+
+
     }
 #else
     bool Btr::leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int level, CoroContext *cxt,
@@ -3076,6 +3072,7 @@ acquire_global_lock:
                         global_unlock_addr(lock_addr,handle, cxt, coro_id, false);
                         handle->remote_lock_status.store(0);
                     }
+                    //No matter what strategy it is the cache handle need to be released.
                     page_cache->Release(handle);
                     return false;
                 }
@@ -3253,15 +3250,15 @@ acquire_global_lock:
 //  page->set_consistent();
         if (handle->strategy == 2){
             // unlock and write back the whole page because a page split has happend.
-            ibv_mr temp_mr = *local_mr;
-            GlobalAddress temp_page_add = page_addr;
-            temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
-            temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
-            temp_mr.length = temp_mr.length - RDMA_OFFSET;
-            assert(page->global_lock = 1);
-            assert(page->hdr.valid_page);
+//            ibv_mr temp_mr = *local_mr;
+//            GlobalAddress temp_page_add = page_addr;
+//            temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
+//            temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
+//            temp_mr.length = temp_mr.length - RDMA_OFFSET;
+//            assert(page->global_lock = 1);
+//            assert(page->hdr.valid_page);
             // Use sync unlock.
-            global_write_page_and_Wunlock(&temp_mr, temp_page_add, kLeafPageSize - RDMA_OFFSET, lock_addr,
+            global_write_page_and_Wunlock(local_mr, page_addr, kLeafPageSize, lock_addr,
                                           cxt, coro_id, handle, false);
 //            handle->remote_lock_status.store(0);
         }
@@ -3302,6 +3299,7 @@ acquire_global_lock:
 
                         rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
 
+//                        page_cache->Release(handle);
                         return true;
                     }
 //                l.unlock();
