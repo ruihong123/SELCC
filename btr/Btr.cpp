@@ -2028,22 +2028,23 @@ local_reread:
                 //Can we use the std::call_once here?
                 r_l.unlock();
                 std::unique_lock<std::shared_mutex> w_l(handle->rw_mtx);
-                if(handle->value) {
-                    mr = (ibv_mr*)handle->value;
+
+                if (handle->strategy.load() == 1 && handle->remote_lock_status.load() == 0){
+                    if(handle->value) {
+                        mr = (ibv_mr*)handle->value;
 
 
-                }else{
-                    mr = new ibv_mr{};
-                    rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
+                    }else{
+                        mr = new ibv_mr{};
+                        rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
 
 //        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
 //               page_addr, mr->addr, HashSlice(page_id), level);
 
-                    //TODO: this is not guarantted to be atomic, mulitple reader can cause memory leak
-                    handle->value = mr;
+                        //TODO: this is not guarantted to be atomic, mulitple reader can cause memory leak
+                        handle->value = mr;
 
-                }
-                if (handle->strategy.load() == 1 && handle->remote_lock_status.load() == 0){
+                    }
                     global_Rlock_and_read_page(mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
                                                1, cxt, coro_id, handle);
 //                handle->remote_lock_status.store(1);
@@ -2054,6 +2055,7 @@ local_reread:
             }else{
                 cache_hit[RDMA_Manager::thread_id][0]++;
             }
+            mr = (ibv_mr*)handle->value;
 
 
         }else{
