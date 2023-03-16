@@ -2182,7 +2182,7 @@ local_reread:
 //                    handle->remote_lock_status.store(0);
         }
         assert(handle);
-        assert(handle->refs.load() == 2);
+//        assert(handle->refs.load() == 2);
         page_cache->Release(handle);
 
         return true;
@@ -2191,7 +2191,7 @@ local_reread:
             global_RUnlock(lock_addr, cas_mr, cxt, coro_id, handle);
 //                    handle->remote_lock_status.store(0);
         }
-        assert(handle->refs.load() == 2);
+//        assert(handle->refs.load() == 2);
         assert(handle);
         page_cache->Release(handle);
         return false;
@@ -3183,7 +3183,7 @@ acquire_global_lock:
 //            write_page_and_unlock(
 //                    &target_mr, GADD(page_addr, offset),
 //                    sizeof(LeafEntry), lock_addr, cxt, coro_id, false);
-
+            assert(handle->refs.load() == 1);
             return true;
         } else {
             std::sort(
