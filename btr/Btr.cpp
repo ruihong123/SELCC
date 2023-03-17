@@ -96,10 +96,11 @@ static void Deallocate_MR_WITH_CCP(Cache::Handle *handle) {
                                                         nullptr, 0);
             handle->remote_lock_status.store(0);
         }else{
-            //TODO: delete the two asserts below when you implement the invalidation RPC.
-            assert(false);
+            //An invalidated page, do nothing
         }
     }else{
+        //TODO: delete the  asserts below when you implement the strategy 2.
+
         assert(false);
     }
 //    printf("Deallocate mr for %lu\n", g_ptr.offset);
