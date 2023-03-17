@@ -1103,6 +1103,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                         handle->remote_lock_status.store(0);
 
                     }
+                    page_cache_->Release(handle);
                 }else{
 //                    printf("Release write lock Handle not found\n");
                 }
@@ -1135,6 +1136,8 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                         global_RUnlock(lock_gptr, cas_mr);
                         handle->remote_lock_status.store(0);
                     }
+                    page_cache_->Release(handle);
+
                 }else {
 //                    printf("Release read lock Handle not found\n");
                 }
