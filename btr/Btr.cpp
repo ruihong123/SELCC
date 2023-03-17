@@ -2958,6 +2958,7 @@ acquire_global_lock:
 
         handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
         assert(handle!= nullptr);
+        assert(handle->refs.load() == 2);
         std::unique_lock<std::shared_mutex> l(handle->rw_mtx);
         //TODO: Can I early release the local lock if the strategy is 1
 
