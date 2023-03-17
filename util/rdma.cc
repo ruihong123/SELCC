@@ -1133,6 +1133,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                         lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage, global_lock);
                     }
                     if (handle->remote_lock_status.load() == 1) {
+                        std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                         global_RUnlock(lock_gptr, cas_mr);
                         handle->remote_lock_status.store(0);
                     }
