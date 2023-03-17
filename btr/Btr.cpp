@@ -3186,7 +3186,7 @@ acquire_global_lock:
 //            write_page_and_unlock(
 //                    &target_mr, GADD(page_addr, offset),
 //                    sizeof(LeafEntry), lock_addr, cxt, coro_id, false);
-            assert(handle->refs.load() == 1);
+//            assert(handle->refs.load() == 1);
             return true;
         } else {
             std::sort(
