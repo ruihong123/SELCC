@@ -477,6 +477,9 @@ class RDMA_Manager {
     // potential solution: If not upgrade the lock after sending the message, the node should
     // unlock the read lock and then acquire the write lock by seperated RDMAs.
     // to avoid starvation, the updade RPC should let the reader release the lock with starvation preventer on.
+
+    //Currently, we first invalidate other 's read lock and use CAS to upgrate the lock
+    // Then here is the question, what if two node try to upgrade the lock at the same time.
     bool global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt= nullptr, int coro_id = 0);
 
 

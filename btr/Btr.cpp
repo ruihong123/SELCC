@@ -831,8 +831,15 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
     bool Btr::global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
                                   Cache::Handle *handle) {
         assert(handle->remote_lock_status.load() == 1);
-        rdma_mg->global_Rlock_update(lock_addr,cas_buffer, cxt, coro_id);
-        handle->remote_lock_status.store(2);
+        bool succfully_updated = rdma_mg->global_Rlock_update(lock_addr,cas_buffer, cxt, coro_id);
+        if (succfully_updated){
+            handle->remote_lock_status.store(2);
+            return true;
+        }else{
+            return false;
+
+        }
+
     }
     void Btr::global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                                       GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag,
@@ -3002,13 +3009,12 @@ acquire_global_lock:
 //                handle->remote_lock_status.store(2);
 
             }else if (handle->remote_lock_status == 1){
-                if (!rdma_mg->global_Rlock_update(lock_addr, cas_mr, cxt, coro_id)){
-                    //TODO: if return false, we need to seperate it into two one is  release the read lock another
-                    // is to writelock the page and read the page.
-                    handle->remote_lock_status.store(2);
-
+                if (!global_Rlock_update(lock_addr, cas_mr, cxt, coro_id,handle)){
+                    //the Read lock has been released, we can directly acquire the write lock
+                    global_Wlock_and_read_page_with_INVALID(local_mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
+                                                            1, cxt, coro_id,handle);
                 }else{
-                    handle->remote_lock_status.store(2);
+
                 }
             }
         }else{

@@ -3405,15 +3405,23 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         Batch_Submit_WRs(sr, 1, lock_addr.nodeID);
         uint64_t cas_value = (*(uint64_t*) cas_buffer->addr);
         if ((cas_value) != compare){
-            //TODO: If try one time, issue an RPC if try multiple times try to seperate the
+            //TODO: 1)If try one time, issue an RPC if try multiple times try to seperate the
             // upgrade into read release and acquire write lock.
+            // 2) what if the other node also what to update the lock and this node's read lock
+            // has already be released.
 //            conflict_tag = *(uint64_t*)cas_buffer->addr;
 //            if (conflict_tag != pre_tag) {
 //                retry_cnt = 0;
 //                pre_tag = conflict_tag;
 //            }
+            read_invalidation_targets.clear();
+
             for (uint32_t i = 1; i < 56; ++i) {
                 uint32_t  remain_bit = (cas_value >> i)%2;
+                //return false if we find the readlock of this node has already been released.
+                if ((i-1)*2 != node_id && remain_bit != 1){
+                    return false;
+                }
                 if (remain_bit == 1 && (i-1)*2 != node_id){
 
                     read_invalidation_targets.push_back((i-1)*2);
