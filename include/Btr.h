@@ -73,7 +73,7 @@ public:
     //  used for the retry counter for nested function call such as sibling pointer access.
     static  thread_local int nested_retry_counter;
     private:
-  std::mutex mtx;// in case of contention in the root
+  std::mutex root_mtx;// in case of contention in the root
   uint64_t tree_id;
 //  GlobalAddress root_ptr_ptr; // the address which stores root pointer;
 // TODO: not make it as a fixed

@@ -216,7 +216,7 @@ GlobalAddress Btr::get_root_ptr(ibv_mr*& root_hint) {
     GlobalAddress root_ptr = g_root_ptr.load();
         root_hint = cached_root_page_mr.load();
   if (root_ptr == GlobalAddress::Null()) {
-      std::unique_lock<std::mutex> l(mtx);
+      std::unique_lock<std::mutex> l(root_mtx);
 
       root_ptr = g_root_ptr.load();
       root_hint = cached_root_page_mr.load();
@@ -922,10 +922,10 @@ next: // Internal_and_Leaf page search
         // if the root and sibling are the same, it is also okay because the
         // p will not be changed
 
-        if (level!= target_level && result.slibing != GlobalAddress::Null()) { // turn right
+        if (level> target_level && result.slibing != GlobalAddress::Null()) { // turn right
             p = result.slibing;
 
-        }else if (level!= target_level && result.next_level != GlobalAddress::Null()){
+        }else if (level> target_level && result.next_level != GlobalAddress::Null()){
             assert(result.next_level != GlobalAddress::Null());
             p = result.next_level;
             level = result.level - 1;
@@ -934,12 +934,12 @@ next: // Internal_and_Leaf page search
         }
 
 
-        if (level != target_level){
-
+        if (level > target_level){
             goto next;
         }
 
     }
+        assert(level = target_level);
     //Insert to target level
     Key split_key;
     GlobalAddress sibling_prt;
@@ -1571,7 +1571,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
                 // if the root node is the leaf node this path will happen.
                 printf("root and leaf are the same 1\n");
                 if (page->check_lock_state() && k >= page->hdr.highest){
-                    std::unique_lock<std::mutex> l(mtx);
+                    std::unique_lock<std::mutex> l(root_mtx);
                     if (page_addr == g_root_ptr.load()){
                         g_root_ptr.store(GlobalAddress::Null());
                     }
@@ -1650,9 +1650,13 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             if (result.level == 0){
                 // if the root node is the leaf node this path will happen.
                 printf("root and leaf are the same 2\n");
+                //Why this is impossible?
+                // Ans: here the level is 0 and we are internal search the page, then the index only have one leaf node
+                // which is also the root node. In this case, the root page has to have a page_hint,
+                // it is impossible to search a root leaf node without a page hint.
                 assert(false);
                 if (page->check_lock_state() && k >= page->hdr.highest){
-                    std::unique_lock<std::mutex> l(mtx);
+                    std::unique_lock<std::mutex> l(root_mtx);
                     if (page_addr == g_root_ptr.load()){
                         g_root_ptr.store(GlobalAddress::Null());
                     }
@@ -1724,7 +1728,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
                 printf("root and leaf are the same 3\n");
                 assert(false);
                 if (page->check_lock_state() && k >= page->hdr.highest){
-                    std::unique_lock<std::mutex> l(mtx);
+                    std::unique_lock<std::mutex> l(root_mtx);
                     if (page_addr == g_root_ptr.load()){
                         g_root_ptr.store(GlobalAddress::Null());
                     }
@@ -1831,7 +1835,7 @@ local_reread:
       // TODO: if this is the root node then we need to refresh the new root.
       if (isroot){
           // invalidate the root. Maybe we can omit the mtx here?
-          std::unique_lock<std::mutex> l(mtx);
+          std::unique_lock<std::mutex> l(root_mtx);
           if (page_addr == g_root_ptr.load()){
               g_root_ptr.store(GlobalAddress::Null());
           }
@@ -2820,7 +2824,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         //check whether the node split is for a root node.
         if (UNLIKELY(p == GlobalAddress::Null() )){
             // First acquire local lock
-            std::unique_lock<std::mutex> l(mtx);
+            std::unique_lock<std::mutex> l(root_mtx);
             p = g_root_ptr.load();
             uint8_t height = tree_height;
 
@@ -3274,7 +3278,7 @@ acquire_global_lock:
             //check whether the node split is for a root node.
             if (UNLIKELY(p == GlobalAddress::Null() )){
                 // First acquire local lock
-                std::unique_lock<std::mutex> l(mtx);
+                std::unique_lock<std::mutex> l(root_mtx);
                 p = g_root_ptr.load();
                 uint8_t height = tree_height;
 
@@ -3294,6 +3298,7 @@ acquire_global_lock:
                     }
                     refetch_rootnode();
                     p = g_root_ptr.load();
+                    height = tree_height;
                     if (path_stack[coro_id][level] == p && height == level) {
                         update_new_root(path_stack[coro_id][level], split_key, sibling_addr, level + 1,
                                         path_stack[coro_id][level], cxt, coro_id);
