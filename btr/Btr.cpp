@@ -945,6 +945,9 @@ next: // Internal_and_Leaf page search
                 goto next;
             }
         }else if(level < target_level){
+            // Since return true will not invalidate the root node, here we manually invalidate it outside,
+            // Otherwise, there will be a deadloop.
+            g_root_ptr.store(GlobalAddress::Null());
             p = get_root_ptr(page_hint);
             level = -1;
             goto next;
