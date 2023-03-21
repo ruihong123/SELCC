@@ -929,24 +929,31 @@ next: // Internal_and_Leaf page search
         // if the root and sibling are the same, it is also okay because the
         // p will not be changed
 
-        if (level> target_level && result.slibing != GlobalAddress::Null()) { // turn right
-            p = result.slibing;
-
-        }else if (level> target_level && result.next_level != GlobalAddress::Null()){
-            assert(result.next_level != GlobalAddress::Null());
-            p = result.next_level;
-            level = result.level - 1;
-        }else{
-
-        }
-
-
         if (level > target_level){
+            if (result.slibing != GlobalAddress::Null()) { // turn right
+                p = result.slibing;
+
+            }else if (result.next_level != GlobalAddress::Null()){
+                assert(result.next_level != GlobalAddress::Null());
+                //Probelm here
+                p = result.next_level;
+                level = result.level - 1;
+            }else{
+
+            }
+            if (level != target_level){
+                goto next;
+            }
+        }else if(level < target_level){
+            p = get_root_ptr(page_hint);
+            level = -1;
             goto next;
+        }else{
+            //do nothing, the p and level is correct.
         }
 
     }
-        assert(level = target_level);
+    assert(level = target_level);
     //Insert to target level
     Key split_key;
     GlobalAddress sibling_prt;
@@ -1577,11 +1584,14 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             if (result.level == 0){
                 // if the root node is the leaf node this path will happen.
                 printf("root and leaf are the same 1\n");
-                if (page->check_lock_state() && k >= page->hdr.highest){
+                // assert the page is a valid page.
+                assert(page->check_whether_globallock_is_unlocked());
+                if (k >= page->hdr.highest){
                     std::unique_lock<std::mutex> l(root_mtx);
                     if (page_addr == g_root_ptr.load()){
                         g_root_ptr.store(GlobalAddress::Null());
                     }
+                    return false;
                 }
                 return true;
             }
@@ -1662,11 +1672,13 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
                 // which is also the root node. In this case, the root page has to have a page_hint,
                 // it is impossible to search a root leaf node without a page hint.
                 assert(false);
-                if (page->check_lock_state() && k >= page->hdr.highest){
+                assert(page->check_whether_globallock_is_unlocked());
+                if (k >= page->hdr.highest){
                     std::unique_lock<std::mutex> l(root_mtx);
                     if (page_addr == g_root_ptr.load()){
                         g_root_ptr.store(GlobalAddress::Null());
                     }
+                    return false;
                 }
                 return true;
             }
@@ -1734,17 +1746,23 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
                 // if the root node is the leaf node this path will happen.
                 printf("root and leaf are the same 3\n");
                 assert(false);
-                if (page->check_lock_state() && k >= page->hdr.highest){
+                assert(page->check_whether_globallock_is_unlocked());
+                if (k >= page->hdr.highest){
                     std::unique_lock<std::mutex> l(root_mtx);
                     if (page_addr == g_root_ptr.load()){
                         g_root_ptr.store(GlobalAddress::Null());
                     }
-                }
-                // No need for reread.
-                rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal_and_Leaf);
-                // return true and let the outside code figure out that the leaf node is the root node
+                    rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal_and_Leaf);
+
+                    return false;
+                }else{
+                    // No need for reread.
+                    rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal_and_Leaf);
+                    // return true and let the outside code figure out that the leaf node is the root node
 //            this->unlock_addr(lock_addr, cxt, coro_id, false);
-                return true;
+                    return true;
+                }
+
             }
             // This consistent check should be in the path of RDMA read only.
             //TODO (OPTIMIZATION): Think about Why the last index check is necessary? can we remove it
@@ -1755,7 +1773,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 //        _mm_clflush(&page->front_version);
 //        _mm_clflush(&page->rear_version);
 //        || page->records[page->hdr.last_index ].ptr == GlobalAddress::Null() 0x16623140000001 becomes 0x40000001
-            if (!page->check_lock_state() ) {
+            if (!page->check_whether_globallock_is_unlocked() ) {
                 //TODO: What is the other thread is modifying this page but you overwrite the buffer by a reread.
                 // How to tell whether the inconsistent content is from local read-write conflict or remote
                 // RDMA read and write conflict
@@ -2443,6 +2461,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //            rdma_mg->RDMA_Read(page_addr, local_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
 
             }else{
+                // need to trune the page address, to avoid local lock overwritting.
                 ibv_mr temp_mr = *page_mr;
                 GlobalAddress temp_page_add = page_addr;
                 temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
@@ -2458,7 +2477,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //            usleep(1);
             }
             assert(page->local_lock_meta.local_lock_byte == 1);
-            assert(!page->check_lock_state());
+            assert(!page->check_whether_globallock_is_unlocked());
 
 
 //        lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
@@ -2519,7 +2538,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
     assert(((char*)&page->global_lock - (char*)page) == RDMA_OFFSET);
     assert(page->hdr.level == level);
-    assert(!page->check_lock_state());
+    assert(!page->check_whether_globallock_is_unlocked());
     assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
     path_stack[coro_id][page->hdr.level] = page_addr;
     // This is the result that we do not lock the btree when search for the key.
@@ -2851,6 +2870,7 @@ acquire_global_lock:
                 }
                 refetch_rootnode();
                 p = g_root_ptr.load();
+                height = tree_height.load();
                 if (path_stack[coro_id][level] == p && height == level) {
                     update_new_root(path_stack[coro_id][level], split_key, sibling_addr, level + 1,
                                     path_stack[coro_id][level], cxt, coro_id);
@@ -3285,9 +3305,15 @@ acquire_global_lock:
             if (UNLIKELY(p == GlobalAddress::Null() )){
                 // First acquire local lock
                 std::unique_lock<std::mutex> l(root_mtx);
+//                refetch_rootnode();
+                // If you find the current root node does not have higher stack, and it is not a outdated root node,
+                // the reason behind is that the inserted key is very small and the leaf node keep sibling shift to the right.
+                // IN this case, the code will call "insert_internal"
                 p = g_root_ptr.load();
                 uint8_t height = tree_height;
+                // Note path_stack is a global variable, be careful when debugging
 
+                //If current store node is still the leaf (NO other thread create new root.), then we need to create a new page.
                 if (path_stack[coro_id][level] == p && height == level){
                     //aquire the global lock to avoid mulitple node creating the new  root node
                     GlobalAddress lock_addr = {};

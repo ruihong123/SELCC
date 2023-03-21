@@ -217,7 +217,7 @@ namespace DSMEngine{
         void check_invalidation_and_refetch_outside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr);
         void check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr);
 
-        bool check_lock_state() const {
+        bool check_whether_globallock_is_unlocked() const {
 
             bool succ = global_lock ==0;
 #ifdef CONFIG_ENABLE_CRC
