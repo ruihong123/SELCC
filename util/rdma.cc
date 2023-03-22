@@ -3419,7 +3419,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             for (uint32_t i = 1; i < 56; ++i) {
                 uint32_t  remain_bit = (cas_value >> i)%2;
                 //return false if we find the readlock of this node has already been released.
-                if ((i-1)*2 != node_id && remain_bit != 1){
+                if ((i-1)*2 == node_id && remain_bit == 0){
                     return false;
                 }
                 if (remain_bit == 1 && (i-1)*2 != node_id){
