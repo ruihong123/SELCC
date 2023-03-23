@@ -1096,10 +1096,14 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                         assert(false);
                         lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage, global_lock);
                     }
-                    std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
+                    // double check locking
                     if (handle->remote_lock_status.load() == 2){
-                        global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr,page_mr->length,lock_gptr);
-                        handle->remote_lock_status.store(0);
+                        std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
+                        if (handle->remote_lock_status.load() == 2){
+                            global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr,page_mr->length,lock_gptr);
+                            handle->remote_lock_status.store(0);
+                        }
+
 
                     }
                     page_cache_->Release(handle);
@@ -1133,8 +1137,11 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                     }
                     if (handle->remote_lock_status.load() == 1) {
                         std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
-                        global_RUnlock(lock_gptr, cas_mr);
-                        handle->remote_lock_status.store(0);
+                        if (handle->remote_lock_status.load() == 1) {
+                            global_RUnlock(lock_gptr, cas_mr);
+                            handle->remote_lock_status.store(0);
+                        }
+
                     }
                     page_cache_->Release(handle);
 
@@ -3493,8 +3500,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 }
             }else if (invalidation_RPC_type == 2){
                 assert(write_invalidation_target != 0-1);
-                printf(" send write invalidation message to other nodes %p\n", page_addr);
                 Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
+                printf(" send write invalidation message to other nodes %p\n", page_addr);
 
             }
             // the compared value is the real id /2 + 1.

@@ -3095,6 +3095,8 @@ acquire_global_lock:
 //                        handle->remote_lock_status.store(0);
                     }
                     page_cache->Release(handle);
+                    // Has to be unlocked to avoid a deadlock.
+                    l.unlock();
                     return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt, coro_id);
                 }else{
 
