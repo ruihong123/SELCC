@@ -1076,7 +1076,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
             // it is the same with send buff pointer.
             if (receive_msg_buf->command == release_write_lock) {
                 post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
-//                printf("release_write_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
+                printf("release_write_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
                 //TODO: Implement a unlock mechanism. Maybe we need to make the cache static so that we
                 // can access the cache from this code.
                 GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
@@ -1587,7 +1587,7 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
             qp_init_attr.send_cq = cq1;
             qp_init_attr.recv_cq = cq2;
 
-            qp_init_attr.cap.max_send_wr = R_SIZE;
+            qp_init_attr.cap.max_send_wr = 16; // THis should be larger that he maixum core number for the machine.
             qp_init_attr.cap.max_recv_wr = R_SIZE;
             qp_init_attr.cap.max_send_sge = 2;
             qp_init_attr.cap.max_recv_sge = 2;
