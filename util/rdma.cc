@@ -3493,6 +3493,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 }
             }else if (invalidation_RPC_type == 2){
                 assert(write_invalidation_target != 0-1);
+                printf(" send write invalidation message to other nodes %p\n", page_addr);
                 Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
 
             }
