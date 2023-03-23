@@ -1030,10 +1030,10 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
     }
 
     //TODO: delete the code below.
-    if(node_id == 2 && compute_nodes.size() == 2){
-        Send_heart_beat_xcompute(0);
-
-    }
+//    if(node_id == 2 && compute_nodes.size() == 2){
+//        Send_heart_beat_xcompute(0);
+//
+//    }
     compute_connection_counter.fetch_add(1);
     //Do we need to sync below?, probably not at below, should be synced outside this function.
 
