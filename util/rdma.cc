@@ -757,8 +757,7 @@ void RDMA_Manager::Client_Set_Up_Resources() {
 
     }
 
-  while (compute_connection_counter.load() != compute_nodes.size()-1)
-      ;
+  while (compute_connection_counter.load() != compute_nodes.size()-1);
   // check whether all the compute nodes are ready.
         sync_with_computes_Cside();
     // connect with the compute nodes below.
@@ -1031,10 +1030,10 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
     }
 
     //TODO: delete the code below.
-    if(node_id == 0 && compute_nodes.size() == 2){
-        Send_heart_beat_xcompute(2);
-
-    }
+//    if(node_id == 0 && compute_nodes.size() == 2){
+//        Send_heart_beat_xcompute(2);
+//
+//    }
     compute_connection_counter.fetch_add(1);
     //Do we need to sync below?, probably not at below, should be synced outside this function.
 
