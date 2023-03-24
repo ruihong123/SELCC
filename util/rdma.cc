@@ -3627,7 +3627,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         }
 
     }
-    void RDMA_Manager::global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+    void RDMA_Manager::global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
                                                      GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
 
         //TODO: If we want to use async unlock, we need to enlarge the max outstand work request that the queue pair support.
@@ -3636,11 +3636,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         GlobalAddress post_gl_page_addr;
         post_gl_page_addr.nodeID = page_addr.nodeID;
         //The header should be the same offset in Leaf or INternal nodes
-        assert(STRUCT_OFFSET(InternalPage, hdr) == STRUCT_OFFSET(LeafPage, hdr));
-        post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage, hdr);
+        assert(STRUCT_OFFSET(InternalPage, global_lock) == STRUCT_OFFSET(LeafPage, global_lock));
+        post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage, global_lock);
         ibv_mr post_gl_page_local_mr = *page_buffer;
-        post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage, hdr));
-        page_size -=  STRUCT_OFFSET(LeafPage, hdr);
+        post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage, global_lock));
+        page_size -=  STRUCT_OFFSET(LeafPage, global_lock);
         if (async){
             assert(false);
             Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Internal_and_Leaf);

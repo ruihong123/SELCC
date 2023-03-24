@@ -2824,16 +2824,15 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //            rdma_mg->RDMA_Write(page_addr, local_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             releases_local_optimistic_lock(&page->local_lock_meta);
         }else{
-            //todo: Let the gloabal page unlock and write handle the offset problem. We shall not
-            // let RDMA WRITE over write the global lock words?
-            ibv_mr temp_mr = *page_mr;
-            GlobalAddress temp_page_add = page_addr;
-            temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
-            temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
-            temp_mr.length = temp_mr.length - RDMA_OFFSET;
+
+//            ibv_mr temp_mr = *page_mr;
+//            GlobalAddress temp_page_add = page_addr;
+//            temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
+//            temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
+//            temp_mr.length = temp_mr.length - RDMA_OFFSET;
             assert(page->global_lock == ((uint64_t)(rdma_mg->node_id/2 +1) <<56));
             assert(page->hdr.valid_page);
-            rdma_mg->global_write_page_and_Wunlock(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET, lock_addr,
+            rdma_mg->global_write_page_and_Wunlock(page_mr, page_addr, kInternalPageSize, lock_addr,
                                                    cxt, coro_id, false);
             releases_local_optimistic_lock(&page->local_lock_meta);
         }
