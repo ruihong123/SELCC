@@ -1076,7 +1076,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
             // it is the same with send buff pointer.
             if (receive_msg_buf->command == release_write_lock) {
                 post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
-                printf("release_write_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
+//                printf("release_write_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
                 //TODO: Implement a unlock mechanism. Maybe we need to make the cache static so that we
                 // can access the cache from this code.
                 GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
@@ -3493,17 +3493,31 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // Check whether the invalidation is write type or read type. If it is a read type
         // we need to broadcast the message to multiple destination.
         if (retry_cnt % 3 ==  2) {
-            if (invalidation_RPC_type == 1){
-                assert(!read_invalidation_targets.empty());
-                for (auto iter: read_invalidation_targets) {
-                    Shared_lock_invalidate_RPC(page_addr, iter);
-                }
-            }else if (invalidation_RPC_type == 2){
-                assert(write_invalidation_target != 0-1);
-                Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
-                printf(" send write invalidation message to other nodes %p\n", page_addr);
+            // exponential back up to avoid remote receive buffer overflow.
+            // Actually no need to do this, the RDMA cas IS SLOW enough.
+//            if(retry_cnt < 500){
+                if (invalidation_RPC_type == 1){
+                    assert(!read_invalidation_targets.empty());
+                    for (auto iter: read_invalidation_targets) {
+                        Shared_lock_invalidate_RPC(page_addr, iter);
+                    }
+                }else if (invalidation_RPC_type == 2){
+                    assert(write_invalidation_target != 0-1);
+                    Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
+//                printf(" send write invalidation message to other nodes %p\n", page_addr);
 
-            }
+                }
+//            }else if (retry_cnt >1000){
+//                usleep(10);
+//            }else if (retry_cnt >2000){
+//                usleep(100);
+//            }else if (retry_cnt >100000){
+//                usleep(1000);
+//            }else{
+//                sleep(1);
+//            }
+
+
             // the compared value is the real id /2 + 1.
         }
         if (retry_cnt > 300000) {
