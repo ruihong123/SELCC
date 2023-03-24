@@ -3528,7 +3528,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }else if (invalidation_RPC_type == 2){
                 assert(write_invalidation_target != 0-1);
                 Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
-//                printf(" send write invalidation message to other nodes %p\n", page_addr);
 
             }
 
@@ -4463,6 +4462,8 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
 
 bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint16_t target_node_id) {
     qp_xcompute;
+    printf(" send write invalidation message to other nodes %p\n", global_ptr);
+
     RDMA_Request* send_pointer;
     ibv_mr* send_mr = Get_local_send_message_mr();
 //    ibv_mr* receive_mr = {};
@@ -4495,7 +4496,7 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
 }
 
     bool RDMA_Manager::Shared_lock_invalidate_RPC(GlobalAddress g_ptr, uint16_t target_node_id) {
-        qp_xcompute;
+        printf(" send read invalidation message to other nodes %p\n", g_ptr);
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
 //    ibv_mr* receive_mr = {};
