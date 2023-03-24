@@ -3335,7 +3335,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        printf("global read lock at %p \n", page_addr);
         retry:
         retry_cnt++;
-        if (retry_cnt % 4 ==  2) {
+        if (retry_cnt % 3 ==  2) {
 //            assert(compare%2 == 0);
             if(retry_cnt < 100){
                 //do nothing
