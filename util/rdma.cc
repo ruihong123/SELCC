@@ -4261,7 +4261,7 @@ int RDMA_Manager::poll_completion(ibv_wc* wc_p, int num_entries,
       }
     }
   }
-        printf("Get a completion from queue\n");
+//        printf("Get a completion from queue\n");
   return rc;
 }
 
