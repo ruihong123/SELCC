@@ -4261,6 +4261,10 @@ int RDMA_Manager::poll_completion(ibv_wc* wc_p, int num_entries,
       }
     }
   }
+        if (target_node_id == 1){
+            printf("poll a completion %s\n", qp_type.c_str());
+        }
+
 //        printf("Get a completion from queue\n");
   return rc;
 }
