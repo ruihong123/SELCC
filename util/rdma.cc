@@ -2987,7 +2987,7 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
 //#ifdef PROCESSANALYSIS
 //        start = std::chrono::high_resolution_clock::now();
 //#endif
-        printf("Batch submit polling\n");
+//        DEBUG_PRINT("Batch submit polling\n");
         if (rc) fprintf(stderr, "failed to post SR, return is %d\n", rc);
 
         if (poll_num != 0) {
@@ -4264,9 +4264,9 @@ int RDMA_Manager::poll_completion(ibv_wc* wc_p, int num_entries,
       }
     }
   }
-        if (target_node_id == 1 && qp_type == "default"){
-            printf("poll a completion through default queuepair\n");
-        }
+//        if (target_node_id == 1 && qp_type == "default"){
+//            printf("poll a completion through default queuepair\n");
+//        }
 
 //        printf("Get a completion from queue\n");
   return rc;
