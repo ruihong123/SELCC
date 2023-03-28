@@ -2096,7 +2096,6 @@ End of socket operations
         }
         //    std::cout << " " << msg_size << "time elapse :" <<  << std::endl;
         //  start = std::chrono::high_resolution_clock::now();
-        printf("RDMA read \n");
         if (rc) {
             fprintf(stderr, "failed to post SR %s \n", qp_type.c_str());
             exit(1);
@@ -2993,6 +2992,8 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
             //  auto start = std::chrono::high_resolution_clock::now();
             //  while(std::chrono::high_resolution_clock::now()-start < std::chrono::nanoseconds(msg_size+200000));
             // wait until the job complete.
+            printf("RDMA Batch submit \n");
+
             rc = poll_completion(wc, poll_num, qp_type, true, target_node_id);
             if (rc != 0) {
                 std::cout << "RDMA CAS Failed" << std::endl;
