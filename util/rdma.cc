@@ -2207,6 +2207,8 @@ End of socket operations
   //  {
 //      fprintf(stdout, "RDMA Read Request was posted, OPCODE is %d\n", sr.opcode);
   //  }
+
+        printf("rdma read for root_ptr\n");
   if (poll_num != 0) {
     ibv_wc* wc = new ibv_wc[poll_num]();
     //  auto start = std::chrono::high_resolution_clock::now();
@@ -2992,7 +2994,6 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
             //  auto start = std::chrono::high_resolution_clock::now();
             //  while(std::chrono::high_resolution_clock::now()-start < std::chrono::nanoseconds(msg_size+200000));
             // wait until the job complete.
-            printf("RDMA Batch submit \n");
 
             rc = poll_completion(wc, poll_num, qp_type, true, target_node_id);
             if (rc != 0) {
