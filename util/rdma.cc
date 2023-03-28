@@ -2096,7 +2096,7 @@ End of socket operations
         }
         //    std::cout << " " << msg_size << "time elapse :" <<  << std::endl;
         //  start = std::chrono::high_resolution_clock::now();
-
+        printf("RDMA read \n");
         if (rc) {
             fprintf(stderr, "failed to post SR %s \n", qp_type.c_str());
             exit(1);
@@ -4546,7 +4546,6 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
         //Use node 1 memory node as the place to store the temporary QP information
         post_send<RDMA_Request>(send_mr, target_memory_node_id, std::string("main"));
         ibv_wc wc[2] = {};
-
         if (poll_completion(wc, 1, std::string("main"),
                             true, target_memory_node_id)){
 //    assert(try_poll_completions(wc, 1, std::string("main"),true) == 0);
