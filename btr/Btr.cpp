@@ -961,7 +961,9 @@ next: // Internal_and_Leaf page search
     Key split_key;
     GlobalAddress sibling_prt;
         assert(p != GlobalAddress::Null());
-    if (!internal_page_store(p, k, v, level, cxt, coro_id)){
+    bool store_success = internal_page_store(p, k, v, level, cxt, coro_id);
+    if (!store_success){
+        //TODO: need to understand why the result is always false.
         if (path_stack[coro_id][level + 1] != GlobalAddress::Null()){
             p = path_stack[coro_id][level + 1];
             level = level + 1;
@@ -973,7 +975,7 @@ next: // Internal_and_Leaf page search
         }
         goto next;
     }
-
+    return true;
 //    internal_page_store(p, k, v, level, cxt, coro_id);
 }
 
