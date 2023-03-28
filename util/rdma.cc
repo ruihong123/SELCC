@@ -1076,7 +1076,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
             // it is the same with send buff pointer.
             if (receive_msg_buf->command == release_write_lock) {
                 post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
-                printf("release_write_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
+//                printf("release_write_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
                 //TODO: Implement a unlock mechanism. Maybe we need to make the cache static so that we
                 // can access the cache from this code.
                 GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
@@ -1116,7 +1116,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
 
             } else if (receive_msg_buf->command == release_read_lock) {
                 post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
-                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
+//                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
                 ibv_mr* cas_mr =  Get_local_CAS_mr();
                 GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
 
@@ -2208,7 +2208,7 @@ End of socket operations
 //      fprintf(stdout, "RDMA Read Request was posted, OPCODE is %d\n", sr.opcode);
   //  }
 
-        printf("rdma read for root_ptr\n");
+//        printf("rdma read for root_ptr\n");
   if (poll_num != 0) {
     ibv_wc* wc = new ibv_wc[poll_num]();
     //  auto start = std::chrono::high_resolution_clock::now();
@@ -4472,7 +4472,7 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
 
 bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint16_t target_node_id) {
     qp_xcompute;
-    printf(" send write invalidation message to other nodes %p\n", global_ptr);
+//    printf(" send write invalidation message to other nodes %p\n", global_ptr);
 
     RDMA_Request* send_pointer;
     ibv_mr* send_mr = Get_local_send_message_mr();
@@ -4506,7 +4506,7 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
 }
 
     bool RDMA_Manager::Shared_lock_invalidate_RPC(GlobalAddress g_ptr, uint16_t target_node_id) {
-        printf(" send read invalidation message to other nodes %p\n", g_ptr);
+//        printf(" send read invalidation message to other nodes %p\n", g_ptr);
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
 //    ibv_mr* receive_mr = {};
