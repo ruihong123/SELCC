@@ -2987,6 +2987,7 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
 //#ifdef PROCESSANALYSIS
 //        start = std::chrono::high_resolution_clock::now();
 //#endif
+        printf("Batch submit polling\n");
         if (rc) fprintf(stderr, "failed to post SR, return is %d\n", rc);
 
         if (poll_num != 0) {
