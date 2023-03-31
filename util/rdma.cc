@@ -1924,7 +1924,7 @@ int RDMA_Manager::modify_qp_to_rtr(struct ibv_qp* qp, uint32_t remote_qpn,
   attr.path_mtu = IBV_MTU_4096;
   attr.dest_qp_num = remote_qpn;
   attr.rq_psn = 0;
-  attr.max_dest_rd_atomic = 1;
+  attr.max_dest_rd_atomic = 5; //destination should have a larger pending entries. than the qp send outstanding
   attr.min_rnr_timer = 0xc;
   attr.ah_attr.is_global = 0;
   attr.ah_attr.dlid = dlid;
@@ -1972,9 +1972,8 @@ int RDMA_Manager::modify_qp_to_rts(struct ibv_qp* qp) {
   attr.rnr_retry = 7;
   attr.sq_psn = 0;
   attr.max_rd_atomic = 4;// allow RDMA atomic andn RDMA read batched.
-  attr.max_dest_rd_atomic = attr.max_rd_atomic + 1; //destination should have a larger pending entries.
   flags = IBV_QP_STATE | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY |
-          IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC | IBV_QP_MAX_DEST_RD_ATOMIC;
+          IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC;
   rc = ibv_modify_qp(qp, &attr, flags);
   if (rc)
       fprintf(stderr, "failed to modify QP state to RTS\n");
