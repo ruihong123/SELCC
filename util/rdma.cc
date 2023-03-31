@@ -3330,6 +3330,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                                                   GlobalAddress lock_addr, ibv_mr* cas_buffer, uint64_t tag, CoroContext *cxt,
                                                   int coro_id) {
         uint64_t add = (1ull << (RDMA_Manager::node_id/2 +1));
+        uint64_t substract = (~add) + 1;
         uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
@@ -3385,7 +3386,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, -add, 0, Internal_and_Leaf);
             //TODO: check the starvation bit to decide whether there is an immediate retry. If there is a starvation
             // unlock the lock this time util see a write lock.
-            RDMA_FAA(lock_addr, cas_buffer, -add, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+
+            RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             target_compute_node_id = ((return_value >> 56) - 1)*2;
             goto retry;
         }
@@ -3460,6 +3462,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
     void RDMA_Manager::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id) {
         // TODO: an alternative and better design for read unlock is to use RDMA FAA.
         uint64_t add = (1ull << (RDMA_Manager::node_id/2 +1));
+        uint64_t substract = (~add) + 1;
         uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
@@ -3480,7 +3483,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         struct ibv_sge sge[2];
 //        GlobalAddress lock_addr =
         //Only the second RDMA issue a completion
-        RDMA_FAA(lock_addr, cas_buffer, -add, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+        RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
         uint64_t return_data = (*(uint64_t*) cas_buffer->addr);
         assert((return_data & (1ull << (RDMA_Manager::node_id/2 + 1))) != 0);
 
