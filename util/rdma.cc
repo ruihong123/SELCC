@@ -1964,6 +1964,7 @@ int RDMA_Manager::modify_qp_to_rts(struct ibv_qp* qp) {
   attr.rnr_retry = 7;
   attr.sq_psn = 0;
   attr.max_rd_atomic = 4;// allow RDMA atomic andn RDMA read batched.
+  attr.max_dest_rd_atomic = 4*(static_cast<double>(GetMemoryNodeNum())/static_cast<double>(GetComputeNodeNum()) +1); //destination should have a larger pending entries.
   flags = IBV_QP_STATE | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY |
           IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC;
   rc = ibv_modify_qp(qp, &attr, flags);
