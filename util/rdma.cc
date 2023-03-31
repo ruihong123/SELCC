@@ -882,13 +882,13 @@ int RDMA_Manager::resources_create() {
   std::cout << "maximum outstanding wr number is"  << res->device_attr.max_qp_wr <<std::endl;
   std::cout << "maximum query pair number is" << res->device_attr.max_qp
             << std::endl;
-    std::cout << "Maximum number of RDMA Read & Atomic operations that can be outstanding per QP" << res->device_attr.max_qp_rd_atom
+    std::cout << "Maximum number of RDMA Read & Atomic operations that can be outstanding per QP " << res->device_attr.max_qp_rd_atom
               << std::endl;
-    std::cout << "Maximum number of RDMA Read & Atomic operations that can be outstanding per EEC" << res->device_attr.max_ee_rd_atom
+    std::cout << "Maximum number of RDMA Read & Atomic operations that can be outstanding per EEC " << res->device_attr.max_ee_rd_atom
               << std::endl;
-    std::cout << "Maximum depth per QP for initiation of RDMA Read & Atomic operations" << res->device_attr.max_qp_init_rd_atom
+    std::cout << "Maximum depth per QP for initiation of RDMA Read & Atomic operations " << res->device_attr.max_qp_init_rd_atom
               << std::endl;
-        std::cout << "Maximum number of resources used for RDMA Read & Atomic operations by this HCA as the Target" << res->device_attr.max_res_rd_atom
+        std::cout << "Maximum number of resources used for RDMA Read & Atomic operations by this HCA as the Target " << res->device_attr.max_res_rd_atom
                   << std::endl;
   std::cout << "maximum completion queue number is" << res->device_attr.max_cq
             << std::endl;
@@ -1976,7 +1976,8 @@ int RDMA_Manager::modify_qp_to_rts(struct ibv_qp* qp) {
   flags = IBV_QP_STATE | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY |
           IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC | IBV_QP_MAX_DEST_RD_ATOMIC;
   rc = ibv_modify_qp(qp, &attr, flags);
-  if (rc) fprintf(stderr, "failed to modify QP state to RTS\n");
+  if (rc)
+      fprintf(stderr, "failed to modify QP state to RTS\n");
   return rc;
 }
 /******************************************************************************
