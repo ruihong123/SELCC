@@ -1100,7 +1100,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                     if (handle->remote_lock_status.load() == 2){
                         std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                         if (handle->remote_lock_status.load() == 2){
-                            global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr,page_mr->length,lock_gptr);
+                            global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr, page_mr->length,lock_gptr);
                             handle->remote_lock_status.store(0);
                         }
 
@@ -1963,7 +1963,7 @@ int RDMA_Manager::modify_qp_to_rts(struct ibv_qp* qp) {
   attr.retry_cnt = 7;
   attr.rnr_retry = 7;
   attr.sq_psn = 0;
-  attr.max_rd_atomic = 1;
+  attr.max_rd_atomic = 4;// allow RDMA atomic andn RDMA read batched.
   flags = IBV_QP_STATE | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY |
           IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC;
   rc = ibv_modify_qp(qp, &attr, flags);
