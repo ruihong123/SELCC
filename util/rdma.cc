@@ -882,6 +882,14 @@ int RDMA_Manager::resources_create() {
   std::cout << "maximum outstanding wr number is"  << res->device_attr.max_qp_wr <<std::endl;
   std::cout << "maximum query pair number is" << res->device_attr.max_qp
             << std::endl;
+    std::cout << "Maximum number of RDMA Read & Atomic operations that can be outstanding per QP" << res->device_attr.max_qp_rd_atom
+              << std::endl;
+    std::cout << "Maximum number of RDMA Read & Atomic operations that can be outstanding per EEC" << res->device_attr.max_ee_rd_atom
+              << std::endl;
+    std::cout << "Maximum depth per QP for initiation of RDMA Read & Atomic operations" << res->device_attr.max_qp_init_rd_atom
+              << std::endl;
+        std::cout << "Maximum number of resources used for RDMA Read & Atomic operations by this HCA as the Target" << res->device_attr.max_res_rd_atom
+                  << std::endl;
   std::cout << "maximum completion queue number is" << res->device_attr.max_cq
             << std::endl;
   std::cout << "maximum memory region number is" << res->device_attr.max_mr
