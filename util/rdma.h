@@ -753,6 +753,7 @@ class RDMA_Manager {
 
   int resources_create();
   int modify_qp_to_reset(ibv_qp* qp);
+  //todo: make the qp configuration configurable, different qp (x COMPUTE, to memory) should have differnt config
   int modify_qp_to_init(struct ibv_qp* qp);
   int modify_qp_to_rtr(struct ibv_qp* qp, uint32_t remote_qpn, uint16_t dlid,
                        uint8_t *dgid);
