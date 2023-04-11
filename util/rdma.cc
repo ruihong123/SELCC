@@ -3613,6 +3613,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         ibv_mr post_gl_page_local_mr = *page_buffer;
         post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage, hdr));
         page_size -=  STRUCT_OFFSET(LeafPage, hdr);
+        assert(remote_lock_addr <= post_gl_page_addr - 8);
         if (async){
             assert(false);
             Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Internal_and_Leaf);
