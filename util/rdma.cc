@@ -1090,12 +1090,12 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
 
                     //TODO: what shall we do if the read lock is on
                     //Ans: do nothing
-
+                Release_write_lock(receive_msg_buf);
 
             } else if (receive_msg_buf->command == release_read_lock) {
                 post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
 //                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
-
+                Release_read_lock(receive_msg_buf);
 
             } else if (receive_msg_buf->command == heart_beat) {
                 printf("heart_beat\n");
@@ -3291,9 +3291,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         retry_cnt++;
         if (retry_cnt % 3 ==  2) {
 //            assert(compare%2 == 0);
-            if(retry_cnt < 100){
+            if(retry_cnt < 50){
                 //do nothing
-            }else if (retry_cnt <200){
+            }else if (retry_cnt <100){
                 printf("RPC handling thread x compute is not enough, please raise the value of NUM_QP_ACCROSS_COMPUTE\n");
                 usleep(10);
             }else if (retry_cnt <1000){
@@ -3464,9 +3464,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // we need to broadcast the message to multiple destination.
         if (retry_cnt % 3 ==  2) {
             // exponential back up to avoid remote receive buffer overflow.
-            if(retry_cnt < 100){
+            if(retry_cnt < 50){
                 //do nothing
-            }else if (retry_cnt <200){
+            }else if (retry_cnt <100){
                 printf("RPC handling thread x compute is not enough, please raise the value of NUM_QP_ACCROSS_COMPUTE\n");
                 usleep(10);
             }else if (retry_cnt <1000){

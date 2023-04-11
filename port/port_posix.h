@@ -106,7 +106,7 @@
 #define NEARDATACOMPACTION
 //#define GETANALYSIS
 #define ROCKSDB_PTHREAD_ADAPTIVE_MUTEX
-#define R_SIZE 4096
+#define R_SIZE 1024
 
 //#define BLOOMANALYSIS
 #include "port/thread_annotations.h"
