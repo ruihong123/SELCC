@@ -3363,6 +3363,13 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         retry_cnt++;
         GlobalAddress page_addr = lock_addr;
         page_addr.offset -= STRUCT_OFFSET(LeafPage, global_lock);
+        // todo: the invalidation message for other reader can result in a deadlock. Two node try to upgrade the lock
+        //  at the same time and the invalidation mesage will always be blocked. If it retried two or three times,
+        //  then it should return false
+        if (retry_cnt > 10){
+            global_RUnlock(lock_addr, cas_buffer,cxt,coro_id);
+            return false;
+        }
         if (retry_cnt % 4 ==  2) {
 //            assert(compare%2 == 0);
             for (auto iter: read_invalidation_targets) {
@@ -3395,6 +3402,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 uint32_t  remain_bit = (cas_value >> i)%2;
                 //return false if we find the readlock of this node has already been released.
                 if ((i-1)*2 == node_id && remain_bit == 0){
+                    //The path is actually impossible, because the lock is hold outside the lock state can not be changed.
+                    assert(false);
                     return false;
                 }
                 if (remain_bit == 1 && (i-1)*2 != node_id){
@@ -3420,16 +3429,16 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        *(uint64_t *)cas_buffer->addr = (1ull << RDMA_Manager::node_id/2);
 
         retry:
-        retry_cnt++;
-
-        if (retry_cnt > 300000) {
-            std::cout << "Deadlock " << lock_addr << std::endl;
-
-            std::cout << GetMemoryNodeNum() << ", "
-                      << " locked by node  " << (conflict_tag) << std::endl;
-            assert(false);
-            exit(0);
-        }
+//        retry_cnt++;
+//
+//        if (retry_cnt > 300000) {
+//            std::cout << "Deadlock " << lock_addr << std::endl;
+//
+//            std::cout << GetMemoryNodeNum() << ", "
+//                      << " locked by node  " << (conflict_tag) << std::endl;
+//            assert(false);
+//            exit(0);
+//        }
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
 //        GlobalAddress lock_addr =
