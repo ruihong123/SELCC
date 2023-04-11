@@ -3706,7 +3706,7 @@ retry:
             assert(page_addr.nodeID == remote_lock_addr.nodeID);
             Batch_Submit_WRs(sr, 1, page_addr.nodeID);
             if((*(uint64_t*) local_CAS_mr->addr) != compare){
-                printf("RDMA write lock unlock happen with RDMA faa FOR rdma READ LOCK\n");
+//                printf("RDMA write lock unlock happen with RDMA faa FOR rdma READ LOCK\n");
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (compare >> 56));
 
                 goto retry;
