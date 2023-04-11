@@ -12,6 +12,7 @@
 #include <atomic>
 #include <port/port_posix.h>
 #include <assert.h>
+#include <boost/lockfree/spsc_queue.hpp>
 namespace DSMEngine {
 class DBImpl;
 enum ThreadPoolType{FlushThreadPool, CompactionThreadPool, SubcompactionThreadPool};

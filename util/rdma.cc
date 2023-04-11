@@ -1085,77 +1085,18 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
             if (receive_msg_buf->command == release_write_lock) {
                 post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
 //                printf("release_write_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
-                //TODO: Implement a unlock mechanism. Maybe we need to make the cache static so that we
-                // can access the cache from this code.
-                GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
-                Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
-                assert(page_cache_ != nullptr);
-                Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
-                if (handle){
-                    auto* page_mr = (ibv_mr*)handle->value;
-                    GlobalAddress lock_gptr = g_ptr;
-                    Header* header = (Header *) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage, hdr)));
-                    if (header->level == 0){
-                        lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
-//                        printf("Leaf node page %p's global lock state is %lu\n", g_ptr, ((LeafPage*)(page_mr->addr))->global_lock);
-
-                    }else{
-                        // Only the leaf page have eager cache coherence protocol.
-                        assert(false);
-                        lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage, global_lock);
-                    }
-                    // double check locking
-                    if (handle->remote_lock_status.load() == 2){
-                        std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
-                        if (handle->remote_lock_status.load() == 2){
-                            global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr, page_mr->length,lock_gptr);
-                            handle->remote_lock_status.store(0);
-                        }
 
 
-                    }
-                    page_cache_->Release(handle);
-                }else{
-//                    printf("Release write lock Handle not found\n");
-                }
 
                     //TODO: what shall we do if the read lock is on
+                    //Ans: do nothing
 
 
             } else if (receive_msg_buf->command == release_read_lock) {
                 post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
 //                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
-                ibv_mr* cas_mr =  Get_local_CAS_mr();
-                GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
 
-                Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
-                Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
-                if (handle) {
-                    ibv_mr *page_mr = (ibv_mr *) handle->value;
-                    GlobalAddress lock_gptr = g_ptr;
-                    Header *header = (Header *) ((char *) ((ibv_mr *) handle->value)->addr +
-                                                 (STRUCT_OFFSET(InternalPage, hdr)));
-                    if (header->level == 0) {
-                        lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
 
-                    } else {
-                        // Only the leaf page have eager cache coherence protocol.
-                        assert(false);
-                        lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage, global_lock);
-                    }
-                    if (handle->remote_lock_status.load() == 1) {
-                        std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
-                        if (handle->remote_lock_status.load() == 1) {
-                            global_RUnlock(lock_gptr, cas_mr);
-                            handle->remote_lock_status.store(0);
-                        }
-
-                    }
-                    page_cache_->Release(handle);
-
-                }else {
-//                    printf("Release read lock Handle not found\n");
-                }
             } else if (receive_msg_buf->command == heart_beat) {
                 printf("heart_beat\n");
                 post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
@@ -5364,178 +5305,73 @@ void RDMA_Manager::fs_deserilization(
         return rc;
     }
 
+    void RDMA_Manager::Release_read_lock(RDMA_Request* receive_msg_buf) {
+        ibv_mr* cas_mr =  Get_local_CAS_mr();
+        GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
+
+        Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
+        Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
+        if (handle) {
+            ibv_mr *page_mr = (ibv_mr *) handle->value;
+            GlobalAddress lock_gptr = g_ptr;
+            Header *header = (Header *) ((char *) ((ibv_mr *) handle->value)->addr +
+                                         (STRUCT_OFFSET(InternalPage, hdr)));
+            if (header->level == 0) {
+                lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
+
+            } else {
+                // Only the leaf page have eager cache coherence protocol.
+                assert(false);
+                lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage, global_lock);
+            }
+            if (handle->remote_lock_status.load() == 1) {
+                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
+                if (handle->remote_lock_status.load() == 1) {
+                    global_RUnlock(lock_gptr, cas_mr);
+                    handle->remote_lock_status.store(0);
+                }
+
+            }
+            page_cache_->Release(handle);
+        }else {
+//                    printf("Release read lock Handle not found\n");
+        }
+        delete receive_msg_buf;
+
+    }
+
+    void RDMA_Manager::Release_write_lock(RDMA_Request *receive_msg_buf) {
+        GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
+        Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
+        assert(page_cache_ != nullptr);
+        Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
+        if (handle){
+            auto* page_mr = (ibv_mr*)handle->value;
+            GlobalAddress lock_gptr = g_ptr;
+            Header* header = (Header *) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage, hdr)));
+            if (header->level == 0){
+                lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
+//                        printf("Leaf node page %p's global lock state is %lu\n", g_ptr, ((LeafPage*)(page_mr->addr))->global_lock);
+
+            }else{
+                // Only the leaf page have eager cache coherence protocol.
+                assert(false);
+                lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage, global_lock);
+            }
+            // double check locking
+            if (handle->remote_lock_status.load() == 2){
+                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
+                if (handle->remote_lock_status.load() == 2){
+                    global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr, page_mr->length,lock_gptr);
+                    handle->remote_lock_status.store(0);
+                }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// bool RDMA_Manager::client_save_serialized_data(const std::string& db_name,
-//                                               char* buff, size_t buff_size,
-//                                               file_type type,
-//                                               ibv_mr* local_data_mr) {
-//  auto start = std::chrono::high_resolution_clock::now();
-//  bool destroy_flag;
-//  if (local_data_mr == nullptr){
-//    int mr_flags =
-//        IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE;
-//    local_data_mr = ibv_reg_mr(res->pd, static_cast<void*>(buff), buff_size, mr_flags); destroy_flag = true;
-//  }else
-//    destroy_flag = false;
-//
-//  std::unique_lock<std::shared_mutex> l(main_qp_mutex);
-//  computing_to_memory_msg* send_pointer;
-//  send_pointer = (computing_to_memory_msg*)res->send_buf;
-//
-//  if(type == others){
-//    send_pointer->command = save_fs_serialized_data;
-//    send_pointer->content.fs_sync_cmd.data_size = buff_size;
-//    send_pointer->content.fs_sync_cmd.type = type;
-//    //sync to make sure the shared memory has post the next receive
-//    post_receive<char>(res->mr_receive, std::string("main"));
-//    // post the command for saving the serialized data.
-//    post_send<computing_to_memory_msg>(res->mr_send, std::string("main"));
-//    ibv_wc wc[2] = {};
-//    ibv_mr* remote_pointer;
-//    if (!poll_completion(wc, 2, std::string("main"))) {
-//      post_send(local_data_mr, std::string("main"), buff_size);
-//    }else
-//      fprintf(stderr, "failed to poll receive for serialized message\n");
-//    if (!poll_completion(wc, 1, std::string("main")))
-//      printf("serialized data sent successfully");
-//    else
-//      fprintf(stderr, "failed to poll send for serialized data send\n");
-////  sleep(100);
-//    auto stop = std::chrono::high_resolution_clock::now();
-//    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start); printf("fs meta data save communication time elapse: %ld\n", duration.count());
-//
-//  }
-//  else if (type == log_type){
-//    send_pointer->command = save_log_serialized_data;
-//    send_pointer->content.fs_sync_cmd.data_size = buff_size;
-//    send_pointer->content.fs_sync_cmd.type = type;
-//    post_receive<int>(res->mr_receive, std::string("main"));
-//    post_send<computing_to_memory_msg>(res->mr_send, std::string("main"));
-//    ibv_wc wc[2] = {};
-//    ibv_mr* remote_pointer;
-//    poll_completion(wc, 2, std::string("main"));
-//    memcpy(res->send_buf, db_name.c_str(), db_name.size());
-//    memcpy(static_cast<char*>(res->send_buf)+db_name.size(), "\0", 1);
-//    //receive the size of the serialized data
-//    post_send(res->mr_send,"main", db_name.size()+1);
-//    post_send(local_data_mr, std::string("main"), buff_size);
-//    poll_completion(wc, 2, std::string("main"));
-//  }
-//  if (destroy_flag){
-//    ibv_dereg_mr(local_data_mr);
-//    free(buff);
-//  }
-//
-//  return true;
-//}
-// bool RDMA_Manager::client_retrieve_serialized_data(const std::string& db_name,
-//                                                   char*& buff,
-//                                                   size_t& buff_size,
-//                                                   ibv_mr*& local_data_mr,
-//                                                   file_type type) {
-//  auto start = std::chrono::high_resolution_clock::now();
-//  int mr_flags =
-//      IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE;
-//  std::unique_lock<std::shared_mutex> l(main_qp_mutex);
-//  ibv_wc wc[2] = {};
-//  computing_to_memory_msg* send_pointer;
-//  send_pointer = (computing_to_memory_msg*)res->send_buf;
-//  if (type == others){
-//    send_pointer->command = retrieve_fs_serialized_data;
-//    //sync to make sure the shared memory has post the next receive for the dbname post_receive<int>(res->mr_receive, std::string("main"));
-//    // post the command for saving the serialized data.
-//    post_send<computing_to_memory_msg>(res->mr_send, std::string("main"));
-//    if (poll_completion(wc, 2, std::string("main"))) {
-//      fprintf(stderr, "failed to poll receive for serialized message <retreive>\n"); return false;
-//    }else
-//      printf("retrieve message was sent successfully");
-//    memcpy(res->send_buf, db_name.c_str(), db_name.size());
-//    memcpy(static_cast<char*>(res->send_buf)+db_name.size(), "\0", 1);
-//    //receive the size of the serialized data
-//    post_receive<size_t>(res->mr_receive, std::string("main"));
-//    post_send(res->mr_send,"main", db_name.size()+1);
-//
-//    if (poll_completion(wc, 2, std::string("main"))) {
-//      fprintf(stderr, "failed to poll receive for serialized data size <retrieve>\n"); return false;
-//    }
-//    buff_size = *reinterpret_cast<size_t*>(res->receive_buf);
-//    if (buff_size!=0){
-//      buff = static_cast<char*>(malloc(buff_size));
-//      local_data_mr = ibv_reg_mr(res->pd, static_cast<void*>(buff), buff_size, mr_flags); post_receive(local_data_mr,"main", buff_size);
-//      // send a char to tell the shared memory that this computing node is ready to receive the data post_send<char>(res->mr_send, std::string("main"));
-//    }
-//    else
-//      return false;
-//    if (poll_completion(wc, 2, std::string("main"))) {
-//      fprintf(stderr, "failed to poll receive for serialized message\n");
-//      return false;
-//    }else{
-//      auto stop = std::chrono::high_resolution_clock::now();
-//      auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-//      printf("fs meta data unpure retrieve communication time elapse: %ld\n", duration.count()); return true;
-//    }
-//  }else if (type == log_type){
-//    post_receive<int>(res->mr_receive, std::string("main"));
-//    // post the command for saving the serialized data.
-//    post_send<computing_to_memory_msg>(res->mr_send, std::string("main"));
-//    if (poll_completion(wc, 2, std::string("main"))) {
-//      fprintf(stderr, "failed to poll receive for serialized message <retreive>\n"); return false;
-//    }else
-//      printf("retrieve message was sent successfully");
-//    memcpy(res->send_buf, db_name.c_str(), db_name.size());
-//    memcpy(static_cast<char*>(res->send_buf)+db_name.size(), "\0", 1);
-//    //receive the size of the serialized data
-//    post_receive<size_t>(res->mr_receive, std::string("main"));
-//    post_send(res->mr_send,"main", db_name.size()+1);
-//
-//    if (poll_completion(wc, 2, std::string("main"))) {
-//      fprintf(stderr, "failed to poll receive for serialized data size <retrieve>\n"); return false;
-//    }
-//    buff_size = *reinterpret_cast<size_t*>(res->receive_buf);
-//    if (buff_size!=0){
-//
-//      local_data_mr = log_image_mr.get();
-//      post_receive(local_data_mr,"main", buff_size);
-//      // send a char to tell the shared memory that this computing node is ready to receive the data post_send<char>(res->mr_send, std::string("main"));
-//    }
-//    else
-//      return false;
-//    if (poll_completion(wc, 2, std::string("main"))) {
-//      fprintf(stderr, "failed to poll receive for serialized message\n");
-//      return false;
-//    }else{
-//      auto stop = std::chrono::high_resolution_clock::now();
-//      auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-//      printf("fs meta data unpure retrieve communication time elapse: %ld\n", duration.count()); return true;
-//    }
-//  }
-//  return true;
-//
-//
-//
-//}
-
+            }
+            page_cache_->Release(handle);
+        }else{
+//                    printf("Release write lock Handle not found\n");
+        }
+        delete receive_msg_buf;
+    }
 }
