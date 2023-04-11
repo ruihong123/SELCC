@@ -3397,8 +3397,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // unlock the lock this time util see a write lock.
 
             RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-            // TODO: delete the code below
-            assert(*(uint64_t *)cas_buffer->addr >> 56 == 2ull);
+
             target_compute_node_id = ((return_value >> 56) - 1)*2;
             goto retry;
         }
