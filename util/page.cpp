@@ -195,7 +195,7 @@ namespace DSMEngine{
                 temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
                 temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
                 temp_mr.length = temp_mr.length - RDMA_OFFSET;
-                printf("Internal page refresh\n");
+//                printf("Internal page refresh\n");
                 invalidation_reread:
                 rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-RDMA_OFFSET, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
                 assert(hdr.level < 100);
