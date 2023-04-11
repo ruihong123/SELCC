@@ -3397,7 +3397,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // unlock the lock this time util see a write lock.
 
             RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-            assert(*(uint64_t *)cas_buffer->addr == 2ull << 56);
+            // TODO: delete the code below
+            assert(*(uint64_t *)cas_buffer->addr >> 56 == 2ull);
             target_compute_node_id = ((return_value >> 56) - 1)*2;
             goto retry;
         }
@@ -3675,10 +3676,15 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             //TODO: it could be spuriously failed because of the FAA.so we can not have async
         }else{
 
-
+#ifndef NDEBUG
+            uint64_t retry_cnt = 0;
+#endif
 
 //        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
 retry:
+#ifndef NDEBUG
+            retry_cnt++;
+#endif
 
             //TODO: check whether the page's global lock is still write lock
             Prepare_WR_Write(sr[0], sge[0],  post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Internal_and_Leaf);
@@ -3703,6 +3709,7 @@ retry:
             if((*(uint64_t*) local_CAS_mr->addr) != compare){
                 printf("RDMA write lock unlock happen with RDMA faa FOR rdma READ LOCK\n");
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (compare >> 56));
+
                 goto retry;
             }
 
