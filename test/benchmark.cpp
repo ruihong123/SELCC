@@ -39,7 +39,7 @@ bool table_scan = false;
 bool use_range_query = true;
 
 //uint64_t kKeySpace = 64 * define::MB;
-uint64_t kKeySpace = 10*1024*1024; // bigdata
+uint64_t kKeySpace = 10*1024ull*1024ull; // bigdata
 //uint64_t kKeySpace = 50*1024*1024; //cloudlab
 double kWarmRatio = 0.8;
 

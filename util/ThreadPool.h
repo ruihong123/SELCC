@@ -25,7 +25,7 @@ struct BGThreadMetadata {
   void* db;
   void* func_args;
 };
-
+//TODO: need the thread pool to be lightweight so that the invalidation message overhead will be minimum.
 class ThreadPool{
  public:
 //  ThreadPool(std::mutex* mtx, std::condition_variable* signal);
@@ -140,7 +140,12 @@ class ThreadPool{
   }
   //  void Schedule(std::function<void(void* args)>&& schedule, void* args);
 
-};}
+};
+
+
+
+
+}
 
 
 #endif  // DSMEngine_THREADPOOL_H

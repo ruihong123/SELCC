@@ -1291,6 +1291,7 @@ int level = -1;
     start = std::chrono::high_resolution_clock::now();
 #endif
 leaf_next:// Leaf page search
+
     if (!leaf_page_search(p, k, result, level, cxt, coro_id)){
         if (path_stack[coro_id][1] != GlobalAddress::Null()){
             p = path_stack[coro_id][1];
