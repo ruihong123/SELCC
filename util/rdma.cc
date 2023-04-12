@@ -3374,7 +3374,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // for the lock upgrading to gurantee the correctness of 2 phase locking.
         if (retry_cnt > 1){
             global_RUnlock(lock_addr, cas_buffer,cxt,coro_id);
-            printf("Lock upgrade failed, release the lock, address is %p\n", lock_addr);
+//            printf("Lock upgrade failed, release the lock, address is %p\n", lock_addr);
             return false;
         }
         if (retry_cnt % 4 ==  2) {
