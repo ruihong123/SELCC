@@ -124,7 +124,7 @@ function(Engine_test test_file)
 
 
     add_test(NAME "${test_target_name}" COMMAND "${test_target_name}")
-endfunction(Engine_test_test)
+endfunction(Engine_test)
 
 Engine_test("test/RDMA_Manager_Test.cpp")
 Engine_test("test/Btree_Test.cpp")
