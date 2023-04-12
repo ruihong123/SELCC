@@ -3309,7 +3309,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }
             assert(target_compute_node_id != (RDMA_Manager::node_id));
             if (target_compute_node_id == (RDMA_Manager::node_id)){
-                printf("Target compute node is itself, super wrong!!!!!\n");
+                printf("Target compute node is itself, super wrong!!!!!, page_addr is %p\n", page_addr);
             }
             Exclusive_lock_invalidate_RPC(page_addr, target_compute_node_id);
 
@@ -3370,10 +3370,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         retry_cnt++;
         GlobalAddress page_addr = lock_addr;
         page_addr.offset -= STRUCT_OFFSET(LeafPage, global_lock);
-        // todo: the invalidation message for other reader can result in a deadlock. Two node try to upgrade the lock
-        //  at the same time and the invalidation mesage will always be blocked. If it retried two or three times,
-        //  then it should return false
-        if (retry_cnt > 11){
+        // todo: the read lock release and then lock acquire is not atomic. we need to develop and atomic way
+        // for the lock upgrading to gurantee the correctness of 2 phase locking.
+        if (retry_cnt > 1){
             global_RUnlock(lock_addr, cas_buffer,cxt,coro_id);
             printf("Lock upgrade failed, release the lock, address is %p\n", lock_addr);
             return false;

@@ -3036,6 +3036,10 @@ acquire_global_lock:
 
             }else if (handle->remote_lock_status == 1){
                 if (!global_Rlock_update(lock_addr, cas_mr, cxt, coro_id,handle)){
+//
+                    //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
+                    // is problematice if we want to upgrade the lock during a transaction.
+                    // May be we can take advantage of the lock starvation bit to solve this problem.
                     //the Read lock has been released, we can directly acquire the write lock
                     global_Wlock_and_read_page_with_INVALID(local_mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
                                                             1, cxt, coro_id,handle);
