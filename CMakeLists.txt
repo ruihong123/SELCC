@@ -102,7 +102,7 @@ target_link_libraries(btree_bench DSMEngine)
 
 
 #add_subdirectory("third_party/googlemock")
-function(TimberSaw_test test_file)
+function(Engine_test test_file)
     get_filename_component(test_target_name "${test_file}" NAME_WE)
 
     add_executable("${test_target_name}" "")
@@ -121,28 +121,10 @@ function(TimberSaw_test test_file)
 
     target_link_libraries("${test_target_name}" DSMEngine gmock gtest)
 
-#    target_compile_definitions("${test_target_name}"
-#            PRIVATE
-#            ${TimberSaw_PLATFORM_NAME}=1
-#            )
-#    if (NOT HAVE_CXX17_HAS_INCLUDE)
-#        target_compile_definitions("${test_target_name}"
-#                PRIVATE
-#                TimberSaw_HAS_PORT_CONFIG_H=1
-#                )
-#    endif(NOT HAVE_CXX17_HAS_INCLUDE)
+
 
     add_test(NAME "${test_target_name}" COMMAND "${test_target_name}")
 endfunction(TimberSaw_test)
 
-    TimberSaw_test("test/RDMA_Manager_Test.cpp")
-    TimberSaw_test("test/Btree_Test.cpp")
-#  TimberSaw_test("db/fault_injection_test.cc")
-#
-#  TimberSaw_test("issues/issue178_test.cc")
-#  TimberSaw_test("issues/issue200_test.cc")
-#  TimberSaw_test("issues/issue320_test.cc")
-#
-#  TimberSaw_test("util/env_test.cc")
-#  TimberSaw_test("util/status_test.cc")
-#  TimberSaw_test("util/no_destructor_test.cc")
+Engine_test("test/RDMA_Manager_Test.cpp")
+Engine_test("test/Btree_Test.cpp")
