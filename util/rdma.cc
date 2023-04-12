@@ -3375,7 +3375,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //  then it should return false
         if (retry_cnt > 11){
             global_RUnlock(lock_addr, cas_buffer,cxt,coro_id);
-            printf("Lock upgrade failed, release the lock\n");
+            printf("Lock upgrade failed, release the lock, address is %p\n", lock_addr);
             return false;
         }
         if (retry_cnt % 4 ==  2) {
