@@ -3148,6 +3148,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 goto retry;
             }
         }
+        printf("Global page unlock page_addr %p, async %d\n", remote_lock_add, async);
+
 //        releases_local_optimistic_lock(lock_addr);
     }
 #ifndef RDMAFAAFORREADLOCK
@@ -3677,6 +3679,7 @@ retry:
             }
 
         }
+        printf("Global write page page_addr %p, async %d\n", page_addr, async);
     }
     void RDMA_Manager::global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                                      GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
@@ -3736,6 +3739,8 @@ retry:
             }
 
         }
+        printf("Global write tuple page_addr %p, async %d\n", page_addr, async);
+
     }
 
 // int RDMA_Manager::post_atomic(int opcode)
