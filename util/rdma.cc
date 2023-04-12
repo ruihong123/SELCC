@@ -3373,7 +3373,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // todo: the invalidation message for other reader can result in a deadlock. Two node try to upgrade the lock
         //  at the same time and the invalidation mesage will always be blocked. If it retried two or three times,
         //  then it should return false
-        if (retry_cnt > 10){
+        if (retry_cnt > 11){
             global_RUnlock(lock_addr, cas_buffer,cxt,coro_id);
             printf("Lock upgrade failed, release the lock\n");
             return false;
