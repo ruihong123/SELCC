@@ -3126,15 +3126,19 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //TODO: Make the unlock based on RDMA CAS so that it is gurantee to be consistent with RDMA FAA,
         // otherwise (RDMA write to do the unlock) the lock word has to be set at the end of the page to guarantee the
         // consistency.
-        *(uint64_t*)cas_buf->addr = 0;
         uint64_t swap = 0;
         uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
         if (async) {
+            *(uint64_t*)cas_buf->addr = 0;
+
             // important!!! we should never use async if we have both read lock and write lock.
             // send flag 0 means there is no flag
             RDMA_CAS(remote_lock_add, cas_buf,  compare, swap, 0,0,Internal_and_Leaf);
         } else {
-    retry:
+
+        retry:
+            *(uint64_t*)cas_buf->addr = 0;
+
 //      std::cout << "Unlock the remote lock" << lock_addr << std::endl;
             RDMA_CAS(remote_lock_add, cas_buf,  compare, swap, IBV_SEND_SIGNALED,1,Internal_and_Leaf);
             if(*(uint64_t*)cas_buf->addr != compare){
@@ -3638,6 +3642,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 #endif
 
 //        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
+            ibv_mr* local_CAS_mr = Get_local_CAS_mr();
 retry:
 #ifndef NDEBUG
             retry_cnt++;
@@ -3645,7 +3650,7 @@ retry:
 
             //TODO: check whether the page's global lock is still write lock
             Prepare_WR_Write(sr[0], sge[0],  post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Internal_and_Leaf);
-            ibv_mr* local_CAS_mr = Get_local_CAS_mr();
+
             *(uint64_t *)local_CAS_mr->addr = 0;
             //TODO: THe RDMA write unlock can not be guaranteed to be finished after the page write.
             // The RDMA CAS be started strictly after the RDMA write at the remote NIC according to
@@ -3701,11 +3706,12 @@ retry:
 
 
 //        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
-            retry:
+            ibv_mr* local_CAS_mr = Get_local_CAS_mr();
+
+retry:
 
             //TODO: check whether the page's global lock is still write lock
             Prepare_WR_Write(sr[0], sge[0],  page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
-            ibv_mr* local_CAS_mr = Get_local_CAS_mr();
             *(uint64_t *)local_CAS_mr->addr = 0;
             //TODO: THe RDMA write unlock can not be guaranteed to be finished after the page write.
             // The RDMA CAS be started strictly after the RDMA write at the remote NIC according to

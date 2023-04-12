@@ -836,6 +836,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
             handle->remote_lock_status.store(2);
             return true;
         }else{
+            assert(handle->remote_lock_status.load() == 1);
             return false;
 
         }
