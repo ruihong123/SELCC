@@ -3503,7 +3503,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 assert(write_invalidation_target != 0-1);
                 assert(write_invalidation_target != node_id);
                 if (write_invalidation_target == (RDMA_Manager::node_id)){
-                    printf("Target compute node is itself, super wrong1!!!!!\n");
+                    printf("Target compute node is itself, super wrong1!!!!!, page_addr is %p\n", page_addr);
                 }
                 Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
 
