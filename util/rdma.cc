@@ -3298,11 +3298,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             if(retry_cnt < 50){
                 //do nothing
             }else if (retry_cnt <100){
-                printf("RPC handling thread x compute is not enough, please raise the value of NUM_QP_ACCROSS_COMPUTE\n");
                 usleep(10);
             }else if (retry_cnt <1000){
                 usleep(100);
             }else if (retry_cnt <2000){
+                printf("RPC handling thread x compute is not enough, please raise the value of NUM_QP_ACCROSS_COMPUTE\n");
                 usleep(1000);
             }else{
                 usleep(5000);
@@ -3483,11 +3483,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             if(retry_cnt < 50){
                 //do nothing
             }else if (retry_cnt <100){
-                printf("RPC handling thread x compute is not enough, please raise the value of NUM_QP_ACCROSS_COMPUTE\n");
                 usleep(10);
             }else if (retry_cnt <1000){
                 usleep(100);
             }else if (retry_cnt <2000){
+                printf("RPC handling thread x compute is not enough, please raise the value of NUM_QP_ACCROSS_COMPUTE\n");
                 usleep(1000);
             }else{
                 usleep(5000);
