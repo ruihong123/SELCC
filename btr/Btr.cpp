@@ -68,8 +68,11 @@ static void Deallocate_MR(Cache::Handle *handle) {
     Btr::rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
     delete mr;
 }
-//TODO: make the function set cache handle as an argument, and we need to modify the remote lock status when unlocking the remote lock.
+//TODO: make the function set cache handle as an argument, and we need to modify the remote lock status
+// when unlocking the remote lock.
 static void Deallocate_MR_WITH_CCP(Cache::Handle *handle) {
+    // TOFIX: The code below is not protected by the lock shared mutex. Besides,
+    //  the deletor may also not well protected by the cache mutex.
 
     // Do we need the lock during this deleter? Answer: Probably not, because it is guaratee to have only on thread comes here.
     auto mr = (ibv_mr*) handle->value;

@@ -3310,10 +3310,13 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 usleep(5000);
             }
             assert(target_compute_node_id != (RDMA_Manager::node_id));
-            if (target_compute_node_id == (RDMA_Manager::node_id)){
-                printf("Target compute node is itself, super wrong!!!!!, page_addr is %p\n", page_addr);
+            if (target_compute_node_id != (RDMA_Manager::node_id)){
+                Exclusive_lock_invalidate_RPC(page_addr, target_compute_node_id);
+
+            }else{
+                printf("Write invalidation target compute node is itself1, page_addr is %p\n", page_addr);
+
             }
-            Exclusive_lock_invalidate_RPC(page_addr, target_compute_node_id);
 
         }
         if (retry_cnt > 300000) {
@@ -3499,15 +3502,27 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             if (invalidation_RPC_type == 1){
                 assert(!read_invalidation_targets.empty());
                 for (auto iter: read_invalidation_targets) {
-                    Shared_lock_invalidate_RPC(page_addr, iter);
+                    if (iter != (RDMA_Manager::node_id)){
+                        Shared_lock_invalidate_RPC(page_addr, iter);
+
+                    }else{
+                        // This rare case is because the cache mutex will be released before the read/write lock release.
+                        // If there is another request comes in immediately for the same page before the lock release, this print
+                        // below will happen.
+                        printf(" read invalidation target is itself, this is rare case,, page_addr is %p\n", page_addr);
+
+                    }
                 }
             }else if (invalidation_RPC_type == 2){
                 assert(write_invalidation_target != 0-1);
                 assert(write_invalidation_target != node_id);
-                if (write_invalidation_target == (RDMA_Manager::node_id)){
-                    printf("Target compute node is itself, super wrong1!!!!!, page_addr is %p\n", page_addr);
+                if (write_invalidation_target != (RDMA_Manager::node_id)){
+                    Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
+
+                }else{
+                    printf(" Write invalidation target is itself, this is rare case, page_addr is %p\n", page_addr);
+
                 }
-                Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
 
             }
 
@@ -3679,7 +3694,7 @@ retry:
             }
 
         }
-        printf("Global write page page_addr %p, async %d\n", page_addr, async);
+//        printf("Global write page page_addr %p, async %d\n", page_addr, async);
     }
     void RDMA_Manager::global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                                      GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
@@ -3739,7 +3754,7 @@ retry:
             }
 
         }
-        printf("Global write tuple page_addr %p, async %d\n", page_addr, async);
+//        printf("Global write tuple page_addr %p, async %d\n", page_addr, async);
 
     }
 

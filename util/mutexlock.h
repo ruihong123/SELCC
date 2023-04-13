@@ -102,7 +102,6 @@ class SpinLock {
       if(owns){
           this->mu_->unlock();
       }
-
   }
 
  private:
