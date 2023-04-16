@@ -115,7 +115,7 @@ void General_Destroy(void* ptr){
   Mempool_initialize(Internal_and_Leaf, kInternalPageSize, 0);
         printf("atomic uint8_t, uint16_t, uint32_t and uint64_t are, %lu %lu %lu %lu\n ", sizeof(std::atomic<uint8_t>), sizeof(std::atomic<uint16_t>), sizeof(std::atomic<uint32_t>), sizeof(std::atomic<uint64_t>));
     if(node_id%2 == 0){
-        bg_threads.SetBackgroundThreads(2);
+        Invalidation_bg_threads.SetBackgroundThreads(NUM_QP_ACCROSS_COMPUTE);
     }
     page_cache_ = config.cache_prt;
 }
@@ -1090,12 +1090,17 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
 
                     //TODO: what shall we do if the read lock is on
                     //Ans: do nothing
-                Release_write_lock(receive_msg_buf);
+
+                BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
+                Invalidation_bg_threads.Schedule(&RDMA_Manager::Write_Invalidation_Message_Handler, thread_pool_args, i);
+//                Release_write_lock(receive_msg_buf);
 
             } else if (receive_msg_buf->command == release_read_lock) {
                 post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
 //                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
-                Release_read_lock(receive_msg_buf);
+                BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
+                Invalidation_bg_threads.Schedule(&RDMA_Manager::Read_Invalidation_Message_Handler, thread_pool_args, i);
+//                Release_read_lock(receive_msg_buf);
 
             } else if (receive_msg_buf->command == heart_beat) {
                 printf("heart_beat\n");
@@ -5417,5 +5422,16 @@ void RDMA_Manager::fs_deserilization(
 //                    printf("Release write lock Handle not found\n");
         }
         delete receive_msg_buf;
+    }
+
+    void RDMA_Manager::Write_Invalidation_Message_Handler(void* thread_args) {
+        BGThreadMetadata* p = static_cast<BGThreadMetadata*>(thread_args);
+        ((RDMA_Manager*)p->rdma_mg)->Release_write_lock((RDMA_Request*)p->func_args);
+        delete static_cast<BGThreadMetadata*>(thread_args);
+    }
+    void RDMA_Manager::Read_Invalidation_Message_Handler(void* thread_args) {
+        BGThreadMetadata* p = static_cast<BGThreadMetadata*>(thread_args);
+        ((RDMA_Manager*)p->rdma_mg)->Release_read_lock((RDMA_Request*)p->func_args);
+        delete static_cast<BGThreadMetadata*>(thread_args);
     }
 }

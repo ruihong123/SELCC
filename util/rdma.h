@@ -376,8 +376,12 @@ class RDMA_Manager {
   // Set up the socket connection to remote shared memory.
   bool Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id);
   void Cross_Computes_RPC_Threads(uint16_t target_node_id);
+  //FUnction for invalidation message handling
   void Release_read_lock(RDMA_Request* receive_msg_buf);
   void Release_write_lock(RDMA_Request* receive_msg_buf);
+    static void Write_Invalidation_Message_Handler(void* thread_args);
+    static void Read_Invalidation_Message_Handler(void* thread_args);
+
     void Put_qp_info_into_RemoteM(uint16_t target_compute_node_id,
                                   std::array<ibv_cq *, NUM_QP_ACCROSS_COMPUTE * 2> *cq_arr,
                                   std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUTE> *qp_arr);
@@ -598,7 +602,7 @@ class RDMA_Manager {
   ThreadLocalPtr* send_message_buffer;
   ThreadLocalPtr* receive_message_buffer;
   ThreadLocalPtr* CAS_buffer;
-  ThreadPool bg_threads;
+  ThreadPool Invalidation_bg_threads;
 
   // TODO: replace the std::map<void*, In_Use_Array*> as a thread local vector of In_Use_Array*, so that
   // the conflict can be minimized.
