@@ -27,6 +27,7 @@ std::atomic<uint64_t> RDMA_Manager::ReadCount1 = 0;
 
 //#ifndef NDEBUG
     thread_local int RDMA_Manager::thread_id = 0;
+    thread_local int RDMA_Manager::qp_inc_ticket = 0;
 //#endif
 
 
@@ -4499,12 +4500,14 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
     //Clear the reply buffer for the polling.
 //    *receive_pointer = {};
 
+    //USE static ticket to minuimize the conflict.
+    int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
     //TODO: no need to be signaled, can make it without completion.
-    post_send_xcompute(send_mr, target_node_id, 0);
+    post_send_xcompute(send_mr, target_node_id, qp_id);
     ibv_wc wc[2] = {};
 
 
-    if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, 0)){
+    if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
         fprintf(stderr, "failed to poll send for remote memory register\n");
         return false;
     }
@@ -4531,11 +4534,14 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
 //    receive_pointer = (RDMA_Reply*)receive_mr.addr;
         //Clear the reply buffer for the polling.
 //    *receive_pointer = {};
-        post_send_xcompute(send_mr, target_node_id, 0);
+
+        int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+
+        post_send_xcompute(send_mr, target_node_id, qp_id);
         ibv_wc wc[2] = {};
 
 
-        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, 0)){
+        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
             fprintf(stderr, "failed to poll send for remote memory register\n");
             return false;
         }

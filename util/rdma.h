@@ -555,6 +555,7 @@ class RDMA_Manager {
   // TODO: Make all the variable more smart pointers.
 //#ifndef NDEBUG
     static thread_local int thread_id;
+    static thread_local int qp_inc_ticket;
 //#endif
   resources* res = nullptr;
   std::vector<ibv_mr*>
