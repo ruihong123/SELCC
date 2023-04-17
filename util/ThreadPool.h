@@ -29,6 +29,9 @@ struct BGThreadMetadata {
 //TODO: need the thread pool to be lightweight so that the invalidation message overhead will be minimum.
 class ThreadPool{
  public:
+    ThreadPool(){
+        StartBGThreads();
+    }
 //  ThreadPool(std::mutex* mtx, std::condition_variable* signal);
   std::vector<port::Thread> bgthreads_;
     std::vector<boost::lockfree::spsc_queue<BGItem, boost::lockfree::capacity<R_SIZE>>*> queue_pool;
@@ -93,13 +96,16 @@ std::atomic<bool> wait_for_jobs_to_complete_;
   }
   void StartBGThreads() {
     // Start background thread if necessary
-    int i = 0;
-    while ((int)bgthreads_.size() < total_threads_limit_) {
 
-      port::Thread p_t(&ThreadPool::BGThread, this, i++);
-      bgthreads_.push_back(std::move(p_t));
-        queue_pool.push_back(new boost::lockfree::spsc_queue<BGItem, boost::lockfree::capacity<R_SIZE>>());
-    }
+      for (int i = 0; i < total_threads_limit_; ++i) {
+          queue_pool.push_back(new boost::lockfree::spsc_queue<BGItem, boost::lockfree::capacity<R_SIZE>>());
+
+      }
+      for (int i = 0; i < total_threads_limit_; ++i) {
+          port::Thread p_t(&ThreadPool::BGThread, this, i++);
+          bgthreads_.push_back(std::move(p_t));
+      }
+
   }
   void Schedule(std::function<void(void *args)> &&func, void *args, uint32_t thread_id) {
 
@@ -108,7 +114,6 @@ std::atomic<bool> wait_for_jobs_to_complete_;
       return;
     }
 //    printf("schedule a work request!\n");
-    StartBGThreads();
     BGItem item = BGItem();
       //    item.tag = tag;
    item.function = std::move(func);
