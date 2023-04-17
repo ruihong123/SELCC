@@ -100,7 +100,7 @@ std::atomic<bool> wait_for_jobs_to_complete_;
 
       }
       for (int i = 0; i < total_threads_limit_; ++i) {
-          port::Thread p_t(&ThreadPool::BGThread, this, i++);
+          port::Thread p_t(&ThreadPool::BGThread, this, i);
           bgthreads_.push_back(std::move(p_t));
       }
 
