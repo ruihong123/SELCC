@@ -29,9 +29,7 @@ struct BGThreadMetadata {
 //TODO: need the thread pool to be lightweight so that the invalidation message overhead will be minimum.
 class ThreadPool{
  public:
-    ThreadPool(){
-        StartBGThreads();
-    }
+
 //  ThreadPool(std::mutex* mtx, std::condition_variable* signal);
   std::vector<port::Thread> bgthreads_;
     std::vector<boost::lockfree::spsc_queue<BGItem, boost::lockfree::capacity<R_SIZE>>*> queue_pool;
@@ -165,6 +163,8 @@ std::atomic<bool> wait_for_jobs_to_complete_;
   }
   void SetBackgroundThreads(int num){
     total_threads_limit_ = num;
+      StartBGThreads();
+
   }
   //  void Schedule(std::function<void(void* args)>&& schedule, void* args);
 
