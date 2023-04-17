@@ -117,7 +117,7 @@ std::atomic<bool> wait_for_jobs_to_complete_;
    item.function = std::move(func);
    item.args = std::move(args);
     // Add to priority queue
-    queue_pool[thread_id]->push(BGItem());
+    queue_pool[thread_id]->push(item);
 
 //    auto& item = queue_pool.back();
 
