@@ -69,6 +69,7 @@ class DSMEngine_EXPORT Cache {
         std::atomic<int> remote_lock_status = 0; // 0 unlocked, 1 read locked, 2 write lock
         GlobalAddress gptr = GlobalAddress::Null();
         std::atomic<int> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
+        bool keep_the_mr = false;
         std::shared_mutex rw_mtx;
         void (*deleter)(Cache::Handle* handle);
         ~Handle(){

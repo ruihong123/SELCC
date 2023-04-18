@@ -7,6 +7,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
+#include <infiniband/verbs.h>
 
 #include "port/port.h"
 #include "port/thread_annotations.h"
@@ -407,6 +408,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
         }
         assert(usage_ <= capacity_ + kLeafPageSize + kInternalPageSize);
         // This will remove some entry from LRU if the table_cache over size.
+        bool already_foward_the_mr = false;
         while (usage_ > capacity_ && lru_.next != &lru_) {
             LRUHandle* old = lru_.next;
             assert(old->refs == 1);
@@ -415,6 +417,12 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
 //                printf("page of %lu is extracted from the LRUlist", e->gptr.offset);
 //            }
 //#endif
+            // Directly reuse the mr if the evicted cache entry is the same size as the new inserted on.
+            if (!already_foward_the_mr && ((ibv_mr*)old->value)->length == charge){
+                old->keep_the_mr = true;
+                e->value = old->value;
+                already_foward_the_mr = true;
+            }
             bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
             if (!l.check_own()){
                 l.Lock();
