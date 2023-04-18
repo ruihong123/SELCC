@@ -53,14 +53,14 @@ std::atomic<bool> wait_for_jobs_to_complete_;
       // Stop waiting if the thread needs to do work or needs to terminate.
       while (!exit_all_threads_.load() && queue_pool[thread_id]->empty() ) {
 //        bgsignal_.wait(lock);
-          if(++miss_poll_counter < 1024){
+          if(++miss_poll_counter < 10240){
               continue;
           }
-          if(++miss_poll_counter < 2048){
+          if(++miss_poll_counter < 20480){
               usleep(1);
               continue ;
           }
-          if(++miss_poll_counter < 4096){
+          if(++miss_poll_counter < 40960){
               usleep(16);
 
               continue;
