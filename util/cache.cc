@@ -418,7 +418,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
 //            }
 //#endif
             // Directly reuse the mr if the evicted cache entry is the same size as the new inserted on.
-            if (!already_foward_the_mr && ((ibv_mr*)old->value)->length == charge){
+            if (value == nullptr && !already_foward_the_mr && ((ibv_mr*)old->value)->length == charge){
                 old->keep_the_mr = true;
                 e->value = old->value;
                 already_foward_the_mr = true;
@@ -493,7 +493,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
 
     LRUHandle* old = lru_.next;
     assert(old->refs == 1);
-      if (!already_foward_the_mr && ((ibv_mr*)old->value)->length == charge){
+      if (value == nullptr && !already_foward_the_mr && ((ibv_mr*)old->value)->length == charge){
           old->keep_the_mr = true;
           e->value = old->value;
           assert(((ibv_mr*)e->value)->addr != nullptr);
@@ -501,6 +501,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
       }
     bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
     //some times the finsih Erase will release the spinlock to let other threads working during the RDMA lock releasing.
+    //We need to regain the lock here in case that there is another cache entry eviction.
       if (!l.check_own()){
           l.Lock();
       }
