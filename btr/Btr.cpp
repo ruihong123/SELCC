@@ -1063,6 +1063,7 @@ next: // Internal_and_Leaf page search
 #ifndef NDEBUG
             next_times++;
 #endif
+
             goto next;
         }
 
@@ -1101,6 +1102,9 @@ next: // Internal_and_Leaf page search
 #ifndef NDEBUG
         next_times++;
 #endif
+        if (next_times == 999){
+            printf("break here\n");
+        }
         goto next;
     }
 //#ifdef PROCESSANALYSIS
