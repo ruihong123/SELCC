@@ -1827,6 +1827,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             // because the page could hold a lock on that page and this page may miss the update.
             // However, this page's read is still a valid read and the other update may not required to
             // be seen for multiversion Transaction concurrency control, but this may critical for the 2PL algorithms.
+            assert(mr != nullptr);
             handle = page_cache->Insert(page_id, mr, kInternalPageSize, Deallocate_MR);
 //        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 //        this->unlock_addr(lock_addr, cxt, coro_id, false);
@@ -2538,6 +2539,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //        printf("non-Existing cache entry: prepare RDMA read request global ptr is %p, local ptr is %p, level is %d\n", page_addr, page_buffer, level);
 
 //        printf("Read page %lu over address %p, version is %u \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
+            assert(page_mr != nullptr);
+
             handle = page_cache->Insert(page_id, page_mr, kInternalPageSize, Deallocate_MR);
             // No need for consistence check here.
 //        flag = 0;
@@ -2804,6 +2807,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
         //The code below is optional.
         Slice sibling_page_id((char*)&sibling_addr, sizeof(GlobalAddress));
+          assert(page_mr!= nullptr);
         auto sib_handle = page_cache->Insert(sibling_page_id, sibling_mr, kInternalPageSize, Deallocate_MR);
           page_cache->Release(sib_handle);
 //          rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
