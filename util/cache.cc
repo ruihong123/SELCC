@@ -486,10 +486,19 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
     }
         assert(usage_ <= capacity_ + kLeafPageSize + kInternalPageSize);
   // This will remove some entry from LRU if the table_cache over size.
-  while (usage_ > capacity_ && lru_.next != &lru_) {
+            bool already_foward_the_mr = false;
+
+
+    while (usage_ > capacity_ && lru_.next != &lru_) {
 
     LRUHandle* old = lru_.next;
     assert(old->refs == 1);
+      if (!already_foward_the_mr && ((ibv_mr*)old->value)->length == charge){
+          old->keep_the_mr = true;
+          e->value = old->value;
+          assert(((ibv_mr*)e->value)->addr != nullptr);
+          already_foward_the_mr = true;
+      }
     bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
     //some times the finsih Erase will release the spinlock to let other threads working during the RDMA lock releasing.
       if (!l.check_own()){
