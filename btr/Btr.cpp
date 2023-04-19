@@ -65,8 +65,11 @@ thread_local std::queue<uint16_t> hot_wait_queue;
 thread_local std::priority_queue<CoroDeadline> deadline_queue;
 static void Deallocate_MR(Cache::Handle *handle) {
     auto mr = (ibv_mr*) handle->value;
-    Btr::rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
-    delete mr;
+    if (!handle->keep_the_mr){
+        Btr::rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
+        delete mr;
+    }
+
 }
 //TODO: make the function set cache handle as an argument, and we need to modify the remote lock status
 // when unlocking the remote lock.
