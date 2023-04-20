@@ -97,6 +97,8 @@ static void Deallocate_MR_WITH_CCP(Cache::Handle *handle) {
 //            ibv_mr* local_mr = (ibv_mr*)value;
             assert(mr->addr!= nullptr );
             assert(((LeafPage*)mr->addr)->global_lock);
+            assert(handle->gptr == ((LeafPage*)mr->addr)->hdr.this_page_g_ptr);
+
             // RDMA write unlock and write back the data.
             Btr::rdma_mg->global_write_page_and_Wunlock(mr, handle->gptr, kLeafPageSize, lock_gptr,
                                                         nullptr, 0);

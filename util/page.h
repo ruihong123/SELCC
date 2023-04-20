@@ -31,7 +31,6 @@ namespace DSMEngine{
     private:
         GlobalAddress leftmost_ptr;
         GlobalAddress sibling_ptr;
-        GlobalAddress this_page_g_ptr;
         // the last index is initialized as -1 in leaf node and internal nodes,
         // only 0 in the root node.
 
@@ -65,6 +64,8 @@ namespace DSMEngine{
                       << "cnt=" << last_index + 1 << ",";
 //              << "range=[" << lowest << " - " << highest << "]";
         }
+
+        GlobalAddress this_page_g_ptr;
     } __attribute__ ((aligned (8)));
 
     class InternalEntry {
