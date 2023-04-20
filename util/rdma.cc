@@ -3299,6 +3299,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t conflict_tag = 0;
         *(uint64_t *)cas_buffer->addr = 0;
         uint8_t target_compute_node_id = 0;
+        printf("READ page %p from remote memory to local mr %p 1\n", page_addr, page_buffer->addr);
+
 //        printf("global read lock at %p \n", page_addr);
         retry:
         retry_cnt++;
@@ -3482,6 +3484,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         std::vector<uint16_t> read_invalidation_targets;
         uint16_t write_invalidation_target = 0-1;
         int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
+        printf("READ page %p from remote memory to local mr %p 2\n", page_addr, page_buffer->addr);
+
     retry:
         retry_cnt++;
         uint64_t compare = 0;
@@ -3652,6 +3656,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage, hdr));
         page_size -=  STRUCT_OFFSET(LeafPage, hdr);
         assert(remote_lock_addr <= post_gl_page_addr - 8);
+        printf("Write page %p from remote memory to local mr %p 1\n", page_addr, page_buffer->addr);
+
         if (async){
             assert(false);
             Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Internal_and_Leaf);
