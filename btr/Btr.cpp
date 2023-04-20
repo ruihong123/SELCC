@@ -116,6 +116,7 @@ static void Deallocate_MR_WITH_CCP(Cache::Handle *handle) {
             Btr::rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
             delete mr;
         }
+        assert(handle->refs.load() == 1);
 //    delete mr;
 }
 Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id), page_cache(cache_ptr){
@@ -832,6 +833,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
                                          GlobalAddress lock_addr,
                                          ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id,
                                          Cache::Handle *handle) {
+    printf("READ page %p from remote memory to local mr %p 1\n", page_addr, page_buffer->addr);
         rdma_mg->global_Rlock_and_read_page(page_buffer, page_addr, page_size, lock_addr, cas_buffer,
                                             tag, cxt, coro_id);
         handle->remote_lock_status.store(1);
@@ -856,6 +858,8 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
     void Btr::global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                                       GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag,
                                                       CoroContext *cxt, int coro_id, Cache::Handle *handle) {
+        printf("READ page %p from remote memory to local mr %p 2\n", page_addr, page_buffer->addr);
+
         rdma_mg->global_Wlock_and_read_page_with_INVALID(page_buffer, page_addr, page_size, lock_addr, cas_buffer,
                                                          tag, cxt, coro_id);
         assert(handle->gptr == (((LeafPage*)(((ibv_mr*)handle->value)->addr))->hdr.this_page_g_ptr));
