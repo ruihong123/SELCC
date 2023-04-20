@@ -842,7 +842,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
         bool succfully_updated = rdma_mg->global_Rlock_update(lock_addr,cas_buffer, cxt, coro_id);
         if (succfully_updated){
             handle->remote_lock_status.store(2);
-            assert(handle->gptr == (((LeafPage*)(((ibv_mr*)handle->value)->addr))->hdr.this_page_g_ptr);
+            assert(handle->gptr == (((LeafPage*)(((ibv_mr*)handle->value)->addr))->hdr.this_page_g_ptr));
             return true;
         }else{
             assert(handle->remote_lock_status.load() == 1);
@@ -856,7 +856,7 @@ inline void Btr::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro
                                                       CoroContext *cxt, int coro_id, Cache::Handle *handle) {
         rdma_mg->global_Wlock_and_read_page_with_INVALID(page_buffer, page_addr, page_size, lock_addr, cas_buffer,
                                                          tag, cxt, coro_id);
-        assert(handle->gptr == (((LeafPage*)(((ibv_mr*)handle->value)->addr))->hdr.this_page_g_ptr);
+        assert(handle->gptr == (((LeafPage*)(((ibv_mr*)handle->value)->addr))->hdr.this_page_g_ptr));
         handle->remote_lock_status.store(2);
     }
 
