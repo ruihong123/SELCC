@@ -3644,6 +3644,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         struct ibv_sge sge[2];
         GlobalAddress post_gl_page_addr;
         post_gl_page_addr.nodeID = page_addr.nodeID;
+        assert(page_addr == (((LeafPage*)(page_buffer->addr))->hdr.this_page_g_ptr));
         //The header should be the same offset in Leaf or INternal nodes
         assert(STRUCT_OFFSET(InternalPage, hdr) == STRUCT_OFFSET(LeafPage, hdr));
         post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage, hdr);
