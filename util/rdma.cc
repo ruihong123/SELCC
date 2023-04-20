@@ -3584,6 +3584,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
 
         }
+        assert(page_addr == (((LeafPage*)(page_buffer->addr))->hdr.this_page_g_ptr));
+
 
     }
     void RDMA_Manager::global_Wlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
