@@ -80,7 +80,7 @@ class SpinLock {
  public:
 
     explicit SpinLock(SpinMutex *mu) : mu_(mu) {
-        assert(owns = false);
+        assert(owns == false);
 
         this->mu_->lock();
           owns = true;
@@ -105,6 +105,7 @@ class SpinLock {
           this->mu_->unlock();
           owns = false;
       }
+      assert(owns==false);
   }
 
  private:
