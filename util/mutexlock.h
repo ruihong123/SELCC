@@ -54,7 +54,6 @@ class SpinMutex {
                                          std::memory_order_acquire,
                                          std::memory_order_relaxed);
   }
-
   void lock() {
     for (size_t tries = 0;; ++tries) {
       if (try_lock()) {
@@ -91,12 +90,13 @@ class SpinLock {
         this->mu_->lock();
         owns = true;
     }
+    //THis logic is not correct.
     bool check_own(){
         return owns;
     }
     void Unlock(){
-        owns = false;
         this->mu_->unlock();
+        owns = false;
     }
   ~SpinLock() {
       if(owns){
@@ -106,7 +106,7 @@ class SpinLock {
 
  private:
   SpinMutex *const mu_;
-  bool owns;
+  thread_local static bool owns;
 };
 
 //
