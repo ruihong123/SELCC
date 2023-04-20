@@ -91,7 +91,7 @@ class SpinLock {
         this->mu_->lock();
         owns = true;
     }
-    //THis logic is not correct.
+    //THis logic is not correct. if you want to use this you need to make sure there is only one spinmutex hold at the same time.
     bool check_own(){
         return owns;
     }

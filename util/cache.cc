@@ -533,7 +533,7 @@ bool LRUCache::FinishErase(LRUHandle *e, SpinLock *spin_l) {
     usage_ -= e->charge;
   // decrease the reference of cache, making it not pinned by cache, but it
   // can still be pinned outside the cache.
-//      assert(e->refs <=2);
+      assert(e->refs == 1);
       Unref(e, spin_l);
 
   }
