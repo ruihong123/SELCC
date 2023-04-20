@@ -3552,7 +3552,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         assert(page_addr.nodeID == lock_addr.nodeID);
         Batch_Submit_WRs(sr, 1, page_addr.nodeID);
         invalidation_RPC_type = 0;
+        assert(page_addr == (((LeafPage*)(page_buffer->addr))->hdr.this_page_g_ptr));
+
         if ((*(uint64_t*) cas_buffer->addr) != compare){
+            assert(page_addr == (((LeafPage*)(page_buffer->addr))->hdr.this_page_g_ptr));
+
             // clear the invalidation targets
             read_invalidation_targets.clear();
             write_invalidation_target = 0-1;
