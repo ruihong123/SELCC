@@ -499,6 +499,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
           assert(((ibv_mr*)e->value)->addr != nullptr);
           already_foward_the_mr = true;
       }
+        assert(l.check_own());
     bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
     //some times the finsih Erase will release the spinlock to let other threads working during the RDMA lock releasing.
     //We need to regain the lock here in case that there is another cache entry eviction.
