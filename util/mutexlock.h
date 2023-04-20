@@ -78,7 +78,8 @@ class SpinMutex {
 };
 class SpinLock {
  public:
-  explicit SpinLock(SpinMutex *mu) : mu_(mu) {
+
+    explicit SpinLock(SpinMutex *mu) : mu_(mu) {
 
     this->mu_->lock();
       owns = true;
@@ -107,8 +108,9 @@ class SpinLock {
  private:
   SpinMutex *const mu_;
   thread_local static bool owns;
-};
 
+
+};
 //
 // Acquire a ReadLock on the specified RWMutex.
 // The Lock will be automatically released then the

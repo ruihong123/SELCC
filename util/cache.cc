@@ -353,6 +353,7 @@ Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
     // Unref or release which will update the lRU list.
     LRUHandle* e = table_.Lookup(key, hash);
     if (e != nullptr) {
+        assert(e->refs >= 1);
         Ref(e);
     }
     return reinterpret_cast<Cache::Handle*>(e);
@@ -365,6 +366,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
     // Unref or release which will update the lRU list.
     LRUHandle* e = table_.Lookup(key, hash);
     if (e != nullptr) {
+        assert(e->refs >= 1);
         Ref(e);
 //        assert(e->refs <=2);
 //        DEBUG_PRINT("cache hit when searching the leaf node");

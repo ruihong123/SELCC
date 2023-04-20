@@ -51,6 +51,8 @@ target_sources(DSMEngine
         "util/logging.cc"
         "util/logging.h"
         "util/mutexlock.h"
+        "util/mutexlock.cpp"
+
         "util/page.cpp"
         "util/page.h"
         "util/no_destructor.h"
