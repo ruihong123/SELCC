@@ -253,11 +253,11 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
   if (e->refs == 0) {  // Deallocate.
       //Finish erase will only goes here, or directly return. it will never goes to next if clause
 //        mutex_.unlock();
-//      if (spin_l!= nullptr){
-//          //Early releasing the lock to avoid the RDMA lock releasing in the critical section.
-//          assert(spin_l->check_own() == true);
-//          spin_l->Unlock();
-//      }
+      if (spin_l!= nullptr){
+          //Early releasing the lock to avoid the RDMA lock releasing in the critical section.
+          assert(spin_l->check_own() == true);
+          spin_l->Unlock();
+      }
       assert(!e->in_cache);
     (*e->deleter)(e);
 //    free(e);

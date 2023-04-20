@@ -80,9 +80,10 @@ class SpinLock {
  public:
 
     explicit SpinLock(SpinMutex *mu) : mu_(mu) {
+        assert(owns = false);
 
-    this->mu_->lock();
-      owns = true;
+        this->mu_->lock();
+          owns = true;
   }
   // No copying allowed
   SpinLock(const SpinLock &) = delete;
@@ -102,6 +103,7 @@ class SpinLock {
   ~SpinLock() {
       if(owns){
           this->mu_->unlock();
+          owns = false;
       }
   }
 
