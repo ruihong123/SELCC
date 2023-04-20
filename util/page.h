@@ -170,6 +170,7 @@ namespace DSMEngine{
             records[1].ptr = GlobalAddress::Null();
 
             hdr.last_index = 0;
+            assert(this_page_g_ptr!= GlobalAddress::Null());
             hdr.this_page_g_ptr = this_page_g_ptr;
             local_metadata_init();
 //            front_version = 0;
@@ -186,6 +187,7 @@ namespace DSMEngine{
             global_lock = 0;
             records[0].ptr = GlobalAddress::Null();
             local_metadata_init();
+            assert(this_page_g_ptr!= GlobalAddress::Null());
             hdr.this_page_g_ptr = this_page_g_ptr;
 //            front_version = 0;
 //            rear_version = 0;

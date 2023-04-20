@@ -2757,7 +2757,7 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 
           rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal_and_Leaf);
 
-          auto sibling = new(sibling_mr->addr) InternalPage(GlobalAddress(), page->hdr.level);
+          auto sibling = new(sibling_mr->addr) InternalPage(sibling_addr, page->hdr.level);
 
 //              std::cout << "addr " <<  sibling_addr << " | level " <<
 //              (int)(page->hdr.level) << std::endl;
