@@ -262,7 +262,7 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
     (*e->deleter)(e);
 //    free(e);
     delete e;
-      if (spin_l!= nullptr && !spin_l->check_own()){
+      if (spin_l!= nullptr ){
           spin_l->Lock();
       }
   } else if (e->in_cache && e->refs == 1) {
