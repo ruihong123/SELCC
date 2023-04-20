@@ -116,7 +116,7 @@ static void Deallocate_MR_WITH_CCP(Cache::Handle *handle) {
             Btr::rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
             delete mr;
         }
-        assert(handle->refs.load() == 1);
+        assert(handle->refs.load() == 0);
 //    delete mr;
 }
 Btr::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id), page_cache(cache_ptr){
