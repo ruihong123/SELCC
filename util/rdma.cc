@@ -3483,7 +3483,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         std::vector<uint16_t> read_invalidation_targets;
         uint16_t write_invalidation_target = 0-1;
         int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
-        printf("READ page %p from remote memory to local mr %p 2 thread_id is %d\n", page_addr, page_buffer->addr, thread_id);
 
     retry:
         retry_cnt++;
@@ -3563,6 +3562,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         }
 #endif
         Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+        printf("READ page %p from remote memory to local mr %p 2 thread_id is %d\n", page_addr, page_buffer->addr, thread_id);
 
         invalidation_RPC_type = 0;
         //When the program fail at the code below the remote buffer content (this_page_g_ptr) has already  be incosistent
@@ -3664,7 +3664,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage, hdr));
         page_size -=  STRUCT_OFFSET(LeafPage, hdr);
         assert(remote_lock_addr <= post_gl_page_addr - 8);
-        printf("Write page from local mr %p   to remote memory %p  1, thread_id is %d\n", page_buffer->addr, page_addr, thread_id);
 
         if (async){
             assert(false);
@@ -3716,6 +3715,7 @@ retry:
 
             assert(page_addr.nodeID == remote_lock_addr.nodeID);
             Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+            printf("Write page from local mr %p   to remote memory %p  1, thread_id is %d\n", page_buffer->addr, page_addr, thread_id);
             if((*(uint64_t*) local_CAS_mr->addr) != compare){
 //                printf("RDMA write lock unlock happen with RDMA faa FOR rdma READ LOCK\n");
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (compare >> 56));
