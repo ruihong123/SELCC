@@ -32,7 +32,7 @@ class ThreadPool{
 
 //  ThreadPool(std::mutex* mtx, std::condition_variable* signal);
   std::vector<port::Thread> bgthreads_;
-    std::vector<boost::lockfree::spsc_queue<BGItem, boost::lockfree::capacity<R_SIZE>>*> queue_pool;
+    std::vector<boost::lockfree::spsc_queue<BGItem>*> queue_pool;
   ThreadPoolType Type_;
 //  std::mutex mu_;
 //  std::condition_variable bgsignal_;
@@ -97,7 +97,7 @@ std::atomic<bool> wait_for_jobs_to_complete_;
     // Start background thread if necessary
 
       for (int i = 0; i < total_threads_limit_; ++i) {
-          queue_pool.push_back(new boost::lockfree::spsc_queue<BGItem, boost::lockfree::capacity<R_SIZE>>());
+          queue_pool.push_back(new boost::lockfree::spsc_queue<BGItem>(R_SIZE));
 
       }
       for (int i = 0; i < total_threads_limit_; ++i) {
