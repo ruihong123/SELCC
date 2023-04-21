@@ -64,11 +64,15 @@ struct CoroDeadline {
 thread_local std::queue<uint16_t> hot_wait_queue;
 thread_local std::priority_queue<CoroDeadline> deadline_queue;
 static void Deallocate_MR(Cache::Handle *handle) {
+    assert(handle->refs.load() == 0);
+
     auto mr = (ibv_mr*) handle->value;
     if (!handle->keep_the_mr){
         Btr::rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
         delete mr;
     }
+    assert(handle->refs.load() == 0);
+
 
 }
 //TODO: make the function set cache handle as an argument, and we need to modify the remote lock status
@@ -76,6 +80,7 @@ static void Deallocate_MR(Cache::Handle *handle) {
 static void Deallocate_MR_WITH_CCP(Cache::Handle *handle) {
     // TOFIX: The code below is not protected by the lock shared mutex. Besides,
     //  the deletor may also not well protected by the cache mutex.
+        assert(handle->refs.load() == 0);
 
     // Do we need the lock during this deleter? Answer: Probably not, because it is guaratee to have only on thread comes here.
     auto mr = (ibv_mr*) handle->value;
