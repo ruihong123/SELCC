@@ -3556,7 +3556,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         assert(page_addr.nodeID == lock_addr.nodeID);
         ibv_wc* wc = new ibv_wc[2]();
         std::string str("default");
-        assert(try_poll_completions(wc,1, str, true, page_addr.nodeID)==0);
+#ifndef NDEBUG
+        if (cq_data_default.at(page_addr.nodeID)->Get()!= nullptr){
+            assert(try_poll_completions(wc,1, str, true, page_addr.nodeID)==0);
+
+        }
+#endif
         Batch_Submit_WRs(sr, 1, page_addr.nodeID);
 
         invalidation_RPC_type = 0;
