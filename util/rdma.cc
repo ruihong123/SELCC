@@ -2953,7 +2953,6 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
             // wait until the job complete.
 
             rc = poll_completion(wc, poll_num, qp_type, true, target_node_id);
-            assert(try_poll_completions(wc,1,qp_type, true,target_node_id)==0);
             if (rc != 0) {
                 std::cout << "RDMA CAS Failed" << std::endl;
                 std::cout << "q id is" << qp_type << std::endl;
@@ -3555,6 +3554,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         sr[0].next = &sr[1];
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
+        ibv_wc* wc = new ibv_wc[2]();
+        std:;std::string str("default");
+        assert(try_poll_completions(wc,1, str, true, page_addr.nodeID)==0);
         Batch_Submit_WRs(sr, 1, page_addr.nodeID);
 
         invalidation_RPC_type = 0;
@@ -3656,7 +3658,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage, hdr));
         page_size -=  STRUCT_OFFSET(LeafPage, hdr);
         assert(remote_lock_addr <= post_gl_page_addr - 8);
-        printf("Write page %p from remote memory to local mr %p 1\n", page_addr, page_buffer->addr);
+        printf("Write page from local mr %p %p  to remote memory  1\n", page_buffer->addr, page_addr);
 
         if (async){
             assert(false);
