@@ -3298,7 +3298,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t conflict_tag = 0;
         *(uint64_t *)cas_buffer->addr = 0;
         uint8_t target_compute_node_id = 0;
-        printf("READ page %p from remote memory to local mr %p 1, thread_id is %d\n", page_addr, page_buffer->addr, thread_id);
+//        printf("READ page %p from remote memory to local mr %p 1, thread_id is %d\n", page_addr, page_buffer->addr, thread_id);
 
 //        printf("global read lock at %p \n", page_addr);
         retry:
@@ -3562,7 +3562,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         }
 #endif
         Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-        printf("READ page %p from remote memory to local mr %p 2 thread_id is %d\n", page_addr, page_buffer->addr, thread_id);
+//        printf("READ page %p from remote memory to local mr %p 2 thread_id is %d\n", page_addr, page_buffer->addr, thread_id);
 
         invalidation_RPC_type = 0;
         //When the program fail at the code below the remote buffer content (this_page_g_ptr) has already  be incosistent
@@ -3715,7 +3715,7 @@ retry:
 
             assert(page_addr.nodeID == remote_lock_addr.nodeID);
             Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-            printf("Write page from local mr %p   to remote memory %p  1, thread_id is %d\n", page_buffer->addr, page_addr, thread_id);
+//            printf("Write page from local mr %p   to remote memory %p  1, thread_id is %d\n", page_buffer->addr, page_addr, thread_id);
             if((*(uint64_t*) local_CAS_mr->addr) != compare){
 //                printf("RDMA write lock unlock happen with RDMA faa FOR rdma READ LOCK\n");
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (compare >> 56));
