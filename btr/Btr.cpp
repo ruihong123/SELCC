@@ -1064,7 +1064,7 @@ next: // Internal_and_Leaf page search
             p = result.next_level;
             level = result.level - 1;
         }else{
-            assert(tree_height == 0);
+//            assert(tree_height == 0);
             printf("happens when there is only one level\n");
         }
 

@@ -3664,7 +3664,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage, hdr));
         page_size -=  STRUCT_OFFSET(LeafPage, hdr);
         assert(remote_lock_addr <= post_gl_page_addr - 8);
-        printf("Write page from local mr %p %p  to remote memory  1, thread_id is %d\n", page_buffer->addr, page_addr, thread_id);
+        printf("Write page from local mr %p   to remote memory %p  1, thread_id is %d\n", page_buffer->addr, page_addr, thread_id);
 
         if (async){
             assert(false);
