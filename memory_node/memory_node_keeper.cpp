@@ -475,7 +475,7 @@ int Memory_Node_Keeper::server_sock_connect(const char* servername, int port) {
   memcpy(send_pointer->content.qp_config.gid, &(rdma_mg->res->my_gid), 16);
   send_pointer->received = true;
   Registered_qp_config* remote_con_data = new Registered_qp_config(request->content.qp_config);
-  std::shared_lock<std::shared_mutex> l1(rdma_mg->qp_cq_map_mutex);
+  std::unique_lock<std::shared_mutex> l1(rdma_mg->qp_cq_map_mutex);
   //keep the remote qp information
     rdma_mg->qp_main_connection_info_Mside.insert({new_qp_id,remote_con_data});
 
