@@ -47,11 +47,13 @@ std::atomic<bool> wait_for_jobs_to_complete_;
   void BGThread(uint32_t thread_id) {
 //    bool low_io_priority = false;
      uint32_t  miss_poll_counter = 0;
+     auto task_queue =  queue_pool[thread_id];
     while (true) {
       // Wait until there is an item that is ready to run
 //      std::unique_lock<std::mutex> lock(mu_);
       // Stop waiting if the thread needs to do work or needs to terminate.
-      while (!exit_all_threads_.load() && queue_pool[thread_id]->empty() ) {
+
+      while (!exit_all_threads_.load() && task_queue->empty() ) {
 //        bgsignal_.wait(lock);
           if(++miss_poll_counter < 10240){
               continue;
@@ -80,9 +82,9 @@ std::atomic<bool> wait_for_jobs_to_complete_;
       }
 
 
-      auto func = std::move(queue_pool[thread_id]->front().function);
-      void* args = std::move(queue_pool[thread_id]->front().args);
-      queue_pool[thread_id]->pop();
+      auto func = std::move(task_queue->front().function);
+      void* args = std::move(task_queue->front().args);
+        task_queue->pop();
 
 //      queue_len_.store(static_cast<unsigned int>(queue_pool.size()),
 //                       std::memory_order_relaxed);
@@ -99,7 +101,6 @@ std::atomic<bool> wait_for_jobs_to_complete_;
       for (int i = 0; i < total_threads_limit_; ++i) {
           auto temp = new boost::lockfree::spsc_queue<BGItem>(R_SIZE);
           queue_pool.emplace_back(temp);
-
       }
       for (int i = 0; i < total_threads_limit_; ++i) {
           port::Thread p_t(&ThreadPool::BGThread, this, i);
