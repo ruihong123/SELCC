@@ -253,11 +253,11 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
   if (e->refs == 0) {  // Deallocate.
       //Finish erase will only goes here, or directly return. it will never goes to next if clause
 //        mutex_.unlock();
-      if (spin_l!= nullptr){
-          //Early releasing the lock to avoid the RDMA lock releasing in the critical section.
-          assert(spin_l->check_own() == true);
-          spin_l->Unlock();
-      }
+//      if (spin_l!= nullptr){
+//          //Early releasing the lock to avoid the RDMA lock releasing in the critical section.
+//          assert(spin_l->check_own() == true);
+//          spin_l->Unlock();
+//      }
       assert(!e->in_cache);
     (*e->deleter)(e);
 //    free(e);
@@ -408,9 +408,9 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
             // next is read by key() in an assert, so it must be initialized
             e->next = nullptr;
         }
-        if (!l.check_own()){
-            l.Lock();
-        }
+//        if (!l.check_own()){
+//            l.Lock();
+//        }
         assert(usage_ <= capacity_ + kLeafPageSize + kInternalPageSize);
         // This will remove some entry from LRU if the table_cache over size.
         bool already_foward_the_mr = false;
@@ -423,15 +423,15 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
 //            }
 //#endif
             // Directly reuse the mr if the evicted cache entry is the same size as the new inserted on.
-//            if (value == nullptr && !already_foward_the_mr && ((ibv_mr*)old->value)->length == charge){
-//                old->keep_the_mr = true;
-//                e->value = old->value;
-//                already_foward_the_mr = true;
-//            }
-            bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
-            if (!l.check_own()){
-                l.Lock();
+            if (value == nullptr && !already_foward_the_mr && ((ibv_mr*)old->value)->length == charge){
+                old->keep_the_mr = true;
+                e->value = old->value;
+                already_foward_the_mr = true;
             }
+            bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
+//            if (!l.check_own()){
+//                l.Lock();
+//            }
             if (!erased) {  // to avoid unused variable when compiled NDEBUG
                 assert(erased);
             }
@@ -486,9 +486,9 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
     // next is read by key() in an assert, so it must be initialized
     e->next = nullptr;
   }
-    if (!l.check_own()){
-        l.Lock();
-    }
+//    if (!l.check_own()){
+//        l.Lock();
+//    }
         assert(usage_ <= capacity_ + kLeafPageSize + kInternalPageSize);
   // This will remove some entry from LRU if the table_cache over size.
             bool already_foward_the_mr = false;
@@ -498,19 +498,19 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
 
     LRUHandle* old = lru_.next;
     assert(old->refs == 1);
-//      if (value == nullptr && !already_foward_the_mr && ((ibv_mr*)old->value)->length == charge){
-//          old->keep_the_mr = true;
-//          e->value = old->value;
-//          assert(((ibv_mr*)e->value)->addr != nullptr);
-//          already_foward_the_mr = true;
-//      }
+      if (value == nullptr && !already_foward_the_mr && ((ibv_mr*)old->value)->length == charge){
+          old->keep_the_mr = true;
+          e->value = old->value;
+          assert(((ibv_mr*)e->value)->addr != nullptr);
+          already_foward_the_mr = true;
+      }
         assert(l.check_own());
     bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
     //some times the finsih Erase will release the spinlock to let other threads working during the RDMA lock releasing.
     //We need to regain the lock here in case that there is another cache entry eviction.
-      if (!l.check_own()){
-          l.Lock();
-      }
+//      if (!l.check_own()){
+//          l.Lock();
+//      }
     if (!erased) {  // to avoid unused variable when compiled NDEBUG
       assert(erased);
     }
