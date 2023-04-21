@@ -423,11 +423,11 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
 //            }
 //#endif
             // Directly reuse the mr if the evicted cache entry is the same size as the new inserted on.
-            if (value == nullptr && !already_foward_the_mr && ((ibv_mr*)old->value)->length == charge){
-                old->keep_the_mr = true;
-                e->value = old->value;
-                already_foward_the_mr = true;
-            }
+//            if (value == nullptr && !already_foward_the_mr && ((ibv_mr*)old->value)->length == charge){
+//                old->keep_the_mr = true;
+//                e->value = old->value;
+//                already_foward_the_mr = true;
+//            }
             bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
             if (!l.check_own()){
                 l.Lock();
