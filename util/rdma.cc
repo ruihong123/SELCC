@@ -3555,7 +3555,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
         ibv_wc* wc = new ibv_wc[2]();
-        std:;std::string str("default");
+        std::string str("default");
         assert(try_poll_completions(wc,1, str, true, page_addr.nodeID)==0);
         Batch_Submit_WRs(sr, 1, page_addr.nodeID);
 
