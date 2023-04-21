@@ -3483,7 +3483,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         std::vector<uint16_t> read_invalidation_targets;
         uint16_t write_invalidation_target = 0-1;
         int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
-        printf("READ page %p from remote memory to local mr %p 2 thraed_id is %d\n", page_addr, page_buffer->addr, thread_id);
+        printf("READ page %p from remote memory to local mr %p 2 thread_id is %d\n", page_addr, page_buffer->addr, thread_id);
 
     retry:
         retry_cnt++;
@@ -3724,6 +3724,8 @@ retry:
             }
 
         }
+        assert(page_addr == (((LeafPage*)(page_buffer->addr))->hdr.this_page_g_ptr));
+
 //        printf("Global write page page_addr %p, async %d\n", page_addr, async);
     }
     void RDMA_Manager::global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
