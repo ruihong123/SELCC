@@ -4312,6 +4312,7 @@ int RDMA_Manager::try_poll_completions(ibv_wc* wc_p,
   /* poll the completion for a while before giving up of doing it .. */
   // gettimeofday(&cur_time, NULL);
   // start_time_msec = (cur_time.tv_sec * 1000) + (cur_time.tv_usec / 1000);
+    std::shared_lock<std::shared_mutex> l(qp_cq_map_mutex);
   if (qp_type == "write_local_flush"){
     cq = (ibv_cq*)cq_local_write_flush.at(target_node_id)->Get();
     assert(cq != nullptr);
