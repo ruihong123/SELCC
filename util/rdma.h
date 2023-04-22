@@ -268,7 +268,7 @@ class In_Use_Array {
   int allocate_memory_slot() {
       // Below is a shortcut for memory allocation.
       if (Array_used_up.load()){
-          return false;
+          return -1;
       }
     //maybe the conflict comes from here
     std::unique_lock<SpinMutex> lck(mtx);
