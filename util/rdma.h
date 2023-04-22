@@ -266,6 +266,10 @@ class In_Use_Array {
 //        in_use_(in_use),
         mr_ori_(mr_ori) {}
   int allocate_memory_slot() {
+      // Below is a shortcut for memory allocation.
+      if (Array_used_up.load()){
+          return false;
+      }
     //maybe the conflict comes from here
     std::unique_lock<SpinMutex> lck(mtx);
     if (free_list.empty())
@@ -273,6 +277,9 @@ class In_Use_Array {
     else{
       int result = free_list.back();
       free_list.pop_back();
+      if (free_list.empty()){
+        Array_used_up.store(true);
+      }
       return result;
     }
   }
@@ -280,6 +287,9 @@ class In_Use_Array {
     std::unique_lock<SpinMutex> lck(mtx);
     free_list.push_back(index);
     if (index < element_size_){
+        if (Array_used_up == true){
+            Array_used_up.store(false);
+        }
       return true;
     }else{
       assert(false);
@@ -303,6 +313,7 @@ class In_Use_Array {
   std::list<int> free_list;
   SpinMutex mtx;
   ibv_mr* mr_ori_;
+  std::atomic<bool> Array_used_up = false;
 
   //  int type_;
 };
