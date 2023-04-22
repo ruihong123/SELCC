@@ -272,14 +272,12 @@ class In_Use_Array {
       }
     //maybe the conflict comes from here
     std::unique_lock<SpinMutex> lck(mtx);
-    if (free_list.empty())
-      return -1;  // Not find the empty memory chunk.
-    else{
+    if (free_list.empty()){
+        Array_used_up.store(true);
+        return -1;  // Not find the empty memory chunk.
+    }else{
       int result = free_list.back();
       free_list.pop_back();
-      if (free_list.empty()){
-        Array_used_up.store(true);
-      }
       return result;
     }
   }
