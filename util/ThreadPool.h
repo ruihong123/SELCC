@@ -60,7 +60,7 @@ std::atomic<bool> wait_for_jobs_to_complete_;
           }
           if(++miss_poll_counter < 20480){
               usleep(1);
-              printf("Long sleep\n");
+//              printf("Long sleep\n");
               continue ;
           }
           if(++miss_poll_counter < 40960){
