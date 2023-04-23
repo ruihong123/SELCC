@@ -104,7 +104,7 @@ struct Registered_qp_config {
   uint8_t gid[16]; /* gid */
   uint16_t node_id;
 } __attribute__((packed));
-#define NUM_QP_ACCROSS_COMPUTE 8
+#define NUM_QP_ACCROSS_COMPUTE 16
 struct Registered_qp_config_xcompute {
     uint32_t qp_num[NUM_QP_ACCROSS_COMPUTE]; /* QP numbers */
     uint16_t lid;    /* LID of the IB port */
