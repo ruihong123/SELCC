@@ -1104,13 +1104,13 @@ next: // Internal_and_Leaf page search
         if (path_stack[coro_id][1] != GlobalAddress::Null()){
             p = path_stack[coro_id][1];
             level = 1;
-            printf("Fall back to the level 1\n");
+//            printf("Fall back to the level 1\n");
         }
         else{
             // re-search the tree from the scratch. (only happen when root and leaf are the same.)
             p = get_root_ptr(page_hint);
             level = -1;
-            printf("Fall back to root\n");
+//            printf("Fall back to root\n");
 
         }
 #ifndef NDEBUG
