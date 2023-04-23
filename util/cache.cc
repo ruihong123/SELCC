@@ -415,7 +415,6 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
             e->next = nullptr;
         }
 #ifdef EARLY_LOCK_RELEASE
-
         if (!l.check_own()){
             l.Lock();
         }
@@ -503,7 +502,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
   }
 #ifdef EARLY_LOCK_RELEASE
 
-            if (!l.check_own()){
+    if (!l.check_own()){
         l.Lock();
     }
 #endif
@@ -590,7 +589,7 @@ void LRUCache::Prune() {
 
 
 
-        static const int kNumShardBits = 6;
+        static const int kNumShardBits = 7;
 static const int kNumShards = 1 << kNumShardBits;
 
 class ShardedLRUCache : public Cache {
