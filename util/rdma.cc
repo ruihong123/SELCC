@@ -115,9 +115,9 @@ void General_Destroy(void* ptr){
   Mempool_initialize(Version_edit, 1024 * 1024, 32*1024*1024);
   Mempool_initialize(Internal_and_Leaf, kInternalPageSize, 0);
         printf("atomic uint8_t, uint16_t, uint32_t and uint64_t are, %lu %lu %lu %lu\n ", sizeof(std::atomic<uint8_t>), sizeof(std::atomic<uint16_t>), sizeof(std::atomic<uint32_t>), sizeof(std::atomic<uint64_t>));
-    if(node_id%2 == 0){
-        Invalidation_bg_threads.SetBackgroundThreads(NUM_QP_ACCROSS_COMPUTE);
-    }
+//    if(node_id%2 == 0){
+//        Invalidation_bg_threads.SetBackgroundThreads(NUM_QP_ACCROSS_COMPUTE);
+//    }
     page_cache_ = config.cache_prt;
 }
 
@@ -751,7 +751,7 @@ void RDMA_Manager::Client_Set_Up_Resources() {
 
         uint16_t target_node_id =  2*i;
         if (target_node_id != node_id){
-            compute_handler_threads.emplace_back(&RDMA_Manager::Cross_Computes_RPC_Threads, this, target_node_id);
+            compute_handler_threads.emplace_back(&RDMA_Manager::Cross_Computes_RPC_Threads_Creator, this, target_node_id);
             compute_handler_threads.back().detach();
         }
 
@@ -1011,7 +1011,7 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
   compute_message_handling_thread(qp_type, target_node_id);
   return false;
 }
-void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
+void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
     auto* cq_arr = new  std::array<ibv_cq*, NUM_QP_ACCROSS_COMPUTE*2>();
     auto* qp_arr = new  std::array<ibv_qp*, NUM_QP_ACCROSS_COMPUTE>();
     create_qp_xcompute(target_node_id, cq_arr, qp_arr);
@@ -1045,46 +1045,53 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
 //    }
     compute_connection_counter.fetch_add(1);
     //Do we need to sync below?, probably not at below, should be synced outside this function.
+    for (int i = 0; i < NUM_QP_ACCROSS_COMPUTE; ++i) {
+        std::thread p_t(&RDMA_Manager::invalidatoin_message_handling_worker, this, target_node_id,i,recv_mr[i]);
+        Invalidation_bg_threads.push_back(std::move(p_t));
+        Invalidation_bg_threads.back().detach();
+    }
 
-    ibv_wc wc[3] = {};
-    int buffer_position[NUM_QP_ACCROSS_COMPUTE] = {0};
-    int miss_poll_counter[NUM_QP_ACCROSS_COMPUTE] = {0};
-    while (true) {
+}
+
+    void RDMA_Manager::invalidatoin_message_handling_worker(uint16_t target_node_id, int qp_num, ibv_mr *recv_mr) {
+        ibv_wc wc[3] = {};
+        int buffer_position= 0;
+        int miss_poll_counter= 0;
+        while (true) {
 //      rdma_mg->poll_completion(wc, 1, client_ip, false, compute_node_id);
-        // Event driven programming?
-        for (int i = 0; i < NUM_QP_ACCROSS_COMPUTE; ++i) {
-            if (try_poll_completions_xcompute(wc, 1, false, target_node_id, i) == 0){
-                // exponetial back off to save cpu cycles.
-                if(++miss_poll_counter[i] < 512){
-                    continue;
-                }
-                if(++miss_poll_counter[i] < 1024){
-                    usleep(2);
+            // Event driven programming?
+                if (try_poll_completions_xcompute(wc, 1, false, target_node_id, qp_num) == 0){
+                    // exponetial back off to save cpu cycles.
+                    if(++miss_poll_counter < 512){
+                        continue;
+                    }
+                    if(++miss_poll_counter < 1024){
+                        usleep(2);
 
-                    continue ;
-                }
-                if(++miss_poll_counter[i] < 2048){
-                    usleep(16);
+                        continue ;
+                    }
+                    if(++miss_poll_counter < 2048){
+                        usleep(16);
 
-                    continue;
-                }else{
-                    usleep(512);
-                    continue;
+                        continue;
+                    }else{
+                        usleep(512);
+                        continue;
+                    }
                 }
-            }
-            miss_poll_counter[i] = 0;
-            int buff_pos = buffer_position[i];
-            // TODO: since we do not copy the received mesage then it is possible that the hnalding time of
-            // the function is to long to result in buffer over flow.
-            RDMA_Request* receive_msg_buf = new RDMA_Request();
-            //TODO change the way we get the recevi buffer, because we may have mulitple channel accross compute nodes.
-            *receive_msg_buf = *(RDMA_Request*)recv_mr[i][buff_pos].addr;
+                miss_poll_counter = 0;
+                int buff_pos = buffer_position;
+                // TODO: since we do not copy the received mesage then it is possible that the hnalding time of
+                // the function is to long to result in buffer over flow.
+                RDMA_Request* receive_msg_buf = new RDMA_Request();
+                //TODO change the way we get the recevi buffer, because we may have mulitple channel accross compute nodes.
+                *receive_msg_buf = *(RDMA_Request*)recv_mr[buff_pos].addr;
 //      memcpy(receive_msg_buf, recv_mr[buffer_position].addr, sizeof(RDMA_Request));
 
-            // copy the pointer of receive buf to a new place because
-            // it is the same with send buff pointer.
-            if (receive_msg_buf->command == release_write_lock) {
-                post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
+                // copy the pointer of receive buf to a new place because
+                // it is the same with send buff pointer.
+                if (receive_msg_buf->command == release_write_lock) {
+                    post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
 //                printf("release_write_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
 
 
@@ -1092,44 +1099,40 @@ void RDMA_Manager::Cross_Computes_RPC_Threads(uint16_t target_node_id) {
                     //TODO: what shall we do if the read lock is on
                     //Ans: do nothing
 
-                BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
-                Invalidation_bg_threads.Schedule(&RDMA_Manager::Write_Invalidation_Message_Handler, thread_pool_args, i);
-//                Release_write_lock(receive_msg_buf);
+//                    BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
+//                    Invalidation_bg_threads.Schedule(&RDMA_Manager::Write_Invalidation_Message_Handler, thread_pool_args, i);
+                Release_write_lock(receive_msg_buf);
 
-            } else if (receive_msg_buf->command == release_read_lock) {
-                post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
+                } else if (receive_msg_buf->command == release_read_lock) {
+                    post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
 //                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
-                BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
-                Invalidation_bg_threads.Schedule(&RDMA_Manager::Read_Invalidation_Message_Handler, thread_pool_args, i);
-//                Release_read_lock(receive_msg_buf);
+//                    BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
+//                    Invalidation_bg_threads.Schedule(&RDMA_Manager::Read_Invalidation_Message_Handler, thread_pool_args, i);
+                Release_read_lock(receive_msg_buf);
 
-            } else if (receive_msg_buf->command == heart_beat) {
-                printf("heart_beat\n");
-                post_receive_xcompute(&recv_mr[i][buff_pos],target_node_id,i);
+                } else if (receive_msg_buf->command == heart_beat) {
+                    printf("heart_beat\n");
+                    post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
 
 
-            } else {
-                printf("corrupt message from client. %d\n", receive_msg_buf->command);
-                assert(false);
-                break;
-            }
-            // increase the buffer index
-            if (buffer_position[i] == R_SIZE-1 ){
-                buffer_position[i] = 0;
-            } else{
-                buffer_position[i]++;
-            }
+                } else {
+                    printf("corrupt message from client. %d\n", receive_msg_buf->command);
+                    assert(false);
+                    break;
+                }
+                // increase the buffer index
+                if (buffer_position == R_SIZE-1 ){
+                    buffer_position = 0;
+                } else{
+                    buffer_position++;
+                }
         }
-
-    }
-    assert(false);
-
-    for (int j = 0; j < NUM_QP_ACCROSS_COMPUTE; ++j) {
+        assert(false);
         for(int i = 0; i<R_SIZE; i++){
-            Deallocate_Local_RDMA_Slot(recv_mr[j][i].addr, Message);
+            Deallocate_Local_RDMA_Slot(recv_mr[i].addr, Message);
         }
+
     }
-}
 void RDMA_Manager::Put_qp_info_into_RemoteM(uint16_t target_compute_node_id,
                                             std::array<ibv_cq *, NUM_QP_ACCROSS_COMPUTE * 2> *cq_arr,
                                             std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUTE> *qp_arr) {
@@ -5467,4 +5470,6 @@ void RDMA_Manager::fs_deserilization(
         ((RDMA_Manager*)p->rdma_mg)->Release_read_lock((RDMA_Request*)p->func_args);
         delete static_cast<BGThreadMetadata*>(thread_args);
     }
+
+
 }
