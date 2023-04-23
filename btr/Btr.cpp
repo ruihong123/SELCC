@@ -2011,10 +2011,10 @@ local_reread:
         if (!page->internal_page_search(k, result, current_ticket)){
             goto local_reread;
         }
-        //TODO: delete the validation code below
-        if (isroot){
-            printf("Root node next level pointer number is %d", page->hdr.last_index);
-        }
+//        //TODO: delete the validation code below
+//        if (isroot){
+//            printf("Root node next level pointer number is %d\n", page->hdr.last_index);
+//        }
         nested_retry_counter = 0;
 #ifdef PROCESSANALYSIS
         start = std::chrono::high_resolution_clock::now();
