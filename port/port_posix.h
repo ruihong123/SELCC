@@ -94,11 +94,15 @@
 #define DEBUG_PRINT_CONDITION(x) if(Show_Me_The_Print) {printf(x);}
 #define DEBUG_PRINT_CONDITION_arg(x,y) if(Show_Me_The_Print) {printf(x,y);}
 #endif
+
+//Debugging macro
 //#define TIMEPRINT
 #define WITHMEMORYVERSIONSET
 //#define WITHPERSISTENCE
 #define PROCESSANALYSIS
 //#define RDMAPROCESSANALYSIS
+
+//Configuration macro
 #define RDMAFAAFORREADLOCK
 #define CACHECOHERENCEPROTOCOL
 #define TIMEPRINTGAP 100000

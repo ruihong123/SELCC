@@ -219,6 +219,8 @@ LRUCache::~LRUCache() {
     e = next;
   }
 }
+//Can we use the lock within the handle to reduce the conflict here so that the critical seciton
+// of the cache shard lock will be minimized.
     void LRUCache::Ref(LRUHandle* e) {
         if (e->refs == 1 && e->in_cache) {  // If on lru_ list, move to in_use_ list.
             LRU_Remove(e);
