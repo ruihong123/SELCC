@@ -1107,6 +1107,7 @@ next: // Internal_and_Leaf page search
 //            printf("Fall back to the level 1\n");
         }
         else{
+
             // re-search the tree from the scratch. (only happen when root and leaf are the same.)
             p = get_root_ptr(page_hint);
             level = -1;
@@ -2190,6 +2191,12 @@ local_reread:
                 }
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
 
+            }else{
+                // If this node do not have upper level, then the root node must be invalidated
+                std::unique_lock<std::mutex> l(root_mtx);
+                if (page_addr == g_root_ptr.load()){
+                    g_root_ptr.store(GlobalAddress::Null());
+                }
             }
             // In case that there is a long distance(num. of sibiling pointers) between current node and the target node
             if (nested_retry_counter <= 2){
@@ -2225,6 +2232,11 @@ local_reread:
             }
             DEBUG_PRINT_CONDITION("retry place 4\n");
             goto returnfalse;
+        }else{
+            std::unique_lock<std::mutex> l(root_mtx);
+            if (page_addr == g_root_ptr.load()){
+                g_root_ptr.store(GlobalAddress::Null());
+            }
         }
 //#ifdef PROCESSANALYSIS
 //    start = std::chrono::high_resolution_clock::now();
@@ -3122,6 +3134,11 @@ acquire_global_lock:
                     }
 
 //                page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
+                }else{
+                    std::unique_lock<std::mutex> l(root_mtx);
+                    if (page_addr == g_root_ptr.load()){
+                        g_root_ptr.store(GlobalAddress::Null());
+                    }
                 }
 //            this->unlock_addr(lock_addr, cxt, coro_id, true);
                 if (nested_retry_counter <= 2){
@@ -3172,6 +3189,11 @@ acquire_global_lock:
                 }
 
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
+            }else{
+                std::unique_lock<std::mutex> l(root_mtx);
+                if (page_addr == g_root_ptr.load()){
+                    g_root_ptr.store(GlobalAddress::Null());
+                }
             }
 //            this->unlock_addr(lock_addr, cxt, coro_id, false);
             if (handle->strategy == 2){
