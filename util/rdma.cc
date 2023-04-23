@@ -1065,15 +1065,15 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
             // Event driven programming?
                 if (try_poll_completions_xcompute(wc, 1, false, target_node_id, qp_num) == 0){
                     // exponetial back off to save cpu cycles.
-                    if(++miss_poll_counter < 512){
+                    if(++miss_poll_counter < 10240){
                         continue;
                     }
-                    if(++miss_poll_counter < 1024){
-                        usleep(2);
+                    if(++miss_poll_counter < 20480){
+                        usleep(1);
 
                         continue ;
                     }
-                    if(++miss_poll_counter < 2048){
+                    if(++miss_poll_counter < 40960){
                         usleep(16);
 
                         continue;
