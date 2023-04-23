@@ -1046,14 +1046,17 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
     compute_connection_counter.fetch_add(1);
     //Do we need to sync below?, probably not at below, should be synced outside this function.
     for (int i = 0; i < NUM_QP_ACCROSS_COMPUTE; ++i) {
-        std::thread p_t(&RDMA_Manager::invalidatoin_message_handling_worker, this, target_node_id,i,recv_mr[i]);
-        Invalidation_bg_threads.push_back(std::move(p_t));
-        Invalidation_bg_threads.back().detach();
+//        std::thread p_t();
+        Invalidation_bg_threads.emplace_back(&RDMA_Manager::invalidation_message_handling_worker, this, target_node_id, i, recv_mr[i]);
+//        Invalidation_bg_threads.back().detach();
+    }
+    for (auto &iter:Invalidation_bg_threads) {
+        iter.join();
     }
 
 }
 
-    void RDMA_Manager::invalidatoin_message_handling_worker(uint16_t target_node_id, int qp_num, ibv_mr *recv_mr) {
+    void RDMA_Manager::invalidation_message_handling_worker(uint16_t target_node_id, int qp_num, ibv_mr *recv_mr) {
         ibv_wc wc[3] = {};
         int buffer_position= 0;
         int miss_poll_counter= 0;

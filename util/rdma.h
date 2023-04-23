@@ -385,7 +385,7 @@ class RDMA_Manager {
   // Set up the socket connection to remote shared memory.
   bool Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id);
   void Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id);
-    void invalidatoin_message_handling_worker(uint16_t target_node_id, int qp_num, ibv_mr *recv_mr);
+    void invalidation_message_handling_worker(uint16_t target_node_id, int qp_num, ibv_mr *recv_mr);
 
     //FUnction for invalidation message handling
   void Release_read_lock(RDMA_Request* receive_msg_buf);
