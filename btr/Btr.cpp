@@ -1645,7 +1645,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
 //#ifndef NDEBUG
-//            printf("cache look up for level %d is (%ld) ns, \n", level, duration.count());
+            printf("cache look up for level %d is (%ld) ns, \n", level, duration.count());
 //          TimePrintCounter = 0;
         }
 //#endif
@@ -2030,7 +2030,7 @@ local_reread:
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
 //#ifndef NDEBUG
-//            printf("cache release for level %d (%ld) ns\n", level,duration.count());
+            printf("cache release for level %d (%ld) ns\n", level,duration.count());
 //          TimePrintCounter = 0;
         }
 //#endif
@@ -2065,7 +2065,7 @@ local_reread:
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
 //#ifndef NDEBUG
-//            printf("cache look up for level %d is (%ld) ns, \n", level, duration.count());
+            printf("cache look up for level %d is (%ld) ns, \n", level, duration.count());
 //          TimePrintCounter = 0;
         }
 //#endif
