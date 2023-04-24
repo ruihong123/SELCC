@@ -99,7 +99,7 @@
 //#define TIMEPRINT
 #define WITHMEMORYVERSIONSET
 //#define WITHPERSISTENCE
-//#define PROCESSANALYSIS
+#define PROCESSANALYSIS
 //#define RDMAPROCESSANALYSIS
 
 //Configuration macro
