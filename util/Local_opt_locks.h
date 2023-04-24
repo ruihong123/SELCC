@@ -2,8 +2,8 @@
 // Created by wang4996 on 22-8-7.
 //
 
-#ifndef MEMORYENGINE_LOCKS_H
-#define MEMORYENGINE_LOCKS_H
+#ifndef MEMORYENGINE_LOCAL_OPT_LOCKS_H
+#define MEMORYENGINE_LOCAL_OPT_LOCKS_H
 
 #include <mutex>
 #include <atomic>
@@ -18,9 +18,9 @@ struct LocalLockNode {
     std::shared_mutex mtx;
 };
 
-class locks {
+class Local_opt_locks {
 
 };
 
 
-#endif //MEMORYENGINE_LOCKS_H
+#endif //MEMORYENGINE_LOCAL_OPT_LOCKS_H

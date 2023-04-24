@@ -4,12 +4,12 @@
 
 #include "util/rdma.h"
 #include "DSMEngine/cache.h"
-#include "util/page.h"
+#include "storage/page.h"
 #include <atomic>
 #include <city.h>
 #include <functional>
 
-#include "util/locks.h"
+#include "util/Local_opt_locks.h"
 //#define kInternalCardinality   (kInternalPageSize - sizeof(Header) - sizeof(uint8_t) * 2) /sizeof(InternalEntry)
 //#define kLeafCardinality  (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2) / sizeof(LeafEntry)
 

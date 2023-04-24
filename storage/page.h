@@ -5,7 +5,7 @@
 #ifndef MEMORYENGINE_PAGE_H
 #define MEMORYENGINE_PAGE_H
 #include "Common.h"
-#include "rdma.h"
+#include "util/rdma.h"
 #include <iostream>
 
 namespace DSMEngine{
@@ -136,7 +136,6 @@ namespace DSMEngine{
 
     constexpr int kLeafCardinality =
             (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) / sizeof(LeafEntry);
-
 
     class InternalPage {
         // private:

@@ -16,7 +16,7 @@ include_directories(
 #        "${PROJECT_SOURCE_DIR}/third_party/googletest/googletest"
         )
 
-add_library(DSMEngine util/locks.cpp util/locks.h util/page.cpp util/page.h btr/btr_itr.cpp)
+add_library(DSMEngine util/Local_opt_locks.cpp util/Local_opt_locks.h btr/btr_itr.cpp)
 target_sources(DSMEngine
         PRIVATE
         "btr/Btr.cpp"
@@ -53,8 +53,9 @@ target_sources(DSMEngine
         "util/mutexlock.h"
         "util/mutexlock.cpp"
 
-        "util/page.cpp"
-        "util/page.h"
+        "storage/page.cpp"
+        "storage/page.h"
+        "storage/Record.h"
         "util/no_destructor.h"
         "util/options.cc"
         "util/random.cc"
