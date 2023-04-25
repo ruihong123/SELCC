@@ -355,7 +355,7 @@ namespace DSMEngine{
         result.val = target_value_buff;
     }
 
-    bool LeafPage::leaf_page_store(const Key &k, const Value &v, int cnt, int empty_index, char *update_addr) {
+    bool LeafPage::leaf_page_store(const Key &k, const Value &v, int &cnt, int &empty_index, char &*update_addr) {
 
         // It is problematic to just check whether the value is empty, because it is possible
         // that the buffer is not initialized as 0
