@@ -6,7 +6,7 @@
 #include "page.h"
 #include "Btr.h"
 namespace DSMEngine{
-    bool InternalPage::internal_page_search(const Key &k, SearchResult &result, uint16_t current_ticket) {
+    bool InternalPage::internal_page_search(const Key &k, SearchResult<Key, GlobalAddress> &result, uint16_t current_ticket) {
 
         assert(k >= hdr.lowest);
 //        assert(k < hdr.highest);

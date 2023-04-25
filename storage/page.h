@@ -9,7 +9,7 @@
 #include <iostream>
 
 namespace DSMEngine{
-
+    template<class Key, class Value>
     struct SearchResult {
         bool is_leaf;
         uint8_t level;
@@ -27,6 +27,8 @@ namespace DSMEngine{
         char value_padding[VALUE_PADDING];
 
     };
+
+    template<class Key>
     class Header {
     private:
         GlobalAddress leftmost_ptr;
@@ -41,9 +43,10 @@ namespace DSMEngine{
         bool valid_page;
         int16_t last_index;
         uint8_t level;
-        friend class InternalPage;
+        template<class U>friend class InternalPage;
         friend class RDMA_Manager;
-        friend class LeafPage;
+
+        template<typename K, typename V>friend class LeafPage;
         friend class Btr;
         friend class IndexCache;
 
@@ -53,8 +56,8 @@ namespace DSMEngine{
             sibling_ptr = GlobalAddress::Null();
             last_index = -1;
             valid_page = true;
-            lowest = kKeyMin;
-            highest = kKeyMax;
+            lowest = std::numeric_limits<Key>::min();
+            highest = std::numeric_limits<Key>::max();
         }
 
         void debug() const {
@@ -68,23 +71,24 @@ namespace DSMEngine{
         GlobalAddress this_page_g_ptr;
     } __attribute__ ((aligned (8)));
 
+    template<class Key>
     class InternalEntry {
     public:
-        Key key = {};
+        Key key = 0;// key has to be a number not a class.
         char key_padding[KEY_PADDING] = "";
         GlobalAddress ptr = GlobalAddress::Null();
 
         InternalEntry() {
-//            ptr = GlobalAddress::Null();
-//    key = 0;
-//            key = {};
+
         }
     } __attribute__((packed));
 #ifdef CACHECOHERENCEPROTOCOL
+
+    template<class Key, class Value>
     class LeafEntry {
     public:
 //        uint8_t f_version : 4;
-        Key key = {};
+        Key key = 0;
         char key_padding[KEY_PADDING] = "";
         Value value = {};
         char value_padding[VALUE_PADDING] = "";
@@ -93,7 +97,7 @@ namespace DSMEngine{
         LeafEntry() {
 //            f_version = 0;
 //            r_version = 0;
-            value = kValueNull;
+            value = {};
             key = 0;
 //      key = {};
         }
@@ -130,13 +134,14 @@ namespace DSMEngine{
     };
 //        constexpr int RDMA_OFFSET  = 64; // local lock offset.
     constexpr int RDMA_OFFSET  = sizeof(Local_Meta);
-    constexpr int kInternalCardinality =
-            (kInternalPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) -RDMA_OFFSET) /
-            sizeof(InternalEntry);
+//    static int kInternalCardinality =
+//            (kInternalPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) -RDMA_OFFSET) /
+//            sizeof(InternalEntry<Key>);
+//
+//    int kLeafCardinality =
+//            (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) / sizeof(LeafEntry);
 
-    constexpr int kLeafCardinality =
-            (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) / sizeof(LeafEntry);
-
+    template<class Key>
     class InternalPage {
         // private:
         //TODO: we can make the local lock metaddata outside the page.
@@ -148,8 +153,9 @@ namespace DSMEngine{
         alignas(8) uint64_t global_lock;
         uint8_t busy;
         uint8_t front_version = 0;
-        Header hdr;
-        InternalEntry records[kInternalCardinality] = {};
+        Header<Key> hdr;
+        InternalEntry<Key> records[(kInternalPageSize - sizeof(Header<Key>) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) -RDMA_OFFSET) /
+                                   sizeof(InternalEntry<Key>)] = {};
 
 //  uint8_t padding[InternalPagePadding];
 //        alignas(8) uint8_t rear_version;
@@ -255,12 +261,14 @@ namespace DSMEngine{
             }
             printf("\n");
         }
-        bool internal_page_search(const Key &k, SearchResult &result, uint16_t current_ticket);
+        bool internal_page_search(const Key &k, SearchResult<Key, GlobalAddress> &result, uint16_t current_ticket);
         void internal_page_store(GlobalAddress page_addr, const Key &k,
                                  GlobalAddress value, GlobalAddress root, int level,
                                  CoroContext *cxt, int coro_id);
     };
 #ifdef CACHECOHERENCEPROTOCOL
+
+    template<class Key, class Value>
     class LeafPage {
     public:
         Local_Meta local_lock_meta;
@@ -268,8 +276,8 @@ namespace DSMEngine{
         alignas(8) uint64_t global_lock = 0;
         uint8_t busy;
         uint8_t front_version;
-        Header hdr;
-        LeafEntry records[kLeafCardinality] = {};
+        Header<Key> hdr;
+        LeafEntry<Key, Value> records[(kLeafPageSize - sizeof(Header<Key>) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) / sizeof(LeafEntry<Key,Value>)] = {};
 
 //  uint8_t padding[LeafPagePadding];
         uint8_t rear_version;
@@ -281,7 +289,7 @@ namespace DSMEngine{
             hdr.level = level;
             hdr.this_page_g_ptr = this_page_g_ptr;
             global_lock = 0;
-            records[0].value = kValueNull;
+            records[0].value = {};
 
             front_version = 0;
             rear_version = 0;
@@ -318,7 +326,7 @@ namespace DSMEngine{
             std::cout << "version: [" << (int)front_version << ", " << (int)rear_version
                       << "]" << std::endl;
         }
-        void leaf_page_search(const Key &k, SearchResult &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr);
+        void leaf_page_search(const Key &k, SearchResult<Key, Value> &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr);
 
 
     };
