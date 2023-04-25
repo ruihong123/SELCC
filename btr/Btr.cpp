@@ -3242,55 +3242,8 @@ acquire_global_lock:
         int cnt = 0;
         int empty_index = -1;
         char *update_addr = nullptr;
-        // It is problematic to just check whether the value is empty, because it is possible
-        // that the buffer is not initialized as 0
-#ifdef PROCESSANALYSIS
-        start = std::chrono::high_resolution_clock::now();
-#endif
-        // TODO: make the key-value stored with order, do not use this unordered page structure.
-        //  Or use the key to check whether this holder is empty.
-        page->front_version++;
-        for (int i = 0; i < LeafPage<Key,Value>::kLeafCardinality; ++i) {
 
-            auto &r = page->records[i];
-            if (r.value != kValueNull) {
-                cnt++;
-                if (r.key == k) {
-                    r.value = v;
-                    // ADD MORE weight for write.
-//        memcpy(r.value_padding, padding, VALUE_PADDING);
-
-//                    r.f_version++;
-//                    r.r_version = r.f_version;
-                    update_addr = (char *)&r;
-                    break;
-                }
-            } else if (empty_index == -1) {
-                empty_index = i;
-            }
-        }
-
-        assert(cnt != LeafPage<Key,Value>::kLeafCardinality);
-
-        if (update_addr == nullptr) { // insert new item
-            if (empty_index == -1) {
-                printf("%d cnt\n", cnt);
-                assert(false);
-            }
-
-            auto &r = page->records[empty_index];
-            r.key = k;
-            r.value = v;
-//    memcpy(r.value_padding, padding, VALUE_PADDING);
-//            r.f_version++;
-//            r.r_version = r.f_version;
-
-            update_addr = (char *)&r;
-
-            cnt++;
-        }
-
-        bool need_split = cnt == LeafPage<Key,Value>::kLeafCardinality;
+        bool need_split = page->leaf_page_store(k, v, cnt, empty_index, update_addr);
         if (!need_split) {
             assert(update_addr);
             ibv_mr target_mr = *local_mr;
