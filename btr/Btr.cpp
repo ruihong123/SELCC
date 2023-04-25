@@ -2701,8 +2701,8 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
     Key split_key;
     GlobalAddress sibling_addr = GlobalAddress::Null();
 //  assert(k >= page->hdr.lowest);
-    auto cnt = page->hdr.last_index + 1;
         need_split = page->internal_page_store(page_addr, k, v, level, cxt, coro_id);
+        auto cnt = page->hdr.last_index + 1;
 
         if (need_split) { // need split
             sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1);
