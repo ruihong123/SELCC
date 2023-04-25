@@ -354,6 +354,57 @@ namespace DSMEngine{
         }
         result.val = target_value_buff;
     }
+
+    bool LeafPage::leaf_page_store(const Key &k, const Value &v, int cnt, int empty_index, char *update_addr) {
+
+        // It is problematic to just check whether the value is empty, because it is possible
+        // that the buffer is not initialized as 0
+
+        // TODO: make the key-value stored with order, do not use this unordered page structure.
+        //  Or use the key to check whether this holder is empty.
+        front_version++;
+        for (int i = 0; i < kLeafCardinality; ++i) {
+
+            auto &r = records[i];
+            if (r.value != kValueNull) {
+                cnt++;
+                if (r.key == k) {
+                    r.value = v;
+                    // ADD MORE weight for write.
+//        memcpy(r.value_padding, padding, VALUE_PADDING);
+
+//                    r.f_version++;
+//                    r.r_version = r.f_version;
+                    update_addr = (char *)&r;
+                    break;
+                }
+            } else if (empty_index == -1) {
+                empty_index = i;
+            }
+        }
+
+        assert(cnt != kLeafCardinality);
+
+        if (update_addr == nullptr) { // insert new item
+            if (empty_index == -1) {
+                printf("%d cnt\n", cnt);
+                assert(false);
+            }
+
+            auto &r = records[empty_index];
+            r.key = k;
+            r.value = v;
+//    memcpy(r.value_padding, padding, VALUE_PADDING);
+//            r.f_version++;
+//            r.r_version = r.f_version;
+
+            update_addr = (char *)&r;
+
+            cnt++;
+        }
+
+        return cnt == kLeafCardinality;
+    }
 }
 #else
 void LeafPage::leaf_page_search(const Key &k, SearchResult &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr) {

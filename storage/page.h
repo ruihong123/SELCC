@@ -319,7 +319,7 @@ namespace DSMEngine{
                       << "]" << std::endl;
         }
         void leaf_page_search(const Key &k, SearchResult &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr);
-
+        bool leaf_page_store(const Key &k, const Value &v, int cnt, int empty_index, char *update_addr);
 
     };
 #else
