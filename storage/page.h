@@ -256,9 +256,9 @@ namespace DSMEngine{
             printf("\n");
         }
         bool internal_page_search(const Key &k, SearchResult &result, uint16_t current_ticket);
-        void internal_page_store(GlobalAddress page_addr, const Key &k,
-                                 GlobalAddress value, GlobalAddress root, int level,
-                                 CoroContext *cxt, int coro_id);
+        bool
+        internal_page_store(GlobalAddress page_addr, const Key &k, GlobalAddress value, int level, CoroContext *cxt,
+                            int coro_id);
     };
 #ifdef CACHECOHERENCEPROTOCOL
     class LeafPage {

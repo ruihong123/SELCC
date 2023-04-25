@@ -240,6 +240,89 @@ namespace DSMEngine{
 
         }
     }
+
+    bool
+    InternalPage::internal_page_store(GlobalAddress page_addr, const Key &k, GlobalAddress value, int level,
+                                      CoroContext *cxt,
+                                      int coro_id) {
+        auto cnt = hdr.last_index + 1;
+        bool is_update = false;
+        uint16_t insert_index = 0;
+//        printf("The last index %d 's key is %lu, this key is %lu\n", page->hdr.last_index, page->records[page->hdr.last_index].key, k);
+        //TODO: Make it a binary search.
+        for (int i = cnt - 1; i >= 0; --i) {
+            if (records[i].key == k) { // find and update
+//        assert(false);
+//        page->front_version++;
+//        __atomic_fetch_add(&page->front_version, 1, __ATOMIC_SEQ_CST);
+                asm volatile ("sfence\n" : : );
+                records[i].ptr = value;
+                asm volatile ("sfence\n" : : );
+//        page->rear_version++;
+//        __atomic_fetch_add(&page->rear_version, 1, __ATOMIC_SEQ_CST);
+
+                // assert(false);
+                is_update = true;
+                break;
+            }
+            if (records[i].key < k) {
+                insert_index = i + 1;
+                break;
+            }
+        }
+        assert(cnt != kInternalCardinality);
+        assert(records[hdr.last_index].ptr != GlobalAddress::Null());
+        Key split_key;
+        GlobalAddress sibling_addr = GlobalAddress::Null();
+        if (!is_update) { // insert and shift
+            // The update should mark the page version change because this will make the page state in consistent.
+//      __atomic_fetch_add(&page->front_version, 1, __ATOMIC_SEQ_CST);
+//      page->front_version++;
+            //TODO(potential bug): double check the memory fence, there could be out of order
+            // execution preventing the version lock.
+//      asm volatile ("sfence\n" : : );
+//      asm volatile ("lfence\n" : : );
+//      asm volatile ("mfence" : : : "memory");
+            for (int i = cnt; i > insert_index; --i) {
+                records[i].key = records[i - 1].key;
+                records[i].ptr = records[i - 1].ptr;
+            }
+
+
+            records[insert_index].key = k;
+            records[insert_index].ptr = value;
+#ifndef NDEBUG
+            uint16_t last_index_prev = hdr.last_index;
+#endif
+            hdr.last_index++;
+
+
+//#ifndef NDEBUG
+//      assert(last_index_memo == page->hdr.last_index);
+//#endif
+//      asm volatile ("sfence\n" : : );
+// THe last index could be the same for several print because we may not insert to the end all the time.
+//        printf("last_index of page offset %lu is %hd, page level is %d, page is %p, the last index content is %lu %p, version should be, the key is %lu\n"
+//               , page_addr.offset,  page->hdr.last_index, page->hdr.level, page, page->records[page->hdr.last_index].key, page->records[page->hdr.last_index].ptr, k);
+            assert(hdr.last_index == last_index_prev + 1);
+            assert(records[hdr.last_index].ptr != GlobalAddress::Null());
+            assert(records[hdr.last_index].key != 0);
+//  assert(page->records[page->hdr.last_index] != GlobalAddress::Null());
+            cnt = hdr.last_index + 1;
+        }
+//            need_split =
+
+            // THe internal node is different from leaf nodes because it has the
+            // leftmost_ptr. THe internal nodes has n key but n+1 global pointers.
+            // the internal node split pick the middle key as split key and the middle key
+            // will not existed in either of the splited node
+            // THe data under this internal node [lowest, highest)
+
+            //Both internal node and leaf nodes are [lowest, highest) except for the left most
+            assert(local_lock_meta.local_lock_byte == 1);
+        return cnt == kInternalCardinality;
+    }
+
 #ifdef CACHECOHERENCEPROTOCOL
     void LeafPage::leaf_page_search(const Key &k, SearchResult &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr) {
 //    re_read:
