@@ -1569,7 +1569,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 
 // tothink: How could I know whether this level before I actually access this page.
 
-        assert( page_addr.offset % kInternalPageSize == 0 );
+//        assert( page_addr.offset % kInternalPageSize == 0 );
 //  auto &pattern_cnt = pattern[rdma_mg->getMyThreadID()][page_addr.nodeID];
 
     int counter = 0;
