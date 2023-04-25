@@ -6,7 +6,15 @@
 #include "page.h"
 #include "Btr.h"
 namespace DSMEngine{
-    bool InternalPage::internal_page_search(const Key &k, SearchResult<Key, GlobalAddress> &result, uint16_t current_ticket) {
+    template<class Key>
+    int InternalPage<Key>::kInternalCardinality =
+            (kInternalPageSize - sizeof(Header<Key>) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) -RDMA_OFFSET) /
+            sizeof(InternalEntry<Key>);
+    template<class Key, class Value>
+    int LeafPage<Key, Value>::kLeafCardinality =
+            (kLeafPageSize - sizeof(Header<Key>) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) / sizeof(LeafEntry<Key, Value>);
+    template<class Key>
+    bool InternalPage<Key>::internal_page_search(const Key &k, SearchResult<Key, GlobalAddress> &result, uint16_t current_ticket) {
 
         assert(k >= hdr.lowest);
 //        assert(k < hdr.highest);
@@ -167,16 +175,19 @@ namespace DSMEngine{
 //        assert(result.next_level.offset >= 1024*1024);
 //        return true;
     }
-     bool InternalPage::try_lock() {
+    template<class Key>
+     bool InternalPage<Key>::try_lock() {
         auto currently_locked = __atomic_load_n(&local_lock_meta.local_lock_byte, __ATOMIC_RELAXED);
         return !currently_locked &&
                __atomic_compare_exchange_n(&local_lock_meta.local_lock_byte, &currently_locked, 1, true, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED);
     }
-    inline void  InternalPage::unlock_lock() {
+    template<class Key>
+    inline void  InternalPage<Key>::unlock_lock() {
         __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
     }
     // THe local concurrency control optimization to reduce RDMA bandwidth, is worthy of writing in the paper
-    void InternalPage::check_invalidation_and_refetch_outside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
+    template<class Key>
+    void InternalPage<Key>::check_invalidation_and_refetch_outside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
         uint8_t expected = 0;
         assert(page_mr->addr == this);
 
@@ -217,7 +228,9 @@ namespace DSMEngine{
             unlock_lock();
         }
     }
-    void InternalPage::check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
+
+    template<class Key>
+    void InternalPage<Key>::check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
         uint8_t expected = 0;
         assert(page_mr->addr == this);
         if (!hdr.valid_page ){
@@ -241,8 +254,8 @@ namespace DSMEngine{
         }
     }
 
-    bool
-    InternalPage::internal_page_store(GlobalAddress page_addr, const Key &k, GlobalAddress value, int level,
+    template<class Key>
+    bool InternalPage<Key>::internal_page_store(GlobalAddress page_addr, const Key &k, GlobalAddress value, int level,
                                       CoroContext *cxt,
                                       int coro_id) {
         auto cnt = hdr.last_index + 1;
@@ -324,7 +337,9 @@ namespace DSMEngine{
     }
 
 #ifdef CACHECOHERENCEPROTOCOL
-    void LeafPage::leaf_page_search(const Key &k, SearchResult &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr) {
+
+    template<class Key, class Value>
+    void LeafPage<Key,Value>::leaf_page_search(const Key &k, SearchResult<Key,Value> &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr) {
 //    re_read:
         Value target_value_buff{};
 //        uint8_t front_v = front_version;
@@ -337,7 +352,7 @@ namespace DSMEngine{
         for (int i = 0; i < kLeafCardinality; ++i) {
             auto &r = records[i];
 
-            if (r.key == k && r.value != kValueNull ) {
+            if (r.key == k && r.value != kValueNull<Key> ) {
                 target_value_buff = r.value;
                 asm volatile ("sfence\n" : : );
                 asm volatile ("lfence\n" : : );
@@ -355,7 +370,8 @@ namespace DSMEngine{
         result.val = target_value_buff;
     }
 
-    bool LeafPage::leaf_page_store(const Key &k, const Value &v, int &cnt, int &empty_index, char *&update_addr) {
+    template<class Key, class Value>
+    bool LeafPage<Key,Value>::leaf_page_store(const Key &k, const Value &v, int &cnt, int &empty_index, char *&update_addr) {
 
         // It is problematic to just check whether the value is empty, because it is possible
         // that the buffer is not initialized as 0
@@ -366,7 +382,7 @@ namespace DSMEngine{
         for (int i = 0; i < kLeafCardinality; ++i) {
 
             auto &r = records[i];
-            if (r.value != kValueNull) {
+            if (r.value != kValueNull<Key>) {
                 cnt++;
                 if (r.key == k) {
                     r.value = v;

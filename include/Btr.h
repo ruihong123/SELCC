@@ -19,18 +19,19 @@
 //// LeafPagePadding is 143 for key 20 bytes value 400 bytes.
 class IndexCache;
 
+template<class Key, class Value>
 struct Request {
     bool is_search;
     Key k;
     Value v;
 };
-
+template<class Key, class Value>
 class RequstGen {
 public:
     RequstGen() = default;
-    virtual Request next() { return Request{}; }
+    virtual Request<Key,Value> next() { return Request<Key, Value>{}; }
 };
-using CoroFunc = std::function<RequstGen *(int, DSMEngine::RDMA_Manager *, int)>;
+using CoroFunc = std::function<RequstGen<class Key, class Value> *(int, DSMEngine::RDMA_Manager *, int)>;
 
 namespace DSMEngine {
 
@@ -40,10 +41,12 @@ namespace DSMEngine {
 
 
 
-
+template<class Key>
 class InternalPage;
+
+template<class Key, class Value>
 class LeafPage;
-//template <typename Value>
+template <typename Key, typename Value>
 class Btr {
 //friend class DSMEngine::InternalPage;
 
@@ -68,7 +71,7 @@ public:
   GlobalAddress query_cache(const Key &k);
 //  void index_cache_statistics();
   void clear_statistics();
-    static RDMA_Manager * rdma_mg;
+//    static RDMA_Manager * rdma_mg;
     // TODO: potential bug, if mulitple btrees shared the same retry counter, will it be a problem?
     //  used for the retry counter for nested function call such as sibling pointer access.
     static  thread_local int nested_retry_counter;
@@ -92,7 +95,7 @@ public:
   std::vector<LocalLockNode *> local_locks;
 
   Cache * page_cache;
-
+    RDMA_Manager* rdma_mg = nullptr;
 #ifndef NDEBUG
 #endif
 //    std::atomic<int> cache_invalid_counter;
@@ -103,7 +106,7 @@ public:
   GlobalAddress get_root_ptr_ptr();
   GlobalAddress get_root_ptr(ibv_mr*& root_hint);
     void refetch_rootnode();
-  void coro_worker(CoroYield &yield, RequstGen *gen, int coro_id);
+//  void coro_worker(CoroYield &yield, RequstGen<Key,Value> *gen, int coro_id);
 //  void coro_master(CoroYield &yield, int coro_cnt);
   // broadcast the new root to all other memroy servers, if memory server and compute
   // servers are the same then the new root is know by all the compute nodes, However,
@@ -159,9 +162,9 @@ public:
     // THis funciton will get the page by the page addr and search the pointer for the
     // next level if it is not leaf page. If it is a leaf page, just put the value in the
     // result. this funciton = fetch the page + internal page serach + leafpage search + re-read
-    bool internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int &level, bool isroot,
+    bool internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key,Value> &result, int &level, bool isroot,
                               ibv_mr *page_hint = nullptr, CoroContext *cxt = nullptr, int coro_id = 0);
-    bool leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int level, CoroContext *cxt,
+    bool leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key,Value> &result, int level, CoroContext *cxt,
                           int coro_id);
 //        void internal_page_search(const Key &k, SearchResult &result);
 
@@ -187,9 +190,9 @@ public:
         bool can_hand_over(Local_Meta * local_lock_meta);
   void releases_local_lock(GlobalAddress lock_addr);
         void releases_local_optimistic_lock(Local_Meta * local_lock_meta);
-        void make_page_invalidated(InternalPage* upper_page);
+        void make_page_invalidated(InternalPage<Key>* upper_page);
         // should be executed with in a local page lock.
-        void Initialize_page_invalidation(InternalPage* upper_page);
+        void Initialize_page_invalidation(InternalPage<Key>* upper_page);
 };
 
 class Btr_iter{

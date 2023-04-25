@@ -25,10 +25,12 @@
 #define LATENCY_WINDOWS 1000000
 
 
-
+#define COMMA ,
 #define STRUCT_OFFSET(type, field)                                             \
   (char *)&((type *)(0))->field - (char *)((type *)(0))
 
+#define CALCULATE_CLASS_OFFSET(type, field)                                             \
+  (char *)&((type *)(0))->field - (char *)((type *)(0))
 #define MAX_MACHINE 8
 
 #define ADD_ROUND(x, n) ((x) = ((x) + 1) % (n))
@@ -130,9 +132,13 @@ struct Value_buff {
 
 //using Key = Key_buff;
 //using Value = Value_buff;
+//template<typename Key>
 //constexpr Key kKeyMin = std::numeric_limits<Key>::min();
+//template<typename Key>
 //constexpr Key kKeyMax = std::numeric_limits<Key>::max();
+
 //constexpr Value kValueNull = 0;
+//template<class Value>
 //constexpr Value kValueNull = {};
 //constexpr uint32_t kInternalPageSize = 1024;
 //constexpr uint32_t kLeafPageSize = 1024;

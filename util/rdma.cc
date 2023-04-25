@@ -239,13 +239,16 @@ RDMA_Manager::~RDMA_Manager() {
 
 
 }
-    RDMA_Manager *RDMA_Manager::Get_Instance(config_t config) {
+    RDMA_Manager *RDMA_Manager::Get_Instance(config_t* config) {
         static RDMA_Manager * rdma_mg = nullptr;
         static std::mutex lock;
-
+        if (config == nullptr){
+            assert(rdma_mg!= nullptr);
+            return rdma_mg;
+        }
         lock.lock();
         if (!rdma_mg) {
-            rdma_mg = new RDMA_Manager(config, kLeafPageSize);
+            rdma_mg = new RDMA_Manager(*config, kLeafPageSize);
             rdma_mg->Client_Set_Up_Resources();
         } else {
 

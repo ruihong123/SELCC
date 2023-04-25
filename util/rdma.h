@@ -370,7 +370,7 @@ class RDMA_Manager {
   //  }
   //  RDMA_Manager()=delete;
   ~RDMA_Manager();
-  static RDMA_Manager *Get_Instance(config_t config);
+  static RDMA_Manager *Get_Instance(config_t* config);
   /**
    *
    */
