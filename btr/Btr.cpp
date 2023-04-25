@@ -1569,7 +1569,7 @@ void Btr::del(const Key &k, CoroContext *cxt, int coro_id) {
 
 // tothink: How could I know whether this level before I actually access this page.
 
-        assert( page_addr.offset % kInternalPageSize == 0 );
+//        assert( page_addr.offset % kInternalPageSize == 0 );
 //  auto &pattern_cnt = pattern[rdma_mg->getMyThreadID()][page_addr.nodeID];
 
     int counter = 0;
@@ -2698,110 +2698,39 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
         return insert_success;// result in fall back search on the higher level.
     }
 
-//  assert(k >= page->hdr.lowest);
-    auto cnt = page->hdr.last_index + 1;
-  bool is_update = false;
-  uint16_t insert_index = 0;
-//        printf("The last index %d 's key is %lu, this key is %lu\n", page->hdr.last_index, page->records[page->hdr.last_index].key, k);
-  //TODO: Make it a binary search.
-  for (int i = cnt - 1; i >= 0; --i) {
-    if (page->records[i].key == k) { // find and update
-//        assert(false);
-//        page->front_version++;
-//        __atomic_fetch_add(&page->front_version, 1, __ATOMIC_SEQ_CST);
-        asm volatile ("sfence\n" : : );
-      page->records[i].ptr = v;
-      asm volatile ("sfence\n" : : );
-//        page->rear_version++;
-//        __atomic_fetch_add(&page->rear_version, 1, __ATOMIC_SEQ_CST);
-
-        // assert(false);
-      is_update = true;
-      break;
-    }
-    if (page->records[i].key < k) {
-      insert_index = i + 1;
-      break;
-    }
-  }
-  assert(cnt != kInternalCardinality);
-  assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
     Key split_key;
     GlobalAddress sibling_addr = GlobalAddress::Null();
-  if (!is_update) { // insert and shift
-      // The update should mark the page version change because this will make the page state in consistent.
-//      __atomic_fetch_add(&page->front_version, 1, __ATOMIC_SEQ_CST);
-//      page->front_version++;
-      //TODO(potential bug): double check the memory fence, there could be out of order
-      // execution preventing the version lock.
-//      asm volatile ("sfence\n" : : );
-//      asm volatile ("lfence\n" : : );
-//      asm volatile ("mfence" : : : "memory");
-    for (int i = cnt; i > insert_index; --i) {
-      page->records[i].key = page->records[i - 1].key;
-      page->records[i].ptr = page->records[i - 1].ptr;
-    }
+//  assert(k >= page->hdr.lowest);
+        need_split = page->internal_page_store(page_addr, k, v, level, cxt, coro_id);
+        auto cnt = page->hdr.last_index + 1;
 
-
-      page->records[insert_index].key = k;
-      page->records[insert_index].ptr = v;
-#ifndef NDEBUG
-      uint16_t last_index_prev = page->hdr.last_index;
-#endif
-      page->hdr.last_index++;
-
-
-//#ifndef NDEBUG
-//      assert(last_index_memo == page->hdr.last_index);
-//#endif
-//      asm volatile ("sfence\n" : : );
-// THe last index could be the same for several print because we may not insert to the end all the time.
-//        printf("last_index of page offset %lu is %hd, page level is %d, page is %p, the last index content is %lu %p, version should be, the key is %lu\n"
-//               , page_addr.offset,  page->hdr.last_index, page->hdr.level, page, page->records[page->hdr.last_index].key, page->records[page->hdr.last_index].ptr, k);
-      assert(page->hdr.last_index == last_index_prev + 1);
-        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
-      assert(page->records[page->hdr.last_index].key != 0);
-//  assert(page->records[page->hdr.last_index] != GlobalAddress::Null());
-      cnt = page->hdr.last_index + 1;
-
-      need_split = cnt == kInternalCardinality;
-
-      // THe internal node is different from leaf nodes because it has the
-      // leftmost_ptr. THe internal nodes has n key but n+1 global pointers.
-      // the internal node split pick the middle key as split key and the middle key
-      // will not existed in either of the splited node
-      // THe data under this internal node [lowest, highest)
-
-      //Both internal node and leaf nodes are [lowest, highest) except for the left most
-      assert(page->local_lock_meta.local_lock_byte == 1);
-
-      if (need_split) { // need split
-          sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1);
-          if(++round_robin_cur == rdma_mg->memory_nodes.size()){
-              round_robin_cur = 0;
-          }
-          ibv_mr* sibling_mr = new ibv_mr{};
+        if (need_split) { // need split
+            sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1);
+            if(++round_robin_cur == rdma_mg->memory_nodes.size()){
+                round_robin_cur = 0;
+            }
+            ibv_mr* sibling_mr = new ibv_mr{};
 //          printf("Allocate slot for page 3 %p\n", sibling_addr);
 
-          rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal_and_Leaf);
+            rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal_and_Leaf);
 
-          auto sibling = new(sibling_mr->addr) InternalPage(sibling_addr, page->hdr.level);
+            auto sibling = new(sibling_mr->addr) InternalPage(sibling_addr, page->hdr.level);
 
 //              std::cout << "addr " <<  sibling_addr << " | level " <<
 //              (int)(page->hdr.level) << std::endl;
-          int m = cnt / 2;
-          split_key = page->records[m].key;
-          assert(split_key > page->hdr.lowest);
-          assert(split_key < page->hdr.highest);
-          page->hdr.last_index -= (cnt - m); // this is correct. because we extract the split key to upper layer
-          assert(page->hdr.last_index == m-1);
-          sibling->hdr.last_index += (cnt - m - 1);
-          assert(sibling->hdr.last_index == cnt - m - 1 - 1);
-          for (int i = m + 1; i < cnt; ++i) { // move
-              //Is this correct?
-              sibling->records[i - m - 1].key = page->records[i].key;
-              sibling->records[i - m - 1].ptr = page->records[i].ptr;
-          }
+            int m = cnt / 2;
+            split_key = page->records[m].key;
+            assert(split_key > page->hdr.lowest);
+            assert(split_key < page->hdr.highest);
+            page->hdr.last_index -= (cnt - m); // this is correct. because we extract the split key to upper layer
+            assert(page->hdr.last_index == m-1);
+            sibling->hdr.last_index += (cnt - m - 1);
+            assert(sibling->hdr.last_index == cnt - m - 1 - 1);
+            for (int i = m + 1; i < cnt; ++i) { // move
+                //Is this correct?
+                sibling->records[i - m - 1].key = page->records[i].key;
+                sibling->records[i - m - 1].ptr = page->records[i].ptr;
+            }
 //          page->hdr.last_index = m; // this is correct.
 //          assert(page->hdr.last_index == m);
 //          assert(sibling->hdr.last_index == 0);
@@ -2812,53 +2741,41 @@ bool Btr::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v,
 //              sibling->records[i - m].ptr = page->records[i].ptr;
 //          }
 
-          sibling->hdr.leftmost_ptr = page->records[m].ptr;
-          sibling->hdr.lowest = page->records[m].key;
-          sibling->hdr.highest = page->hdr.highest;
-          page->hdr.highest = page->records[m].key;
+            sibling->hdr.leftmost_ptr = page->records[m].ptr;
+            sibling->hdr.lowest = page->records[m].key;
+            sibling->hdr.highest = page->hdr.highest;
+            page->hdr.highest = page->records[m].key;
 
-          // link
-          sibling->hdr.sibling_ptr = page->hdr.sibling_ptr;
-          page->hdr.sibling_ptr = sibling_addr;
+            // link
+            sibling->hdr.sibling_ptr = page->hdr.sibling_ptr;
+            page->hdr.sibling_ptr = sibling_addr;
 //    sibling->set_consistent();
-          //the code below is just for debugging.
+            //the code below is just for debugging.
 //    sibling_addr.mark = 2;
 
-          rdma_mg->RDMA_Write(sibling_addr, sibling_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-          assert(sibling->records[sibling->hdr.last_index].ptr != GlobalAddress::Null());
-          assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
-          k = split_key;
-          v = sibling_addr;
+            rdma_mg->RDMA_Write(sibling_addr, sibling_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            assert(sibling->records[sibling->hdr.last_index].ptr != GlobalAddress::Null());
+            assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
+            k = split_key;
+            v = sibling_addr;
 //          printf("Create new node %p\n", v);
-          // TODO (opt): we can directly add the sibling block into the cache here.
+            // TODO (opt): we can directly add the sibling block into the cache here.
 
 
 //      printf("page splitted last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
 
-        //The code below is optional.
-        Slice sibling_page_id((char*)&sibling_addr, sizeof(GlobalAddress));
-          assert(page_mr!= nullptr);
-        auto sib_handle = page_cache->Insert(sibling_page_id, sibling_mr, kInternalPageSize, Deallocate_MR);
-          page_cache->Release(sib_handle);
+            //The code below is optional.
+            Slice sibling_page_id((char*)&sibling_addr, sizeof(GlobalAddress));
+            assert(page_mr!= nullptr);
+            auto sib_handle = page_cache->Insert(sibling_page_id, sibling_mr, kInternalPageSize, Deallocate_MR);
+            page_cache->Release(sib_handle);
 //          rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
 //          delete sibling_mr;
-      } else{
+        } else {
 //      k = Key ;
-          // Only set the value as null is enough
-          v = GlobalAddress::Null();
-      }
-      // Set the rear_version for the concurrent reader. The reader can tell whether
-      // there is intermidated writer during its execution.
-      //    page->set_consistent();
-//      asm volatile ("sfence\n" : : );
-//      asm volatile ("lfence\n" : : );
-      asm volatile ("mfence" : : : "memory");
-//      _mm_sfence();
-        // The function below is the way to atomically change data without initialize the std::atomic
-        // see https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
-//      __atomic_fetch_add(&page->rear_version, 1, __ATOMIC_SEQ_CST);
-//      page->rear_version++;
-  }
+            // Only set the value as null is enough
+            v = GlobalAddress::Null();
+        }
 
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 
@@ -3217,55 +3134,56 @@ acquire_global_lock:
         int cnt = 0;
         int empty_index = -1;
         char *update_addr = nullptr;
-        // It is problematic to just check whether the value is empty, because it is possible
-        // that the buffer is not initialized as 0
-#ifdef PROCESSANALYSIS
-        start = std::chrono::high_resolution_clock::now();
-#endif
-        // TODO: make the key-value stored with order, do not use this unordered page structure.
-        //  Or use the key to check whether this holder is empty.
-        page->front_version++;
-        for (int i = 0; i < kLeafCardinality; ++i) {
+//        // It is problematic to just check whether the value is empty, because it is possible
+//        // that the buffer is not initialized as 0
+//#ifdef PROCESSANALYSIS
+//        start = std::chrono::high_resolution_clock::now();
+//#endif
+//        // TODO: make the key-value stored with order, do not use this unordered page structure.
+//        //  Or use the key to check whether this holder is empty.
+//        page->front_version++;
+//        for (int i = 0; i < kLeafCardinality; ++i) {
+//
+//            auto &r = page->records[i];
+//            if (r.value != kValueNull) {
+//                cnt++;
+//                if (r.key == k) {
+//                    r.value = v;
+//                    // ADD MORE weight for write.
+////        memcpy(r.value_padding, padding, VALUE_PADDING);
+//
+////                    r.f_version++;
+////                    r.r_version = r.f_version;
+//                    update_addr = (char *)&r;
+//                    break;
+//                }
+//            } else if (empty_index == -1) {
+//                empty_index = i;
+//            }
+//        }
+//
+//        assert(cnt != kLeafCardinality);
+//
+//        if (update_addr == nullptr) { // insert new item
+//            if (empty_index == -1) {
+//                printf("%d cnt\n", cnt);
+//                assert(false);
+//            }
+//
+//            auto &r = page->records[empty_index];
+//            r.key = k;
+//            r.value = v;
+////    memcpy(r.value_padding, padding, VALUE_PADDING);
+////            r.f_version++;
+////            r.r_version = r.f_version;
+//
+//            update_addr = (char *)&r;
+//
+//            cnt++;
+//        }
+//
+        bool need_split = page->leaf_page_store(k, v, cnt, empty_index, update_addr);
 
-            auto &r = page->records[i];
-            if (r.value != kValueNull) {
-                cnt++;
-                if (r.key == k) {
-                    r.value = v;
-                    // ADD MORE weight for write.
-//        memcpy(r.value_padding, padding, VALUE_PADDING);
-
-//                    r.f_version++;
-//                    r.r_version = r.f_version;
-                    update_addr = (char *)&r;
-                    break;
-                }
-            } else if (empty_index == -1) {
-                empty_index = i;
-            }
-        }
-
-        assert(cnt != kLeafCardinality);
-
-        if (update_addr == nullptr) { // insert new item
-            if (empty_index == -1) {
-                printf("%d cnt\n", cnt);
-                assert(false);
-            }
-
-            auto &r = page->records[empty_index];
-            r.key = k;
-            r.value = v;
-//    memcpy(r.value_padding, padding, VALUE_PADDING);
-//            r.f_version++;
-//            r.r_version = r.f_version;
-
-            update_addr = (char *)&r;
-
-            cnt++;
-        }
-
-        bool need_split = cnt == kLeafCardinality;
         if (!need_split) {
             assert(update_addr);
             ibv_mr target_mr = *local_mr;
