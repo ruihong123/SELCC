@@ -40,7 +40,9 @@ namespace DSMEngine{
         bool valid_page;
         int16_t last_index;
         uint8_t level;
-//        T* try_var{};
+        GlobalAddress this_page_g_ptr;
+
+        //        T* try_var{};
         T lowest{};
         T highest{};
         template<class K> friend class InternalPage;
@@ -69,7 +71,6 @@ namespace DSMEngine{
 //              << "range=[" << lowest << " - " << highest << "]";
         }
 
-        GlobalAddress this_page_g_ptr;
     } __attribute__ ((aligned (8)));
 
     template<class Key>
