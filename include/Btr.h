@@ -328,7 +328,7 @@ class Btr_iter{
     Btr<Key, Value>::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id), page_cache(cache_ptr){
         assert(sizeof(LeafPage<Key,Value>) < kLeafPageSize);
         assert(sizeof(InternalPage<Key>) < kInternalPageSize);
-        assert(STRUCT_OFFSET(LeafPage<char COMMA char>,hdr) == STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>,hdr))
+        assert(STRUCT_OFFSET(LeafPage<char COMMA char>,hdr) == STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>,hdr));
         if (rdma_mg == nullptr){
             rdma_mg = mg;
         }
