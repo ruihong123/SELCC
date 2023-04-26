@@ -40,11 +40,7 @@ namespace DSMEngine{
         bool valid_page;
         int16_t last_index;
         uint8_t level;
-        GlobalAddress this_page_g_ptr;
 
-        //        T* try_var{};
-        T lowest{};
-        T highest{};
         template<class K> friend class InternalPage;
         friend class RDMA_Manager;
 
@@ -54,6 +50,11 @@ namespace DSMEngine{
 //        friend class IndexCache;
 
     public:
+        GlobalAddress this_page_g_ptr;
+
+        //        T* try_var{};
+        T lowest{};
+        T highest{};
         Header() {
             leftmost_ptr = GlobalAddress::Null();
             sibling_ptr = GlobalAddress::Null();
