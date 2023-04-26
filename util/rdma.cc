@@ -16,8 +16,9 @@ uint16_t RDMA_Manager::node_id = 0;
 std::atomic<uint64_t> RDMA_Manager::RDMAReadTimeElapseSum = 0;
 std::atomic<uint64_t> RDMA_Manager::ReadCount = 0;
 #endif
-
-
+//TODO: This should be moved to some other classes which is strongly related to btree or storage engine.
+thread_local GlobalAddress path_stack[define::kMaxCoro]
+[define::kMaxLevelOfTree];
 
 #ifdef GETANALYSIS
 std::atomic<uint64_t> RDMA_Manager::RDMAFindmrElapseSum = 0;
@@ -3391,7 +3392,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         retry:
         retry_cnt++;
         GlobalAddress page_addr = lock_addr;
-        page_addr.offset -= STRUCT_OFFSET(LeafPage, global_lock);
+        page_addr.offset -= STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
         // todo: the read lock release and then lock acquire is not atomic. we need to develop and atomic way
         // for the lock upgrading to gurantee the correctness of 2 phase locking.
         if (retry_cnt > 1){
@@ -3575,10 +3576,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
         invalidation_RPC_type = 0;
         //When the program fail at the code below the remote buffer content (this_page_g_ptr) has already  be incosistent
-        assert(page_addr == (((LeafPage*)(page_buffer->addr))->hdr.this_page_g_ptr));
+        assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
 
         if ((*(uint64_t*) cas_buffer->addr) != compare){
-            assert(page_addr == (((LeafPage*)(page_buffer->addr))->hdr.this_page_g_ptr));
+            assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
 
             // clear the invalidation targets
             read_invalidation_targets.clear();
@@ -3606,13 +3607,13 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 }
             }
             if (!read_invalidation_targets.empty()){
-                assert(page_addr == (((LeafPage*)(page_buffer->addr))->hdr.this_page_g_ptr));
+                assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
                 goto retry;
             }
 
 
         }
-        assert(page_addr == (((LeafPage*)(page_buffer->addr))->hdr.this_page_g_ptr));
+        assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
 
 
     }
@@ -3663,15 +3664,16 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //TODO: If we want to use async unlock, we need to enlarge the max outstand work request that the queue pair support.
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
-        GlobalAddress post_gl_page_addr;
+        GlobalAddress post_gl_page_addr{};
         post_gl_page_addr.nodeID = page_addr.nodeID;
-        assert(page_addr == (((LeafPage*)(page_buffer->addr))->hdr.this_page_g_ptr));
+        assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
         //The header should be the same offset in Leaf or INternal nodes
-        assert(STRUCT_OFFSET(InternalPage, hdr) == STRUCT_OFFSET(LeafPage, hdr));
-        post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage, hdr);
+        assert(STRUCT_OFFSET(LeafPage<int COMMA int>, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
+        assert(STRUCT_OFFSET(InternalPage<int>, hdr) == STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
+        post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         ibv_mr post_gl_page_local_mr = *page_buffer;
-        post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage, hdr));
-        page_size -=  STRUCT_OFFSET(LeafPage, hdr);
+        post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
+        page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         assert(remote_lock_addr <= post_gl_page_addr - 8);
 
         if (async){
@@ -3733,7 +3735,7 @@ retry:
             }
 
         }
-        assert(page_addr == (((LeafPage*)(page_buffer->addr))->hdr.this_page_g_ptr));
+        assert(page_addr == (((LeafPage<int COMMA int>*)(page_buffer->addr))->hdr.this_page_g_ptr));
 
 //        printf("Global write page page_addr %p, async %d\n", page_addr, async);
     }
@@ -5402,18 +5404,20 @@ void RDMA_Manager::fs_deserilization(
 
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
+        //The template will not impact the offset of level in the header so we can random give the tempalate a Type to access the leve in ther header.
+        assert(STRUCT_OFFSET(Header<uint64_t>, level) == STRUCT_OFFSET(Header<char>, level));
         if (handle) {
             ibv_mr *page_mr = (ibv_mr *) handle->value;
             GlobalAddress lock_gptr = g_ptr;
-            Header *header = (Header *) ((char *) ((ibv_mr *) handle->value)->addr +
-                                         (STRUCT_OFFSET(InternalPage, hdr)));
+            Header<uint64_t> *header = (Header<uint64_t> *) ((char *) ((ibv_mr *) handle->value)->addr +
+                                         (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
             if (header->level == 0) {
-                lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
+                lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
 
             } else {
                 // Only the leaf page have eager cache coherence protocol.
                 assert(false);
-                lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage, global_lock);
+                lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, global_lock);
             }
             if (handle->remote_lock_status.load() == 1) {
                 std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
@@ -5439,15 +5443,15 @@ void RDMA_Manager::fs_deserilization(
         if (handle){
             auto* page_mr = (ibv_mr*)handle->value;
             GlobalAddress lock_gptr = g_ptr;
-            Header* header = (Header *) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage, hdr)));
+            Header<uint64_t>* header = (Header<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
             if (header->level == 0){
-                lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage, global_lock);
+                lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
 //                        printf("Leaf node page %p's global lock state is %lu\n", g_ptr, ((LeafPage*)(page_mr->addr))->global_lock);
 
             }else{
                 // Only the leaf page have eager cache coherence protocol.
                 assert(false);
-                lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage, global_lock);
+                lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, global_lock);
             }
             // double check locking
             if (handle->remote_lock_status.load() == 2){

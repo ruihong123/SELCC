@@ -132,14 +132,14 @@ struct Value_buff {
 
 //using Key = Key_buff;
 //using Value = Value_buff;
-//template<typename Key>
-//constexpr Key kKeyMin = std::numeric_limits<Key>::min();
-//template<typename Key>
-//constexpr Key kKeyMax = std::numeric_limits<Key>::max();
+template<typename Key>
+constexpr Key kKeyMin = std::numeric_limits<Key>::min();
+template<typename Key>
+constexpr Key kKeyMax = std::numeric_limits<Key>::max();
 
 //constexpr Value kValueNull = 0;
-//template<class Value>
-//constexpr Value kValueNull = {};
+template<class Value>
+constexpr Value kValueNull = {};
 //constexpr uint32_t kInternalPageSize = 1024;
 //constexpr uint32_t kLeafPageSize = 1024;
 

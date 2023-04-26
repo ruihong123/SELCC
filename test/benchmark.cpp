@@ -52,54 +52,43 @@ volatile bool need_stop;
 extern uint64_t latency[MAX_APP_THREAD][LATENCY_WINDOWS];
 uint64_t latency_th_all[LATENCY_WINDOWS];
 
-DSMEngine::Btr *tree;
+void parse_args(int argc, char *argv[]) {
+    if (argc != 6) {
+        printf("Usage: ./btree_bench kReadRatio kThreadCount tablescan ThisNodeID PortNum\n");
+        exit(-1);
+    }
+
+//    kComputeNodeCount = atoi(argv[1]);
+//    kMemoryNodeCount = atoi(argv[2]);
+    kReadRatio = atoi(argv[1]);
+    kThreadCount = atoi(argv[2]);
+
+    int scan_number = atoi(argv[3]);
+    ThisNodeID = atoi(argv[4]);
+    tcp_port = atoi(argv[5]);
+    if(scan_number == 0)
+        table_scan = false;
+    else
+        table_scan = true;
+
+    printf("kReadRatio %d, kThreadCount %d, tablescan %d, ThisNodeID %d, PortNum %d\n", kReadRatio, kThreadCount, table_scan, ThisNodeID, tcp_port);
+}
+
+DSMEngine::Btr<uint64_t,uint64_t> *tree;
 DSMEngine::RDMA_Manager *rdma_mg;
 
-inline Key to_key(uint64_t k) {
+inline uint64_t to_key(uint64_t k) {
   return (CityHash64((char *)&k, sizeof(k)) + 1) % kKeySpace;
 }
-
-class RequsetGenBench : public RequstGen {
-
-public:
-  RequsetGenBench(int coro_id, DSMEngine::RDMA_Manager *dsm, int id)
-      : coro_id(coro_id), dsm(dsm), id(id) {
-    seed = rdtsc();
-    mehcached_zipf_init(&state, kKeySpace, zipfan,
-                        (rdtsc() & (0x0000ffffffffffffull)) ^ id);
-  }
-
-  Request next() override {
-    Request r;
-    uint64_t dis = mehcached_zipf_next(&state);
-
-    r.k = to_key(dis);
-    r.v = 23;
-    r.is_search = rand_r(&seed) % 100 < kReadRatio;
-
-    tp[id][0]++;
-
-    return r;
-  }
-
-private:
-  int coro_id;
-    DSMEngine::RDMA_Manager *dsm;
-  int id;
-
-  unsigned int seed;
-  struct zipf_gen_state state;
-};
-
-RequstGen *coro_func(int coro_id, DSMEngine::RDMA_Manager *dsm, int id) {
-  return new RequsetGenBench(coro_id, dsm, id);
-}
+//template class DSMEngine::Btr<int,int>;
+//template class DSMEngine::Btr<uint64_t ,uint64_t>;
 
 Timer bench_timer;
 std::atomic<int64_t> warmup_cnt{0};
 std::atomic_bool ready{false};
 //extern bool enable_cache;
 void thread_run(int id) {
+    DSMEngine::Btr<uint64_t ,uint64_t> a(nullptr, nullptr,0);
     DSMEngine::Random64 rand(id);
 
     bindCore(id);
@@ -180,7 +169,7 @@ void thread_run(int id) {
                       (rdtsc() & (0x0000ffffffffffffull)) ^ id);
 
   Timer timer;
-  Value *value_buffer = (Value *)malloc(sizeof(Value) * 1024 * 1024);
+  uint64_t *value_buffer = (uint64_t *)malloc(sizeof(uint64_t) * 1024 * 1024);
   int print_counter = 0;
   uint64_t scan_pos = 0;
 
@@ -195,7 +184,7 @@ void thread_run(int id) {
     uint64_t key = rand.Next()%(kKeySpace);
 //    uint64_t key = to_key(dis);
 
-    Value v;
+      uint64_t v;
 
     timer.begin();
 
@@ -257,27 +246,7 @@ void thread_run(int id) {
 #endif
 }
 
-void parse_args(int argc, char *argv[]) {
-  if (argc != 6) {
-    printf("Usage: ./btree_bench kReadRatio kThreadCount tablescan ThisNodeID PortNum\n");
-    exit(-1);
-  }
 
-//    kComputeNodeCount = atoi(argv[1]);
-//    kMemoryNodeCount = atoi(argv[2]);
-    kReadRatio = atoi(argv[1]);
-    kThreadCount = atoi(argv[2]);
-
-    int scan_number = atoi(argv[3]);
-    ThisNodeID = atoi(argv[4]);
-    tcp_port = atoi(argv[5]);
-    if(scan_number == 0)
-        table_scan = false;
-    else
-        table_scan = true;
-
-    printf("kReadRatio %d, kThreadCount %d, tablescan %d, ThisNodeID %d, PortNum %d\n", kReadRatio, kThreadCount, table_scan, ThisNodeID, tcp_port);
-}
 
 void cal_latency() {
   uint64_t all_lat = 0;
@@ -345,10 +314,10 @@ int main(int argc, char *argv[]) {
     };
 //    DSMEngine::RDMA_Manager::node_id = ThisNodeID;
 
-    rdma_mg = DSMEngine::RDMA_Manager::Get_Instance(config);
+    rdma_mg = DSMEngine::RDMA_Manager::Get_Instance(&config);
     assert(cache_ptr->GetCapacity()> 10000);
 //  rdma_mg->registerThread();
-  tree = new DSMEngine::Btr(rdma_mg, cache_ptr, 0);
+  tree = new DSMEngine::Btr<uint64_t,uint64_t>(rdma_mg, cache_ptr, 0);
 
 #ifndef BENCH_LOCK
   if (DSMEngine::RDMA_Manager::node_id == 0) {
