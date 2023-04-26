@@ -88,7 +88,7 @@ std::atomic<int64_t> warmup_cnt{0};
 std::atomic_bool ready{false};
 //extern bool enable_cache;
 void thread_run(int id) {
-    DSMEngine::Btr<uint64_t ,uint64_t> a(nullptr, nullptr,0);
+//    DSMEngine::Btr<uint64_t ,uint64_t> a(nullptr, nullptr,0);
     DSMEngine::Random64 rand(id);
 
     bindCore(id);
