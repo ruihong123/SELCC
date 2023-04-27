@@ -5,11 +5,12 @@
 #ifndef MEMORYENGINE_PAGE_H
 #define MEMORYENGINE_PAGE_H
 #include "Common.h"
+#include "RecordSchema.h"
 #include "util/rdma.h"
 #include <iostream>
 
 namespace DSMEngine{
-    template<class Key, class Value>
+    template<class Key, class Value = GlobalAddress>
     struct SearchResult {
         bool is_leaf;
         uint8_t level;
@@ -51,6 +52,7 @@ namespace DSMEngine{
 
     public:
         GlobalAddress this_page_g_ptr;
+        RecordSchema* tuple_schema;
 
         //        T* try_var{};
         T lowest{};
@@ -88,8 +90,9 @@ namespace DSMEngine{
         }
     } __attribute__((packed));
 #ifdef CACHECOHERENCEPROTOCOL
+// TODO: abandon the LeafEntry try to use the tupleschema in the header to parse the data section dynamically.
 
-    template<class Key, class Value>
+    template<class Key, class Value = GlobalAddress>
     class LeafEntry {
     public:
 //        uint8_t f_version : 4;
@@ -271,10 +274,11 @@ namespace DSMEngine{
                             int coro_id);
     };
 #ifdef CACHECOHERENCEPROTOCOL
-    template<typename TKey, typename Value>
+    template<typename TKey, typename Value = GlobalAddress>
     class LeafPage {
     public:
         constexpr static int kLeafCardinality = (kLeafPageSize - sizeof(Header<TKey>) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) / sizeof(LeafEntry<TKey, Value>);
+
         Local_Meta local_lock_meta;
         // if busy we will not cache it in cache, switch back to the Naive
         alignas(8) uint64_t global_lock = 0;

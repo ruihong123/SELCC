@@ -7,7 +7,7 @@
 #include <cassert>
 #include "Meta.h"
 
-namespace Database {
+namespace DSMEngine {
 enum ValueType
   : size_t {INT,
   INT8,

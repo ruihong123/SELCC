@@ -28,7 +28,10 @@
 //#define LeafPagePadding (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2)%sizeof(LeafEntry)
 //// LeafPagePadding is 143 for key 20 bytes value 400 bytes.
 class IndexCache;
-
+//TODO: mayeb we don't need the template, we can change use a schema ptr to parse the page differently dynamically.
+// or we only keep Key as template and make the Value parsed by the schema dynamically. In this case, the
+// Key only limited to some known types. We can not dynamically create key types for the page. because we need to record the biggest and smallest.
+// Maybe we don't need the template at all! We need dynamically parse the type.
 template<class Key, class Value>
 struct Request {
     bool is_search;

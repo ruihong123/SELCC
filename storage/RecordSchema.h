@@ -8,7 +8,7 @@
 #include "ColumnInfo.h"
 //#include "GAMObject.h"
 
-namespace Database {
+namespace DSMEngine {
 class RecordSchema {
 public:
   RecordSchema(size_t table_id)
