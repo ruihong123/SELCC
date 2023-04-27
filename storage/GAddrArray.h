@@ -1,11 +1,11 @@
 #ifndef __DATABASE_STORAGE_GADDR_ARRAY_H__
 #define __DATABASE_STORAGE_GADDR_ARRAY_H__
 
-#include "GAMObject.h"
+//#include "GAMObject.h"
 
 namespace Database {
 template<class T>
-class GAddrArray : public GAMObject{
+class GAddrArray {
  public:
   GAddrArray() {
   }

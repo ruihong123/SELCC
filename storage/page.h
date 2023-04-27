@@ -6,6 +6,7 @@
 #define MEMORYENGINE_PAGE_H
 #include "Common.h"
 #include "util/rdma.h"
+#include "RecordSchema.h"
 #include <iostream>
 
 namespace DSMEngine{
@@ -34,13 +35,15 @@ namespace DSMEngine{
         // the last index is initialized as -1 in leaf node and internal nodes,
         // only 0 in the root node.
 
-        Key lowest;
-        Key highest;
+
         //TODO: reserve struture or pointer for the invalidation bit (if not valid, a RDMA read is required),
         // globale address (for checking whether this page is what we want) cache handle pointer.
         bool valid_page;
         int16_t last_index;
         uint8_t level;
+        RecordSchema* tuple_schema;
+        Key lowest;
+        Key highest;
         friend class InternalPage;
         friend class RDMA_Manager;
         friend class LeafPage;

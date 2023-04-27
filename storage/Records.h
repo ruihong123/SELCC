@@ -4,7 +4,8 @@
 
 #include "Record.h"
 
-namespace Database {
+namespace DSMEngine {
+    //this function is for the range search.
 class Records {
  public:
   Records(size_t max_size)
