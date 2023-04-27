@@ -9,7 +9,7 @@
 #include <atomic>
 #include <bitset>
 #include <limits>
-
+#include "DSMEngine/slice.h"
 //#include "Debug.h"
 //#include "HugePageAlloc.h"
 //#include "Rdma.h"
@@ -127,6 +127,9 @@ struct Value_buff {
 // For Tree
 using Key = uint64_t;
 using Value = uint64_t;
+
+//using Key = DSMEngine::Slice;
+//using Value = DSMEngine::Slice;
 
 //using Key = Key_buff;
 //using Value = Value_buff;

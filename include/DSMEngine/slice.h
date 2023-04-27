@@ -112,6 +112,10 @@ inline bool operator==(const Slice& x, const Slice& y) {
 
 inline bool operator!=(const Slice& x, const Slice& y) { return !(x == y); }
 
+inline bool operator>(const Slice& x, const Slice& y) { return x.compare(y) == 1; }
+inline bool operator>=(const Slice& x, const Slice& y) { return x.compare(y) >= 0; }
+inline bool operator<(const Slice& x, const Slice& y) { return x.compare(y) == -1; }
+inline bool operator<=(const Slice& x, const Slice& y) { return x.compare(y) <= 0; }
 inline int Slice::compare(const Slice& b) const {
   const size_t min_len = (size_ < b.size_) ? size_ : b.size_;
   int r = memcmp(data_, b.data_, min_len);
