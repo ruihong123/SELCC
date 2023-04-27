@@ -3473,7 +3473,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         struct ibv_sge sge[2];
 //        GlobalAddress lock_addr =
         //Only the second RDMA issue a completion
-        RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+//        RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+        // Read unlock do not need to wait for the completion.
+        RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Internal_and_Leaf);
+
         uint64_t return_data = (*(uint64_t*) cas_buffer->addr);
         assert((return_data & (1ull << (RDMA_Manager::node_id/2 + 1))) != 0);
 
