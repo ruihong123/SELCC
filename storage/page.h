@@ -41,7 +41,7 @@ namespace DSMEngine{
         bool valid_page;
         int16_t last_index;
         uint8_t level;
-        RecordSchema* tuple_schema;
+        RecordSchema* record_schema;
         Key lowest;
         Key highest;
         friend class InternalPage;
