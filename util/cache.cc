@@ -15,8 +15,8 @@
 #include "util/mutexlock.h"
 #include "HugePageAlloc.h"
 // DO not enable the two at the same time otherwise there will be a bug.
-#define BUFFER_HANDOVER
-//#define EARLY_LOCK_RELEASE
+//#define BUFFER_HANDOVER
+#define EARLY_LOCK_RELEASE
 uint64_t cache_miss[MAX_APP_THREAD][8];
 uint64_t cache_hit[MAX_APP_THREAD][8];
 uint64_t invalid_counter[MAX_APP_THREAD][8];
