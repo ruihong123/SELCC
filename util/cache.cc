@@ -171,6 +171,7 @@ class LRUCache {
   Cache::Handle* LookupInsert(const Slice& key, uint32_t hash, void* value,
                               size_t charge,
                               void (*deleter)(Cache::Handle* handle));
+  //TODO: make the release not acquire the cache lock.
   void Release(Cache::Handle* handle);
   void Erase(const Slice& key, uint32_t hash);
   void Prune();

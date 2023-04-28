@@ -535,6 +535,7 @@ class RDMA_Manager {
   bool Deallocate_Remote_RDMA_Slot(void* p, uint16_t target_node_id);
   //TOFIX: There will be memory leak for the remote_mr and mr_input for local/remote memory
   // allocation.
+  //TODO: make all the memory allocator thread local and make the thread pinned and never get destroy.
   GlobalAddress Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint16_t target_node_id);
   void Allocate_Remote_RDMA_Slot(ibv_mr &remote_mr, Chunk_type pool_name, uint16_t target_node_id);
   void Allocate_Local_RDMA_Slot(ibv_mr& mr_input, Chunk_type pool_name);
