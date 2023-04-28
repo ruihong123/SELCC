@@ -4,7 +4,7 @@
 
 #include "Record.h"
 
-namespace Database {
+namespace DSMEngine {
 class Records {
  public:
   Records(size_t max_size)

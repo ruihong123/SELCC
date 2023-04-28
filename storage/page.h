@@ -6,6 +6,7 @@
 #define MEMORYENGINE_PAGE_H
 #include "Common.h"
 #include "util/rdma.h"
+#include "RecordSchema.h"
 #include <iostream>
 
 namespace DSMEngine{
@@ -80,7 +81,6 @@ namespace DSMEngine{
         Key key = {};
         char key_padding[KEY_PADDING] = "";
         GlobalAddress ptr = GlobalAddress::Null();
-
         InternalEntry() {
 //            ptr = GlobalAddress::Null();
 //    key = 0;
@@ -160,7 +160,7 @@ namespace DSMEngine{
         uint8_t front_version = 0;
         Header<Key> hdr;
         InternalEntry<Key> records[kInternalCardinality] = {};
-
+//        char data[1] = {};
 //  uint8_t padding[InternalPagePadding];
 //        alignas(8) uint8_t rear_version;
 
@@ -171,6 +171,7 @@ namespace DSMEngine{
         // this is called when tree grows
         InternalPage(GlobalAddress left, const Key &key, GlobalAddress right, GlobalAddress this_page_g_ptr,
                      uint32_t level = 0) {
+            assert(STRUCT_OFFSET(InternalPage<Key>, local_lock_meta) == 0);
             hdr.leftmost_ptr = left;
             hdr.level = level;
             hdr.valid_page = true;
@@ -224,11 +225,83 @@ namespace DSMEngine{
         void set_global_address(GlobalAddress g_ptr){
 
         }
-        bool try_lock();
-        void unlock_lock();
-        void check_invalidation_and_refetch_outside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr);
-        void check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr);
 
+        bool try_lock() {
+            auto currently_locked = __atomic_load_n(&local_lock_meta.local_lock_byte, __ATOMIC_RELAXED);
+            return !currently_locked &&
+                   __atomic_compare_exchange_n(&local_lock_meta.local_lock_byte, &currently_locked, 1, true, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED);
+        }
+        inline void  unlock_lock() {
+            __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
+        }
+        // THe local concurrency control optimization to reduce RDMA bandwidth, is worthy of writing in the paper
+
+        void check_invalidation_and_refetch_outside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
+            uint8_t expected = 0;
+            assert(page_mr->addr == this);
+
+#ifndef NDEBUG
+            uint8_t lock_temp = __atomic_load_n(&local_lock_meta.local_lock_byte,mem_cst_seq);
+            uint8_t issued_temp = __atomic_load_n(&local_lock_meta.issued_ticket,mem_cst_seq);
+            uint16_t retry_counter = 0;
+#endif
+            if (!hdr.valid_page && try_lock()){
+                // when acquiring the lock, check the valid bit again, so that we can save unecessssary bandwidth.
+                if(!hdr.valid_page){
+//                printf("Page refetch %p\n", this);
+                    __atomic_fetch_add(&local_lock_meta.issued_ticket, 1, mem_cst_seq);
+                    ibv_mr temp_mr = *page_mr;
+                    GlobalAddress temp_page_add = page_addr;
+                    temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
+                    temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
+                    temp_mr.length = temp_mr.length - RDMA_OFFSET;
+//                printf("Internal page refresh\n");
+                    invalidation_reread:
+                    rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-RDMA_OFFSET, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+                    assert(hdr.level < 100);
+                    // If the global lock is in use, then this read page should be in a inconsistent state.
+                    if (global_lock != 0){
+#ifndef NDEBUG
+                        assert(++retry_counter<1000000);
+#endif
+                        goto invalidation_reread;
+                    }
+                    // TODO: think whether we need to reset the global lock to 1 because the RDMA write need to make sure
+                    //  that the global lock is 1.
+                    //  Answer, we only need to reset it when we write back the data.
+
+                    hdr.valid_page = true;
+                    local_lock_meta.current_ticket++;
+
+                }
+                unlock_lock();
+            }
+        }
+
+
+        void check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
+            uint8_t expected = 0;
+            assert(page_mr->addr == this);
+            if (!hdr.valid_page ){
+
+                ibv_mr temp_mr = *page_mr;
+                GlobalAddress temp_page_add = page_addr;
+                temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
+                temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
+                temp_mr.length = temp_mr.length - RDMA_OFFSET;
+                invalidation_reread:
+                rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-RDMA_OFFSET, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+                // If the global lock is in use, then this read page should be in a inconsistent state.
+                if (global_lock != 1){
+                    // with a lock the remote side can not be inconsistent.
+                    assert(false);
+                    goto invalidation_reread;
+                }
+                __atomic_store_n(&hdr.valid_page, false, (int)std::memory_order_seq_cst);
+
+
+            }
+        }
         bool check_whether_globallock_is_unlocked() const {
 
             bool succ = global_lock ==0;
@@ -278,13 +351,15 @@ namespace DSMEngine{
         Local_Meta local_lock_meta;
         // if busy we will not cache it in cache, switch back to the Naive
         alignas(8) uint64_t global_lock = 0;
+
         uint8_t busy;
         uint8_t front_version;
         Header<TKey> hdr;
         LeafEntry<TKey, Value> records[kLeafCardinality] = {};
+//        char data_[1];// The data segment is beyond this class.
 
 //  uint8_t padding[LeafPagePadding];
-        uint8_t rear_version;
+//        uint8_t rear_version;
 
         template<class K, class V> friend class Btr;
 
@@ -293,10 +368,10 @@ namespace DSMEngine{
             hdr.level = level;
             hdr.this_page_g_ptr = this_page_g_ptr;
             global_lock = 0;
-            records[0].value = {0};
+//            records[0].value = {0};
 
             front_version = 0;
-            rear_version = 0;
+//            rear_version = 0;
             local_lock_meta.local_lock_byte = 0;
             local_lock_meta.current_ticket = 0;
             local_lock_meta.issued_ticket = 0;
@@ -324,13 +399,14 @@ namespace DSMEngine{
         }
 
 
-        void debug() const {
-            std::cout << "LeafPage@ ";
-            hdr.debug();
-            std::cout << "version: [" << (int)front_version << ", " << (int)rear_version
-                      << "]" << std::endl;
-        }
-        void leaf_page_search(const TKey &k, SearchResult<TKey, Value> &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr);
+//        void debug() const {
+//            std::cout << "LeafPage@ ";
+//            hdr.debug();
+//            std::cout << "version: [" << (int)front_version << ", " << (int)rear_version
+//                      << "]" << std::endl;
+//        }
+        void leaf_page_search(const TKey &k, SearchResult <TKey, Value> &result, ibv_mr local_mr_copied,
+                              GlobalAddress g_page_ptr, RecordSchema *record_scheme);
         bool leaf_page_store(const TKey &k, const Value &v, int &cnt, int &empty_index, char *&update_addr);
 
     };
@@ -430,19 +506,6 @@ namespace DSMEngine{
 //    re_read:
         GlobalAddress target_global_ptr_buff;
 
-//        uint64_t local_meta_new = __atomic_load_n((uint64_t*)&local_meta, (int)std::memory_order_seq_cst);
-//        if (((uint16_t*) &local_meta_new)[2] != current_ticket){
-//            return false;
-//        }
-//        uint8_t front_v = front_version;
-//        uint8_t rear_v = rear_version;
-//        if(front_v != current_ticket){
-//            return false;
-//        }
-//          asm volatile ("sfence\n" : : );
-//          asm volatile ("lfence\n" : : );
-//          asm volatile ("mfence\n" : : );
-
         //TOTHINK: how to make sure that concurrent write will not result in segfault,
         // such as out of buffer for cnt.
         auto cnt = hdr.last_index + 1;
@@ -480,17 +543,30 @@ namespace DSMEngine{
         uint16_t left = 0;
         uint16_t right = hdr.last_index;
         uint16_t mid = 0;
+//        while (left < right) {
+//            mid = (left + right + 1) / 2;
+//
+//            if (k >= records[mid].key) {
+//                // Key at "mid" is smaller than "target".  Therefore all
+//                // blocks before "mid" are uninteresting.
+//                left = mid;
+//            } else {
+//                // Key at "mid" is >= "target".  Therefore all blocks at or
+//                // after "mid" are uninteresting.
+//                right = mid - 1; // why mid -1 rather than mid
+//            }
+//        }
         while (left < right) {
-            mid = (left + right + 1) / 2;
+            mid = (left + right) / 2;
 
-            if (k >= records[mid].key) {
+            if (k > records[mid].key) {
                 // Key at "mid" is smaller than "target".  Therefore all
                 // blocks before "mid" are uninteresting.
                 left = mid;
-            } else {
+            } else if (k < records[mid].key) {
                 // Key at "mid" is >= "target".  Therefore all blocks at or
                 // after "mid" are uninteresting.
-                right = mid - 1;
+                right = mid;
             }
         }
         assert(left == right);
@@ -518,84 +594,7 @@ namespace DSMEngine{
         return true;
 
     }
-    template<class Key>
-    bool InternalPage<Key>::try_lock() {
-        auto currently_locked = __atomic_load_n(&local_lock_meta.local_lock_byte, __ATOMIC_RELAXED);
-        return !currently_locked &&
-               __atomic_compare_exchange_n(&local_lock_meta.local_lock_byte, &currently_locked, 1, true, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED);
-    }
-    template<class Key>
-    inline void  InternalPage<Key>::unlock_lock() {
-        __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
-    }
-    // THe local concurrency control optimization to reduce RDMA bandwidth, is worthy of writing in the paper
-    template<class Key>
-    void InternalPage<Key>::check_invalidation_and_refetch_outside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
-        uint8_t expected = 0;
-        assert(page_mr->addr == this);
 
-#ifndef NDEBUG
-        uint8_t lock_temp = __atomic_load_n(&local_lock_meta.local_lock_byte,mem_cst_seq);
-        uint8_t issued_temp = __atomic_load_n(&local_lock_meta.issued_ticket,mem_cst_seq);
-        uint16_t retry_counter = 0;
-#endif
-        if (!hdr.valid_page && try_lock()){
-            // when acquiring the lock, check the valid bit again, so that we can save unecessssary bandwidth.
-            if(!hdr.valid_page){
-//                printf("Page refetch %p\n", this);
-                __atomic_fetch_add(&local_lock_meta.issued_ticket, 1, mem_cst_seq);
-                ibv_mr temp_mr = *page_mr;
-                GlobalAddress temp_page_add = page_addr;
-                temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
-                temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
-                temp_mr.length = temp_mr.length - RDMA_OFFSET;
-//                printf("Internal page refresh\n");
-                invalidation_reread:
-                rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-RDMA_OFFSET, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-                assert(hdr.level < 100);
-                // If the global lock is in use, then this read page should be in a inconsistent state.
-                if (global_lock != 0){
-#ifndef NDEBUG
-                    assert(++retry_counter<1000000);
-#endif
-                    goto invalidation_reread;
-                }
-                // TODO: think whether we need to reset the global lock to 1 because the RDMA write need to make sure
-                //  that the global lock is 1.
-                //  Answer, we only need to reset it when we write back the data.
-
-                hdr.valid_page = true;
-                local_lock_meta.current_ticket++;
-
-            }
-            unlock_lock();
-        }
-    }
-
-    template<class Key>
-    void InternalPage<Key>::check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
-        uint8_t expected = 0;
-        assert(page_mr->addr == this);
-        if (!hdr.valid_page ){
-
-            ibv_mr temp_mr = *page_mr;
-            GlobalAddress temp_page_add = page_addr;
-            temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
-            temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
-            temp_mr.length = temp_mr.length - RDMA_OFFSET;
-            invalidation_reread:
-            rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-RDMA_OFFSET, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-            // If the global lock is in use, then this read page should be in a inconsistent state.
-            if (global_lock != 1){
-                // with a lock the remote side can not be inconsistent.
-                assert(false);
-                goto invalidation_reread;
-            }
-            __atomic_store_n(&hdr.valid_page, false, (int)std::memory_order_seq_cst);
-
-
-        }
-    }
 
     template<class Key>
     bool InternalPage<Key>::internal_page_store(GlobalAddress page_addr, const Key &k, GlobalAddress value, int level,
@@ -604,20 +603,35 @@ namespace DSMEngine{
         auto cnt = hdr.last_index + 1;
         bool is_update = false;
         uint16_t insert_index = 0;
+//--------------------------------------------------
+        //binary search the btree node.
+//        uint16_t left = 0;
+//        uint16_t right = hdr.last_index;
+//        uint16_t mid = 0;
+//        while (left < right) {
+//            mid = (left + right + 1) / 2;
+//
+//            if (k > records[mid].key) {
+//                // Key at "mid" is smaller than "target".  Therefore all
+//                // blocks before "mid" are uninteresting.
+//                left = mid;
+//            } else if (k < records[mid].key) {
+//                // Key at "mid" is >= "target".  Therefore all blocks at or
+//                // after "mid" are uninteresting.
+//                right = mid - 1;
+//            }
+//        }
+//        assert(left == right);
 //        printf("The last index %d 's key is %lu, this key is %lu\n", page->hdr.last_index, page->records[page->hdr.last_index].key, k);
+        // ---------------------------------------------------------
         //TODO: Make it a binary search.
         for (int i = cnt - 1; i >= 0; --i) {
             if (records[i].key == k) { // find and update
-//        assert(false);
-//        page->front_version++;
-//        __atomic_fetch_add(&page->front_version, 1, __ATOMIC_SEQ_CST);
-                asm volatile ("sfence\n" : : );
-                records[i].ptr = value;
-                asm volatile ("sfence\n" : : );
-//        page->rear_version++;
-//        __atomic_fetch_add(&page->rear_version, 1, __ATOMIC_SEQ_CST);
 
-                // assert(false);
+//                asm volatile ("sfence\n" : : );
+                records[i].ptr = value;
+//                asm volatile ("sfence\n" : : );
+
                 is_update = true;
                 break;
             }
@@ -626,10 +640,11 @@ namespace DSMEngine{
                 break;
             }
         }
+        //--------------------------------------------
         assert(cnt != kInternalCardinality);
         assert(records[hdr.last_index].ptr != GlobalAddress::Null());
-        Key split_key;
-        GlobalAddress sibling_addr = GlobalAddress::Null();
+//        Key split_key;
+//        GlobalAddress sibling_addr = GlobalAddress::Null();
         if (!is_update) { // insert and shift
             // The update should mark the page version change because this will make the page state in consistent.
 //      __atomic_fetch_add(&page->front_version, 1, __ATOMIC_SEQ_CST);
@@ -682,16 +697,17 @@ namespace DSMEngine{
 #ifdef CACHECOHERENCEPROTOCOL
 
     template<class Key, class Value>
-    void LeafPage<Key,Value>::leaf_page_search(const Key &k, SearchResult<Key,Value> &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr) {
+    void LeafPage<Key,Value>::leaf_page_search(const Key &k, SearchResult <Key, Value> &result, ibv_mr local_mr_copied,
+                                               GlobalAddress g_page_ptr, RecordSchema *record_scheme) {
+//        records =
+//        data_
 //    re_read:
         Value target_value_buff{};
 //        uint8_t front_v = front_version;
         asm volatile ("sfence\n" : : );
         asm volatile ("lfence\n" : : );
         asm volatile ("mfence\n" : : );
-        //TODO: If record verisons are not consistent, we need to reread the page.
-        // or refetch the record. or we just remove the byteaddressable write and then do not
-        // use record level version.
+
         for (int i = 0; i < kLeafCardinality; ++i) {
             auto &r = records[i];
 

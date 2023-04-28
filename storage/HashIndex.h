@@ -5,8 +5,8 @@
 #include "GAddrArray.h"
 #include "Profiler.h"
 
-namespace Database {
-class HashIndex : public GAMObject{
+namespace DSMEngine {
+class HashIndex{
 public:
   HashIndex() {
   }

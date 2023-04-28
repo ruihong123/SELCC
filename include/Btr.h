@@ -362,7 +362,7 @@ class Btr_iter{
             auto root_page = new(cached_root_page_mr.load()->addr) LeafPage<Key,Value>(g_root_ptr, 0);
 
             root_page->front_version++;
-            root_page->rear_version = root_page->front_version;
+//            root_page->rear_version = root_page->front_version;
             rdma_mg->RDMA_Write(g_root_ptr, cached_root_page_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             // TODO: create a special region to store the root_ptr for every tree id.
             auto local_mr = rdma_mg->Get_local_CAS_mr(); // remote allocation.
@@ -2473,7 +2473,7 @@ class Btr_iter{
 //#ifdef PROCESSANALYSIS
 //    start = std::chrono::high_resolution_clock::now();
 //#endif
-        page->leaf_page_search(k, result, *mr, page_addr);
+        page->leaf_page_search(k, result, *mr, page_addr, nullptr);
 //#ifdef PROCESSANALYSIS
 //    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
 //        auto stop = std::chrono::high_resolution_clock::now();
@@ -3286,7 +3286,7 @@ re_read:
 
 //                page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
                 }else{
-                    std::unique_lock<std::mutex> l(root_mtx);
+                    std::unique_lock<std::mutex> lck(root_mtx);
                     if (page_addr == g_root_ptr.load()){
                         g_root_ptr.store(GlobalAddress::Null());
                     }
@@ -3341,7 +3341,7 @@ re_read:
 
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
             }else{
-                std::unique_lock<std::mutex> l(root_mtx);
+                std::unique_lock<std::mutex> lck(root_mtx);
                 if (page_addr == g_root_ptr.load()){
                     g_root_ptr.store(GlobalAddress::Null());
                 }
@@ -3435,7 +3435,7 @@ re_read:
             // link
             sibling->hdr.sibling_ptr = page->hdr.sibling_ptr;
             page->hdr.sibling_ptr = sibling_addr;
-            sibling->rear_version =  sibling->front_version;
+//            sibling->rear_version =  sibling->front_version;
 //    sibling->set_consistent();
             rdma_mg->RDMA_Write(sibling_addr, sibling_mr,kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
@@ -3444,7 +3444,7 @@ re_read:
         }else{
             sibling_addr = GlobalAddress::Null();
         }
-        page->rear_version = page->front_version;
+//        page->rear_version = page->front_version;
 //  page->set_consistent();
         if (handle->strategy == 2){
             // unlock and write back the whole page because a page split has happend.
@@ -4019,7 +4019,7 @@ re_read:
             }
 
             page->hdr.last_index--;
-            page->rear_version = page->front_version;
+//            page->rear_version = page->front_version;
 //        page->set_consistent();
             rdma_mg->RDMA_Write(page_addr, rbuf, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
         }

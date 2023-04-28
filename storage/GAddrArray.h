@@ -3,9 +3,9 @@
 
 #include "GAMObject.h"
 
-namespace Database {
+namespace DSMEngine {
 template<class T>
-class GAddrArray : public GAMObject{
+class GAddrArray {
  public:
   GAddrArray() {
   }

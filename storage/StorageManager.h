@@ -6,8 +6,8 @@
 
 #include "Table.h"
 
-namespace Database {
-class StorageManager : public GAMObject{
+namespace DSMEngine {
+class StorageManager{
 public:
   StorageManager() {
     tables_ = nullptr;

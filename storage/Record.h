@@ -7,7 +7,7 @@
 //#include "Meta.h"
 #include "RecordSchema.h"
 
-namespace Database {
+namespace DSMEngine {
 class Record {
 public:
   Record(RecordSchema *schema_ptr, char* data) : schema_ptr_(schema_ptr), data_ptr_(data) {
