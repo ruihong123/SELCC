@@ -543,32 +543,20 @@ namespace DSMEngine{
         uint16_t left = 0;
         uint16_t right = hdr.last_index;
         uint16_t mid = 0;
-//        while (left < right) {
-//            mid = (left + right + 1) / 2;
-//
-//            if (k >= records[mid].key) {
-//                // Key at "mid" is smaller than "target".  Therefore all
-//                // blocks before "mid" are uninteresting.
-//                left = mid;
-//            } else {
-//                // Key at "mid" is >= "target".  Therefore all blocks at or
-//                // after "mid" are uninteresting.
-//                right = mid - 1; // why mid -1 rather than mid
-//            }
-//        }
         while (left < right) {
-            mid = (left + right) / 2;
+            mid = (left + right + 1) / 2;
 
-            if (k > records[mid].key) {
+            if (k >= records[mid].key) {
                 // Key at "mid" is smaller than "target".  Therefore all
                 // blocks before "mid" are uninteresting.
                 left = mid;
-            } else if (k < records[mid].key) {
+            } else {
                 // Key at "mid" is >= "target".  Therefore all blocks at or
                 // after "mid" are uninteresting.
-                right = mid;
+                right = mid - 1; // why mid -1 rather than mid
             }
         }
+
         assert(left == right);
         target_global_ptr_buff = records[right].ptr;
         result.next_level = target_global_ptr_buff;
@@ -605,41 +593,53 @@ namespace DSMEngine{
         uint16_t insert_index = 0;
 //--------------------------------------------------
         //binary search the btree node.
-//        uint16_t left = 0;
-//        uint16_t right = hdr.last_index;
-//        uint16_t mid = 0;
-//        while (left < right) {
-//            mid = (left + right + 1) / 2;
-//
-//            if (k > records[mid].key) {
-//                // Key at "mid" is smaller than "target".  Therefore all
-//                // blocks before "mid" are uninteresting.
-//                left = mid;
-//            } else if (k < records[mid].key) {
-//                // Key at "mid" is >= "target".  Therefore all blocks at or
-//                // after "mid" are uninteresting.
-//                right = mid - 1;
-//            }
-//        }
-//        assert(left == right);
+        uint16_t left = 0;
+        uint16_t right = hdr.last_index;
+        uint16_t mid = 0;
+        if (k < records[0].key) {
+            insert_index = 0;
+        }else{
+            while (left < right) {
+                mid = (left + right + 1) / 2;
+
+                if (k > records[mid].key) {
+                    // Key at "mid" is smaller than "target".  Therefore all
+                    // blocks before "mid" are uninteresting.
+                    left = mid;
+                } else if (k < records[mid].key) {
+                    // Key at "mid" is >= "target".  Therefore all blocks at or
+                    // after "mid" are uninteresting.
+                    right = mid - 1;
+                }else{
+                    records[mid].ptr = value;
+                    is_update == true;
+
+                }
+            }
+            insert_index = left +1;
+            assert(left == right);
+
+        }
+
+
 //        printf("The last index %d 's key is %lu, this key is %lu\n", page->hdr.last_index, page->records[page->hdr.last_index].key, k);
         // ---------------------------------------------------------
         //TODO: Make it a binary search.
-        for (int i = cnt - 1; i >= 0; --i) {
-            if (records[i].key == k) { // find and update
-
-//                asm volatile ("sfence\n" : : );
-                records[i].ptr = value;
-//                asm volatile ("sfence\n" : : );
-
-                is_update = true;
-                break;
-            }
-            if (records[i].key < k) {
-                insert_index = i + 1;
-                break;
-            }
-        }
+//        for (int i = cnt - 1; i >= 0; --i) {
+//            if (records[i].key == k) { // find and update
+//
+////                asm volatile ("sfence\n" : : );
+//                records[i].ptr = value;
+////                asm volatile ("sfence\n" : : );
+//
+//                is_update = true;
+//                break;
+//            }
+//            if (records[i].key < k) {
+//                insert_index = i + 1;
+//                break;
+//            }
+//        }
         //--------------------------------------------
         assert(cnt != kInternalCardinality);
         assert(records[hdr.last_index].ptr != GlobalAddress::Null());
