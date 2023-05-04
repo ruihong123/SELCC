@@ -19,7 +19,7 @@ int main() {
     rdma_mg->Mempool_initialize(DataChunk, INDEX_BLOCK, 0);
     rdma_mg->node_id = 0;
     Cache* cache_ptr = DSMEngine::NewLRUCache(define::kIndexCacheSize);
-    auto tree = new Btr(rdma_mg, cache_ptr, 0);
+    auto tree = new Btr(rdma_mg, cache_ptr, nullptr, 0);
     std::map<Key, Value> in_memory_records;
 
     for (int i = 0; i < 1000000; ++i) {

@@ -106,12 +106,18 @@ void thread_run(int id) {
   }
 
   uint64_t end_warm_key = kKeySpace;
-//    enable_cache = true;
+    char* tuple_buff = new char[tree->scheme_ptr->GetSchemaSize()];
+    DSMEngine::Slice tuple_slice = DSMEngine::Slice(tuple_buff,tree->scheme_ptr->GetSchemaSize());
+    uint64_t& key = *(uint64_t*)tuple_buff;
+    uint64_t& value = *((uint64_t*)tuple_buff+1);
+    //    enable_cache = true;
   //kWarmRatio *
   for (uint64_t i = 1; i < end_warm_key; ++i) {
       // we can not sequentially pop up the data. Otherwise there will be a bug.
       if (i % all_thread == my_id) {
-        tree->insert(i, i * 2);
+          key = i;
+          value = 2*i;
+        tree->insert(key, tuple_slice);
 //        tree->insert(to_key(i), i * 2);
 //        tree->insert(rand.Next()%(kKeySpace), i * 2);
 
@@ -181,10 +187,10 @@ void thread_run(int id) {
     }
     // the dis range is [0, 64M]
 //    uint64_t dis = mehcached_zipf_next(&state);
-    uint64_t key = rand.Next()%(kKeySpace);
+    key = rand.Next()%(kKeySpace);
 //    uint64_t key = to_key(dis);
 
-      uint64_t v;
+//      uint64_t v;
 
     timer.begin();
 
@@ -210,15 +216,18 @@ void thread_run(int id) {
 //
 //
 //      }
-
+//      char* tuple_buff = new char[tree->scheme_ptr->GetSchemaSize()];
+//      DSMEngine::Slice tuple_slice = DSMEngine::Slice(tuple_buff,tree->scheme_ptr->GetSchemaSize());
+//      uint64_t& key = *(uint64_t*)tuple_buff;
+//      uint64_t& value = *((uint64_t*)tuple_buff+1);
 
     if (rand_r(&seed) % 100 < kReadRatio) { // GET
 //        printf("Get one key");
-      tree->search(key, v);
+      tree->search(key, tuple_slice);
 
     } else {
-      v = 12;
-      tree->insert(key, v);
+      value = 12;
+      tree->insert(key, tuple_slice);
     }
     print_counter++;
     if (print_counter%100000 == 0)
@@ -317,13 +326,24 @@ int main(int argc, char *argv[]) {
     rdma_mg = DSMEngine::RDMA_Manager::Get_Instance(&config);
     assert(cache_ptr->GetCapacity()> 10000);
 //  rdma_mg->registerThread();
-  tree = new DSMEngine::Btr<uint64_t,uint64_t>(rdma_mg, cache_ptr, 0);
+    DSMEngine::RecordSchema* schema_ptr = new DSMEngine::RecordSchema(0);
+    std::vector<DSMEngine::ColumnInfo*> columns;
+    columns.push_back(new DSMEngine::ColumnInfo("c_id", DSMEngine::ValueType::UINT64));
+    columns.push_back(new DSMEngine::ColumnInfo("c_first", DSMEngine::ValueType::VARCHAR, static_cast<size_t>(416)));
+    schema_ptr->InsertColumns(columns);
+    tree = new DSMEngine::Btr<uint64_t, uint64_t>(rdma_mg, cache_ptr, schema_ptr, 0);
 
 #ifndef BENCH_LOCK
-  if (DSMEngine::RDMA_Manager::node_id == 0) {
+    char* tuple_buff = new char[schema_ptr->GetSchemaSize()];
+    DSMEngine::Slice tuple_slice = DSMEngine::Slice(tuple_buff,schema_ptr->GetSchemaSize());
+    uint64_t& key = *(uint64_t*)tuple_buff;
+    uint64_t& value = *((uint64_t*)tuple_buff+1);
+    if (DSMEngine::RDMA_Manager::node_id == 0) {
     for (uint64_t i = 1; i < 1024000; ++i) {
 //        printf("insert key %d", i);
-      tree->insert(to_key(i), i * 2);
+        key = i;
+        value = 2*i;
+      tree->insert(key, tuple_slice);
 //        tree->insert(i, i * 2);
     }
   }

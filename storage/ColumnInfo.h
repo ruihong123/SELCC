@@ -14,6 +14,7 @@ enum ValueType
   INT16,
   INT32,
   INT64,
+  UINT64,
   DOUBLE,
   FLOAT,
   VARCHAR,
@@ -30,6 +31,7 @@ const size_t kInt8Size = sizeof(int8_t);
 const size_t kInt16Size = sizeof(int16_t);
 const size_t kInt32Size = sizeof(int32_t);
 const size_t kInt64Size = sizeof(int64_t);
+const size_t kUInt64Size = sizeof(uint64_t);
 const size_t kFloatSize = sizeof(float);
 const size_t kDoubleSize = sizeof(double);
 const size_t kMetaSize = sizeof(MetaColumn);
@@ -80,6 +82,9 @@ struct ColumnInfo {
           break;
         case INT64:
           column_size_ = kInt64Size;
+          break;
+        case UINT64:
+          column_size_ = kUInt64Size;
           break;
         case DOUBLE:
           column_size_ = kDoubleSize;

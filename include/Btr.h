@@ -73,11 +73,11 @@ class Btr {
 //friend class DSMEngine::InternalPage;
 
 public:
-  Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id = 0);
+  Btr(RDMA_Manager *mg, Cache *cache_ptr, RecordSchema *record_scheme_ptr, uint16_t Btr_id = 0);
 
-  void insert(const Key &k, const Value &v, CoroContext *cxt = nullptr,
+  void insert(const Key &k, const Slice &v, CoroContext *cxt = nullptr,
               int coro_id = 0);
-  bool search(const Key &k, Value &v, CoroContext *cxt = nullptr,
+  bool search(const Key &k, Slice &v, CoroContext *cxt = nullptr,
               int coro_id = 0);
   void del(const Key &k, CoroContext *cxt = nullptr, int coro_id = 0);
 
@@ -97,7 +97,9 @@ public:
     // TODO: potential bug, if mulitple btrees shared the same retry counter, will it be a problem?
     //  used for the retry counter for nested function call such as sibling pointer access.
     static  thread_local int nested_retry_counter;
-    private:
+    RecordSchema* scheme_ptr;
+
+private:
   std::mutex root_mtx;// in case of contention in the root
   uint64_t tree_id;
 //  GlobalAddress root_ptr_ptr; // the address which stores root pointer;
@@ -195,8 +197,8 @@ public:
     // Note: node range [barrer1, barrer2)
         bool internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int level, CoroContext *cxt,
                                  int coro_id);
-  //store a key and value to a leaf page
-  bool leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v, Key &split_key,
+  //store a key and value to a leaf page [lowest, highest)
+  bool leaf_page_store(GlobalAddress page_addr, const Key &k, const Slice &v, Key &split_key,
                        GlobalAddress &sibling_addr, GlobalAddress root, int level, CoroContext *cxt, int coro_id);
   bool leaf_page_del(GlobalAddress page_addr, const Key &k, int level,
                      CoroContext *cxt, int coro_id);
@@ -325,7 +327,8 @@ class Btr_iter{
 //    delete mr;
     }
     template <typename Key, typename Value>
-    Btr<Key, Value>::Btr(RDMA_Manager *mg, Cache *cache_ptr, uint16_t Btr_id) : tree_id(Btr_id), page_cache(cache_ptr){
+    Btr<Key, Value>::Btr(RDMA_Manager *mg, Cache *cache_ptr, RecordSchema *record_scheme_ptr, uint16_t Btr_id)
+            : scheme_ptr(record_scheme_ptr), tree_id(Btr_id), page_cache(cache_ptr){
         assert(sizeof(LeafPage<Key,Value>) < kLeafPageSize);
         assert(sizeof(InternalPage<Key>) < kInternalPageSize);
         assert(STRUCT_OFFSET(LeafPage<char COMMA char>,hdr) == STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>,hdr));
@@ -407,7 +410,7 @@ class Btr_iter{
             std::cout << "Internal_and_Leaf per Page: " << InternalPage<Key>::kInternalCardinality << std::endl;
             std::cout << "Leaf Page size: " << sizeof(LeafPage<Key, Value>) << " [" << kLeafPageSize
                       << "]" << std::endl;
-            std::cout << "Leaf per Page: " << LeafPage<Key,Value>::kLeafCardinality << std::endl;
+            std::cout << "Leaf per Page: " << scheme_ptr->GetLeafCardi() << std::endl;
             std::cout << "LeafEntry size: " << sizeof(LeafEntry<Key,Value>) << std::endl;
             std::cout << "InternalEntry size: " << sizeof(InternalEntry<Key>) << std::endl;
         }
@@ -1218,7 +1221,7 @@ class Btr_iter{
 //    internal_page_store(p, k, v, level, cxt, coro_id);
     }
     template<typename Key, typename Value>
-    void Btr<Key,Value>::insert(const Key &k, const Value &v, CoroContext *cxt, int coro_id) {
+    void Btr<Key,Value>::insert(const Key &k, const Slice &v, CoroContext *cxt, int coro_id) {
 //  assert(rdma_mg->is_register());
 
         before_operation(cxt, coro_id);
@@ -1449,11 +1452,12 @@ class Btr_iter{
 //  }
     }
     template <typename Key, typename Value>
-    bool Btr<Key,Value>::search(const Key &k, Value &v, CoroContext *cxt, int coro_id) {
+    bool Btr<Key,Value>::search(const Key &k, Slice &value_buff, CoroContext *cxt, int coro_id) {
 //  assert(rdma_mg->is_register());
         ibv_mr* page_hint = nullptr;
         auto root = get_root_ptr(page_hint);
         SearchResult<Key,Value> result = {0};
+        result.val = value_buff;
 
         GlobalAddress p = root;
         bool isroot = true;
@@ -1555,8 +1559,8 @@ class Btr_iter{
             DEBUG_PRINT_CONDITION("back off for search\n");
             goto next;
         }else{
-            if (result.val != kValueNull<Key>) { // find
-                v = result.val;
+            if (result.find_value) { // find
+                value_buff = result.val;
 #ifdef PROCESSANALYSIS
                 if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
                 auto stop = std::chrono::high_resolution_clock::now();
@@ -2953,7 +2957,9 @@ re_read:
             assert(split_key < page->hdr.highest);
             page->hdr.last_index -= (cnt - m); // this is correct. because we extract the split key to upper layer
             assert(page->hdr.last_index == m-1);
-            sibling->hdr.last_index += (cnt - m - 1);
+//            sibling->hdr.last_index += (cnt - m - 1);
+            // cnt - m pointer (cnt-m - 1) keys, so last index : (cnt -m -1 - 1)
+            sibling->hdr.last_index = cnt - m - 1 - 1;
             assert(sibling->hdr.last_index == cnt - m - 1 - 1);
             for (int i = m + 1; i < cnt; ++i) { // move
                 //Is this correct?
@@ -3165,7 +3171,7 @@ re_read:
     }
 #ifdef CACHECOHERENCEPROTOCOL
     template <class Key, class Value>
-    bool Btr<Key,Value>::leaf_page_store(GlobalAddress page_addr, const Key &k, const Value &v, Key &split_key, GlobalAddress &sibling_addr,
+    bool Btr<Key,Value>::leaf_page_store(GlobalAddress page_addr, const Key &k, const Slice &v, Key &split_key, GlobalAddress &sibling_addr,
                                          GlobalAddress root, int level, CoroContext *cxt, int coro_id) {
 #ifdef PROCESSANALYSIS
         auto start = std::chrono::high_resolution_clock::now();
@@ -3362,21 +3368,22 @@ re_read:
 // TODO: Check whether the key is larger than the largest key of this node.
 //  if yes, update the header.
         int cnt = 0;
-        int empty_index = -1;
-        char *update_addr = nullptr;
+//        int empty_index = -1;
+//        char *update_addr = nullptr;
 
-        bool need_split = page->leaf_page_store(k, v, cnt, empty_index, update_addr);
+        bool need_split = page->leaf_page_store(k, v, cnt,  scheme_ptr);
         if (!need_split) {
-            assert(update_addr);
             ibv_mr target_mr = *local_mr;
-            int offset = (update_addr - (char *) page);
-            LADD(target_mr.addr, offset);
+//            int offset = (update_addr - (char *) page);
+//            LADD(target_mr.addr, offset);
             if (handle->strategy == 2){
 
                 // If the page currently is in busy mode, we directly release the global lock.
-                global_write_tuple_and_Wunlock(
-                        &target_mr, GADD(page_addr, offset),
-                        sizeof(LeafEntry<Key,Value>), lock_addr, cxt, coro_id, handle, false);
+//                global_write_tuple_and_Wunlock(
+//                        &target_mr, GADD(page_addr, offset),
+//                        sizeof(LeafEntry<Key,Value>), lock_addr, cxt, coro_id, handle, false);
+                global_write_page_and_Wunlock(local_mr, page_addr, kLeafPageSize, lock_addr,
+                                              cxt, coro_id, handle, false);
 //                handle->remote_lock_status.store(0);
 
             }
@@ -3386,13 +3393,15 @@ re_read:
 //                    sizeof(LeafEntry), lock_addr, cxt, coro_id, false);
 //            assert(handle->refs.load() == 1);
             return true;
-        } else {
-            std::sort(
-                    page->records, page->records + LeafPage<Key,Value>::kLeafCardinality,
-                    [](const LeafEntry<Key,Value> &a, const LeafEntry<Key,Value> &b) { return a.key < b.key; });
         }
-
-
+//        else {
+//            std::sort(
+//                    page->records, page->records + LeafPage<Key,Value>::kLeafCardinality,
+//                    [](const LeafEntry<Key,Value> &a, const LeafEntry<Key,Value> &b) { return a.key < b.key; });
+//        }
+        assert(need_split);
+        int kLeafCardinality = scheme_ptr->GetLeafCardi();
+        int tuple_length = scheme_ptr->GetSchemaSize();
 //  Key split_key;
 //  GlobalAddress sibling_addr;
         if (need_split) { // need split
@@ -3408,25 +3417,32 @@ re_read:
 //      memset(sibling_mr->addr, 0, kLeafPageSize);
             auto sibling = new(sibling_mr->addr) LeafPage<Key,Value>(sibling_addr, page->hdr.level);
             //TODO: add the sibling to the local cache.
-            // std::cout << "addr " <<  sibling_addr << " | level " <<
-            // (int)(page->hdr.level) << std::endl;
             sibling->front_version ++;
             int m = cnt / 2;
-            split_key = page->records[m].key;
+            char* tuple_start;
+            tuple_start = page->data_ + m*tuple_length;
+
+            auto split_record = Record(scheme_ptr,tuple_start);
+            split_record.GetPrimaryKey(&split_key);
             assert(split_key > page->hdr.lowest);
             assert(split_key < page->hdr.highest);
 
             for (int i = m; i < cnt; ++i) { // move
-                sibling->records[i - m].key = page->records[i].key;
-                sibling->records[i - m].value = page->records[i].value;
-                page->records[i].key = 0;
-                page->records[i].value = kValueNull<Key>;
+                char* to_be_moved_start = page->data_ + m*tuple_length;
+
+
+                memcpy(to_be_moved_start, sibling->data_, (page->hdr.last_index - m + 1)*tuple_length);
+//                sibling->records[i - m].key = page->records[i].key;
+//                sibling->records[i - m].value = page->records[i].value;
+//                page->records[i].key = 0;
+//                page->records[i].value = kValueNull<Key>;
             }
             //We don't care about the last index in the leaf nodes actually,
             // because we iterate all the slots to find an entry.
             page->hdr.last_index -= (cnt - m);
 //      assert(page_addr == root || page->hdr.last_index == m-1);
-            sibling->hdr.last_index += (cnt - m);
+        //TODO: double check the code below if there is a bug
+            sibling->hdr.last_index = (cnt - m - 1);
 //      assert(sibling->hdr.last_index == cnt -m -1);
             sibling->hdr.lowest = split_key;
             sibling->hdr.highest = page->hdr.highest;
@@ -3441,9 +3457,10 @@ re_read:
             rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
             delete sibling_mr;
 
-        }else{
-            sibling_addr = GlobalAddress::Null();
         }
+//        else{
+//            sibling_addr = GlobalAddress::Null();
+//        }
 //        page->rear_version = page->front_version;
 //  page->set_consistent();
         if (handle->strategy == 2){

@@ -21,7 +21,7 @@ namespace DSMEngine {
             rdma_mg = RDMA_Manager::Get_Instance(config);
             rdma_mg->Mempool_initialize(DataChunk, INDEX_BLOCK, 0);
             rdma_mg->node_id = 0;
-            tree = new Btr(rdma_mg, nullptr, 0);
+            tree = new Btr(rdma_mg, nullptr, nullptr, 0);
         }
 
 

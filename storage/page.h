@@ -6,7 +6,9 @@
 #define MEMORYENGINE_PAGE_H
 #include "Common.h"
 #include "util/rdma.h"
+#include "storage/ColumnInfo.h"
 #include "RecordSchema.h"
+#include "Record.h"
 #include <iostream>
 
 namespace DSMEngine{
@@ -18,14 +20,18 @@ namespace DSMEngine{
         GlobalAddress next_level;
         // for future pointer swizzling design
         ibv_mr* page_hint = nullptr;
+        bool find_value = false;
 #ifndef NDEBUG
         Key this_key;
         Key later_key;
 
         char key_padding[KEY_PADDING];
 #endif
-        Value val;
-        char value_padding[VALUE_PADDING];
+//        Value val;
+        Slice val;
+//        char* val[kMaxAttributeLength];
+//        size_t val_size;
+//        char value_padding[VALUE_PADDING];
 
     };
 
@@ -347,7 +353,7 @@ namespace DSMEngine{
     template<typename TKey, typename Value>
     class LeafPage {
     public:
-        constexpr static int kLeafCardinality = (kLeafPageSize - sizeof(Header<TKey>) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) / sizeof(LeafEntry<TKey, Value>);
+//        constexpr static int kLeafCardinality = (kLeafPageSize - sizeof(Header<TKey>) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) / sizeof(LeafEntry<TKey, Value>);
         Local_Meta local_lock_meta;
         // if busy we will not cache it in cache, switch back to the Naive
         alignas(8) uint64_t global_lock = 0;
@@ -355,9 +361,11 @@ namespace DSMEngine{
         uint8_t busy;
         uint8_t front_version;
         Header<TKey> hdr;
-        LeafEntry<TKey, Value> records[kLeafCardinality] = {};
-//        char data_[1];// The data segment is beyond this class.
-
+#ifdef DYNAMIC_ANALYSE_PAGE
+        char data_[1];// The data segment is beyond this class.
+#else
+                LeafEntry<TKey, Value> records[kLeafCardinality] = {};
+#endif
 //  uint8_t padding[LeafPagePadding];
 //        uint8_t rear_version;
 
@@ -407,7 +415,7 @@ namespace DSMEngine{
 //        }
         void leaf_page_search(const TKey &k, SearchResult <TKey, Value> &result, ibv_mr local_mr_copied,
                               GlobalAddress g_page_ptr, RecordSchema *record_scheme);
-        bool leaf_page_store(const TKey &k, const Value &v, int &cnt, int &empty_index, char *&update_addr);
+        bool leaf_page_store(const TKey &k, const Slice &v, int &cnt, RecordSchema *record_scheme);
 
     };
 #else
@@ -487,8 +495,8 @@ namespace DSMEngine{
             return false;
         }
 
-        Key highest_buffer = 0;
-        highest_buffer = hdr.highest;
+//        Key highest_buffer = 0;
+//        highest_buffer = hdr.highest;
         // optimistically latch free.
         //TODO (potential bug) what will happen if the record version is not consistent?
 
@@ -543,9 +551,11 @@ namespace DSMEngine{
         uint16_t left = 0;
         uint16_t right = hdr.last_index;
         uint16_t mid = 0;
+        // THe binary search algorithm below will stop at the largest value that smaller than the target key.
+        // tHE pointer after a split key is for [splitkey, next splitkey). So the binary search is correct.
         while (left < right) {
             mid = (left + right + 1) / 2;
-
+            //TODO: extract the condition of equal into another if branch, just like what I did for internal store.
             if (k >= records[mid].key) {
                 // Key at "mid" is smaller than "target".  Therefore all
                 // blocks before "mid" are uninteresting.
@@ -612,12 +622,18 @@ namespace DSMEngine{
                     right = mid - 1;
                 }else{
                     records[mid].ptr = value;
-                    is_update == true;
+                    is_update = true;
 
                 }
             }
-            insert_index = left +1;
             assert(left == right);
+            if (BOOST_LIKELY(k!=records[left].key)){
+                insert_index = left +1;
+            }else{
+                records[left].ptr = value;
+                is_update = true;
+            }
+
 
         }
 
@@ -695,13 +711,76 @@ namespace DSMEngine{
     }
 
 #ifdef CACHECOHERENCEPROTOCOL
-
+    //TODO: make it ordered and ty not use the Sherman write amplification optimization.
     template<class Key, class Value>
     void LeafPage<Key,Value>::leaf_page_search(const Key &k, SearchResult <Key, Value> &result, ibv_mr local_mr_copied,
                                                GlobalAddress g_page_ptr, RecordSchema *record_scheme) {
-//        records =
-//        data_
-//    re_read:
+
+#ifdef DYNAMIC_ANALYSE_PAGE
+        int kLeafCardinality = record_scheme->GetLeafCardi();
+        int tuple_length = record_scheme->GetSchemaSize();
+        char* tuple_start = data_;
+        uint16_t left = 0;
+        uint16_t right = hdr.last_index;
+        uint16_t mid = 0;
+        while (left < right) {
+            mid = (left + right + 1) / 2;
+            tuple_start = data_ + mid*tuple_length;
+            auto r = Record(record_scheme,tuple_start);
+            Key temp_key;
+            r.GetPrimaryKey(&temp_key);
+            if (k > temp_key) {
+                // Key at "mid" is smaller than "target".  Therefore all
+                // blocks before "mid" are uninteresting.
+                left = mid;
+            } else if (k > temp_key) {
+                // Key at "mid" is >= "target".  Therefore all blocks at or
+                // after "mid" are uninteresting.
+                right = mid - 1;
+            } else{
+                //Find the value.
+                memcpy((void*)result.val.data(),r.data_ptr_, r.GetRecordSize());
+                result.find_value = true;
+                return;
+            }
+        }
+        assert(right == left);
+        tuple_start = data_ + right*tuple_length;
+        auto r = Record(record_scheme,tuple_start);
+        Key temp_key;
+        r.GetPrimaryKey(&temp_key);
+        if (BOOST_UNLIKELY(k == temp_key)){
+            memcpy((void*)result.val.data(),r.data_ptr_, r.GetRecordSize());
+            result.find_value = true;
+        }
+        return;
+
+
+//        for (int i = 0; i < kLeafCardinality; ++i) {
+//            tuple_start = data_ + i*tuple_length;
+//
+//            auto r = Record(record_scheme,tuple_start);
+//            Key temp_key;
+//            r.GetPrimaryKey(&temp_key);
+//            if (temp_key == k && temp_key != kValueNull<Key> ) {
+//                assert(result.val.size() == r.GetRecordSize());
+//                memcpy(result.val.data(),r.data_ptr_, r.GetRecordSize());
+//                result.find_value = true;
+//                asm volatile ("sfence\n" : : );
+//                asm volatile ("lfence\n" : : );
+//                asm volatile ("mfence\n" : : );
+////                uint8_t rear_v = rear_version;
+////                if (front_v!= rear_v)// version checking
+////                    //TODO: reread from the remote side.
+////                    goto re _read;
+//
+////                memcpy(result.value_padding, r.value_padding, VALUE_PADDING);
+////      result.value_padding = r.value_padding;
+//                break;
+//            }
+//        }
+//        result.val = target_value_buff;
+#else
         Value target_value_buff{};
 //        uint8_t front_v = front_version;
         asm volatile ("sfence\n" : : );
@@ -727,17 +806,130 @@ namespace DSMEngine{
             }
         }
         result.val = target_value_buff;
-    }
+#endif
 
-    template<class Key, class Value>
-    bool LeafPage<Key,Value>::leaf_page_store(const Key &k, const Value &v, int &cnt, int &empty_index, char *&update_addr) {
+        //        records =
+//        data_
+//    re_read:
+
+    }
+    // [lowest, highest)
+    template<class TKey, class Value>
+    bool
+    LeafPage<TKey,Value>::leaf_page_store(const TKey &k, const Slice &v, int &cnt,
+                                         RecordSchema *record_scheme) {
 
         // It is problematic to just check whether the value is empty, because it is possible
         // that the buffer is not initialized as 0
-
+#ifdef DYNAMIC_ANALYSE_PAGE
         // TODO: make the key-value stored with order, do not use this unordered page structure.
         //  Or use the key to check whether this holder is empty.
-        front_version++;
+        cnt = hdr.last_index + 1;
+        bool is_update = false;
+        uint16_t insert_index = 0;
+        int kLeafCardinality = record_scheme->GetLeafCardi();
+        int tuple_length = record_scheme->GetSchemaSize();
+        char* tuple_start;
+        tuple_start = data_ + 0*tuple_length;
+
+        auto r = Record(record_scheme,tuple_start);
+        TKey temp_key;
+        r.GetPrimaryKey((char*)&temp_key);
+        if (k < temp_key) {
+            insert_index = 0;
+        }else{
+            uint16_t left = 0;
+            uint16_t right = hdr.last_index;
+            uint16_t mid = 0;
+            while (left < right) {
+                mid = (left + right + 1) / 2;
+                tuple_start = data_ + mid*tuple_length;
+                auto r = Record(record_scheme,tuple_start);
+                TKey temp_key;
+                r.GetPrimaryKey(&temp_key);
+                if (k > temp_key) {
+                    // Key at "mid" is smaller than "target".  Therefore all
+                    // blocks before "mid" are uninteresting.
+                    left = mid;
+                } else if (k > temp_key) {
+                    // Key at "mid" is >= "target".  Therefore all blocks at or
+                    // after "mid" are uninteresting.
+                    right = mid - 1; // why mid -1 rather than mid
+                } else{
+                    //Find the value.
+                    assert(v.size() == r.GetRecordSize());
+                    memcpy(r.data_ptr_,v.data(), r.GetRecordSize());
+                    is_update = true;
+                    return cnt == kLeafCardinality;
+                }
+            }
+            assert(left == right);
+            tuple_start = data_ + left*tuple_length;
+            auto r = Record(record_scheme,tuple_start);
+            TKey temp_key;
+            r.GetPrimaryKey(&temp_key);
+            if (BOOST_LIKELY(k != temp_key )){
+                insert_index = left +1;
+            }else{
+                assert(v.size() == r.GetRecordSize());
+                memcpy(r.data_ptr_,v.data(), r.GetRecordSize());
+                is_update = true;
+                return cnt == kLeafCardinality;
+            }
+
+
+
+
+        }
+
+
+//        for (int i = 0; i < kLeafCardinality; ++i) {
+//
+//            tuple_start = data_ + i*tuple_length;
+//
+//            auto r = Record(record_scheme,tuple_start);
+//            TKey temp_key;
+//            r.GetPrimaryKey(&temp_key);
+//            if (temp_key != kValueNull<TKey>) {
+//                cnt++;
+//                if (temp_key == k) {
+//                    r.ReSetRecord(v.data_reference(), v.size());
+//                    // ADD MORE weight for write.
+////        memcpy(r.value_padding, padding, VALUE_PADDING);
+//
+////                    r.f_version++;
+////                    r.r_version = r.f_version;
+//                    update_addr = (char *)&r;
+//                    break;
+//                }
+//            } else if (empty_index == -1) {
+//                empty_index = i;
+//            }
+//        }
+
+        assert(cnt != kLeafCardinality);
+        assert(!is_update);
+        if (!is_update) { // insert new item
+
+            tuple_start = data_ + insert_index*tuple_length;
+//TODO: Finish the code below.
+            if (insert_index <= hdr.last_index){
+                // Move all the tuples at and after the insert_index,use memmove to avoid undefined behavior for overlapped address.
+                memmove(tuple_start + tuple_length, tuple_start, (hdr.last_index - insert_index+1)*tuple_length);
+                auto r = Record(record_scheme,tuple_start);
+                assert(v.size() == r.GetRecordSize());
+                r.ReSetRecord(v.data_reference(), v.size());
+            }
+
+//    memcpy(r.value_padding, padding, VALUE_PADDING);
+//            r.f_version++;
+//            r.r_version = r.f_version;
+            cnt++;
+            hdr.last_index++;
+        }
+
+        return cnt == kLeafCardinality;
+#else
         for (int i = 0; i < kLeafCardinality; ++i) {
 
             auto &r = records[i];
@@ -779,6 +971,7 @@ namespace DSMEngine{
         }
 
         return cnt == kLeafCardinality;
+#endif
     }
 }
 #else

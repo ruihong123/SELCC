@@ -29,6 +29,7 @@ enum SourceType
 // storage
 const size_t kMaxTableNum = 16;
 const size_t kMaxColumnNum = 32;
+const size_t kMaxAttributeLength = 64;// largest attribute length 64Bytes.
 const size_t kMaxSecondaryIndexNum = 5;
 const uint64_t kHashIndexBucketHeaderNum = 1000007;
 // txn
