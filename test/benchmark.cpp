@@ -331,6 +331,8 @@ int main(int argc, char *argv[]) {
     columns.push_back(new DSMEngine::ColumnInfo("c_id", DSMEngine::ValueType::UINT64));
     columns.push_back(new DSMEngine::ColumnInfo("c_first", DSMEngine::ValueType::VARCHAR, static_cast<size_t>(416)));
     schema_ptr->InsertColumns(columns);
+    size_t column_ids[1] = {0};
+    schema_ptr->SetPrimaryColumns(column_ids,1);
     tree = new DSMEngine::Btr<uint64_t, uint64_t>(rdma_mg, cache_ptr, schema_ptr, 0);
 
 #ifndef BENCH_LOCK
