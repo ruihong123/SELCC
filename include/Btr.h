@@ -3264,7 +3264,8 @@ re_read:
         // TODO: under some situation the lock is not released
         page_buffer = local_mr->addr;
         page = (LeafPage<Key,Value> *)page_buffer;
-
+        //TODO: Create an assert to check the page is not an empty page, except root page.
+//        assert(scheme_ptr->GetPrimary(page->data_));
         assert(page->hdr.level == level);
 //        assert(page->check_consistent());
         path_stack[coro_id][page->hdr.level] = page_addr;
@@ -3424,12 +3425,14 @@ re_read:
 
             auto split_record = Record(scheme_ptr,tuple_start);
             split_record.GetPrimaryKey(&split_key);
+            //TODO： check why the split_record point to an empty record. when I print the page content, it is weird.
+            // It turns out the page is an empty page
+
             assert(split_key > page->hdr.lowest);
             assert(split_key < page->hdr.highest);
 
             for (int i = m; i < cnt; ++i) { // move
                 char* to_be_moved_start = page->data_ + m*tuple_length;
-
 
                 memcpy(to_be_moved_start, sibling->data_, (page->hdr.last_index - m + 1)*tuple_length);
 //                sibling->records[i - m].key = page->records[i].key;
