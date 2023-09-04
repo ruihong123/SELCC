@@ -3436,7 +3436,7 @@ re_read:
             for (int i = m; i < cnt; ++i) { // move
                 char* to_be_moved_start = page->data_ + m*tuple_length;
 
-                memcpy(to_be_moved_start, sibling->data_, (page->hdr.last_index - m + 1)*tuple_length);
+                memcpy(sibling->data_, to_be_moved_start,  (page->hdr.last_index - m + 1)*tuple_length);
 //                sibling->records[i - m].key = page->records[i].key;
 //                sibling->records[i - m].value = page->records[i].value;
 //                page->records[i].key = 0;
