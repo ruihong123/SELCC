@@ -719,7 +719,7 @@ namespace DSMEngine{
 
 #ifdef DYNAMIC_ANALYSE_PAGE
         int kLeafCardinality = record_scheme->GetLeafCardi();
-        int tuple_length = record_scheme->GetSchemaSize();
+        size_t tuple_length = record_scheme->GetSchemaSize();
         char* tuple_start = data_;
         uint16_t left = 0;
         uint16_t right = hdr.last_index;
