@@ -910,13 +910,17 @@ namespace DSMEngine{
 
         assert(cnt != kLeafCardinality);
         assert(!is_update);
-        if (!is_update) { // insert new item
+//        if (!is_update) { // insert new item
 
             tuple_start = data_ + insert_index*tuple_length;
-//TODO: Finish the code below.
             if (insert_index <= hdr.last_index){
                 // Move all the tuples at and after the insert_index,use memmove to avoid undefined behavior for overlapped address.
                 memmove(tuple_start + tuple_length, tuple_start, (hdr.last_index - insert_index+1)*tuple_length);
+                auto r = Record(record_scheme,tuple_start);
+                assert(v.size() == r.GetRecordSize());
+                r.ReSetRecord(v.data_reference(), v.size());
+            }else{
+                assert(insert_index < kLeafCardinality );
                 auto r = Record(record_scheme,tuple_start);
                 assert(v.size() == r.GetRecordSize());
                 r.ReSetRecord(v.data_reference(), v.size());
@@ -927,7 +931,8 @@ namespace DSMEngine{
 //            r.r_version = r.f_version;
             cnt++;
             hdr.last_index++;
-        }
+        assert(hdr.last_index < kLeafCardinality);
+//        }
 
         return cnt == kLeafCardinality;
 #else
