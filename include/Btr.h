@@ -1565,7 +1565,7 @@ class Btr_iter{
             goto next;
         }else{
             if (result.find_value) { // find
-                value_buff = result.val;
+//                value_buff = result.val;
 #ifdef PROCESSANALYSIS
                 if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
                 auto stop = std::chrono::high_resolution_clock::now();
