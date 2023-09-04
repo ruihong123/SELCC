@@ -3366,6 +3366,7 @@ re_read:
 
         assert(k >= page->hdr.lowest);
         assert(k < page->hdr.highest);
+        assert(page->hdr.highest !=0 ||page->hdr.highest == page->hdr.lowest);
 // TODO: Check whether the key is larger than the largest key of this node.
 //  if yes, update the header.
         int cnt = 0;
