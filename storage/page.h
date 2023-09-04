@@ -833,10 +833,10 @@ namespace DSMEngine{
         char* tuple_start;
         tuple_start = data_ + 0*tuple_length;
 
-        auto r = Record(record_scheme,tuple_start);
-        TKey temp_key;
-        r.GetPrimaryKey((char*)&temp_key);
-        if (k < temp_key) {
+        auto r_temp = Record(record_scheme,tuple_start);
+        TKey temp_key1;
+        r_temp.GetPrimaryKey((char*)&temp_key1);
+        if (k < temp_key1) {
             insert_index = 0;
         }else{
             uint16_t left = 0;
