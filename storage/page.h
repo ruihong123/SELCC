@@ -191,13 +191,7 @@ namespace DSMEngine{
             assert(this_page_g_ptr!= GlobalAddress::Null());
             hdr.this_page_g_ptr = this_page_g_ptr;
             local_metadata_init();
-//            front_version = 0;
-//            rear_version = 0;
-//            local_lock_bytes = 0;
-//            current_ticket = 0;
-//            issued_ticket = 0;
 
-//            embedding_lock = 1;
         }
 
         InternalPage(GlobalAddress this_page_g_ptr, uint32_t level = 0) {
@@ -750,7 +744,8 @@ namespace DSMEngine{
         auto r = Record(record_scheme,tuple_start);
         Key temp_key;
         r.GetPrimaryKey(&temp_key);
-        if (BOOST_UNLIKELY(k == temp_key)){
+        if (k == temp_key){
+            assert(result.val.size() == r.GetRecordSize());
             memcpy((void*)result.val.data(),r.data_ptr_, r.GetRecordSize());
             result.find_value = true;
         }

@@ -67,7 +67,7 @@ class InternalPage;
 template<class Key, class Value>
 class LeafPage;
 
-
+//TODO: Remove typename Value from all the template defined below.
 template <typename Key, typename Value>
 class Btr {
 //friend class DSMEngine::InternalPage;
@@ -77,7 +77,7 @@ public:
 
   void insert(const Key &k, const Slice &v, CoroContext *cxt = nullptr,
               int coro_id = 0);
-  bool search(const Key &k, Slice &v, CoroContext *cxt = nullptr,
+  bool search(const Key &k, const Slice &v, CoroContext *cxt = nullptr,
               int coro_id = 0);
   void del(const Key &k, CoroContext *cxt = nullptr, int coro_id = 0);
 
@@ -115,7 +115,7 @@ private:
   static thread_local CoroCall worker[define::kMaxCoro];
   static thread_local CoroCall master;
   static thread_local std::shared_mutex* lock_coupling_memo[define::kMaxLevelOfTree];
-
+  static thread_local SearchResult<Key, Value>* search_result_memo;
   std::vector<LocalLockNode *> local_locks;
 
   Cache * page_cache;
@@ -242,7 +242,8 @@ class Btr_iter{
     thread_local CoroCall Btr<Key,Value>::master;
 //thread_local GlobalAddress path_stack[define::kMaxCoro]
 //                                     [define::kMaxLevelOfTree];
-
+    template <typename Key, typename Value>
+    thread_local SearchResult<Key, Value>* Btr<Key,Value>::search_result_memo = nullptr;
     extern thread_local GlobalAddress path_stack[define::kMaxCoro]
     [define::kMaxLevelOfTree];
     template <typename Key, typename Value>
@@ -1452,11 +1453,14 @@ class Btr_iter{
 //  }
     }
     template <typename Key, typename Value>
-    bool Btr<Key,Value>::search(const Key &k, Slice &value_buff, CoroContext *cxt, int coro_id) {
+    bool Btr<Key,Value>::search(const Key &k, const Slice &value_buff, CoroContext *cxt, int coro_id) {
 //  assert(rdma_mg->is_register());
         ibv_mr* page_hint = nullptr;
         auto root = get_root_ptr(page_hint);
         SearchResult<Key,Value> result = {0};
+//        if(!search_result_memo){
+//            search_result_memo = new SearchResult<Key,Value>();
+//        }
         result.val = value_buff;
 
         GlobalAddress p = root;
@@ -1543,6 +1547,7 @@ class Btr_iter{
 #endif
         leaf_next:// Leaf page search
 
+        assert(result.val.data()!= nullptr);
         if (!leaf_page_search(p, k, result, level, cxt, coro_id)){
             if (path_stack[coro_id][1] != GlobalAddress::Null()){
                 p = path_stack[coro_id][1];
@@ -1588,7 +1593,6 @@ class Btr_iter{
             TimePrintCounter[RDMA_Manager::thread_id]++;
         }
 #endif
-
             return false; // not found
         }
 
