@@ -3374,7 +3374,7 @@ re_read:
 //        char *update_addr = nullptr;
 
         bool need_split = page->leaf_page_store(k, v, cnt,  scheme_ptr);
-        assert(page->data_[0]!=0);
+        assert(page->hdr.last_index== 0 || page->data_[0]!=0);
         if (!need_split) {
             ibv_mr target_mr = *local_mr;
 //            int offset = (update_addr - (char *) page);
