@@ -1581,6 +1581,7 @@ class Btr_iter{
             }
             if (result.slibing != GlobalAddress::Null()) { // turn right
                 p = result.slibing;
+                assert(result.val.data()!= nullptr);
                 goto leaf_next;
             }
 #ifdef PROCESSANALYSIS
@@ -1595,24 +1596,6 @@ class Btr_iter{
 #endif
             return false; // not found
         }
-
-
-//    if (result.is_leaf) {
-//        if (result.val != kValueNull) { // find
-//            v = result.val;
-//
-//            return true;
-//        }
-//        if (result.slibing != GlobalAddress::Null()) { // turn right
-//            p = result.slibing;
-//            goto next;
-//        }
-//        return false; // not found
-//    } else {        // internal
-//        p = result.slibing != GlobalAddress::Null() ? result.slibing
-//                                                    : result.level;
-//        goto next;
-//    }
     }
 
 // TODO: Need Fix range query
@@ -2276,6 +2259,7 @@ class Btr_iter{
     template <typename Key, typename Value>
     bool Btr<Key,Value>::leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key, Value> &result, int level, CoroContext *cxt,
                                           int coro_id) {
+        assert(result.val.data()!= nullptr);
 #ifdef PROCESSANALYSIS
         auto start = std::chrono::high_resolution_clock::now();
 #endif
