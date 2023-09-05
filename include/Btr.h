@@ -2466,6 +2466,7 @@ class Btr_iter{
 //    start = std::chrono::high_resolution_clock::now();
 //#endif
         page->leaf_page_search(k, result, *mr, page_addr, scheme_ptr);
+        assert(result.val.data()!= nullptr);
 //#ifdef PROCESSANALYSIS
 //    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
 //        auto stop = std::chrono::high_resolution_clock::now();
