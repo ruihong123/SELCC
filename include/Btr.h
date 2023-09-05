@@ -1896,7 +1896,7 @@ class Btr_iter{
 //            goto local_reread;
 //        }
 #endif
-                memset(&result, 0, sizeof(result));
+                result.Reset();
                 result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
                 result.level = header->level;
 #ifndef NDEBUG
