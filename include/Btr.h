@@ -2223,10 +2223,11 @@ class Btr_iter{
         // The second template parameter of SearchResult shall not influence the space oganization, so we can
         // dynamic cast the types.
         assert(STRUCT_OFFSET(SearchResult<Key COMMA GlobalAddress>, later_key) == STRUCT_OFFSET(SearchResult<Key COMMA Value>, later_key));
-
+        assert(result.val.data() != nullptr);
         if (!page->internal_page_search(k, &result, current_ticket)){
             goto local_reread;
         }
+        assert(result.val.data() != nullptr);
 //        //TODO: delete the validation code below
 //        if (isroot){
 //            printf("Root node next level pointer number is %d\n", page->hdr.last_index);
