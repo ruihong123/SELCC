@@ -1815,7 +1815,8 @@ class Btr_iter{
                 // if this page mr is in-use and is the local cache for page_addr
                 skip_cache = true;
                 page = (InternalPage<Key> *)page_buffer;
-                memset(&result, 0, sizeof(result));
+//                memset(&result, 0, sizeof(result));
+                result.Reset();
                 result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
                 result.level = header->level;
 #ifndef NDEBUG
@@ -2537,7 +2538,8 @@ re_read:
 ////          TimePrintCounter[RDMA_Manager::thread_id]++;
 //    }
 //#endif
-    memset(&result, 0, sizeof(result));
+//    memset(&result, 0, sizeof(result));
+    result.Reset();
     result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
     result.level = header->level;
 //  if(!result.is_leaf)
