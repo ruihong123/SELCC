@@ -1232,8 +1232,8 @@ class Btr_iter{
         auto root = get_root_ptr(page_hint);
         assert(root != GlobalAddress::Null());
 //  std::cout << "The root now is " << root << std::endl;
-        SearchResult<Key,Value> result{};
-        memset(&result, 0, sizeof(SearchResult<Key, Value>));
+        SearchResult<Key,Value> result{0};
+//        memset(&result, 0, sizeof(SearchResult<Key, Value>));
         GlobalAddress p = root;
         bool isroot = true;
         // this is root is to help the tree to refresh the root node because the
