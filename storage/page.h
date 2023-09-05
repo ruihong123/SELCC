@@ -33,7 +33,18 @@ namespace DSMEngine{
 //        char* val[kMaxAttributeLength];
 //        size_t val_size;
 //        char value_padding[VALUE_PADDING];
-
+        void Reset(){
+            is_leaf = false;
+            level = 0;
+            slibing = GlobalAddress::Null();
+            next_level = GlobalAddress::Null();
+            page_hint = nullptr;
+            find_value = false;
+#ifndef NDEBUG
+            this_key = 0;
+            later_key = 0;
+#endif
+        }
     };
 
     template<typename T>

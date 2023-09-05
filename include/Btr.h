@@ -1981,7 +1981,7 @@ class Btr_iter{
 //        DEBUG_arg("cache miss and RDMA read %p", page_addr);
                 //
                 assert(page->hdr.this_page_g_ptr = page_addr);
-                memset(&result, 0, sizeof(result));
+                result.Reset();
                 result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
                 result.level = header->level;
                 level = result.level;
@@ -2375,8 +2375,8 @@ class Btr_iter{
         page_buffer = mr->addr;
         header = (Header<Key> *) ((char*)page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
         page = (LeafPage<Key,Value> *)page_buffer;
-        memset(&result, 0, sizeof(result));
-        path_stack[coro_id][result.level] = page_addr;
+        result.Reset();
+
 
 //        page->global_lock = 1;
 
@@ -2389,7 +2389,7 @@ class Btr_iter{
         result.is_leaf = header->level == 0;
         result.level = header->level;
         level = result.level;
-
+        path_stack[coro_id][result.level] = page_addr;
         assert(result.is_leaf );
         assert(result.level == 0 );
         assert(page->hdr.level < 100);
