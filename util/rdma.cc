@@ -4,6 +4,7 @@
 #include "Common.h"
 #include "storage/page.h"
 #include "HugePageAlloc.h"
+#include "DSMEngine/cache.h"
 //#include "port/port_posix.h"
 //#include "DSMEngine/env.h"
 #ifdef RDMAPROCESSANALYSIS

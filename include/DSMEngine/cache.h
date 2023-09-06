@@ -25,8 +25,11 @@
 #include <shared_mutex>
 
 #include "Config.h"
-namespace DSMEngine {
+#include "util/rdma.h"
 
+namespace DSMEngine {
+//class RDMA_Manager;
+//class ibv_mr;
 
 
     // LRU table_cache implementation
@@ -56,7 +59,6 @@ class DSMEngine_EXPORT Cache;
 // Create a new table_cache with a fixed size capacity.  This implementation
 // of Cache uses a least-recently-used eviction policy.
 DSMEngine_EXPORT Cache* NewLRUCache(size_t capacity);
-
 class DSMEngine_EXPORT Cache {
  public:
   Cache() = default;
@@ -71,15 +73,11 @@ class DSMEngine_EXPORT Cache {
         std::atomic<int> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
         bool keep_the_mr = false;
         std::shared_mutex rw_mtx;
+        RDMA_Manager* rdma_mg = nullptr;
         void (*deleter)(Cache::Handle* handle);
-        ~Handle(){
-#ifndef NDEBUG
-//            if (gptr.offset < 9480863232){
-//                printf("Handle of page %lu is being deleted\n", gptr.offset);
-//            }
-#endif
-        }
-
+        ~Handle(){}
+        void reader_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
+        void reader_post_access(GlobalAddress lock_addr);
     };
   Cache(const Cache&) = delete;
   Cache& operator=(const Cache&) = delete;

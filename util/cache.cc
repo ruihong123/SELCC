@@ -7,13 +7,14 @@
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
-#include <infiniband/verbs.h>
+//#include <infiniband/verbs.h>
 
 #include "port/port.h"
 #include "port/thread_annotations.h"
 #include "util/hash.h"
 #include "util/mutexlock.h"
 #include "HugePageAlloc.h"
+#include "util/rdma.h"
 // DO not enable the two at the same time otherwise there will be a bug.
 #define BUFFER_HANDOVER
 //#define EARLY_LOCK_RELEASE
@@ -713,5 +714,85 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         data = (int64_t) malloc(size * define::GB);
     }
 }
+
+
+
+
+    void Cache::Handle::reader_pre_access(GlobalAddress page_addr, size_t page_size,
+                                          GlobalAddress lock_addr, ibv_mr*& mr) {
+        assert(page_addr == gptr);
+        if (rdma_mg == nullptr){
+            rdma_mg = RDMA_Manager::Get_Instance(nullptr);
+        }
+
+        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+//    RDMA_Manager::Get_Instance();
+        if (strategy == 1){
+            rw_mtx.lock_shared();
+        }
+//            std::shared_lock<std::shared_mutex> r_l(handle->rw_mtx);
+        // First check whether the strategy is 1 and read or write lock is on, if so do nothing. If not, fetch the page
+        // and read lock the page
+        if(strategy.load() == 1){
+            //TODO: make the leaf_node_search the same as leaf_node_store?
+            // No, because the read here has a optimiaziton for the double check locking
+
+            if (remote_lock_status.load() == 0){
+                cache_miss[RDMA_Manager::thread_id][0]++;
+                // upgrade the lock the write lock.
+                //Can we use the std::call_once here?
+                rw_mtx.unlock_shared();
+//                std::unique_lock<std::shared_mutex> w_l(handle->rw_mtx);
+                rw_mtx.lock();
+                if (strategy.load() == 1 && remote_lock_status.load() == 0){
+                    if(value) {
+                        mr = (ibv_mr*)value;
+
+
+                    }else{
+                        mr = new ibv_mr{};
+                        rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
+
+//        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
+//               page_addr, mr->addr, HashSlice(page_id), level);
+
+                        //TODO: this is not guarantted to be atomic, mulitple reader can cause memory leak
+                        value = mr;
+
+                    }
+                    rdma_mg->global_Rlock_and_read_page(mr, page_addr, page_size, lock_addr, cas_mr);
+                    remote_lock_status.store(1);
+                }
+
+                rw_mtx.unlock();
+                rw_mtx.lock_shared();
+            }else{
+                cache_hit[RDMA_Manager::thread_id][0]++;
+            }
+            mr = (ibv_mr*)value;
+
+
+        }else{
+            assert(strategy.load() == 2);
+            cache_miss[RDMA_Manager::thread_id][0]++;
+            // TODO: acquire the lock and read to local buffer and remeber to release in the end.
+            mr = rdma_mg->Get_local_read_mr();
+            //
+        }
+    }
+
+    void Cache::Handle::reader_post_access(GlobalAddress lock_addr) {
+        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+
+        if (strategy == 2){
+            rdma_mg->global_RUnlock(lock_addr, cas_mr);
+            //TODO: No need to change the remote lock status. delete the line below.
+            remote_lock_status.store(0);
+        }
+//        assert(handle->refs.load() == 2);
+        if (strategy == 1){
+            rw_mtx.unlock_shared();
+        }
+    }
 
 }  // namespace DSMEngine

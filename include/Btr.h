@@ -2282,6 +2282,7 @@ class Btr_iter{
         assert(level == 0);
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
         handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+        assert(handle!= nullptr);
 #ifdef PROCESSANALYSIS
         if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
             auto stop = std::chrono::high_resolution_clock::now();
@@ -2297,80 +2298,62 @@ class Btr_iter{
         //  and let the function to figure out the situation.
 
 
-
-#ifndef NDEBUG
-        int rdma_refetch_times = 0;
-#endif
 //        if (handle != nullptr){
-        assert(handle!= nullptr);
-        std::shared_lock<std::shared_mutex> r_l(handle->rw_mtx);
-
-        //TODO; put the mutex inside the cache. Can we guarantee the correctness of strategy.
-
-        // First check whether the strategy is 1 and read or write lock is on, if so do nothing. If not, fetch the page
-        // and read lock the page
-        if(handle->strategy.load() == 1){
-            //TODO: make the leaf_node_search the same as leaf_node_store?
-            // No, because the read here has a optimiaziton for the double check locking
-
-            if (handle->remote_lock_status.load() == 0){
-                cache_miss[RDMA_Manager::thread_id][0]++;
-                // upgrade the lock the write lock.
-                //Can we use the std::call_once here?
-                r_l.unlock();
-                std::unique_lock<std::shared_mutex> w_l(handle->rw_mtx);
-
-                if (handle->strategy.load() == 1 && handle->remote_lock_status.load() == 0){
-                    if(handle->value) {
-                        mr = (ibv_mr*)handle->value;
-
-
-                    }else{
-                        mr = new ibv_mr{};
-                        rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
-
-//        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
-//               page_addr, mr->addr, HashSlice(page_id), level);
-
-                        //TODO: this is not guarantted to be atomic, mulitple reader can cause memory leak
-                        handle->value = mr;
-
-                    }
-                    global_Rlock_and_read_page(mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
-                                               1, cxt, coro_id, handle);
-//                handle->remote_lock_status.store(1);
-                }
-
-                w_l.unlock();
-                r_l.lock();
-            }else{
-                cache_hit[RDMA_Manager::thread_id][0]++;
-            }
-            mr = (ibv_mr*)handle->value;
-
-
-        }else{
-            assert(handle->strategy.load() == 2);
-            cache_miss[RDMA_Manager::thread_id][0]++;
-            // TODO: acquire the lock and read to local buffer and remeber to release in the end.
-            mr = rdma_mg->Get_local_read_mr();
-            //
-        }
-//        if (handle->remote_lock_status.load() != 0){
-//            cache_hit[RDMA_Manager::thread_id][0]++;
-//            assert(handle->value != nullptr);
-//            mr = (ibv_mr*)handle->value;
-//        }
-
-
-//        else{
-//            if (handle->strategy.load() == 1)
-//            assert(handle->remote_lock_status == 0);
-//            // if the strategy is 2 then the page actually should not cached in the page.
-//            assert(!handle->value);
-//            //TODO: access it over thread local mr and do not cache it.
+        handle->reader_pre_access(page_addr, kLeafPageSize, lock_addr, mr);
+//        std::shared_lock<std::shared_mutex> r_l(handle->rw_mtx);
 //
+//        //TODO; put the mutex inside the cache. Can we guarantee the correctness of strategy.
+//
+//        // First check whether the strategy is 1 and read or write lock is on, if so do nothing. If not, fetch the page
+//        // and read lock the page
+//        if(handle->strategy.load() == 1){
+//            //TODO: make the leaf_node_search the same as leaf_node_store?
+//            // No, because the read here has a optimiaziton for the double check locking
+//
+//            if (handle->remote_lock_status.load() == 0){
+//                cache_miss[RDMA_Manager::thread_id][0]++;
+//                // upgrade the lock the write lock.
+//                //Can we use the std::call_once here?
+//                r_l.unlock();
+//                std::unique_lock<std::shared_mutex> w_l(handle->rw_mtx);
+//
+//                if (handle->strategy.load() == 1 && handle->remote_lock_status.load() == 0){
+//                    if(handle->value) {
+//                        mr = (ibv_mr*)handle->value;
+//
+//
+//                    }else{
+//                        mr = new ibv_mr{};
+//                        rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
+//
+////        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
+////               page_addr, mr->addr, HashSlice(page_id), level);
+//
+//                        //TODO: this is not guarantted to be atomic, mulitple reader can cause memory leak
+//                        handle->value = mr;
+//
+//                    }
+//                    global_Rlock_and_read_page(mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
+//                                               1, cxt, coro_id, handle);
+////                handle->remote_lock_status.store(1);
+//                }
+//
+//                w_l.unlock();
+//                r_l.lock();
+//            }else{
+//                cache_hit[RDMA_Manager::thread_id][0]++;
+//            }
+//            mr = (ibv_mr*)handle->value;
+//
+//
+//        }else{
+//            assert(handle->strategy.load() == 2);
+//            cache_miss[RDMA_Manager::thread_id][0]++;
+//            // TODO: acquire the lock and read to local buffer and remeber to release in the end.
+//            mr = rdma_mg->Get_local_read_mr();
+//            //
 //        }
+//
 
         //TODO: how to make the optimistic latch free within this funciton
 
@@ -2485,16 +2468,13 @@ class Btr_iter{
 //                    handle->remote_lock_status.store(0);
         }
         assert(handle);
-//        assert(handle->refs.load() == 2);
         page_cache->Release(handle);
-
         return true;
         returnfalse:
         if (handle->strategy == 2){
             global_RUnlock(lock_addr, cas_mr, cxt, coro_id, handle);
 //                    handle->remote_lock_status.store(0);
         }
-//        assert(handle->refs.load() == 2);
         assert(handle);
         page_cache->Release(handle);
         return false;
