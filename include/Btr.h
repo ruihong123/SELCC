@@ -1233,6 +1233,9 @@ class Btr_iter{
         assert(root != GlobalAddress::Null());
 //  std::cout << "The root now is " << root << std::endl;
         SearchResult<Key,Value> result{0};
+        char result_buff[16];
+        Slice result_slice = Slice(result_buff,16);
+        result.val = &result_slice;
 //        memset(&result, 0, sizeof(SearchResult<Key, Value>));
         GlobalAddress p = root;
         bool isroot = true;
