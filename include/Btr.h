@@ -2464,20 +2464,22 @@ class Btr_iter{
 //          TimePrintCounter[RDMA_Manager::thread_id]++;
 //    }
 //#endif
-        returntrue:
-        if (handle->strategy == 2){
-            global_RUnlock(lock_addr, cas_mr, cxt, coro_id, handle);
-//                    handle->remote_lock_status.store(0);
-        }
+    returntrue:
+//        if (handle->strategy == 2){
+//            global_RUnlock(lock_addr, cas_mr, cxt, coro_id, handle);
+////                    handle->remote_lock_status.store(0);
+//        }
         assert(handle);
+        handle->reader_post_access(lock_addr);
         page_cache->Release(handle);
         return true;
-        returnfalse:
-        if (handle->strategy == 2){
-            global_RUnlock(lock_addr, cas_mr, cxt, coro_id, handle);
-//                    handle->remote_lock_status.store(0);
-        }
+    returnfalse:
+//        if (handle->strategy == 2){
+//            global_RUnlock(lock_addr, cas_mr, cxt, coro_id, handle);
+////                    handle->remote_lock_status.store(0);
+//        }
         assert(handle);
+        handle->reader_post_access(lock_addr);
         page_cache->Release(handle);
         return false;
 
