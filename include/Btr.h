@@ -1253,8 +1253,10 @@ class Btr_iter{
 //#endif
 next: // Internal_and_Leaf page search
 //#ifndef NDEBUG
+        printf("this result level is %d\n", result.level);
+
         if (next_times == 1000){
-            printf("this result level is %d\n", result.level);
+//            printf("this result level is %d\n", result.level);
             assert(false);
         }
 
@@ -2108,7 +2110,10 @@ next: // Internal_and_Leaf page search
 
         if (k >= page->hdr.highest) { // should turn right
 //            printf("should turn right ");
-            // TODO: if this is the root node then we need to refresh the new root.
+            // (1) If this node is the root node then the g_root_ptr is invalidated.
+            // (2) if this node is from the level = (the root level) - 1 then the cached root page should be invalidated.
+            // Note that the root page is not stored in LRU cache.
+            // (3) If other level, then the upper level page in the LRU cache should be invalidated.
             if (isroot){
                 // invalidate the root. Maybe we can omit the mtx here?
                 std::unique_lock<std::mutex> l(root_mtx);
@@ -2116,25 +2121,30 @@ next: // Internal_and_Leaf page search
                     g_root_ptr.store(GlobalAddress::Null());
                 }
 
-            }else if(path_stack[coro_id][result.level+1] != GlobalAddress::Null()){
+            }else {
                 // It is possible that a staled root will result in a reread at the same level and then the upper level is null
                 // Question: why none root tranverser will comes to here? If a stale root initial a sibling page read, then the k should
                 // not larger than the highest this time.
                 //TODO(potential bug): we need to avoid this erase because it is expensive, we can barely
                 // mark the page invalidated within the page and then let the next thread access this page to refresh this page.
 //          DEBUG_arg("Erase the page 1 %p\n", path_stack[coro_id][result.level+1]);
-                Slice upper_node_page_id((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress));
-                // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
-                // the page to check whether the page has been evicted.
-                Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
-                if(upper_layer_handle){
-                    InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)upper_layer_handle->value)->addr;
+                if (UNLIKELY(level+1 == tree_height.load())){
+                    InternalPage<Key>* upper_page = (InternalPage<Key>*)page_hint->addr;
                     make_page_invalidated(upper_page);
+                }else{
+                    assert(path_stack[coro_id][result.level+1] != GlobalAddress::Null());
+                    Slice upper_node_page_id((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress));
+                    // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+                    // the page to check whether the page has been evicted.
+                    Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+                    if(upper_layer_handle){
+                        InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)upper_layer_handle->value)->addr;
+                        make_page_invalidated(upper_page);
 
-                    page_cache->Release(upper_layer_handle);
-
-
+                        page_cache->Release(upper_layer_handle);
+                    }
                 }
+
 
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
             }
@@ -2184,21 +2194,29 @@ next: // Internal_and_Leaf page search
         }
 
         if (k < page->hdr.lowest) {
-            if (isroot){
+            if (isroot && UNLIKELY(level+1 == tree_height.load())){
                 // invalidate the root.
-                g_root_ptr = GlobalAddress::Null();
+                std::unique_lock<std::mutex> l(root_mtx);
+                if (page_addr == g_root_ptr.load()){
+                    g_root_ptr.store(GlobalAddress::Null());
+                }
             }else{
-//          DEBUG_arg("Erase the page 2 %p\n", path_stack[coro_id][result.level+1]);
-                assert(path_stack[coro_id][result.level+1] != GlobalAddress::Null());
-                Slice upper_node_page_id((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress));
-                // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
-                // the page to check whether the page has been evicted.
-                Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
-                if(upper_layer_handle){
-                    InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)upper_layer_handle->value)->addr;
-
+                if (UNLIKELY(level+1 == tree_height.load())){
+                    InternalPage<Key>* upper_page = (InternalPage<Key>*)page_hint->addr;
                     make_page_invalidated(upper_page);
-                    page_cache->Release(upper_layer_handle);
+                }else {
+//          DEBUG_arg("Erase the page 2 %p\n", path_stack[coro_id][result.level+1]);
+                    assert(path_stack[coro_id][result.level + 1] != GlobalAddress::Null());
+                    Slice upper_node_page_id((char *) &path_stack[coro_id][result.level + 1], sizeof(GlobalAddress));
+                    // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+                    // the page to check whether the page has been evicted.
+                    Cache::Handle *upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+                    if (upper_layer_handle) {
+                        InternalPage<Key> *upper_page = (InternalPage<Key> *) ((ibv_mr *) upper_layer_handle->value)->addr;
+
+                        make_page_invalidated(upper_page);
+                        page_cache->Release(upper_layer_handle);
+                    }
                 }
 //          page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
             }
@@ -2809,8 +2827,18 @@ re_read:
         // Why this node can not be the right most node
         if (k >= page->hdr.highest ) {
             // TODO: No need for node invalidation when inserting things because the tree tranversing is enough for invalidation (Erase)
+            if(UNLIKELY(level == tree_height.load())){
+                std::unique_lock<std::mutex> l(root_mtx);
+                if (page_addr == g_root_ptr.load()){
+                    g_root_ptr.store(GlobalAddress::Null());
+                }
 
-            if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
+            }else if (UNLIKELY(level + 1 ==  tree_height.load())){
+                ibv_mr* rootnode_hint = cached_root_page_mr.load();
+                InternalPage<Key>* upper_page = (InternalPage<Key>*)rootnode_hint->addr;
+                make_page_invalidated(upper_page);
+            }else{
+                assert(path_stack[coro_id][level+1]!= GlobalAddress::Null());
 //            DEBUG_arg("Erase the page 7 %p\n", path_stack[coro_id][level+1]);
                 Slice upper_node_page_id((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress));
                 // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
@@ -2875,8 +2903,17 @@ re_read:
         if (k < page->hdr.lowest ) {
             // if key is smaller than the lower bound, the insert has to be restart from the
             // upper level. because the sibling pointer only points to larger one.
-
-            if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
+            if(UNLIKELY(level == tree_height.load())){
+                std::unique_lock<std::mutex> l(root_mtx);
+                if (page_addr == g_root_ptr.load()){
+                    g_root_ptr.store(GlobalAddress::Null());
+                }
+            }else if (UNLIKELY(level + 1 ==  tree_height.load())) {
+                ibv_mr *rootnode_hint = cached_root_page_mr.load();
+                InternalPage<Key> *upper_page = (InternalPage<Key> *) rootnode_hint->addr;
+                make_page_invalidated(upper_page);
+            }else{
+                assert(path_stack[coro_id][level+1]!= GlobalAddress::Null());
                 Slice upper_node_page_id((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress));
                 // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
                 //  the page to check whether the page has been evicted.
