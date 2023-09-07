@@ -1251,9 +1251,10 @@ class Btr_iter{
 //#ifndef NDEBUG
         int next_times = 0;
 //#endif
-        next: // Internal_and_Leaf page search
+next: // Internal_and_Leaf page search
 //#ifndef NDEBUG
         if (next_times == 1000){
+            printf("this result level is %d\n", result.level);
             assert(false);
         }
 
