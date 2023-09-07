@@ -741,7 +741,7 @@ void RDMA_Manager::Client_Set_Up_Resources() {
     printf("connect to node id %d", target_node_id);
     if (res->sock_map[target_node_id] < 0) {
       fprintf(stderr, "failed to establish TCP connection to server %s, port %d\n",
-              rdma_config.server_name, rdma_config.tcp_port);
+              memory_nodes[target_node_id].c_str(), rdma_config.tcp_port);
     }
 //    assert(memory_nodes.size() == 2);
     //TODO: use mulitple thread to initialize the queue pairs.
