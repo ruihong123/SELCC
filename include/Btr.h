@@ -2129,7 +2129,7 @@ next: // Internal_and_Leaf page search
                 // mark the page invalidated within the page and then let the next thread access this page to refresh this page.
 //          DEBUG_arg("Erase the page 1 %p\n", path_stack[coro_id][result.level+1]);
                 if (UNLIKELY(level+1 == tree_height.load())){
-                    InternalPage<Key>* upper_page = (InternalPage<Key>*)page_hint->addr;
+                    InternalPage<Key>* upper_page = (InternalPage<Key>*)cached_root_page_mr.load()->addr;
                     make_page_invalidated(upper_page);
                 }else{
                     assert(path_stack[coro_id][result.level+1] != GlobalAddress::Null());
@@ -2202,7 +2202,7 @@ next: // Internal_and_Leaf page search
                 }
             }else{
                 if (UNLIKELY(level+1 == tree_height.load())){
-                    InternalPage<Key>* upper_page = (InternalPage<Key>*)page_hint->addr;
+                    InternalPage<Key>* upper_page = (InternalPage<Key>*)cached_root_page_mr.load()->addr;
                     make_page_invalidated(upper_page);
                 }else {
 //          DEBUG_arg("Erase the page 2 %p\n", path_stack[coro_id][result.level+1]);
