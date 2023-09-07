@@ -1253,7 +1253,7 @@ class Btr_iter{
 //#endif
 next: // Internal_and_Leaf page search
 //#ifndef NDEBUG
-        printf("this result level is %d\n", result.level);
+//        printf("this result level is %d\n", result.level);
 
         if (next_times == 1000){
 //            printf("this result level is %d\n", result.level);
