@@ -78,6 +78,9 @@ class DSMEngine_EXPORT Cache {
         ~Handle(){}
         void reader_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
         void reader_post_access(GlobalAddress lock_addr);
+        void writer_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
+        void writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
+        bool global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt = nullptr, int coro_id = 0);
     };
   Cache(const Cache&) = delete;
   Cache& operator=(const Cache&) = delete;

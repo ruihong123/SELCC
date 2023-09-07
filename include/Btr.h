@@ -3171,64 +3171,62 @@ re_read:
 
         handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
         assert(handle!= nullptr);
-        std::unique_lock<std::shared_mutex> l(handle->rw_mtx);
-//        assert(handle->refs.load() == 2);
-
-        //TODO: Can I early release the local lock if the strategy is 1
-
-        if(handle->strategy.load() == 1){
-#ifndef NDEBUG
-            bool hint_of_existence = false;
-#endif
-            if(handle->value)
-            {
-#ifndef NDEBUG
-                hint_of_existence = true;
-#endif
-                // This means the page has already be in the cache.
-                local_mr = (ibv_mr*)handle->value;
-                //TODO: delete the line below.
-//                assert(handle->remote_lock_status != 0);
-            }else{
-#ifndef NDEBUG
-                hint_of_existence = false;
-#endif
-                // This means the page was not in the cache before
-                local_mr = new ibv_mr{};
-                rdma_mg->Allocate_Local_RDMA_Slot(*local_mr, Internal_and_Leaf);
-                assert(handle->remote_lock_status == 0);
-
-//        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
-//               page_addr, mr->addr, HashSlice(page_id), level);
-                handle->value = local_mr;
-
-            }
-            // If the remote read lock is not on, lock it
-            if (handle->remote_lock_status == 0){
-                global_Wlock_and_read_page_with_INVALID(local_mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
-                                                        1, cxt, coro_id, handle);
-//                handle->remote_lock_status.store(2);
-
-            }else if (handle->remote_lock_status == 1){
-                if (!global_Rlock_update(lock_addr, cas_mr, cxt, coro_id,handle)){
+        handle->writer_pre_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+//        std::unique_lock<std::shared_mutex> l(handle->rw_mtx);
+////        assert(handle->refs.load() == 2);
+//        if(handle->strategy.load() == 1){
+//#ifndef NDEBUG
+//            bool hint_of_existence = false;
+//#endif
+//            if(handle->value)
+//            {
+//#ifndef NDEBUG
+//                hint_of_existence = true;
+//#endif
+//                // This means the page has already be in the cache.
+//                local_mr = (ibv_mr*)handle->value;
+//                //TODO: delete the line below.
+////                assert(handle->remote_lock_status != 0);
+//            }else{
+//#ifndef NDEBUG
+//                hint_of_existence = false;
+//#endif
+//                // This means the page was not in the cache before
+//                local_mr = new ibv_mr{};
+//                rdma_mg->Allocate_Local_RDMA_Slot(*local_mr, Internal_and_Leaf);
+//                assert(handle->remote_lock_status == 0);
 //
-                    //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
-                    // is problematice if we want to upgrade the lock during a transaction.
-                    // May be we can take advantage of the lock starvation bit to solve this problem.
-                    //the Read lock has been released, we can directly acquire the write lock
-                    global_Wlock_and_read_page_with_INVALID(local_mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
-                                                            1, cxt, coro_id,handle);
-                }else{
-
-                }
-            }
-        }else{
-            assert(handle->strategy == 2);
-            // if the strategy is 2 then the page actually should not cached in the page.
-            assert(!handle->value);
-            //TODO: access it over thread local mr and do not cache it.
-            assert(false);
-        }
+////        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
+////               page_addr, mr->addr, HashSlice(page_id), level);
+//                handle->value = local_mr;
+//
+//            }
+//            // If the remote read lock is not on, lock it
+//            if (handle->remote_lock_status == 0){
+//                global_Wlock_and_read_page_with_INVALID(local_mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
+//                                                        1, cxt, coro_id, handle);
+////                handle->remote_lock_status.store(2);
+//
+//            }else if (handle->remote_lock_status == 1){
+//                if (!global_Rlock_update(lock_addr, cas_mr, cxt, coro_id,handle)){
+////
+//                    //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
+//                    // is problematice if we want to upgrade the lock during a transaction.
+//                    // May be we can take advantage of the lock starvation bit to solve this problem.
+//                    //the Read lock has been released, we can directly acquire the write lock
+//                    global_Wlock_and_read_page_with_INVALID(local_mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
+//                                                            1, cxt, coro_id,handle);
+//                }else{
+//
+//                }
+//            }
+//        }else{
+//            assert(handle->strategy == 2);
+//            // if the strategy is 2 then the page actually should not cached in the page.
+//            assert(!handle->value);
+//            //TODO: access it over thread local mr and do not cache it.
+//            assert(false);
+//        }
 
 
 
@@ -3278,23 +3276,27 @@ re_read:
                 if (nested_retry_counter <= 2){
 
                     nested_retry_counter++;
-                    if (handle->strategy == 2){
-                        global_unlock_addr(lock_addr,handle, cxt, coro_id, false);
-//                        handle->remote_lock_status.store(0);
-                    }
+//                    if (handle->strategy == 2){
+//                        global_unlock_addr(lock_addr,handle, cxt, coro_id, false);
+////                        handle->remote_lock_status.store(0);
+//                    }
+//                    // Has to be unlocked to avoid a deadlock.
+//                    l.unlock();
+                    handle->writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
                     page_cache->Release(handle);
-                    // Has to be unlocked to avoid a deadlock.
-                    l.unlock();
+
                     return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt, coro_id);
                 }else{
 
 //                assert(false);
                     DEBUG_PRINT_CONDITION("retry place 7");
                     nested_retry_counter = 0;
-                    if (handle->strategy == 2){
-                        global_unlock_addr(lock_addr,handle, cxt, coro_id, false);
-                        handle->remote_lock_status.store(0);
-                    }
+//                    if (handle->strategy == 2){
+//                        global_unlock_addr(lock_addr,handle, cxt, coro_id, false);
+//                        handle->remote_lock_status.store(0);
+//                    }
+                    handle->writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+
                     //No matter what strategy it is the cache handle need to be released.
                     page_cache->Release(handle);
                     return false;
@@ -3330,10 +3332,12 @@ re_read:
                 }
             }
 //            this->unlock_addr(lock_addr, cxt, coro_id, false);
-            if (handle->strategy == 2){
-                global_unlock_addr(lock_addr,handle, cxt, coro_id, false);
-                handle->remote_lock_status.store(0);
-            }
+//            if (handle->strategy == 2){
+//                global_unlock_addr(lock_addr,handle, cxt, coro_id, false);
+//                handle->remote_lock_status.store(0);
+//            }
+            handle->writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+
             page_cache->Release(handle);
             DEBUG_PRINT_CONDITION("retry place 8\n");
             return false;// result in fall back search on the higher level.
@@ -3352,20 +3356,22 @@ re_read:
         bool need_split = page->leaf_page_store(k, v, cnt,  scheme_ptr);
 //        assert(page->hdr.last_index== 0 || page->data_[0]!=0);
         if (!need_split) {
-            ibv_mr target_mr = *local_mr;
+//            ibv_mr target_mr = *local_mr;
 //            int offset = (update_addr - (char *) page);
 //            LADD(target_mr.addr, offset);
-            if (handle->strategy == 2){
+//            if (handle->strategy == 2){
+//
+//                // If the page currently is in busy mode, we directly release the global lock.
+////                global_write_tuple_and_Wunlock(
+////                        &target_mr, GADD(page_addr, offset),
+////                        sizeof(LeafEntry<Key,Value>), lock_addr, cxt, coro_id, handle, false);
+//                global_write_page_and_Wunlock(local_mr, page_addr, kLeafPageSize, lock_addr,
+//                                              cxt, coro_id, handle, false);
+////                handle->remote_lock_status.store(0);
+//
+//            }
+            handle->writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 
-                // If the page currently is in busy mode, we directly release the global lock.
-//                global_write_tuple_and_Wunlock(
-//                        &target_mr, GADD(page_addr, offset),
-//                        sizeof(LeafEntry<Key,Value>), lock_addr, cxt, coro_id, handle, false);
-                global_write_page_and_Wunlock(local_mr, page_addr, kLeafPageSize, lock_addr,
-                                              cxt, coro_id, handle, false);
-//                handle->remote_lock_status.store(0);
-
-            }
             page_cache->Release(handle);
 //            write_page_and_unlock(
 //                    &target_mr, GADD(page_addr, offset),
@@ -3444,23 +3450,26 @@ re_read:
 //        }
 //        page->rear_version = page->front_version;
 //  page->set_consistent();
-        if (handle->strategy == 2){
-            // unlock and write back the whole page because a page split has happend.
-//            ibv_mr temp_mr = *local_mr;
-//            GlobalAddress temp_page_add = page_addr;
-//            temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
-//            temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
-//            temp_mr.length = temp_mr.length - RDMA_OFFSET;
-//            assert(page->global_lock = 1);
-//            assert(page->hdr.valid_page);
-            // Use sync unlock.
-            global_write_page_and_Wunlock(local_mr, page_addr, kLeafPageSize, lock_addr,
-                                          cxt, coro_id, handle, false);
-//            handle->remote_lock_status.store(0);
-        }
-        page_cache->Release(handle);
+//        if (handle->strategy == 2){
+//            // unlock and write back the whole page because a page split has happend.
+////            ibv_mr temp_mr = *local_mr;
+////            GlobalAddress temp_page_add = page_addr;
+////            temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
+////            temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
+////            temp_mr.length = temp_mr.length - RDMA_OFFSET;
+////            assert(page->global_lock = 1);
+////            assert(page->hdr.valid_page);
+//            // Use sync unlock.
+//            global_write_page_and_Wunlock(local_mr, page_addr, kLeafPageSize, lock_addr,
+//                                          cxt, coro_id, handle, false);
+////            handle->remote_lock_status.store(0);
+//        }
         //release the local lock.
-        l.unlock();
+//        l.unlock();
+        handle->writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+
+        page_cache->Release(handle);
+
 //        write_page_and_unlock(local_mr, page_addr, kLeafPageSize,
 //                              lock_addr, cxt, coro_id, false);
 

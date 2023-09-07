@@ -3475,7 +3475,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        GlobalAddress lock_addr =
         //Only the second RDMA issue a completion
 //        RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-        // Read unlock do not need to wait for the completion.
+        // TODO: Read unlock do not need to wait for the completion. However, if we consider partial failure recovery,
+        //  we need to consider to implement an synchronized RDMA Read unlocking function.
         RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Internal_and_Leaf);
 
 //        uint64_t return_data = (*(uint64_t*) cas_buffer->addr);
@@ -3685,8 +3686,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Internal_and_Leaf);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
             *(uint64_t*) local_CAS_mr->addr = 0;
-            //TODO 1: Make the unlocking based on RDMA CAS.
-            //TODO 2: implement a retry mechanism based on RDMA CAS. THe write unlock can be failed because the RDMA FAA test and reset the lock words.
+            //TODO: Can we make the RDMA unlock based on RDMA FAA? In this case, we can use async
+            // lock releasing to reduce the RDMA ROUND trips in the protocol
             uint64_t swap = 0;
             uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
             Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare,swap, 0, Internal_and_Leaf);
