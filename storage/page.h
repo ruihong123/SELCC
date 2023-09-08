@@ -586,7 +586,7 @@ namespace DSMEngine{
             return false;
         }
 #ifndef NDEBUG
-        if (right <= hdr.last_index){
+        if (right < hdr.last_index){
 
             assert(k < result.later_key);
         }
