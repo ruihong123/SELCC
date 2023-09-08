@@ -843,9 +843,10 @@ namespace DSMEngine{
         auto r_temp = Record(record_scheme,tuple_start);
         TKey temp_key1;
         r_temp.GetPrimaryKey((char*)&temp_key1);
-        if (k < temp_key1) {
+        if (k < temp_key1 || hdr.last_index == -1) {
             insert_index = 0;
         }else{
+            assert(hdr.last_index >= 0);
             uint16_t left = 0;
             uint16_t right = hdr.last_index;
             uint16_t mid = 0;
@@ -889,31 +890,6 @@ namespace DSMEngine{
 
 
         }
-
-
-//        for (int i = 0; i < kLeafCardinality; ++i) {
-//
-//            tuple_start = data_ + i*tuple_length;
-//
-//            auto r = Record(record_scheme,tuple_start);
-//            TKey temp_key;
-//            r.GetPrimaryKey(&temp_key);
-//            if (temp_key != kValueNull<TKey>) {
-//                cnt++;
-//                if (temp_key == k) {
-//                    r.ReSetRecord(v.data_reference(), v.size());
-//                    // ADD MORE weight for write.
-////        memcpy(r.value_padding, padding, VALUE_PADDING);
-//
-////                    r.f_version++;
-////                    r.r_version = r.f_version;
-//                    update_addr = (char *)&r;
-//                    break;
-//                }
-//            } else if (empty_index == -1) {
-//                empty_index = i;
-//            }
-//        }
 
         assert(cnt != kLeafCardinality);
         assert(!is_update);
