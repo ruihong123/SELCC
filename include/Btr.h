@@ -1965,7 +1965,7 @@ next: // Internal_and_Leaf page search
 #ifndef NDEBUG
                 rdma_refetch_times = 1;
 #endif
-                rdma_refetch:
+            rdma_refetch:
 #ifndef NDEBUG
                 if (rdma_refetch_times >= 10000){
                     assert(false);
@@ -2245,11 +2245,9 @@ next: // Internal_and_Leaf page search
         // The second template parameter of SearchResult shall not influence the space oganization, so we can
         // dynamic cast the types.
         assert(STRUCT_OFFSET(SearchResult<Key COMMA GlobalAddress>, later_key) == STRUCT_OFFSET(SearchResult<Key COMMA Value>, later_key));
-        assert(result.val.data() != nullptr);
         if (!page->internal_page_search(k, &result, current_ticket)){
             goto local_reread;
         }
-        assert(result.val.data() != nullptr);
 //        //TODO: delete the validation code below
 //        if (isroot){
 //            printf("Root node next level pointer number is %d\n", page->hdr.last_index);
@@ -3122,7 +3120,7 @@ re_read:
             SearchResult<Key,Value> result{};
             memset(&result, 0, sizeof(SearchResult<Key,Value>));
             int fall_back_level = 0;
-            re_insert:
+        re_insert:
             if (UNLIKELY(!internal_page_store(p, split_key, sibling_addr, level, cxt, coro_id))){
                 //this path should be a rare case.
 
@@ -3210,68 +3208,6 @@ re_read:
         handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
         assert(handle!= nullptr);
         handle->writer_pre_access(page_addr, kLeafPageSize, lock_addr, local_mr);
-//        std::unique_lock<std::shared_mutex> l(handle->rw_mtx);
-////        assert(handle->refs.load() == 2);
-//        if(handle->strategy.load() == 1){
-//#ifndef NDEBUG
-//            bool hint_of_existence = false;
-//#endif
-//            if(handle->value)
-//            {
-//#ifndef NDEBUG
-//                hint_of_existence = true;
-//#endif
-//                // This means the page has already be in the cache.
-//                local_mr = (ibv_mr*)handle->value;
-//                //TODO: delete the line below.
-////                assert(handle->remote_lock_status != 0);
-//            }else{
-//#ifndef NDEBUG
-//                hint_of_existence = false;
-//#endif
-//                // This means the page was not in the cache before
-//                local_mr = new ibv_mr{};
-//                rdma_mg->Allocate_Local_RDMA_Slot(*local_mr, Internal_and_Leaf);
-//                assert(handle->remote_lock_status == 0);
-//
-////        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
-////               page_addr, mr->addr, HashSlice(page_id), level);
-//                handle->value = local_mr;
-//
-//            }
-//            // If the remote read lock is not on, lock it
-//            if (handle->remote_lock_status == 0){
-//                global_Wlock_and_read_page_with_INVALID(local_mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
-//                                                        1, cxt, coro_id, handle);
-////                handle->remote_lock_status.store(2);
-//
-//            }else if (handle->remote_lock_status == 1){
-//                if (!global_Rlock_update(lock_addr, cas_mr, cxt, coro_id,handle)){
-////
-//                    //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
-//                    // is problematice if we want to upgrade the lock during a transaction.
-//                    // May be we can take advantage of the lock starvation bit to solve this problem.
-//                    //the Read lock has been released, we can directly acquire the write lock
-//                    global_Wlock_and_read_page_with_INVALID(local_mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
-//                                                            1, cxt, coro_id,handle);
-//                }else{
-//
-//                }
-//            }
-//        }else{
-//            assert(handle->strategy == 2);
-//            // if the strategy is 2 then the page actually should not cached in the page.
-//            assert(!handle->value);
-//            //TODO: access it over thread local mr and do not cache it.
-//            assert(false);
-//        }
-
-
-
-
-
-
-
 
         // TODO: under some situation the lock is not released
         page_buffer = local_mr->addr;
@@ -3394,34 +3330,14 @@ re_read:
         bool need_split = page->leaf_page_store(k, v, cnt,  scheme_ptr);
 //        assert(page->hdr.last_index== 0 || page->data_[0]!=0);
         if (!need_split) {
-//            ibv_mr target_mr = *local_mr;
-//            int offset = (update_addr - (char *) page);
-//            LADD(target_mr.addr, offset);
-//            if (handle->strategy == 2){
-//
-//                // If the page currently is in busy mode, we directly release the global lock.
-////                global_write_tuple_and_Wunlock(
-////                        &target_mr, GADD(page_addr, offset),
-////                        sizeof(LeafEntry<Key,Value>), lock_addr, cxt, coro_id, handle, false);
-//                global_write_page_and_Wunlock(local_mr, page_addr, kLeafPageSize, lock_addr,
-//                                              cxt, coro_id, handle, false);
-////                handle->remote_lock_status.store(0);
-//
-//            }
+
             handle->writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 
             page_cache->Release(handle);
-//            write_page_and_unlock(
-//                    &target_mr, GADD(page_addr, offset),
-//                    sizeof(LeafEntry), lock_addr, cxt, coro_id, false);
-//            assert(handle->refs.load() == 1);
+
             return true;
         }
-//        else {
-//            std::sort(
-//                    page->records, page->records + LeafPage<Key,Value>::kLeafCardinality,
-//                    [](const LeafEntry<Key,Value> &a, const LeafEntry<Key,Value> &b) { return a.key < b.key; });
-//        }
+
         assert(need_split);
         int kLeafCardinality = scheme_ptr->GetLeafCardi();
         int tuple_length = scheme_ptr->GetSchemaSize();
@@ -3457,10 +3373,6 @@ re_read:
                 char* to_be_moved_start = page->data_ + m*tuple_length;
 
                 memcpy(sibling->data_, to_be_moved_start,  (page->hdr.last_index - m + 1)*tuple_length);
-//                sibling->records[i - m].key = page->records[i].key;
-//                sibling->records[i - m].value = page->records[i].value;
-//                page->records[i].key = 0;
-//                page->records[i].value = kValueNull<Key>;
             }
             //We don't care about the last index in the leaf nodes actually,
             // because we iterate all the slots to find an entry.
@@ -3483,33 +3395,9 @@ re_read:
             delete sibling_mr;
 
         }
-//        else{
-//            sibling_addr = GlobalAddress::Null();
-//        }
-//        page->rear_version = page->front_version;
-//  page->set_consistent();
-//        if (handle->strategy == 2){
-//            // unlock and write back the whole page because a page split has happend.
-////            ibv_mr temp_mr = *local_mr;
-////            GlobalAddress temp_page_add = page_addr;
-////            temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
-////            temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
-////            temp_mr.length = temp_mr.length - RDMA_OFFSET;
-////            assert(page->global_lock = 1);
-////            assert(page->hdr.valid_page);
-//            // Use sync unlock.
-//            global_write_page_and_Wunlock(local_mr, page_addr, kLeafPageSize, lock_addr,
-//                                          cxt, coro_id, handle, false);
-////            handle->remote_lock_status.store(0);
-//        }
-        //release the local lock.
-//        l.unlock();
         handle->writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 
         page_cache->Release(handle);
-
-//        write_page_and_unlock(local_mr, page_addr, kLeafPageSize,
-//                              lock_addr, cxt, coro_id, false);
 
         if (sibling_addr != GlobalAddress::Null()){
             auto p = path_stack[coro_id][level+1];
@@ -3578,8 +3466,9 @@ re_read:
             //*****************Now it is not a root update, insert to the upper level******************
             SearchResult<Key,Value> result{0};
             memset(&result, 0, sizeof(SearchResult<Key,Value>));
+
             int fall_back_level = 0;
-            re_insert:
+        re_insert:
 
             if (UNLIKELY(!internal_page_store(p, split_key, sibling_addr, level, cxt, coro_id))){
                 //this path should be a rare case.

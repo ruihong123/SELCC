@@ -3630,7 +3630,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
         *(uint64_t *)cas_buffer->addr = 0;
-        retry:
+    retry:
         retry_cnt++;
         uint64_t compare = 0;
         // We need a + 1 for the id, because id 0 conflict with the unlock bit
