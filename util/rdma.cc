@@ -3316,7 +3316,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         retry_cnt++;
         if (retry_cnt % 3 ==  2) {
 //            assert(compare%2 == 0);
-            if(retry_cnt < 50){
+            if(retry_cnt < 5){
                 //do nothing
             }else if (retry_cnt <100){
                 usleep(10);
@@ -3509,7 +3509,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // we need to broadcast the message to multiple destination.
         if (retry_cnt % 3 ==  2) {
             // exponential back up to avoid remote receive buffer overflow.
-            if(retry_cnt < 50){
+            if(retry_cnt < 5){
                 //do nothing
             }else if (retry_cnt <100){
                 usleep(10);

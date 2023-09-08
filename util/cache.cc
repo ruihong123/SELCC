@@ -440,7 +440,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
 #ifdef BUFFER_HANDOVER
         bool already_foward_the_mr = false;
 #endif
-        DEBUG_PRINT_CONDITION_arg("usage is %zu\n", usage_);
+//        DEBUG_PRINT_CONDITION_arg("usage is %zu\n", usage_);
         while (usage_ > capacity_ && lru_.next != &lru_) {
             LRUHandle* old = lru_.next;
             assert(old->refs == 1);
