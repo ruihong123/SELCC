@@ -236,7 +236,6 @@ LRUCache::~LRUCache() {
 //Can we use the lock within the handle to reduce the conflict here so that the critical seciton
 // of the cache shard lock will be minimized.
     void LRUCache::Ref(LRUHandle* e) {
-        assert(e->refs.load() < 3);
         if (e->refs == 1 && e->in_cache) {  // If on lru_ list, move to in_use_ list.
             LRU_Remove(e);
             LRU_Append(&in_use_, e);
@@ -441,6 +440,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
 #ifdef BUFFER_HANDOVER
         bool already_foward_the_mr = false;
 #endif
+        DEBUG_PRINT_CONDITION_arg("usage is %zu\n", usage_);
         while (usage_ > capacity_ && lru_.next != &lru_) {
             LRUHandle* old = lru_.next;
             assert(old->refs == 1);
