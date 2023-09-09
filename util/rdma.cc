@@ -54,7 +54,7 @@ void UnrefHandle_cq(void* ptr) {
 void Destroy_mr(void* ptr) {
   if (ptr == nullptr) return;
   ibv_dereg_mr((ibv_mr*)ptr);
-  delete (char*)((ibv_mr*)ptr)->addr;
+//  delete (char*)((ibv_mr*)ptr)->addr;
 }
 template<typename T>
 void General_Destroy(void* ptr){
@@ -3619,8 +3619,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
         }
         assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
-
-
+        delete [] wc;
     }
     void RDMA_Manager::global_Wlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                                                GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
