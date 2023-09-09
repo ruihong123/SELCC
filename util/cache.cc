@@ -212,6 +212,7 @@ class LRUCache {
   LRUHandle in_use_ GUARDED_BY(mutex_);
 
   HandleTable table_ GUARDED_BY(mutex_);
+  uint64_t counter = 0;
 };
 
 LRUCache::LRUCache() : capacity_(0), usage_(0) {
@@ -440,7 +441,10 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
 #ifdef BUFFER_HANDOVER
         bool already_foward_the_mr = false;
 #endif
-//        DEBUG_PRINT_CONDITION_arg("usage is %zu\n", usage_);
+        if (counter++ == 5000){
+            printf("capacity is %zu, usage is %zu\n", capacity_, usage_);
+            counter = 0;
+        }
         while (usage_ > capacity_ && lru_.next != &lru_) {
             LRUHandle* old = lru_.next;
             assert(old->refs == 1);
