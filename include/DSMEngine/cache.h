@@ -190,6 +190,181 @@ class LocalBuffer {
     private:
     };
 
+// We provide our own simple hash table since it removes a whole bunch
+// of porting hacks and is also faster than some of the built-in hash
+// table implementations in some of the compiler/runtime combinations
+// we have tested.  E.g., readrandom speeds up by ~5% over the g++
+// 4.4.3's builtin hashtable.
+class HandleTable {
+public:
+    HandleTable() : length_(0), elems_(0), list_(nullptr) { Resize(); }
+    ~HandleTable() { delete[] list_; }
+
+    LRUHandle* Lookup(const Slice& key, uint32_t hash) {
+        assert(elems_ == page_cache_shadow.size());
+        return *FindPointer(key, hash);
+    }
+    //
+    LRUHandle* Insert(LRUHandle* h) {
+        assert(elems_ == page_cache_shadow.size());
+        LRUHandle** ptr = FindPointer(h->key(), h->hash);
+        LRUHandle* old = *ptr;
+        // if we find a LRUhandle whose key is same as h, we replace that LRUhandle
+        // with h, if not find, we just put the h at the end of the list.
+        h->next_hash = (old == nullptr ? nullptr : old->next_hash);
+        *ptr = h;
+        if (old == nullptr) {
+            ++elems_;
+            if (elems_ > length_) { // length_ is the size limit for current cache.
+                // Since each table_cache entry is fairly large, we aim for a small
+                // average linked list length (<= 1).
+                Resize();
+            }
+        }
+#ifndef NDEBUG
+        GlobalAddress gprt = h->key().ToGlobalAddress();
+//        fprintf(stdout, "page of %lu is inserted into the cache table\n", gprt.offset);
+        page_cache_shadow.insert({gprt, h});
+#endif
+        return old;
+    }
+
+    LRUHandle* Remove(Slice key, uint32_t hash) {
+        assert(elems_ == page_cache_shadow.size());
+#ifndef NDEBUG
+        GlobalAddress gprt = key.ToGlobalAddress();
+//          printf("page of %lu is removed from the cache table", gprt.offset);
+        auto erased_num  = page_cache_shadow.erase(key.ToGlobalAddress());
+#endif
+        LRUHandle** ptr = FindPointer(key, hash);
+        LRUHandle* result = *ptr;
+        //TODO: only erase those lru handles which has been accessed. THis can prevent
+        // a index block being invalidated multiple times.
+        if (result != nullptr) {
+            //*ptr belongs to the Handle previous to the result.
+            *ptr = result->next_hash;// ptr is the "next_hash" in the handle previous to the result
+            --elems_;
+            assert(erased_num == 1);
+        }
+        return result;
+    }
+
+private:
+    // The table consists of an array of buckets where each bucket is
+    // a linked list of table_cache entries that hash into the bucket.
+    uint32_t length_;
+    uint32_t elems_;
+    LRUHandle** list_;
+#ifndef NDEBUG
+    std::map<uint64_t , void*> page_cache_shadow;
+#endif
+    // Return a pointer to slot that points to a table_cache entry that
+    // matches key/hash.  If there is no such table_cache entry, return a
+    // pointer to the trailing slot in the corresponding linked list.
+    LRUHandle** FindPointer(Slice key, uint32_t hash) {
+        LRUHandle** ptr = &list_[hash & (length_ - 1)];
+        while (*ptr != nullptr && ((*ptr)->hash != hash || key != (*ptr)->key())) {
+            ptr = &(*ptr)->next_hash;
+        }
+//#ifndef NDEBUG
+//      if (*ptr == nullptr){
+////          void* returned_ptr = page_cache_shadow[key.ToGlobalAddress()];
+//          assert(page_cache_shadow.find(key.ToGlobalAddress()) == page_cache_shadow.end());
+//      }else{
+//          assert(page_cache_shadow.find(key.ToGlobalAddress()) != page_cache_shadow.end());
+//        }
+//#endif
+        // This iterator will stop at the LRUHandle whose next_hash is nullptr or its nexthash's
+        // key and hash value is the target.
+        return ptr;
+    }
+
+    void Resize() {
+        uint32_t new_length = 4;// it originally is 4
+        while (new_length < elems_) {
+            new_length *= 2;
+        }
+        LRUHandle** new_list = new LRUHandle*[new_length];
+        memset(new_list, 0, sizeof(new_list[0]) * new_length);
+        uint32_t count = 0;
+        //TOTHINK: will each element in list_ be supposed to have only one element?
+        // Probably yes.
+        for (uint32_t i = 0; i < length_; i++) {
+            LRUHandle* h = list_[i];
+            while (h != nullptr) {
+                LRUHandle* next = h->next_hash;
+                uint32_t hash = h->hash;
+                LRUHandle** ptr = &new_list[hash & (new_length - 1)];
+                h->next_hash = *ptr;
+                *ptr = h;
+                h = next;
+                count++;
+            }
+        }
+        assert(elems_ == count);
+        delete[] list_;
+        list_ = new_list;
+        length_ = new_length;
+    }
+};
+// A single shard of sharded table_cache.
+class LRUCache {
+public:
+    LRUCache();
+    ~LRUCache();
+
+    // Separate from constructor so caller can easily make an array of LRUCache
+    void SetCapacity(size_t capacity) { capacity_ = capacity; }
+
+    // Like Cache methods, but with an extra "hash" parameter.
+    Cache::Handle* Insert(const Slice& key, uint32_t hash, void* value,
+                          size_t charge,
+                          void (*deleter)(Cache::Handle* handle));
+    Cache::Handle* Lookup(const Slice& key, uint32_t hash);
+    Cache::Handle* LookupInsert(const Slice& key, uint32_t hash, void* value,
+                                size_t charge,
+                                void (*deleter)(Cache::Handle* handle));
+    //TODO: make the release not acquire the cache lock.
+    void Release(Cache::Handle* handle);
+    void Erase(const Slice& key, uint32_t hash);
+    void Prune();
+    size_t TotalCharge() const {
+//    MutexLock l(&mutex_);
+//    ReadLock l(&mutex_);
+        SpinLock l(&mutex_);
+        return usage_;
+    }
+
+private:
+    void LRU_Remove(LRUHandle* e);
+    void LRU_Append(LRUHandle* list, LRUHandle* e);
+    void Ref(LRUHandle* e);
+//    void Ref_in_LookUp(LRUHandle* e);
+    void Unref(LRUHandle *e, SpinLock *spin_l);
+//    void Unref_WithoutLock(LRUHandle* e);
+    bool FinishErase(LRUHandle *e, SpinLock *spin_l) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+    // Initialized before use.
+    size_t capacity_;
+
+    // mutex_ protects the following state.
+//  mutable port::RWMutex mutex_;
+    mutable SpinMutex mutex_;
+    size_t usage_ GUARDED_BY(mutex_);
+
+    // Dummy head of LRU list.
+    // lru.prev is newest entry, lru.next is oldest entry.
+    // Entries have refs==1 and in_cache==true.
+    LRUHandle lru_ GUARDED_BY(mutex_);
+
+    // Dummy head of in-use list.
+    // Entries are in use by clients, and have refs >= 2 and in_cache==true.
+    LRUHandle in_use_ GUARDED_BY(mutex_);
+
+    HandleTable table_ GUARDED_BY(mutex_);
+    static std::atomic<uint64_t> counter;
+};
+
 }  // namespace DSMEngine
 
 #endif  // STORAGE_DSMEngine_INCLUDE_CACHE_H_
