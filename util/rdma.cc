@@ -459,6 +459,7 @@ void RDMA_Manager::compute_message_handling_thread(std::string q_id, uint16_t sh
 #endif
       } else {
         printf("corrupt message from client.");
+          assert(false);
         break;
       }
       // increase the buffer index
