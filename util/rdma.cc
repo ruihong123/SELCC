@@ -3569,13 +3569,16 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         sr[0].next = &sr[1];
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
-        ibv_wc* wc = new ibv_wc[2]();
         std::string str("default");
 #ifndef NDEBUG
+        ibv_wc* wc = new ibv_wc[2]();
+
         if (cq_data_default.at(page_addr.nodeID)->Get()!= nullptr){
             assert(try_poll_completions(wc,1, str, true, page_addr.nodeID)==0);
 
+
         }
+        delete [] wc;
 #endif
         Batch_Submit_WRs(sr, 1, page_addr.nodeID);
 //        printf("READ page %p from remote memory to local mr %p 2 thread_id is %d\n", page_addr, page_buffer->addr, thread_id);
@@ -3620,7 +3623,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
         }
         assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
-        delete [] wc;
     }
     void RDMA_Manager::global_Wlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                                                GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
