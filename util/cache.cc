@@ -268,7 +268,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
 #ifdef BUFFER_HANDOVER
         bool already_foward_the_mr = false;
 #endif
-        if (counter.fetch_add(1) == 5000){
+        if (counter.fetch_add(1) == 50000){
             printf("capacity is %zu, usage is %zu\n", capacity_, usage_);
             counter = 0;
         }
