@@ -32,7 +32,7 @@ uint64_t latency[MAX_APP_THREAD][LATENCY_WINDOWS];
 extern bool Show_Me_The_Print;
 int TimePrintCounter[MAX_APP_THREAD];
 namespace DSMEngine {
-std::atomic<uint64_t> LRUCache::counter = 0;
+//std::atomic<uint64_t> LRUCache::counter = 0;
 Cache::~Cache() {}
 
 
@@ -268,10 +268,10 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
 #ifdef BUFFER_HANDOVER
         bool already_foward_the_mr = false;
 #endif
-        if (counter.fetch_add(1) == 50000){
-            printf("capacity is %zu, usage is %zu\n", capacity_, usage_);
-            counter = 0;
-        }
+//        if (counter.fetch_add(1) == 50000){
+//            printf("capacity is %zu, usage is %zu\n", capacity_, usage_);
+//            counter = 0;
+//        }
         while (usage_ > capacity_ && lru_.next != &lru_) {
             LRUHandle* old = lru_.next;
             assert(old->refs == 1);
