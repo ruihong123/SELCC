@@ -583,7 +583,7 @@ namespace DSMEngine{
             result.later_key = records[right + 1].key;
         }else{
             result.this_key = 0;
-            result.later_key = 1;
+            result.later_key = hdr.highest;
         }
 
 #endif
