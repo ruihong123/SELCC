@@ -2965,7 +2965,6 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
             //  auto start = std::chrono::high_resolution_clock::now();
             //  while(std::chrono::high_resolution_clock::now()-start < std::chrono::nanoseconds(msg_size+200000));
             // wait until the job complete.
-
             rc = poll_completion(wc, poll_num, qp_type, true, target_node_id);
             if (rc != 0) {
                 std::cout << "RDMA CAS Failed" << std::endl;
@@ -3704,18 +3703,21 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             //TODO: it could be spuriously failed because of the FAA.so we can not have async
         }else{
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
             uint64_t retry_cnt = 0;
-#endif
+//#endif
 
 //        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
 retry:
-#ifndef NDEBUG
-            retry_cnt++;
-#endif
+//#ifndef NDEBUG
+            if (retry_cnt++ >5000 && retry_cnt % 1000 == 0){
+                printf("RDMA write lock unlock keep spinning but never release, the return value is %lu\n", (*(uint64_t*) local_CAS_mr->addr) );
+            }
+//#endif
 
             //TODO: check whether the page's global lock is still write lock
+            //  0909/2023: the code below seems sometime will get stuck.
             Prepare_WR_Write(sr[0], sge[0],  post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Internal_and_Leaf);
 
             *(uint64_t *)local_CAS_mr->addr = 0;
