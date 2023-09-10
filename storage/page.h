@@ -877,7 +877,8 @@ namespace DSMEngine{
             auto r = Record(record_scheme,tuple_start);
             TKey temp_key;
             r.GetPrimaryKey(&temp_key);
-            if (BOOST_LIKELY(k != temp_key )){
+            if ((k != temp_key )){
+                DEBUG_ASSERT_CONDITION(false);
                 insert_index = left +1;
             }else{
                 assert(v.size() == r.GetRecordSize());

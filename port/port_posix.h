@@ -82,7 +82,7 @@
 // when targeting older platforms.
 #define fdatasync fsync
 #endif
-//extern bool Show_Me_The_Print;
+extern bool Show_Me_The_Print;
 #ifdef NDEBUG
 #define DEBUG_PRINT_arg(x,y)
 #define DEBUG_PRINT(x)
@@ -93,6 +93,7 @@
 #define DEBUG_PRINT(x) printf(x)
 #define DEBUG_PRINT_CONDITION(x) if(Show_Me_The_Print) {printf(x);}
 #define DEBUG_PRINT_CONDITION_arg(x,y) if(Show_Me_The_Print) {printf(x,y);}
+#define DEBUG_ASSERT_CONDITION(x) if(Show_Me_The_Print) {assert(x);}
 #endif
 
 
