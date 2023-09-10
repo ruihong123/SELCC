@@ -745,7 +745,7 @@ namespace DSMEngine{
                 // Key at "mid" is smaller than "target".  Therefore all
                 // blocks before "mid" are uninteresting.
                 left = mid;
-            } else if (k > temp_key) {
+            } else if (k < temp_key) {
                 // Key at "mid" is >= "target".  Therefore all blocks at or
                 // after "mid" are uninteresting.
                 right = mid - 1;
@@ -865,7 +865,7 @@ namespace DSMEngine{
                     // Key at "mid" is smaller than "target".  Therefore all
                     // blocks before "mid" are uninteresting.
                     left = mid;
-                } else if (k > temp_key) {
+                } else if (k < temp_key) {
                     // Key at "mid" is >= "target".  Therefore all blocks at or
                     // after "mid" are uninteresting.
                     right = mid - 1; // why mid -1 rather than mid
