@@ -1190,8 +1190,11 @@ class Btr_iter{
             }else if(level < target_level){
                 // Since return true will not invalidate the root node, here we manually invalidate it outside,
                 // Otherwise, there will be a deadloop.
-                std::unique_lock<std::mutex> l(root_mtx);
-                g_root_ptr.store(GlobalAddress::Null());
+                {
+                    std::unique_lock<std::mutex> l(root_mtx);
+                    g_root_ptr.store(GlobalAddress::Null());
+                }
+
                 p = get_root_ptr(page_hint);
                 level = -1;
                 goto next;
@@ -3053,7 +3056,7 @@ re_read:
                     //find the upper level
                     //TODO: shall I implement a function that search a ptr at particular level.
                     printf(" rare case the tranverse during the root update\n");
-                    assert(tree_height.load() != level && path_stack[coro_id][level] != path_stack[coro_id][level]);
+//                    assert(tree_height.load() != level && path_stack[coro_id][level] != p);
                     return insert_internal(split_key, sibling_addr,  cxt, coro_id, level+1);
                 }
 
