@@ -661,11 +661,13 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             }
             // If the remote read lock is not on, lock it
             if (remote_lock_status == 0){
+                cache_miss[RDMA_Manager::thread_id][0]++;
                 rdma_mg->global_Wlock_and_read_page_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr);
                 remote_lock_status.store(2);
 //                handle->remote_lock_status.store(2);
 
             }else if (remote_lock_status == 1){
+                cache_hit[RDMA_Manager::thread_id][0]++;
                 if (!global_Rlock_update(lock_addr, cas_mr)){
 //
                     //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
@@ -675,6 +677,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                     rdma_mg->global_Wlock_and_read_page_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr);
                     remote_lock_status.store(2);
                 }else{
+                    cache_hit[RDMA_Manager::thread_id][0]++;
                     //TODO:
                 }
             }
