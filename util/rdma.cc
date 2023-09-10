@@ -583,7 +583,7 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
       *p2mrpointer = pre_allocated_pool.back();
       pre_allocated_pool.pop_back();
       *p2buffpointer = (char*)(*p2mrpointer)->addr;
-      printf("Allcoate from the preallocated pool, size is %zu\n", (*p2mrpointer)->length);
+      printf("Allcoate from the preallocated pool, total_registered_size is %zu\n", total_registered_size);
 
   }else{
       //If this node is a compute node, allocate the memory on demanding.
