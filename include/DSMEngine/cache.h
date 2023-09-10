@@ -362,7 +362,7 @@ private:
     LRUHandle in_use_ GUARDED_BY(mutex_);
 
     HandleTable table_ GUARDED_BY(mutex_);
-//    static std::atomic<uint64_t> counter;
+    static std::atomic<uint64_t> counter;
 };
 
 }  // namespace DSMEngine
