@@ -578,19 +578,24 @@ namespace DSMEngine{
         target_global_ptr_buff = records[right].ptr;
         result.next_level = target_global_ptr_buff;
 #ifndef NDEBUG
-        result.this_key = records[right].key;
-        result.later_key = records[right + 1].key;
+        if (right < hdr.last_index){
+            result.this_key = records[right].key;
+            result.later_key = records[right + 1].key;
+        }else{
+            result.this_key = 0;
+            result.later_key = 1;
+        }
+
 #endif
         local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
         if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
             return false;
         }
 #ifndef NDEBUG
-        if (right < hdr.last_index){
+//        if (right < hdr.last_index){
 
             assert(k < result.later_key);
-        }
-
+//        }
 #endif
 
         assert(result.this_key <= k);
