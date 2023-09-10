@@ -475,14 +475,11 @@ class Btr_iter{
         root_hint = cached_root_page_mr.load();
         if (root_ptr == GlobalAddress::Null()) {
 
-//          assert(cached_root_page_mr = nullptr);
                 refetch_rootnode();
                 root_ptr = g_root_ptr.load();
                 root_hint = cached_root_page_mr.load();
             return root_ptr;
         } else {
-//      assert(((InternalPage*)cached_root_page_mr->addr)->hdr.this_page_g_ptr == root_ptr);
-//      root_hint = cached_root_page_mr;
             return root_ptr;
         }
 
@@ -523,6 +520,8 @@ class Btr_iter{
         memset(temp_mr->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
         //Read a larger enough data for the root node thorugh it may oversize the page but it is ok since we only read the data.
         rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize,IBV_SEND_SIGNALED,1,Internal_and_Leaf);
+        ibv_mr* old_mr = cached_root_page_mr.load();
+        delete old_mr;
         cached_root_page_mr.store(temp_mr);
         g_root_ptr.store(root_ptr);
         tree_height = ((InternalPage<Key>*) temp_mr->addr)->hdr.level;
@@ -3036,7 +3035,8 @@ re_read:
             if (UNLIKELY(p == GlobalAddress::Null() )){
                 // First acquire local lock
                 std::unique_lock<std::mutex> l(root_mtx);
-                p = get_root_ptr();
+                ibv_mr* dummy_mr;
+                p = get_root_ptr(dummy_mr);
                 uint8_t height = tree_height.load();
 
                 if (path_stack[coro_id][level] == p && (int)height == level){
@@ -3382,7 +3382,8 @@ re_read:
                 // If you find the current root node does not have higher stack, and it is not a outdated root node,
                 // the reason behind is that the inserted key is very small and the leaf node keep sibling shift to the right.
                 // IN this case, the code will call "insert_internal"
-                p = get_root_ptr();
+                ibv_mr* dummy_mr;
+                p = get_root_ptr(dummy_mr);
                 uint8_t height = tree_height;
                 // Note path_stack is a global variable, be careful when debugging
 
