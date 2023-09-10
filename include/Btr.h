@@ -1190,6 +1190,7 @@ class Btr_iter{
             }else if(level < target_level){
                 // Since return true will not invalidate the root node, here we manually invalidate it outside,
                 // Otherwise, there will be a deadloop.
+                std::unique_lock<std::mutex> l(root_mtx);
                 g_root_ptr.store(GlobalAddress::Null());
                 p = get_root_ptr(page_hint);
                 level = -1;
@@ -2005,7 +2006,7 @@ next: // Internal_and_Leaf page search
                             g_root_ptr.store(GlobalAddress::Null());
                         }
                         rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal_and_Leaf);
-
+                        //todo:
                         return false;
                     }else{
                         // No need for reread.
@@ -2131,18 +2132,20 @@ next: // Internal_and_Leaf page search
                 if (UNLIKELY(level+1 == tree_height.load())){
                     InternalPage<Key>* upper_page = (InternalPage<Key>*)cached_root_page_mr.load()->addr;
                     make_page_invalidated(upper_page);
-                }else{
-                    assert(path_stack[coro_id][result.level+1] != GlobalAddress::Null());
-                    Slice upper_node_page_id((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress));
-                    // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
-                    // the page to check whether the page has been evicted.
-                    Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
-                    if(upper_layer_handle){
-                        InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)upper_layer_handle->value)->addr;
-                        make_page_invalidated(upper_page);
+                }else if(path_stack[coro_id][result.level+1] != GlobalAddress::Null()){
+                        Slice upper_node_page_id((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress));
+                        // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+                        // the page to check whether the page has been evicted.
+                        Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+                        if(upper_layer_handle){
+                            InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)upper_layer_handle->value)->addr;
+                            make_page_invalidated(upper_page);
 
-                        page_cache->Release(upper_layer_handle);
-                    }
+                            page_cache->Release(upper_layer_handle);
+                        }else{
+                            printf("The internal page search is not start from root node.\n");
+                        }
+
                 }
 
 
@@ -2204,19 +2207,18 @@ next: // Internal_and_Leaf page search
                 if (UNLIKELY(level+1 == tree_height.load())){
                     InternalPage<Key>* upper_page = (InternalPage<Key>*)cached_root_page_mr.load()->addr;
                     make_page_invalidated(upper_page);
-                }else {
-//          DEBUG_arg("Erase the page 2 %p\n", path_stack[coro_id][result.level+1]);
-                    assert(path_stack[coro_id][result.level + 1] != GlobalAddress::Null());
-                    Slice upper_node_page_id((char *) &path_stack[coro_id][result.level + 1], sizeof(GlobalAddress));
-                    // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
-                    // the page to check whether the page has been evicted.
-                    Cache::Handle *upper_layer_handle = page_cache->Lookup(upper_node_page_id);
-                    if (upper_layer_handle) {
-                        InternalPage<Key> *upper_page = (InternalPage<Key> *) ((ibv_mr *) upper_layer_handle->value)->addr;
+                }else if(path_stack[coro_id][result.level + 1] != GlobalAddress::Null()){
+                        Slice upper_node_page_id((char *) &path_stack[coro_id][result.level + 1], sizeof(GlobalAddress));
+                        // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+                        // the page to check whether the page has been evicted.
+                        Cache::Handle *upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+                        if (upper_layer_handle) {
+                            InternalPage<Key> *upper_page = (InternalPage<Key> *) ((ibv_mr *) upper_layer_handle->value)->addr;
 
-                        make_page_invalidated(upper_page);
-                        page_cache->Release(upper_layer_handle);
-                    }
+                            make_page_invalidated(upper_page);
+                            page_cache->Release(upper_layer_handle);
+                        }
+
                 }
 //          page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
             }
@@ -2778,8 +2780,7 @@ re_read:
                 ibv_mr* rootnode_hint = cached_root_page_mr.load();
                 InternalPage<Key>* upper_page = (InternalPage<Key>*)rootnode_hint->addr;
                 make_page_invalidated(upper_page);
-            }else{
-                assert(path_stack[coro_id][level+1]!= GlobalAddress::Null());
+            }else if(path_stack[coro_id][level+1]!= GlobalAddress::Null()){
 //            DEBUG_arg("Erase the page 7 %p\n", path_stack[coro_id][level+1]);
                 Slice upper_node_page_id((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress));
                 // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
@@ -2853,8 +2854,7 @@ re_read:
                 ibv_mr *rootnode_hint = cached_root_page_mr.load();
                 InternalPage<Key> *upper_page = (InternalPage<Key> *) rootnode_hint->addr;
                 make_page_invalidated(upper_page);
-            }else{
-                assert(path_stack[coro_id][level+1]!= GlobalAddress::Null());
+            }else if(path_stack[coro_id][level+1]!= GlobalAddress::Null()){
                 Slice upper_node_page_id((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress));
                 // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
                 //  the page to check whether the page has been evicted.
@@ -3011,9 +3011,9 @@ re_read:
                 // First acquire local lock
                 std::unique_lock<std::mutex> l(root_mtx);
                 p = g_root_ptr.load();
-                uint8_t height = tree_height;
+                uint8_t height = tree_height.load();
 
-                if (path_stack[coro_id][level] == p && height == level){
+                if (path_stack[coro_id][level] == p && (int)height == level){
                     //Acquire global lock for the root update.
                     GlobalAddress lock_addr = {};
                     // root node lock addr. but this could result in a deadlock for transaction cc.
@@ -3030,7 +3030,7 @@ re_read:
                     refetch_rootnode();
                     p = g_root_ptr.load();
                     height = tree_height.load();
-                    if (path_stack[coro_id][level] == p && height == level) {
+                    if (path_stack[coro_id][level] == p && (int)height == level) {
                         update_new_root(path_stack[coro_id][level], split_key, sibling_addr, level + 1,
                                         path_stack[coro_id][level], cxt, coro_id);
                         *(uint64_t *) cas_buffer->addr = 0;
@@ -3038,6 +3038,8 @@ re_read:
                         rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
 
                         return true;
+                    }else{
+                        printf("There is another node updating the root node\n");
                     }
 //                l.unlock();
                     *(uint64_t *) cas_buffer->addr = 0;
@@ -3051,7 +3053,7 @@ re_read:
                     //find the upper level
                     //TODO: shall I implement a function that search a ptr at particular level.
                     printf(" rare case the tranverse during the root update\n");
-
+                    assert(tree_height.load() != level && path_stack[coro_id][level] != path_stack[coro_id][level]);
                     return insert_internal(split_key, sibling_addr,  cxt, coro_id, level+1);
                 }
 
@@ -3384,11 +3386,14 @@ re_read:
 
 //                        page_cache->Release(handle);
                         return true;
+                    }else{
+                        *(uint64_t *) cas_buffer->addr = 0;
+
+                        rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
+
+                        assert(false);
                     }
 //                l.unlock();
-                    *(uint64_t *) cas_buffer->addr = 0;
-
-                    rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
 
                 }
                 l.unlock();
