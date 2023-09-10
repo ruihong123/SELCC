@@ -1168,8 +1168,8 @@
 ////    if (UNLIKELY(p == GlobalAddress::Null() && sibling_prt != GlobalAddress::Null())){
 ////        //TODO: we probably need a update root lock for the code below.
 ////        g_root_ptr = GlobalAddress::Null();
-////        p = get_root_ptr();
-////        //TODO: tHERE COULd be a bug in the get_root_ptr so that the CAS for update_new_root will be failed.
+////        p = get_root_ptr_protected();
+////        //TODO: tHERE COULd be a bug in the get_root_ptr_protected so that the CAS for update_new_root will be failed.
 ////
 ////        if (path_stack[coro_id][level] == p){
 ////            update_new_root(path_stack[coro_id][level],  split_key, sibling_prt,level+1,path_stack[coro_id][level], cxt, coro_id);
@@ -1199,7 +1199,7 @@
 ////
 ////                //if we found it is on the top, Fetch the new root again to see whether there is a need for root update.
 ////                g_root_ptr = GlobalAddress::Null();
-////                p = get_root_ptr();
+////                p = get_root_ptr_protected();
 ////                if (p == path_stack[coro_id][level]){
 ////                    update_new_root(path_stack[coro_id][level-1],  split_key, sibling_prt,level,path_stack[coro_id][level-1], cxt, coro_id);
 ////                    break;

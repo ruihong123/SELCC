@@ -128,6 +128,7 @@ private:
   void before_operation(CoroContext *cxt, int coro_id);
 
   GlobalAddress get_root_ptr_ptr();
+  GlobalAddress get_root_ptr_protected(ibv_mr*& root_hint);
   GlobalAddress get_root_ptr(ibv_mr*& root_hint);
     void refetch_rootnode();
 //  void coro_worker(CoroYield &yield, RequstGen<Key,Value> *gen, int coro_id);
@@ -383,7 +384,7 @@ class Btr_iter{
             memset(cached_root_page_mr.load()->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
 //        rdma_mg->Allocate_Local_RDMA_Slot()
             ibv_mr* dummy_mr;
-            get_root_ptr(dummy_mr);
+            get_root_ptr_protected(dummy_mr);
         }
 
 //  auto cas_buffer = (rdma_mg->get_rbuf(0)).get_cas_buffer();
@@ -439,7 +440,7 @@ class Btr_iter{
 //extern int g_root_level;
 //extern bool enable_cache;
     template <typename Key, typename Value>
-    GlobalAddress Btr<Key,Value>::get_root_ptr(ibv_mr*& root_hint) {
+    GlobalAddress Btr<Key,Value>::get_root_ptr_protected(ibv_mr*& root_hint) {
         //Note it is okay if cached_root_page_mr is an older version for the g_root_ptr, because when we use the
         // page we will check whether this page is correct or not
 
@@ -456,6 +457,28 @@ class Btr_iter{
                 root_ptr = g_root_ptr.load();
                 root_hint = cached_root_page_mr.load();
             }
+            return root_ptr;
+        } else {
+//      assert(((InternalPage*)cached_root_page_mr->addr)->hdr.this_page_g_ptr == root_ptr);
+//      root_hint = cached_root_page_mr;
+            return root_ptr;
+        }
+
+        // std::cout << "root ptr " << root_ptr << std::endl;
+    }
+    template <typename Key, typename Value>
+    GlobalAddress Btr<Key,Value>::get_root_ptr(ibv_mr*& root_hint) {
+        //Note it is okay if cached_root_page_mr is an older version for the g_root_ptr, because when we use the
+        // page we will check whether this page is correct or not
+
+        GlobalAddress root_ptr = g_root_ptr.load();
+        root_hint = cached_root_page_mr.load();
+        if (root_ptr == GlobalAddress::Null()) {
+
+//          assert(cached_root_page_mr = nullptr);
+                refetch_rootnode();
+                root_ptr = g_root_ptr.load();
+                root_hint = cached_root_page_mr.load();
             return root_ptr;
         } else {
 //      assert(((InternalPage*)cached_root_page_mr->addr)->hdr.this_page_g_ptr == root_ptr);
@@ -606,7 +629,7 @@ class Btr_iter{
     void Btr<Key,Value>::print_and_check_tree(CoroContext *cxt, int coro_id) {
 //  assert(rdma_mg->is_register());
         ibv_mr* page_hint;
-        auto root = get_root_ptr(page_hint);
+        auto root = get_root_ptr_protected(page_hint);
         // SearchResult result;
 
         GlobalAddress p = root;
@@ -1137,7 +1160,7 @@ class Btr_iter{
 
         //TODO: You need to acquire a lock when you write a page
         ibv_mr* page_hint = nullptr;
-        auto root = get_root_ptr(page_hint);
+        auto root = get_root_ptr_protected(page_hint);
         SearchResult<Key, Value> result;
 
         GlobalAddress p = root;
@@ -1155,7 +1178,7 @@ class Btr_iter{
         //TODO: What if the target_level is equal to the root level.
         if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
             if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
-                p = get_root_ptr(page_hint);
+                p = get_root_ptr_protected(page_hint);
                 level = -1;
             }else{
                 // fall back to upper level
@@ -1195,7 +1218,7 @@ class Btr_iter{
                     g_root_ptr.store(GlobalAddress::Null());
                 }
 
-                p = get_root_ptr(page_hint);
+                p = get_root_ptr_protected(page_hint);
                 level = -1;
                 goto next;
             }else{
@@ -1217,7 +1240,7 @@ class Btr_iter{
             }
             else{
                 // re-search the tree from the scratch. (only happen when root and leaf are the same.)
-                p = get_root_ptr(page_hint);
+                p = get_root_ptr_protected(page_hint);
                 level = -1;
             }
             goto next;
@@ -1233,7 +1256,7 @@ class Btr_iter{
 
 
         ibv_mr* page_hint = nullptr;
-        auto root = get_root_ptr(page_hint);
+        auto root = get_root_ptr_protected(page_hint);
         assert(root != GlobalAddress::Null());
 //  std::cout << "The root now is " << root << std::endl;
         SearchResult<Key,Value> result{0};
@@ -1268,7 +1291,7 @@ next: // Internal_and_Leaf page search
 
         if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
             if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
-                p = get_root_ptr(page_hint);
+                p = get_root_ptr_protected(page_hint);
                 level = -1;
             }else{
                 // fall back to upper level
@@ -1341,7 +1364,7 @@ next: // Internal_and_Leaf page search
             else{
 
                 // re-search the tree from the scratch. (only happen when root and leaf are the same.)
-                p = get_root_ptr(page_hint);
+                p = get_root_ptr_protected(page_hint);
                 level = -1;
 //            printf("Fall back to root\n");
 
@@ -1465,7 +1488,7 @@ next: // Internal_and_Leaf page search
     bool Btr<Key,Value>::search(const Key &k, const Slice &value_buff, CoroContext *cxt, int coro_id) {
 //  assert(rdma_mg->is_register());
         ibv_mr* page_hint = nullptr;
-        auto root = get_root_ptr(page_hint);
+        auto root = get_root_ptr_protected(page_hint);
         SearchResult<Key,Value> result = {0};
 //        if(!search_result_memo){
 //            search_result_memo = new SearchResult<Key,Value>();
@@ -1507,7 +1530,7 @@ next: // Internal_and_Leaf page search
         if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
             //The traverser failed to move to the next level
             if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
-                p = get_root_ptr(page_hint);
+                p = get_root_ptr_protected(page_hint);
                 level = -1;
             }else{
                 // fall back to upper level
@@ -1564,7 +1587,7 @@ next: // Internal_and_Leaf page search
 
             }
             else{
-                p = get_root_ptr(page_hint);
+                p = get_root_ptr_protected(page_hint);
                 level = -1;
             }
 #ifndef NDEBUG
@@ -1700,7 +1723,7 @@ next: // Internal_and_Leaf page search
 
         ibv_mr* page_hint = nullptr;
 
-        auto root = get_root_ptr(page_hint);
+        auto root = get_root_ptr_protected(page_hint);
 //  std::cout << "The root now is " << root << std::endl;
         SearchResult<Key,Value> result = {0};
         GlobalAddress p = root;
@@ -1713,7 +1736,7 @@ next: // Internal_and_Leaf page search
         next: // Internal_and_Leaf page search
         if (!internal_page_search(p, k, result, level, isroot, nullptr, cxt, coro_id)) {
             if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
-                p = get_root_ptr(page_hint);
+                p = get_root_ptr_protected(page_hint);
                 level = -1;
             }else{
                 // fall back to upper level
@@ -1761,7 +1784,7 @@ next: // Internal_and_Leaf page search
             }
             else{
                 // re-search the tree from the scratch. (only happen when root and leaf are the same.)
-                p = get_root_ptr(page_hint);
+                p = get_root_ptr_protected(page_hint);
                 level = -1;
             }
             goto next;
@@ -3013,7 +3036,7 @@ re_read:
             if (UNLIKELY(p == GlobalAddress::Null() )){
                 // First acquire local lock
                 std::unique_lock<std::mutex> l(root_mtx);
-                p = g_root_ptr.load();
+                p = get_root_ptr();
                 uint8_t height = tree_height.load();
 
                 if (path_stack[coro_id][level] == p && (int)height == level){
@@ -3042,6 +3065,7 @@ re_read:
 
                         return true;
                     }else{
+                        assert(false);
                         printf("There is another node updating the root node\n");
                     }
 //                l.unlock();
@@ -3358,7 +3382,7 @@ re_read:
                 // If you find the current root node does not have higher stack, and it is not a outdated root node,
                 // the reason behind is that the inserted key is very small and the leaf node keep sibling shift to the right.
                 // IN this case, the code will call "insert_internal"
-                p = g_root_ptr.load();
+                p = get_root_ptr();
                 uint8_t height = tree_height;
                 // Note path_stack is a global variable, be careful when debugging
 
