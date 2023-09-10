@@ -2589,7 +2589,6 @@ re_read:
         Cache::Handle* handle = nullptr;
         // TODO: also use page hint to access the internal store to bypassing the cache
         if (level == tree_height.load()) {
-            cache_hit[RDMA_Manager::thread_id][0]++;
 
             page_mr = cached_root_page_mr.load();
             page_buffer = page_mr->addr;
@@ -2599,6 +2598,8 @@ re_read:
             // challenge the assertion below is that the root page is changed too fast or there is a long context switch above.
             assert(header->this_page_g_ptr == page_addr);
             if (header->this_page_g_ptr == page_addr) {
+                cache_hit[RDMA_Manager::thread_id][0]++;
+
                 assert(header->level == level);
                 // if this page mr is in-use and is the local cache for page_addr
                 skip_cache = true;
@@ -2637,6 +2638,9 @@ re_read:
                 }
                 assert(page->local_lock_meta.local_lock_byte == 1);
 
+
+            }else{
+                cache_miss[RDMA_Manager::thread_id][0]++;
 
             }
 
