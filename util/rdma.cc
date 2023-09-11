@@ -4843,28 +4843,39 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
       ptr++;
   }
   mem_read_lock.unlock();
-  // If not find remote buffers are all used, allocate another remote memory region.
-  //TODO: some mechanism is needed to avoid excessively remote memory allocation RPC call
-  std::unique_lock<std::shared_mutex> mem_write_lock(remote_mem_mutex);
-    Remote_Memory_Register(1 * 1024 * 1024 * 1024, target_node_id, Internal_and_Leaf);
-  //  fs_meta_save();
-  ibv_mr* mr_last;
-  mr_last = remote_mem_pool.back();
-  int sst_index = Remote_Leaf_Node_Bitmap.at(target_node_id)->at(mr_last->addr)->allocate_memory_slot();
-  assert(sst_index >= 0);
-  mem_write_lock.unlock();
+    // If not find remote buffers are all used, allocate another remote memory region.
+    std::unique_lock<std::shared_mutex> mem_write_lock(remote_mem_mutex);
+    auto last_element = --Remote_Leaf_Node_Bitmap.at(target_node_id)->end();
+    int sst_index = last_element->second->allocate_memory_slot();
+    if (sst_index>=0){
+        remote_mr = *((last_element->second)->get_mr_ori());
+        remote_mr.addr = static_cast<void*>(static_cast<char*>(remote_mr.addr) +
+                                            sst_index * name_to_chunksize.at(pool_name));
+        remote_mr.length = name_to_chunksize.at(pool_name);
+        ret.nodeID = target_node_id;
+        ret.offset = static_cast<char*>(remote_mr.addr) - (char*)base_addr_map_data[target_node_id];
+        return ret;
+    }else{
+        Remote_Memory_Register(1 * 1024 * 1024 * 1024ull, target_node_id, pool_name);
+        //  fs_meta_save();
+        //  ibv_mr* mr_last;
+        ibv_mr* mr_last = remote_mem_pool.back();
+        sst_index = Remote_Leaf_Node_Bitmap.at(target_node_id)->at(mr_last->addr)->allocate_memory_slot();
+        assert(sst_index >= 0);
+        mem_write_lock.unlock();
 
-  //  sst_meta->mr = new ibv_mr();
-  remote_mr = *(mr_last);
-  remote_mr.addr = static_cast<void*>(static_cast<char*>(remote_mr.addr) +
-                                       sst_index * Table_Size);
-  remote_mr.length = Table_Size;
-    ret.nodeID = target_node_id;
-    ret.offset = static_cast<char*>(remote_mr.addr) - (char*)base_addr_map_data[target_node_id];
-  //    remote_data_mrs->fname = file_name;
-  //    remote_data_mrs->map_pointer = mr_last;
-//  DEBUG_arg("Allocate Remote pointer %p",  remote_mr.addr);
-  return ret;
+        //  sst_meta->mr = new ibv_mr();
+        remote_mr = *(mr_last);
+        remote_mr.addr = static_cast<void*>(static_cast<char*>(remote_mr.addr) +
+                                            sst_index * name_to_chunksize.at(pool_name));
+        remote_mr.length = name_to_chunksize.at(pool_name);
+        ret.nodeID = target_node_id;
+        ret.offset = static_cast<char*>(remote_mr.addr) - (char*)base_addr_map_data[target_node_id];
+        //    remote_data_mrs->fname = file_name;
+        //    remote_data_mrs->map_pointer = mr_last;
+        //  DEBUG_arg("Allocate Remote pointer %p",  remote_mr.addr);
+        return ret;
+    }
 }
 // A function try to allocate RDMA registered local memory
 // TODO: implement sharded allocators by cpu_core_id, when allocate a memory use the core
