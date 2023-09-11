@@ -3629,7 +3629,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                                                                GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
                                                                int coro_id) {
 
-        uint64_t retry_cnt = 0;
+        volatile uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
         *(uint64_t *)cas_buffer->addr = 0;
