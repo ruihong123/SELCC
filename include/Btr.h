@@ -290,7 +290,9 @@ class Btr_iter{
         auto mr = (ibv_mr*) handle->value;
         if (handle->strategy == 1){
             GlobalAddress lock_gptr = handle->gptr;
+            //TODO: Figure out Leafpage or internal page?
             lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
+            assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
             if (handle->remote_lock_status == 1){
 
                 // RDMA read unlock
