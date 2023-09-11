@@ -4872,84 +4872,96 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
 void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
                                             Chunk_type pool_name) {
 
-    //TODO(potential optimization): Make a thread/CPU core local allocator to reduce the competion on the allocator.
-  // allocate the RDMA slot is seperate into two situation, read and write.
-  size_t chunk_size;
-  std::shared_lock<std::shared_mutex> mem_read_lock(local_mem_mutex);
+        // allocate the RDMA slot is seperate into two situation, read and write.
+        size_t chunk_size;
+        retry:
+        std::shared_lock<std::shared_mutex> mem_read_lock(local_mem_mutex);
         chunk_size = name_to_chunksize.at(pool_name);
-  if (name_to_mem_pool.at(pool_name).empty()) {
-    mem_read_lock.unlock();
-    std::unique_lock<std::shared_mutex> mem_write_lock(local_mem_mutex);
-    if (name_to_mem_pool.at(pool_name).empty()) {
-      ibv_mr* mr;
-      char* buff;
-      // the developer can define how much memory cna one time RDMA allocation get.
-      Local_Memory_Register(&buff, &mr, name_to_allocated_size.at(pool_name) == 0 ?
-      1024*1024*1024:name_to_allocated_size.at(pool_name), pool_name);
-//      if (node_id%2 == 1)
-//        printf("Memory used up, Initially, allocate new one, memory pool is %s, total memory this pool is %lu\n",
-//               EnumStrings[pool_name], name_to_mem_pool.at(pool_name).size());
-    }
-    mem_write_lock.unlock();
-    mem_read_lock.lock();
-  }
+        if (name_to_mem_pool.at(pool_name).empty()) {
+            mem_read_lock.unlock();
+            std::unique_lock<std::shared_mutex> mem_write_lock(local_mem_mutex);
+            if (name_to_mem_pool.at(pool_name).empty()) {
+                ibv_mr* mr;
+                char* buff;
+                // the developer can define how much memory cna one time RDMA allocation get.
+                Local_Memory_Register(&buff, &mr,
+                                      name_to_allocated_size.at(pool_name) == 0 ?
+                                      1024*1024*1024:name_to_allocated_size.at(pool_name), pool_name);
+                if (node_id%2 == 1)
+                    printf("Memory used up, Initially, allocate new one, memory pool is %s, total memory this pool is %lu\n",
+                           EnumStrings[pool_name], name_to_mem_pool.at(pool_name).size());
+            }
+            mem_write_lock.unlock();
+            mem_read_lock.lock();
+        }
 //  std::shared_lock<std::shared_mutex> mem_read_lock(local_mem_mutex);
-      auto ptr = name_to_mem_pool.at(pool_name).begin();
+        auto ptr = name_to_mem_pool.at(pool_name).begin();
 
-  while (ptr != name_to_mem_pool.at(pool_name).end()) {
-    size_t region_chunk_size = ptr->second->get_chunk_size();
-    if (region_chunk_size != chunk_size) {
-        assert(false);
-      ptr++;
-      continue;
-    }
-    int block_index = ptr->second->allocate_memory_slot();
-    if (block_index >= 0) {
+        while (ptr != name_to_mem_pool.at(pool_name).end()) {
+            size_t region_chunk_size = ptr->second->get_chunk_size();
+            if (region_chunk_size != chunk_size) {
+                ptr++;
+                continue;
+            }
+            int block_index = ptr->second->allocate_memory_slot();
+            if (block_index >= 0) {
 //      mr_input = new ibv_mr();
-      //      map_pointer = (ptr->second).get_mr_ori();
-      mr_input = *((ptr->second)->get_mr_ori());
-      mr_input.addr = static_cast<void*>(static_cast<char*>(mr_input.addr) +
-                                         block_index * chunk_size);
-      mr_input.length = chunk_size;
-//      DEBUG_arg("Allocate pointer %p\n", mr_input.addr);
-#ifndef NDEBUG
-        assert(*(uint64_t*)mr_input.addr == 0);
-        *(uint64_t*)mr_input.addr = 1;
-#endif
-      return;
-    } else
-      ptr++;
-  }
-  mem_read_lock.unlock();
-  // if not find available Local block buffer then allocate a new buffer. then
-  // pick up one buffer from the new Local memory region.
-  // TODO:: It could happen that the local buffer size is not enough, need to reallocate a new buff again,
-  // TODO:: Because there are two many thread going on at the same time.
-  ibv_mr* mr_to_allocate = new ibv_mr();
-  char* buff = new char[chunk_size];
+                //      map_pointer = (ptr->second).get_mr_ori();
+                mr_input = *((ptr->second)->get_mr_ori());
+                mr_input.addr = static_cast<void*>(static_cast<char*>(mr_input.addr) +
+                                                   block_index * chunk_size);
+                mr_input.length = chunk_size;
+//      DEBUG_arg("Allocate pointer %p", mr_input.addr);
+                return;
+            } else
+                ptr++;
+        }
+        mem_read_lock.unlock();
+        // if not find available Local block buffer then allocate a new buffer. then
+        // pick up one buffer from the new Local memory region.
+        // TODO:: It could happen that the local buffer size is not enough, need to reallocate a new buff again,
+        // TODO:: Because there are two many thread going on at the same time.
 
-  std::unique_lock<std::shared_mutex> mem_write_lock(local_mem_mutex);
 
-  Local_Memory_Register(&buff, &mr_to_allocate, name_to_allocated_size.at(pool_name) == 0 ?
-      1024*1024*1024:name_to_allocated_size.at(pool_name), pool_name);
+        std::unique_lock<std::shared_mutex> mem_write_lock(local_mem_mutex);
+        // The other threads may have already allocate a large chunk of memory. first check
+        // the last chunk bit mapm and if it is full then allocate new big chunk of memory.
+        auto last_element = --name_to_mem_pool.at(pool_name).end();
+        int block_index = last_element->second->allocate_memory_slot();
+        if( block_index>=0){
 
-  int block_index = name_to_mem_pool.at(pool_name).at(mr_to_allocate->addr)->allocate_memory_slot();
-  mem_write_lock.unlock();
-  if (block_index >= 0) {
-//    mr_input = new ibv_mr();
-    //    map_pointer = mr_to_allocate;
-    mr_input = *(mr_to_allocate);
-    mr_input.addr = static_cast<void*>(static_cast<char*>(mr_input.addr) +
-                                       block_index * chunk_size);
-    mr_input.length = chunk_size;
-//    DEBUG_arg("Allocate pointer %p", mr_input.addr);
-    //  mr_input.fname = file_name;
-#ifndef NDEBUG
-      assert(*(uint64_t*)mr_input.addr == 0);
-      *(uint64_t*)mr_input.addr = 1;
-#endif
-    return;
-  }
+            mr_input = *((last_element->second)->get_mr_ori());
+            mr_input.addr = static_cast<void*>(static_cast<char*>(mr_input.addr) +
+                                               block_index * chunk_size);
+            mr_input.length = chunk_size;
+
+            return;
+        }else{
+            ibv_mr* mr_to_allocate = new ibv_mr();
+            char* buff = new char[chunk_size];
+            Local_Memory_Register(&buff, &mr_to_allocate,name_to_allocated_size.at(pool_name) == 0 ?
+                                                         1024*1024*1024:name_to_allocated_size.at(pool_name), pool_name);
+            if (node_id%2 == 1)
+                printf("Memory used up, allocate new one, memory pool is %s, total memory is %lu\n",
+                       EnumStrings[pool_name], Calculate_size_of_pool(DataChunk)+
+                                               Calculate_size_of_pool(IndexChunk) +Calculate_size_of_pool(FilterChunk)
+                                               + Calculate_size_of_pool(FlushBuffer)+ Calculate_size_of_pool(Version_edit));
+            block_index = name_to_mem_pool.at(pool_name)
+                    .at(mr_to_allocate->addr)
+                    ->allocate_memory_slot();
+            mem_write_lock.unlock();
+            assert(block_index >= 0);
+            //    mr_input = new ibv_mr();
+            //    map_pointer = mr_to_allocate;
+            mr_input = *(mr_to_allocate);
+            mr_input.addr = static_cast<void*>(static_cast<char*>(mr_input.addr) +
+                                               block_index * chunk_size);
+            mr_input.length = chunk_size;
+            //    DEBUG_arg("Allocate pointer %p", mr_input.addr);
+            //  mr_input.fname = file_name;
+            return;
+
+        }
 }
 
 
