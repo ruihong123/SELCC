@@ -3489,7 +3489,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        printf("Release lock for %lu", lock_addr.offset-8);
     }
 #endif
-    void RDMA_Manager::global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+    void RDMA_Manager::global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
                                                                GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
                                                                int coro_id) {
 
@@ -3666,6 +3666,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         }
 
     }
+
     void RDMA_Manager::global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
                                                      GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
 
@@ -3684,6 +3685,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         assert(remote_lock_addr <= post_gl_page_addr - 8);
 
+
         if (async){
             assert(false);
             Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Internal_and_Leaf);
@@ -3691,9 +3693,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             *(uint64_t*) local_CAS_mr->addr = 0;
             //TODO: Can we make the RDMA unlock based on RDMA FAA? In this case, we can use async
             // lock releasing to reduce the RDMA ROUND trips in the protocol
-            uint64_t swap = 0;
-            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
-            Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare,swap, 0, Internal_and_Leaf);
+            uint64_t add = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            uint64_t substract = (~add) + 1;
+            Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, 0, Internal_and_Leaf);
             sr[0].next = &sr[1];
 
 
@@ -3702,6 +3704,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             Batch_Submit_WRs(sr, 0, page_addr.nodeID);
             //TODO: it could be spuriously failed because of the FAA.so we can not have async
         }else{
+            printf("This code path shall not be entered\n");
 
 //#ifndef NDEBUG
             uint64_t retry_cnt = 0;
@@ -3709,7 +3712,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
 //        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
-retry:
+            retry:
 //#ifndef NDEBUG
             if (retry_cnt++ >5000 && retry_cnt % 1000 == 0){
                 printf("RDMA write lock unlock keep spinning but never release, the return value is %lu\n", (*(uint64_t*) local_CAS_mr->addr) );
@@ -3750,6 +3753,90 @@ retry:
 
 //        printf("Global write page page_addr %p, async %d\n", page_addr, async);
     }
+//    void RDMA_Manager::global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
+//                                                     GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
+//
+//        //TODO: If we want to use async unlock, we need to enlarge the max outstand work request that the queue pair support.
+//        struct ibv_send_wr sr[2];
+//        struct ibv_sge sge[2];
+//        GlobalAddress post_gl_page_addr{};
+//        post_gl_page_addr.nodeID = page_addr.nodeID;
+//        assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
+//        //The header should be the same offset in Leaf or INternal nodes
+//        assert(STRUCT_OFFSET(LeafPage<int COMMA int>, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
+//        assert(STRUCT_OFFSET(InternalPage<int>, hdr) == STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
+//        post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
+//        ibv_mr post_gl_page_local_mr = *page_buffer;
+//        post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
+//        page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
+//        assert(remote_lock_addr <= post_gl_page_addr - 8);
+//
+//        if (async){
+//            assert(false);
+//            Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Internal_and_Leaf);
+//            ibv_mr* local_CAS_mr = Get_local_CAS_mr();
+//            *(uint64_t*) local_CAS_mr->addr = 0;
+//            //TODO: Can we make the RDMA unlock based on RDMA FAA? In this case, we can use async
+//            // lock releasing to reduce the RDMA ROUND trips in the protocol
+//            uint64_t swap = 0;
+//            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+//            Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare,swap, 0, Internal_and_Leaf);
+//            sr[0].next = &sr[1];
+//
+//
+//            *(uint64_t *)local_CAS_mr->addr = 0;
+//            assert(page_addr.nodeID == remote_lock_addr.nodeID);
+//            Batch_Submit_WRs(sr, 0, page_addr.nodeID);
+//            //TODO: it could be spuriously failed because of the FAA.so we can not have async
+//        }else{
+//
+////#ifndef NDEBUG
+//            uint64_t retry_cnt = 0;
+////#endif
+//
+////        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
+//            ibv_mr* local_CAS_mr = Get_local_CAS_mr();
+//retry:
+////#ifndef NDEBUG
+//            if (retry_cnt++ >5000 && retry_cnt % 1000 == 0){
+//                printf("RDMA write lock unlock keep spinning but never release, the return value is %lu\n", (*(uint64_t*) local_CAS_mr->addr) );
+//            }
+////#endif
+//
+//            //TODO: check whether the page's global lock is still write lock
+//            //  0909/2023: the code below seems sometime will get stuck.
+//            Prepare_WR_Write(sr[0], sge[0],  post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Internal_and_Leaf);
+//
+//            *(uint64_t *)local_CAS_mr->addr = 0;
+//            //TODO: THe RDMA write unlock can not be guaranteed to be finished after the page write.
+//            // The RDMA CAS be started strictly after the RDMA write at the remote NIC according to
+//            // https://docs.nvidia.com/networking/display/MLNXOFEDv451010/Out-of-Order+%28OOO%29+Data+Placement+Experimental+Verbs
+//            // So it's better to make Unlock another RDMA CAS.
+////        rdma_mg->RDMA_CAS( remote_lock_addr, local_CAS_mr, 1,0, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
+////        assert(*(uint64_t *)local_CAS_mr->addr == 1);
+//            //We can apply async unlock here to reduce the latency.
+//            uint64_t swap = 0;
+//            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+//            Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare,swap, IBV_SEND_SIGNALED, Internal_and_Leaf);
+//            sr[0].next = &sr[1];
+//
+//
+//
+//            assert(page_addr.nodeID == remote_lock_addr.nodeID);
+//            Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+////            printf("Write page from local mr %p   to remote memory %p  1, thread_id is %d\n", page_buffer->addr, page_addr, thread_id);
+//            if((*(uint64_t*) local_CAS_mr->addr) != compare){
+////                printf("RDMA write lock unlock happen with RDMA faa FOR rdma READ LOCK\n");
+//                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (compare >> 56));
+//
+//                goto retry;
+//            }
+//
+//        }
+//        assert(page_addr == (((LeafPage<int COMMA int>*)(page_buffer->addr))->hdr.this_page_g_ptr));
+//
+////        printf("Global write page page_addr %p, async %d\n", page_addr, async);
+//    }
     void RDMA_Manager::global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                                      GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
 
