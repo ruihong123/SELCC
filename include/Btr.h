@@ -311,8 +311,7 @@ class Btr_iter{
                 assert(handle->gptr == ((LeafPage<uint64_t,uint64_t>*)mr->addr)->hdr.this_page_g_ptr);
 
                 // RDMA write unlock and write back the data.
-                rdma_mg->global_write_page_and_Wunlock(mr, handle->gptr, kLeafPageSize, lock_gptr,
-                                                       nullptr, 0);
+                rdma_mg->global_write_page_and_Wunlock(mr, handle->gptr, kLeafPageSize, lock_gptr);
                 handle->remote_lock_status.store(0);
             }else{
                 //An invalidated page, do nothing
@@ -3016,6 +3015,7 @@ re_read:
 //            temp_mr.length = temp_mr.length - RDMA_OFFSET;
             assert(page->global_lock == ((uint64_t)(rdma_mg->node_id/2 +1) <<56));
             assert(page->hdr.valid_page);
+            //TODO: Change false to true.
             rdma_mg->global_write_page_and_Wunlock(page_mr, page_addr, kInternalPageSize, lock_addr,
                                                    cxt, coro_id, false);
             releases_local_optimistic_lock(&page->local_lock_meta);
