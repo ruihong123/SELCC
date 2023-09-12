@@ -5453,6 +5453,7 @@ void RDMA_Manager::fs_deserilization(
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, global_lock);
             }
             if (handle->remote_lock_status.load() == 1) {
+                //TODO: Use try lock instead of lock.
                 std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                 if (handle->remote_lock_status.load() == 1) {
                     global_RUnlock(lock_gptr, cas_mr);
