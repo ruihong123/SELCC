@@ -3559,7 +3559,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             std::cout << GetMemoryNodeNum() << ", "
                       << " locked by node  " << (conflict_tag) << std::endl;
-            printf("CAS buffer value is %p, compare is %lu, swap is %lu\n", (*(uint64_t*) cas_buffer->addr, compare, swap);
+            printf("CAS buffer value is %p, compare is %lu, swap is %lu\n", (*(uint64_t*) cas_buffer->addr), compare, swap);
             assert(false);
             exit(0);
         }
