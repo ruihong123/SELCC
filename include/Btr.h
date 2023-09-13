@@ -281,8 +281,8 @@ class Btr_iter{
 //TODO: make the function set cache handle as an argument, and we need to modify the remote lock status
 // when unlocking the remote lock.
     static void Deallocate_MR_WITH_CCP(Cache::Handle *handle) {
-        // TOFIX: The code below is not protected by the lock shared mutex. Besides,
-        //  the deletor may also not well protected by the cache mutex.
+        // TOFIX: The code below is not protected by the lock shared mutex. It is Okay because,
+        // there is definitely no other thread accessing it if a page is destroyed (refs == 0)
         assert(handle->refs.load() == 0);
         auto rdma_mg = RDMA_Manager::Get_Instance(nullptr);
 //    Key
@@ -527,9 +527,9 @@ class Btr_iter{
 //        ibv_mr* old_mr = cached_root_page_mr.load();
 //        rdma_mg->Deallocate_Local_RDMA_Slot(old_mr->addr, Internal_and_Leaf);
 //        delete old_mr;
-        cached_root_page_mr.store(temp_mr);
         g_root_ptr.store(root_ptr);
-        tree_height = ((InternalPage<Key>*) temp_mr->addr)->hdr.level;
+        cached_root_page_mr.store(temp_mr);
+        tree_height.store(((InternalPage<Key>*) temp_mr->addr)->hdr.level);
 
         std::cout << "Get new root" << g_root_ptr <<std::endl;
         assert(g_root_ptr != GlobalAddress::Null());
@@ -602,7 +602,7 @@ class Btr_iter{
         // set local cache for root address
         g_root_ptr.store(new_root_addr,std::memory_order_seq_cst);
         cached_root_page_mr.store(page_buffer);
-        tree_height = level;
+        tree_height.store(level);
 
         rdma_mg->RDMA_Write(new_root_addr, page_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
         ibv_mr remote_mr = *rdma_mg->global_index_table;
@@ -2624,6 +2624,9 @@ re_read:
         // TODO: also use page hint to access the internal store to bypassing the cache
         if (level == tree_height.load()) {
             std::unique_lock<std::shared_mutex> lck(root_mtx);
+            //Refresh the root ptr;
+            ibv_mr* dummy_mr;
+            auto g_root_ptr_temp = get_root_ptr(dummy_mr);
             // THe optimistic latch free mechanims is not safe for root update, becuase there could be two root page existing
             // at the same time and two updates are conducted over two different page copy. Since the optimistic latch free
             // is embeded in the page, they can not get aware of each other.
