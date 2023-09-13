@@ -527,7 +527,6 @@ class Btr_iter{
 //        ibv_mr* old_mr = cached_root_page_mr.load();
 //        rdma_mg->Deallocate_Local_RDMA_Slot(old_mr->addr, Internal_and_Leaf);
 //        delete old_mr;
-        assert(g_root_ptr.load() == GlobalAddress::Null());
         cached_root_page_mr.store(temp_mr);
         g_root_ptr.store(root_ptr);
         tree_height = ((InternalPage<Key>*) temp_mr->addr)->hdr.level;
@@ -3069,18 +3068,22 @@ re_read:
                         update_new_root(path_stack[coro_id][level], split_key, sibling_addr, level + 1,
                                         path_stack[coro_id][level], cxt, coro_id);
                         *(uint64_t *) cas_buffer->addr = 0;
-
-                        rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
+                        //TODO: USE RDMA cas TO release lock
+                        rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 1, 0, IBV_SEND_SIGNALED,1, LockTable);
+                        assert((*(uint64_t*) cas_buffer->addr) == 1);
+//                        rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
 
                         return true;
                     }else{
-                        assert(false);
+//                        assert(false);
+                        *(uint64_t *) cas_buffer->addr = 0;
+                        rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 1, 0, IBV_SEND_SIGNALED,1, LockTable);
+                        assert((*(uint64_t*) cas_buffer->addr) == 1);
+//                        rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
+
                         printf("There is another node updating the root node\n");
                     }
 //                l.unlock();
-                    *(uint64_t *) cas_buffer->addr = 0;
-
-                    rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
 
                 }
                 l.unlock();
@@ -3418,17 +3421,19 @@ re_read:
                         update_new_root(path_stack[coro_id][level], split_key, sibling_addr, level + 1,
                                         path_stack[coro_id][level], cxt, coro_id);
                         *(uint64_t *) cas_buffer->addr = 0;
-
-                        rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
-
+                        //TODO: USE RDMA cas TO release lock
+//                        rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
+                        rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 1, 0, IBV_SEND_SIGNALED,1, LockTable);
+                        assert((*(uint64_t*) cas_buffer->addr) == 1);
 //                        page_cache->Release(handle);
                         return true;
                     }else{
                         *(uint64_t *) cas_buffer->addr = 0;
 
-                        rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
-
-                        assert(false);
+//                        rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
+                        rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 1, 0, IBV_SEND_SIGNALED,1, LockTable);
+                        assert((*(uint64_t*) cas_buffer->addr) == 1);
+//                        assert(false);
                     }
 //                l.unlock();
 
