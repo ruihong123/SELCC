@@ -3702,7 +3702,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             *(uint64_t *)local_CAS_mr->addr = 0;
             assert(page_addr.nodeID == remote_lock_addr.nodeID);
             Batch_Submit_WRs(sr, 0, page_addr.nodeID);
-            printf("Release write lock for %lu\n");
+            printf("Release write lock for %lu\n",page_addr);
             //TODO: it could be spuriously failed because of the FAA.so we can not have async
         }else{
 //            printf("This code path shall not be entered\n");
