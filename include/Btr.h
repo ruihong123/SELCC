@@ -100,7 +100,7 @@ public:
     RecordSchema* scheme_ptr;
 
 private:
-  std::mutex root_mtx;// in case of contention in the root
+  std::shared_mutex root_mtx;// in case of contention in the root cache
   uint64_t tree_id;
 //  GlobalAddress root_ptr_ptr; // the address which stores root pointer;
 // TODO: not make it as a fixed
@@ -448,7 +448,7 @@ class Btr_iter{
         GlobalAddress root_ptr = g_root_ptr.load();
         root_hint = cached_root_page_mr.load();
         if (root_ptr == GlobalAddress::Null()) {
-            std::unique_lock<std::mutex> l(root_mtx);
+            std::unique_lock<std::shared_mutex> l(root_mtx);
 
             root_ptr = g_root_ptr.load();
             root_hint = cached_root_page_mr.load();
@@ -521,8 +521,13 @@ class Btr_iter{
         memset(temp_mr->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
         //Read a larger enough data for the root node thorugh it may oversize the page but it is ok since we only read the data.
         rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize,IBV_SEND_SIGNALED,1,Internal_and_Leaf);
-        ibv_mr* old_mr = cached_root_page_mr.load();
-        delete old_mr;
+        //TODO: Since there could be other thread acessing the root page, we need to make sure that the root page is not
+        // deleted until the other thread finish the access. The commented code below is problematic.
+        //  We may need a shared pointer mechanism.
+//        ibv_mr* old_mr = cached_root_page_mr.load();
+//        rdma_mg->Deallocate_Local_RDMA_Slot(old_mr->addr, Internal_and_Leaf);
+//        delete old_mr;
+        assert(g_root_ptr.load() == GlobalAddress::Null());
         cached_root_page_mr.store(temp_mr);
         g_root_ptr.store(root_ptr);
         tree_height = ((InternalPage<Key>*) temp_mr->addr)->hdr.level;
@@ -1214,7 +1219,7 @@ class Btr_iter{
                 // Since return true will not invalidate the root node, here we manually invalidate it outside,
                 // Otherwise, there will be a deadloop.
                 {
-                    std::unique_lock<std::mutex> l(root_mtx);
+                    std::unique_lock<std::shared_mutex> l(root_mtx);
                     g_root_ptr.store(GlobalAddress::Null());
                 }
 
@@ -1838,11 +1843,13 @@ next: // Internal_and_Leaf page search
         // the page. Also we need a mechanism to avoid the page being deallocate during the access. if a page
         // is pointer swizzled, we need to make sure it will not be evict from the cache.
         if (page_hint != nullptr) {
-            //update shoul also relect on the page_hint
+            // No need to acquire root mtx here, because if we got an outdated child ptr, the optimistic lock coupling can
+            // handle it.
             mr = page_hint;
             page_buffer = mr->addr;
             header = (Header<Key> *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
             // if is root, then we should always bypass the cache.
+
             if (header->this_page_g_ptr == page_addr) {
                 // if this page mr is in-use and is the local cache for page_addr
                 skip_cache = true;
@@ -1866,7 +1873,7 @@ next: // Internal_and_Leaf page search
                     // assert the page is a valid page.
                     assert(page->check_whether_globallock_is_unlocked());
                     if (k >= page->hdr.highest){
-                        std::unique_lock<std::mutex> l(root_mtx);
+                        std::unique_lock<std::shared_mutex> l(root_mtx);
                         if (page_addr == g_root_ptr.load()){
                             g_root_ptr.store(GlobalAddress::Null());
                         }
@@ -1953,7 +1960,7 @@ next: // Internal_and_Leaf page search
                     assert(false);
                     assert(page->check_whether_globallock_is_unlocked());
                     if (k >= page->hdr.highest){
-                        std::unique_lock<std::mutex> l(root_mtx);
+                        std::unique_lock<std::shared_mutex> l(root_mtx);
                         if (page_addr == g_root_ptr.load()){
                             g_root_ptr.store(GlobalAddress::Null());
                         }
@@ -2027,7 +2034,7 @@ next: // Internal_and_Leaf page search
                     assert(false);
                     assert(page->check_whether_globallock_is_unlocked());
                     if (k >= page->hdr.highest){
-                        std::unique_lock<std::mutex> l(root_mtx);
+                        std::unique_lock<std::shared_mutex> l(root_mtx);
                         if (page_addr == g_root_ptr.load()){
                             g_root_ptr.store(GlobalAddress::Null());
                         }
@@ -2143,7 +2150,7 @@ next: // Internal_and_Leaf page search
             // (3) If other level, then the upper level page in the LRU cache should be invalidated.
             if (isroot){
                 // invalidate the root. Maybe we can omit the mtx here?
-                std::unique_lock<std::mutex> l(root_mtx);
+                std::unique_lock<std::shared_mutex> l(root_mtx);
                 if (page_addr == g_root_ptr.load()){
                     g_root_ptr.store(GlobalAddress::Null());
                 }
@@ -2225,7 +2232,7 @@ next: // Internal_and_Leaf page search
         if (k < page->hdr.lowest) {
             if (isroot && UNLIKELY(level+1 == tree_height.load())){
                 // invalidate the root.
-                std::unique_lock<std::mutex> l(root_mtx);
+                std::unique_lock<std::shared_mutex> l(root_mtx);
                 if (page_addr == g_root_ptr.load()){
                     g_root_ptr.store(GlobalAddress::Null());
                 }
@@ -2388,7 +2395,7 @@ next: // Internal_and_Leaf page search
 
             }else{
                 // If this node do not have upper level, then the root node must be invalidated
-                std::unique_lock<std::mutex> l(root_mtx);
+                std::unique_lock<std::shared_mutex> l(root_mtx);
                 if (page_addr == g_root_ptr.load()){
                     g_root_ptr.store(GlobalAddress::Null());
                 }
@@ -2428,7 +2435,7 @@ next: // Internal_and_Leaf page search
             DEBUG_PRINT_CONDITION("retry place 4\n");
             goto returnfalse;
         }else{
-            std::unique_lock<std::mutex> l(root_mtx);
+            std::unique_lock<std::shared_mutex> l(root_mtx);
             if (page_addr == g_root_ptr.load()){
                 g_root_ptr.store(GlobalAddress::Null());
             }
@@ -2617,61 +2624,61 @@ re_read:
         Cache::Handle* handle = nullptr;
         // TODO: also use page hint to access the internal store to bypassing the cache
         if (level == tree_height.load()) {
-
-            page_mr = cached_root_page_mr.load();
-            page_buffer = page_mr->addr;
-            page = (InternalPage<Key> *)page_buffer;
-            Header<Key>* header = (Header<Key> *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
-            //since tree height is modified the last, so the page must be correct. the only situation which
-            // challenge the assertion below is that the root page is changed too fast or there is a long context switch above.
-            assert(header->this_page_g_ptr == page_addr);
-            if (header->this_page_g_ptr == page_addr) {
+            std::unique_lock<std::shared_mutex> lck(root_mtx);
+            // THe optimistic latch free mechanims is not safe for root update, becuase there could be two root page existing
+            // at the same time and two updates are conducted over two different page copy. Since the optimistic latch free
+            // is embeded in the page, they can not get aware of each other.
+            if (level == tree_height.load()) {
+                page_mr = cached_root_page_mr.load();
+                page_buffer = page_mr->addr;
+                page = (InternalPage<Key> *) page_buffer;
+                Header<Key> *header = (Header<Key> *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
+                //since tree height is modified the last, so the page must be correct. the only situation which
+                // challenge the assertion below is that the root page is changed too fast or there is a long context switch above.
+                assert(header->this_page_g_ptr == page_addr);
                 cache_hit[RDMA_Manager::thread_id][0]++;
 
                 assert(header->level == level);
                 // if this page mr is in-use and is the local cache for page_addr
                 skip_cache = true;
-                page = (InternalPage<Key> *)page_buffer;
+                page = (InternalPage<Key> *) page_buffer;
                 path_stack[coro_id][level] = page_addr;
                 assert(page->hdr.level < 100);
-                ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+                ibv_mr *cas_mr = rdma_mg->Get_local_CAS_mr();
 #ifndef NDEBUG
                 bool valid_temp = page->hdr.valid_page;
-                uint64_t local_meta_new = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
+                uint64_t local_meta_new = __atomic_load_n((uint64_t *) &page->local_lock_meta,
+                                                          (int) std::memory_order_seq_cst);
 
 #endif
                 bool handover = acquire_local_optimistic_lock(&page->local_lock_meta, cxt, coro_id);
 #ifndef NDEBUG
-//        usleep(4);
+                //        usleep(4);
                 uint8_t expected = 0;
-                assert( __atomic_load_n(&page->local_lock_meta.local_lock_byte, mem_cst_seq) != 0);
-                assert(!__atomic_compare_exchange_n(&page->local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq));
+                assert(__atomic_load_n(&page->local_lock_meta.local_lock_byte, mem_cst_seq) != 0);
+                assert(!__atomic_compare_exchange_n(&page->local_lock_meta.local_lock_byte, &expected, 1, false,
+                                                    mem_cst_seq, mem_cst_seq));
 #endif
-                if (handover){
+                if (handover) {
                     // No need to read the page again because we handover the page as well.
-//            rdma_mg->RDMA_Read(page_addr, local_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+                    //            rdma_mg->RDMA_Read(page_addr, local_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
 
-                }else{
+                } else {
                     ibv_mr temp_mr = *page_mr;
                     GlobalAddress temp_page_add = page_addr;
                     temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
-                    temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
+                    temp_mr.addr = (char *) temp_mr.addr + RDMA_OFFSET;
                     temp_mr.length = temp_mr.length - RDMA_OFFSET;
                     assert(page->local_lock_meta.local_lock_byte == 1);
                     rdma_mg->global_Wlock_and_read_page_without_INVALID(&temp_mr, temp_page_add,
                                                                         kInternalPageSize - RDMA_OFFSET,
                                                                         lock_addr, cas_mr, 1, cxt, coro_id);
-//                handle->remote_lock_status.store(2);
-//            usleep(1);
+                    //                handle->remote_lock_status.store(2);
+                    //            usleep(1);
                 }
                 assert(page->local_lock_meta.local_lock_byte == 1);
 
-
-            }else{
-                cache_miss[RDMA_Manager::thread_id][0]++;
-
             }
-
         }
 
         if(!skip_cache){
@@ -2797,7 +2804,7 @@ re_read:
         if (k >= page->hdr.highest ) {
             // TODO: No need for node invalidation when inserting things because the tree tranversing is enough for invalidation (Erase)
             if(UNLIKELY(level == tree_height.load())){
-                std::unique_lock<std::mutex> l(root_mtx);
+                std::unique_lock<std::shared_mutex> l(root_mtx);
                 if (page_addr == g_root_ptr.load()){
                     g_root_ptr.store(GlobalAddress::Null());
                 }
@@ -2872,7 +2879,7 @@ re_read:
             // if key is smaller than the lower bound, the insert has to be restart from the
             // upper level. because the sibling pointer only points to larger one.
             if(UNLIKELY(level == tree_height.load())){
-                std::unique_lock<std::mutex> l(root_mtx);
+                std::unique_lock<std::shared_mutex> l(root_mtx);
                 if (page_addr == g_root_ptr.load()){
                     g_root_ptr.store(GlobalAddress::Null());
                 }
@@ -3036,7 +3043,7 @@ re_read:
             //check whether the node split is for a root node.
             if (UNLIKELY(p == GlobalAddress::Null() )){
                 // First acquire local lock
-                std::unique_lock<std::mutex> l(root_mtx);
+                std::unique_lock<std::shared_mutex> l(root_mtx);
                 ibv_mr* dummy_mr;
                 p = get_root_ptr(dummy_mr);
                 uint8_t height = tree_height.load();
@@ -3215,7 +3222,7 @@ re_read:
 
 //                page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
                 }else{
-                    std::unique_lock<std::mutex> lck(root_mtx);
+                    std::unique_lock<std::shared_mutex> lck(root_mtx);
                     if (page_addr == g_root_ptr.load()){
                         g_root_ptr.store(GlobalAddress::Null());
                     }
@@ -3274,7 +3281,7 @@ re_read:
 
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
             }else{
-                std::unique_lock<std::mutex> lck(root_mtx);
+                std::unique_lock<std::shared_mutex> lck(root_mtx);
                 if (page_addr == g_root_ptr.load()){
                     g_root_ptr.store(GlobalAddress::Null());
                 }
@@ -3379,7 +3386,7 @@ re_read:
             //check whether the node split is for a root node.
             if (UNLIKELY(p == GlobalAddress::Null() )){
                 // First acquire local lock
-                std::unique_lock<std::mutex> l(root_mtx);
+                std::unique_lock<std::shared_mutex> l(root_mtx);
 //                refetch_rootnode();
                 // If you find the current root node does not have higher stack, and it is not a outdated root node,
                 // the reason behind is that the inserted key is very small and the leaf node keep sibling shift to the right.
