@@ -3690,7 +3690,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
 
         if (async){
-            assert(false);
+//            assert(false);
             Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Internal_and_Leaf);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
             *(uint64_t*) local_CAS_mr->addr = 0;
