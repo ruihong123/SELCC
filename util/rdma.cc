@@ -4744,7 +4744,7 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
 
     bool RDMA_Manager::Remote_Query_Pair_Connection(std::string& qp_type,
                                                 uint16_t target_node_id) {
-  ibv_qp* qp = create_qp(target_node_id, false, qp_type, 2);
+  ibv_qp* qp = create_qp(target_node_id, false, qp_type, 128);
 
   union ibv_gid my_gid;
   int rc;
