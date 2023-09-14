@@ -5542,12 +5542,14 @@ void RDMA_Manager::fs_deserilization(
             if (handle->remote_lock_status.load() == 1) {
                 //TODO: Use try lock instead of lock.
 //                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
-                if (handle->rw_mtx.try_lock() && handle->remote_lock_status.load() == 1){
+                handle->rw_mtx.try_lock();
+                if ( handle->remote_lock_status.load() == 1){
 //                    printf("Release read lock request received!\n");
                     global_RUnlock(lock_gptr, cas_mr);
                     handle->remote_lock_status.store(0);
-                    handle->rw_mtx.unlock();
                 }
+                handle->rw_mtx.unlock();
+
 
             }
             page_cache_->Release(handle);
@@ -5579,14 +5581,13 @@ void RDMA_Manager::fs_deserilization(
             // double check locking
             if (handle->remote_lock_status.load() == 2){
 //                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
-                if (handle->rw_mtx.try_lock() && handle->remote_lock_status.load() == 2){
+                handle->rw_mtx.try_lock();
+                if (handle->remote_lock_status.load() == 2){
 //                    printf("Release write lock request received!\n");
                     global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr, page_mr->length,lock_gptr);
                     handle->remote_lock_status.store(0);
-                    handle->rw_mtx.unlock();
                 }
-
-
+                handle->rw_mtx.unlock();
             }
             page_cache_->Release(handle);
         }else{
