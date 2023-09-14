@@ -5544,6 +5544,7 @@ void RDMA_Manager::fs_deserilization(
                     if ( handle->remote_lock_status.load() == 1){
                         global_RUnlock(lock_gptr, cas_mr);
                         handle->remote_lock_status.store(0);
+                        printf("Release read lock %lu\n", g_ptr);
                     }
                     handle->rw_mtx.unlock();
                 }
@@ -5581,6 +5582,7 @@ void RDMA_Manager::fs_deserilization(
                     if (handle->remote_lock_status.load() == 2){
                         global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr, page_mr->length,lock_gptr);
                         handle->remote_lock_status.store(0);
+                        printf("Release write lock %lu\n", g_ptr);
                     }
                     handle->rw_mtx.unlock();
                 }
