@@ -1227,13 +1227,11 @@ class Btr_iter{
 
 
         ibv_mr* page_hint = nullptr;
-        assert(root != GlobalAddress::Null());
 //  std::cout << "The root now is " << root << std::endl;
         SearchResult<Key,Value> result{0};
         char result_buff[16];
         result.val.Reset(result_buff, 16);
 //        memset(&result, 0, sizeof(SearchResult<Key, Value>));
-        GlobalAddress p = root;
         bool isroot = true;
         // this is root is to help the tree to refresh the root node because the
         // new root broadcast is not usable if physical disaggregated.
@@ -1252,6 +1250,9 @@ next: // Internal_and_Leaf page search
 //#ifndef NDEBUG
 //        printf("this result level is %d\n", result.level);
         auto root = get_root_ptr_protected(page_hint);
+        assert(root != GlobalAddress::Null());
+        GlobalAddress p = root;
+
         if (next_times == 1000){
 //            printf("this result level is %d\n", result.level);
             assert(false);
