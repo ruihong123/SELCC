@@ -3531,13 +3531,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 for (auto iter: read_invalidation_targets) {
                     if (iter != (RDMA_Manager::node_id)){
                         Shared_lock_invalidate_RPC(page_addr, iter);
-
                     }else{
                         // This rare case is because the cache mutex will be released before the read/write lock release.
                         // If there is another request comes in immediately for the same page before the lock release, this print
                         // below will happen.
                         printf(" read invalidation target is itself, this is rare case,, page_addr is %p\n", page_addr);
-
                     }
                 }
             }else if (invalidation_RPC_type == 2){
@@ -3548,9 +3546,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
                 }else{
                     printf(" Write invalidation target is itself, this is rare case, page_addr is %p\n", page_addr);
-
                 }
-
             }
 
             // the compared value is the real id /2 + 1.
@@ -3560,7 +3556,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             std::cout << GetMemoryNodeNum() << ", "
                       << " locked by node  " << (conflict_tag) << std::endl;
-            printf("CAS buffer value is %p, compare is %lu, swap is %lu\n", (*(uint64_t*) cas_buffer->addr), compare, swap);
+            printf("CAS buffer value is %lu, compare is %lu, swap is %lu\n", (*(uint64_t*) cas_buffer->addr), compare, swap);
             assert(false);
             exit(0);
         }
@@ -3750,6 +3746,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
                 goto retry;
             }
+            printf("Release write lock for %lu\n",page_addr);
 
         }
         assert(page_addr == (((LeafPage<int COMMA int>*)(page_buffer->addr))->hdr.this_page_g_ptr));
