@@ -1255,7 +1255,9 @@ next: // Internal_and_Leaf page search
 
 
         if (next_times == 1000){
-            printf("this result level is %d\n", result.level);
+            if (next_times%10 == 0){
+                printf("this result level is %d\n", result.level);
+            }
             assert(false);
         }
 
