@@ -1254,7 +1254,7 @@ next: // Internal_and_Leaf page search
 //        printf("this result level is %d\n", result.level);
 
 
-        if (next_times == 1000){
+        if (next_times == 5000){
             if (next_times%10 == 0){
                 printf("this result level is %d\n", result.level);
             }
@@ -1970,7 +1970,7 @@ next: // Internal_and_Leaf page search
 #endif
             rdma_refetch:
 #ifndef NDEBUG
-                if (rdma_refetch_times >= 10000){
+                if (rdma_refetch_times >= 50000){
                     assert(false);
                 }
 #endif
