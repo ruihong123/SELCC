@@ -506,7 +506,7 @@ class RDMA_Manager {
                                                 ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt= nullptr, int coro_id = 0);
     // THis function acctually does not flush global lock words, otherwise the RDMA write will interfere with RDMA FAA making the CAS failed always
     void global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
-                                       GlobalAddress remote_lock_addr, CoroContext *cxt = nullptr, int coro_id = 0, bool async = true);
+                                       GlobalAddress remote_lock_addr, CoroContext *cxt = nullptr, int coro_id = 0, bool async = false);
     void global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                        GlobalAddress remote_lock_addr, CoroContext *cxt = nullptr, int coro_id = 0, bool async = false);
     void global_unlock_addr(GlobalAddress remote_lock_add, CoroContext *cxt= nullptr, int coro_id = 0, bool async = false);
@@ -553,10 +553,6 @@ class RDMA_Manager {
                                        uint16_t target_node_id);
     int try_poll_completions_xcompute(ibv_wc *wc_p, int num_entries, bool send_cq, uint16_t target_node_id,
                                       int num_of_cp);
-  void fs_serialization(
-      char*& buff, size_t& size, std::string& db_name,
-      std::unordered_map<std::string, SST_Metadata*>& file_to_sst_meta,
-      std::map<void*, In_Use_Array>& remote_mem_bitmap);
   // Deserialization for linked file is problematic because different file may link to the same SSTdata
   void fs_deserilization(
       char*& buff, size_t& size, std::string& db_name,
