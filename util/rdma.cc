@@ -3479,8 +3479,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
         // TODO: Read unlock do not need to wait for the completion. However, if we consider partial failure recovery,
         //  we need to consider to implement an synchronized RDMA Read unlocking function.
-        RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Internal_and_Leaf);
-
+//        RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Internal_and_Leaf);
+        RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
 //        uint64_t return_data = (*(uint64_t*) cas_buffer->addr);
 //        assert((return_data & (1ull << (RDMA_Manager::node_id/2 + 1))) != 0);
 
