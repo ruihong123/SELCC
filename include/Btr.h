@@ -2986,12 +2986,6 @@ re_read:
 //            rdma_mg->RDMA_Write(page_addr, local_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
             releases_local_optimistic_lock(&page->local_lock_meta);
         }else{
-
-//            ibv_mr temp_mr = *page_mr;
-//            GlobalAddress temp_page_add = page_addr;
-//            temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
-//            temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
-//            temp_mr.length = temp_mr.length - RDMA_OFFSET;
             assert(page->global_lock == ((uint64_t)(rdma_mg->node_id/2 +1) <<56));
             assert(page->hdr.valid_page);
             //TODO: Change false to true.
