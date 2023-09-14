@@ -3481,7 +3481,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // TODO: Read unlock do not need to wait for the completion. However, if we consider partial failure recovery,
         //  we need to consider to implement an synchronized RDMA Read unlocking function.
 //        RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Internal_and_Leaf);
-        RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+        RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Internal_and_Leaf);
 //        uint64_t return_data = (*(uint64_t*) cas_buffer->addr);
 //        assert((return_data & (1ull << (RDMA_Manager::node_id/2 + 1))) != 0);
 
@@ -3693,13 +3693,13 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // lock releasing to reduce the RDMA ROUND trips in the protocol
             uint64_t add = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
             uint64_t substract = (~add) + 1;
-            Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Internal_and_Leaf);
+            Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, 0, Internal_and_Leaf);
             sr[0].next = &sr[1];
 
 
             *(uint64_t *)local_CAS_mr->addr = 0;
             assert(page_addr.nodeID == remote_lock_addr.nodeID);
-            Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+            Batch_Submit_WRs(sr, 0, page_addr.nodeID);
 //            assert((*(uint64_t*) local_CAS_mr->addr) == add);
             printf("Release write lock for %lu\n",page_addr);
             //TODO: it could be spuriously failed because of the FAA.so we can not have async
