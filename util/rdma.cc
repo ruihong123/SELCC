@@ -3324,9 +3324,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }else if (retry_cnt <100){
                 usleep(10);
             }else if (retry_cnt <1000){
+                printf("Invalidate RPC in Read lock timeout 1000\n");
+
                 usleep(100);
             }else if (retry_cnt <2000){
-                printf("RPC handling thread x compute is not enough, please raise the value of NUM_QP_ACCROSS_COMPUTE\n");
+                printf("Invalidate RPC in Read lock timeout 2000\n");
                 usleep(1000);
             }else{
                 usleep(5000);
@@ -3404,6 +3406,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            printf("Lock upgrade failed, release the lock, address is %p\n", lock_addr);
             return false;
         }
+        // No need for exponetial backoff.
         if (retry_cnt % 4 ==  2) {
 //            assert(compare%2 == 0);
             for (auto iter: read_invalidation_targets) {
@@ -3517,9 +3520,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }else if (retry_cnt <100){
                 usleep(10);
             }else if (retry_cnt <1000){
+                printf("Invalidate RPC in write unlock timeout 1000\n");
+
                 usleep(100);
             }else if (retry_cnt <2000){
-                printf("RPC handling thread x compute is not enough, please raise the value of NUM_QP_ACCROSS_COMPUTE\n");
+                printf("Invalidate RPC in write unlock timeout 2000\n");
                 usleep(1000);
             }else{
                 usleep(5000);
@@ -3552,7 +3557,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // the compared value is the real id /2 + 1.
         }
         if (retry_cnt > 4000) {
-            std::cout << "Deadlock for write lock " << lock_addr << std::endl;
+            std::cout << "write lock timeout" << lock_addr << std::endl;
 
             std::cout << GetMemoryNodeNum() << ", "
                       << " locked by node  " << (conflict_tag) << std::endl;
