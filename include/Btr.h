@@ -1227,6 +1227,9 @@ class Btr_iter{
 
 
         ibv_mr* page_hint = nullptr;
+        auto root = get_root_ptr_protected(page_hint);
+        assert(root != GlobalAddress::Null());
+        GlobalAddress p = root;
 //  std::cout << "The root now is " << root << std::endl;
         SearchResult<Key,Value> result{0};
         char result_buff[16];
@@ -1249,12 +1252,10 @@ class Btr_iter{
 next: // Internal_and_Leaf page search
 //#ifndef NDEBUG
 //        printf("this result level is %d\n", result.level);
-        auto root = get_root_ptr_protected(page_hint);
-        assert(root != GlobalAddress::Null());
-        GlobalAddress p = root;
+
 
         if (next_times == 1000){
-//            printf("this result level is %d\n", result.level);
+            printf("this result level is %d\n", result.level);
             assert(false);
         }
 
