@@ -3153,6 +3153,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // important!!! we should never use async if we have both read lock and write lock.
             // send flag 0 means there is no flag
             RDMA_CAS(remote_lock_add, cas_buf,  compare, swap, 0,0,Internal_and_Leaf);
+            printf("Global page unlock page_addr %p, async %d\n", remote_lock_add, async);
         } else {
 
         retry:
