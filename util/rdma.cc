@@ -4744,7 +4744,7 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
 
     bool RDMA_Manager::Remote_Query_Pair_Connection(std::string& qp_type,
                                                 uint16_t target_node_id) {
-  ibv_qp* qp = create_qp(target_node_id, false, qp_type, 128);
+  ibv_qp* qp = create_qp(target_node_id, false, qp_type, 1024);
 
   union ibv_gid my_gid;
   int rc;
@@ -5592,7 +5592,6 @@ void RDMA_Manager::fs_deserilization(
                     }
                     handle->rw_mtx.unlock();
                 }
-
             }
             page_cache_->Release(handle);
         }else{
