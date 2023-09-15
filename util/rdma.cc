@@ -2962,7 +2962,10 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
 //        start = std::chrono::high_resolution_clock::now();
 //#endif
 //        DEBUG_PRINT("Batch submit polling\n");
-        if (rc) fprintf(stderr, "failed to post SR, return is %d\n", rc);
+        if (rc) {
+            assert(false);
+            fprintf(stderr, "failed to post SR, return is %d\n", rc);
+        }
 
         if (poll_num != 0) {
             ibv_wc* wc = new ibv_wc[poll_num]();
@@ -4281,7 +4284,10 @@ int RDMA_Manager::post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int nu
     /* post the Send Request to the RQ */
     ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
     rc = ibv_post_send(qp, &sr, &bad_wr);
-
+    if (rc) {
+        assert(false);
+        fprintf(stderr, "failed to post SR, return is %d\n", rc);
+    }
     return rc;
 }
 int RDMA_Manager::post_receive(ibv_mr* mr, std::string qp_type, size_t size,
