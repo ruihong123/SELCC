@@ -3714,7 +3714,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // async lock releasing.
             uint32_t * counter = (uint32_t *)async_counter.at(page_addr.nodeID)->Get();
             if (!counter){
-                async_counter[page_addr.nodeID]->Reset(new uint32_t(0));
+                counter = new uint32_t(0);
+                async_counter[page_addr.nodeID]->Reset(counter);
             }
             if ( (*counter % SEND_OUTSTANDING_SIZE) == 1){
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Internal_and_Leaf);
