@@ -1509,8 +1509,8 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
   if (qp_type == "default" ){
     assert(qp_data_default[target_node_id] != nullptr);
     qp_data_default[target_node_id]->Reset(qp);
-    auto counter = new uint32_t(0);
-    async_counter[target_node_id]->Reset(counter);
+//    auto counter = new uint32_t(0);
+//    async_counter[target_node_id]->Reset(counter);
   }
 //    ((QP_Map*)qp_data_default->Get())->insert({shard_target_node_id, qp});
 //    qp_data_default->Reset(qp);
@@ -3713,6 +3713,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // The code below is to prevent a work request overflow in the send queue, since we enable
             // async lock releasing.
             uint32_t * counter = (uint32_t *)async_counter.at(page_addr.nodeID)->Get();
+            if (!counter){
+                async_counter[page_addr.nodeID]->Reset(new uint32_t(0));
+            }
             if ( (*counter % SEND_OUTSTANDING_SIZE) == 1){
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Internal_and_Leaf);
                 sr[0].next = &sr[1];
