@@ -3636,7 +3636,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 goto retry;
             }
         }
-        printf("Acquire Write Lock at %lu\n", page_addr);
+//        printf("Acquire Write Lock at %lu\n", page_addr);
         assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
     }
     void RDMA_Manager::global_Wlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
@@ -3716,7 +3716,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 counter = new uint32_t(0);
                 async_counter[page_addr.nodeID]->Reset(counter);
             }
-            if ( UNLIKELY((*counter % (4)) == 1)){
+            if ( UNLIKELY((*counter % (SEND_OUTSTANDING_SIZE-1)) == 1)){
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Internal_and_Leaf);
                 sr[0].next = &sr[1];
 
@@ -3724,7 +3724,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
                 Batch_Submit_WRs(sr, 1, page_addr.nodeID);
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
-
+                printf("Issue sync write unlock\n");
             }else{
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, 0, Internal_and_Leaf);
                 sr[0].next = &sr[1];
