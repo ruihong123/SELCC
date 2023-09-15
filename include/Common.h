@@ -9,6 +9,7 @@
 #include <atomic>
 #include <bitset>
 #include <limits>
+#include "port/likely.h"
 
 //#include "Debug.h"
 //#include "HugePageAlloc.h"
