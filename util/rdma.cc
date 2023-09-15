@@ -3330,18 +3330,17 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }else if (retry_cnt <1000){
                 if (retry_cnt == 1001){
                     printf("Invalidate RPC in Read lock timeout 1000\n");
-
                 }
-
                 usleep(100);
-            }else if (retry_cnt <2000){
-                if (retry_cnt == 2001) {
-                    printf("Invalidate RPC in Read lock timeout 2000\n");
-                }
-                usleep(1000);
-            }else{
-                usleep(5000);
             }
+//            else if (retry_cnt <2000){
+//                if (retry_cnt == 2001) {
+//                    printf("Invalidate RPC in Read lock timeout 2000\n");
+//                }
+//                usleep(1000);
+//            }else{
+//                usleep(5000);
+//            }
             assert(target_compute_node_id != (RDMA_Manager::node_id));
             if (target_compute_node_id != (RDMA_Manager::node_id)){
                 Exclusive_lock_invalidate_RPC(page_addr, target_compute_node_id);
@@ -3522,25 +3521,26 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //TODO: send an RPC to the destination every 4 retries.
         // Check whether the invalidation is write type or read type. If it is a read type
         // we need to broadcast the message to multiple destination.
-        if (retry_cnt % 4 ==  2) {
+        if (retry_cnt % 5 ==  2) {
             // exponential back up to avoid remote receive buffer overflow.
-            if(retry_cnt < 20){
+            if(retry_cnt < 200){
                 //do nothing
-            }else if (retry_cnt <100){
+            }else if (retry_cnt <500){
                 usleep(5);
             }else if (retry_cnt <1000){
                 if (retry_cnt == 1001) {
                     printf("Invalidate RPC in write unlock timeout 1000\n");
                 }
                 usleep(100);
-            }else if (retry_cnt <2000){
-                if (retry_cnt == 2001) {
-                    printf("Invalidate RPC in write unlock timeout 2000\n");
-                }
-                usleep(1000);
-            }else{
-                usleep(5000);
             }
+//            else if (retry_cnt <2000){
+//                if (retry_cnt == 2001) {
+//                    printf("Invalidate RPC in write unlock timeout 2000\n");
+//                }
+//                usleep(1000);
+//            }else{
+//                usleep(5000);
+//            }
 
 
             if (invalidation_RPC_type == 1){
@@ -3638,7 +3638,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
 
         }
-        printf("Acquire write lock for %lu\n", page_addr);
         assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
     }
     void RDMA_Manager::global_Wlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
