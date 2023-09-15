@@ -774,7 +774,8 @@ class RDMA_Manager {
   int modify_qp_to_rtr(struct ibv_qp* qp, uint32_t remote_qpn, uint16_t dlid,
                        uint8_t *dgid);
   int modify_qp_to_rts(struct ibv_qp* qp);
-  ibv_qp *create_qp(uint16_t target_node_id, bool seperated_cq, std::string &qp_type, uint32_t outstanding_wr);
+  ibv_qp *create_qp(uint16_t target_node_id, bool seperated_cq, std::string &qp_type, uint32_t send_outstanding_num,
+                    uint32_t recv_outstanding_num);
   void create_qp_xcompute(uint16_t target_node_id, std::array<ibv_cq *, NUM_QP_ACCROSS_COMPUTE * 2> *cq_arr,
                           std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUTE> *qp_arr);
   ibv_qp* create_qp_Mside(bool seperated_cq, std::string& qp_id);

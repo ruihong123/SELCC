@@ -109,8 +109,8 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
 //      fprintf(stderr, "memory registering failed by size of 0x%x\n", 1000);
 //    }
 //    int buffer_number = 32;
-    ibv_mr recv_mr[R_SIZE] = {};
-    for(int i = 0; i<R_SIZE; i++){
+    ibv_mr recv_mr[RECEIVE_OUTSTANDING_SIZE] = {};
+    for(int i = 0; i < RECEIVE_OUTSTANDING_SIZE; i++){
       rdma_mg->Allocate_Local_RDMA_Slot(recv_mr[i], Message);
     }
 
@@ -120,7 +120,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
 //      fprintf(stderr, "memory registering failed by size of 0x%x\n", 1000);
 //    }
     //  post_receive<int>(recv_mr, client_ip);
-    for(int i = 0; i<R_SIZE; i++) {
+    for(int i = 0; i < RECEIVE_OUTSTANDING_SIZE; i++) {
       rdma_mg->post_receive<RDMA_Request>(&recv_mr[i], compute_node_id, client_ip);
     }
 //    rdma_mg_->post_receive(recv_mr, client_ip, sizeof(Computing_to_memory_msg));
@@ -211,7 +211,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
                                             "main");
 
         // increase the buffer index
-        if (buffer_position == R_SIZE-1 ){
+        if (buffer_position == RECEIVE_OUTSTANDING_SIZE - 1 ){
           buffer_position = 0;
         } else{
           buffer_position++;
@@ -291,7 +291,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
         break;
       }
       // increase the buffer index
-      if (buffer_position == R_SIZE-1 ){
+      if (buffer_position == RECEIVE_OUTSTANDING_SIZE - 1 ){
         buffer_position = 0;
       } else{
         buffer_position++;

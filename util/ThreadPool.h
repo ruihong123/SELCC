@@ -99,7 +99,7 @@ std::atomic<bool> wait_for_jobs_to_complete_;
     // Start background thread if necessary
 
       for (int i = 0; i < total_threads_limit_; ++i) {
-          auto temp = new boost::lockfree::spsc_queue<BGItem>(R_SIZE);
+          auto temp = new boost::lockfree::spsc_queue<BGItem>(RECEIVE_OUTSTANDING_SIZE);
           queue_pool.emplace_back(temp);
       }
       for (int i = 0; i < total_threads_limit_; ++i) {

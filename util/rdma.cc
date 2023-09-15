@@ -113,7 +113,7 @@ void General_Destroy(void* ptr){
 //  local_write_compact_qp_info->Reset(new QP_Info_Map());
   //Initialize a message memory pool
   Mempool_initialize(Message,
-                     std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)), R_SIZE*std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)));
+                     std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)), RECEIVE_OUTSTANDING_SIZE * std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)));
   Mempool_initialize(Version_edit, 1024 * 1024, 32*1024*1024);
   Mempool_initialize(Internal_and_Leaf, kInternalPageSize, 0);
         printf("atomic uint8_t, uint16_t, uint32_t and uint64_t are, %lu %lu %lu %lu\n ", sizeof(std::atomic<uint8_t>), sizeof(std::atomic<uint16_t>), sizeof(std::atomic<uint32_t>), sizeof(std::atomic<uint64_t>));
@@ -372,12 +372,12 @@ void RDMA_Manager::compute_message_handling_thread(std::string q_id, uint16_t sh
     buffer_counter = comm_thread_buffer.at(shard_target_node_id);
   }else{
     // Some where we need to delete the recv_mr in case of memory leak.
-    recv_mr = new ibv_mr[R_SIZE]();
-    for(int i = 0; i<R_SIZE; i++){
+    recv_mr = new ibv_mr[RECEIVE_OUTSTANDING_SIZE]();
+    for(int i = 0; i < RECEIVE_OUTSTANDING_SIZE; i++){
       Allocate_Local_RDMA_Slot(recv_mr[i], Message);
     }
 
-    for(int i = 0; i<R_SIZE; i++) {
+    for(int i = 0; i < RECEIVE_OUTSTANDING_SIZE; i++) {
       post_receive<RDMA_Request>(&recv_mr[i], shard_target_node_id, q_id);
     }
     buffer_counter = 0;
@@ -423,7 +423,7 @@ void RDMA_Manager::compute_message_handling_thread(std::string q_id, uint16_t sh
                                             shard_target_node_id,
                                             "main");
         // increase the buffer index
-        if (buffer_counter== R_SIZE-1 ){
+        if (buffer_counter == RECEIVE_OUTSTANDING_SIZE - 1 ){
           buffer_counter = 0;
         } else{
           buffer_counter++;
@@ -463,7 +463,7 @@ void RDMA_Manager::compute_message_handling_thread(std::string q_id, uint16_t sh
         break;
       }
       // increase the buffer index
-      if (buffer_counter== R_SIZE-1 ){
+      if (buffer_counter == RECEIVE_OUTSTANDING_SIZE - 1 ){
         buffer_counter = 0;
       } else{
         buffer_counter++;
@@ -931,7 +931,7 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
   } else
     memset(&my_gid, 0, sizeof my_gid);
   /* exchange using TCP sockets info required to connect QPs */
-  ibv_qp* qp = create_qp(target_node_id, true, qp_type, R_SIZE);
+  ibv_qp* qp = create_qp(target_node_id, true, qp_type, SEND_OUTSTANDING_SIZE, RECEIVE_OUTSTANDING_SIZE);
   local_con_data.qp_num = htonl(res->qp_map[target_node_id]->qp_num);
   local_con_data.lid = htons(res->port_attr.lid);
   memcpy(local_con_data.gid, &my_gid, 16);
@@ -1038,9 +1038,9 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
     cq_xcompute.insert({target_node_id, cq_arr});
     qp_xcompute.insert({target_node_id, qp_arr});
     l.unlock();
-    ibv_mr recv_mr[NUM_QP_ACCROSS_COMPUTE][R_SIZE] = {};
+    ibv_mr recv_mr[NUM_QP_ACCROSS_COMPUTE][RECEIVE_OUTSTANDING_SIZE] = {};
     for (int j = 0; j < NUM_QP_ACCROSS_COMPUTE; ++j) {
-        for(int i = 0; i<R_SIZE; i++){
+        for(int i = 0; i < RECEIVE_OUTSTANDING_SIZE; i++){
             Allocate_Local_RDMA_Slot(recv_mr[j][i], Message);
             post_receive_xcompute(&recv_mr[j][i], target_node_id, j);
         }
@@ -1132,14 +1132,14 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
                     break;
                 }
                 // increase the buffer index
-                if (buffer_position == R_SIZE-1 ){
+                if (buffer_position == RECEIVE_OUTSTANDING_SIZE - 1 ){
                     buffer_position = 0;
                 } else{
                     buffer_position++;
                 }
         }
         assert(false);
-        for(int i = 0; i<R_SIZE; i++){
+        for(int i = 0; i < RECEIVE_OUTSTANDING_SIZE; i++){
             Deallocate_Local_RDMA_Slot(recv_mr[i].addr, Message);
         }
 
@@ -1428,8 +1428,8 @@ ibv_qp* RDMA_Manager::create_qp_Mside(bool seperated_cq,
     qp_init_attr.recv_cq = cq2;
   else
     qp_init_attr.recv_cq = cq1;
-  qp_init_attr.cap.max_send_wr = 2500;
-  qp_init_attr.cap.max_recv_wr = 2500;
+  qp_init_attr.cap.max_send_wr = 8;
+  qp_init_attr.cap.max_recv_wr = 8;
   qp_init_attr.cap.max_send_sge = 30;
   qp_init_attr.cap.max_recv_sge = 30;
   //  qp_init_attr.cap.max_inline_data = -1;
@@ -1448,7 +1448,8 @@ ibv_qp* RDMA_Manager::create_qp_Mside(bool seperated_cq,
   return qp;
 }
 ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std::string &qp_type,
-                                 uint32_t outstanding_wr) {
+                                 uint32_t send_outstanding_num,
+                                 uint32_t recv_outstanding_num) {
   struct ibv_qp_init_attr qp_init_attr;
 
   /* each side will send only one WR, so Completion Queue with 1 entry is enough
@@ -1495,8 +1496,8 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
     qp_init_attr.recv_cq = cq2;
   else
     qp_init_attr.recv_cq = cq1;
-  qp_init_attr.cap.max_send_wr = outstanding_wr;// at most 2 outstanding
-  qp_init_attr.cap.max_recv_wr = outstanding_wr;
+  qp_init_attr.cap.max_send_wr = send_outstanding_num;
+  qp_init_attr.cap.max_recv_wr = recv_outstanding_num;
   qp_init_attr.cap.max_send_sge = 30;
   qp_init_attr.cap.max_recv_sge = 30;
   //  qp_init_attr.cap.max_inline_data = -1;
@@ -1564,7 +1565,7 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
             qp_init_attr.recv_cq = cq2;
 
             qp_init_attr.cap.max_send_wr = 32; // THis should be larger that he maixum core number for the machine.
-            qp_init_attr.cap.max_recv_wr = R_SIZE;
+            qp_init_attr.cap.max_recv_wr = RECEIVE_OUTSTANDING_SIZE;
             qp_init_attr.cap.max_send_sge = 2;
             qp_init_attr.cap.max_recv_sge = 2;
             //  qp_init_attr.cap.max_inline_data = -1;
@@ -4751,7 +4752,7 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
 
     bool RDMA_Manager::Remote_Query_Pair_Connection(std::string& qp_type,
                                                 uint16_t target_node_id) {
-  ibv_qp* qp = create_qp(target_node_id, false, qp_type, 1024);
+  ibv_qp* qp = create_qp(target_node_id, false, qp_type, SEND_OUTSTANDING_SIZE, 1);// No need for receive queue.
 
   union ibv_gid my_gid;
   int rc;

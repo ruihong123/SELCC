@@ -114,8 +114,8 @@ extern bool Show_Me_The_Print;
 #define NEARDATACOMPACTION
 //#define GETANALYSIS
 #define ROCKSDB_PTHREAD_ADAPTIVE_MUTEX
-#define R_SIZE 1024
-
+#define RECEIVE_OUTSTANDING_SIZE 1024
+#define SEND_OUTSTANDING_SIZE 32
 //#define BLOOMANALYSIS
 #include "port/thread_annotations.h"
 
