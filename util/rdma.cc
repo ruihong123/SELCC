@@ -3495,7 +3495,20 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // TODO: Read unlock do not need to wait for the completion. However, if we consider partial failure recovery,
         //  we need to consider to implement an synchronized RDMA Read unlocking function.
 //        RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Internal_and_Leaf);
-        RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Internal_and_Leaf);
+        uint32_t * counter = (uint32_t *)async_counter.at(lock_addr.nodeID)->Get();
+        if (UNLIKELY(!counter)){
+            counter = new uint32_t(0);
+            async_counter[lock_addr.nodeID]->Reset(counter);
+        }
+        if ( UNLIKELY((*counter % (SEND_OUTSTANDING_SIZE/2)) == 1)){
+            RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+        }else{
+            RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Internal_and_Leaf);
+
+        }
+        *counter = *counter + 1;
+
+
 //        uint64_t return_data = (*(uint64_t*) cas_buffer->addr);
 //        assert((return_data & (1ull << (RDMA_Manager::node_id/2 + 1))) != 0);
 
@@ -3719,7 +3732,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 counter = new uint32_t(0);
                 async_counter[page_addr.nodeID]->Reset(counter);
             }
-            if ( UNLIKELY((*counter % (SEND_OUTSTANDING_SIZE)) == 1)){
+            if ( UNLIKELY((*counter % (SEND_OUTSTANDING_SIZE/2)) == 1)){
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Internal_and_Leaf);
                 sr[0].next = &sr[1];
 
