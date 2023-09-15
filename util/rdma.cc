@@ -788,6 +788,7 @@ void RDMA_Manager::Initialize_threadlocal_map(){
     qp_data_default.insert({target_node_id, new ThreadLocalPtr(&UnrefHandle_qp)});
     cq_data_default.insert({target_node_id, new ThreadLocalPtr(&UnrefHandle_cq)});
     local_read_qp_info.insert({target_node_id, new ThreadLocalPtr(&General_Destroy<Registered_qp_config*>)});
+    async_counter.insert({target_node_id, new ThreadLocalPtr(&General_Destroy<uint32_t*>)});
     Remote_Leaf_Node_Bitmap.insert({target_node_id, new std::map<void*, In_Use_Array*>()});
     top.insert({target_node_id,0});
     mtx_imme_map.insert({target_node_id, new std::mutex});
@@ -1508,6 +1509,8 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
   if (qp_type == "default" ){
     assert(qp_data_default[target_node_id] != nullptr);
     qp_data_default[target_node_id]->Reset(qp);
+    auto counter = new uint32_t(0);
+    async_counter[target_node_id]->Reset(counter);
   }
 //    ((QP_Map*)qp_data_default->Get())->insert({shard_target_node_id, qp});
 //    qp_data_default->Reset(qp);
@@ -3707,13 +3710,29 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // lock releasing to reduce the RDMA ROUND trips in the protocol
             uint64_t add = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
             uint64_t substract = (~add) + 1;
-            Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, 0, Internal_and_Leaf);
-            sr[0].next = &sr[1];
+            // The code below is to prevent a work request overflow in the send queue, since we enable
+            // async lock releasing.
+            uint32_t * counter = (uint32_t *)async_counter.at(page_addr.nodeID)->Get();
+            if ( (*counter % SEND_OUTSTANDING_SIZE) == 1){
+                Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Internal_and_Leaf);
+                sr[0].next = &sr[1];
 
-            *(uint64_t *)local_CAS_mr->addr = 0;
-            assert(page_addr.nodeID == remote_lock_addr.nodeID);
-            Batch_Submit_WRs(sr, 0, page_addr.nodeID);
-//            assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
+                *(uint64_t *)local_CAS_mr->addr = 0;
+                assert(page_addr.nodeID == remote_lock_addr.nodeID);
+                Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
+
+            }else{
+                Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, 0, Internal_and_Leaf);
+                sr[0].next = &sr[1];
+
+                *(uint64_t *)local_CAS_mr->addr = 0;
+                assert(page_addr.nodeID == remote_lock_addr.nodeID);
+                Batch_Submit_WRs(sr, 0, page_addr.nodeID);
+            }
+            *counter = *counter + 1;
+
+
 //            printf("Release write lock for %lu\n",page_addr);
             //TODO: it could be spuriously failed because of the FAA.so we can not have async
         }else{

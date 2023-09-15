@@ -607,7 +607,8 @@ class RDMA_Manager {
   std::map<uint16_t, ThreadLocalPtr*> qp_data_default;
   std::map<uint16_t, ThreadLocalPtr*> cq_data_default;
   std::map<uint16_t, ThreadLocalPtr*> local_read_qp_info;
-  ThreadLocalPtr* read_buffer;
+    std::map<uint16_t, ThreadLocalPtr*> async_counter;
+    ThreadLocalPtr* read_buffer;
   ThreadLocalPtr* send_message_buffer;
   ThreadLocalPtr* receive_message_buffer;
   ThreadLocalPtr* CAS_buffer;
