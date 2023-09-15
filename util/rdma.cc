@@ -3719,7 +3719,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 counter = new uint32_t(0);
                 async_counter[page_addr.nodeID]->Reset(counter);
             }
-            if ( UNLIKELY((*counter % (10)) == 1)){
+            if ( UNLIKELY((*counter % (SEND_OUTSTANDING_SIZE)) == 1)){
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Internal_and_Leaf);
                 sr[0].next = &sr[1];
 
