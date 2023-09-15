@@ -3525,11 +3525,14 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }else if (retry_cnt <100){
                 usleep(5);
             }else if (retry_cnt <1000){
-                printf("Invalidate RPC in write unlock timeout 1000\n");
-
+                if (retry_cnt == 1001) {
+                    printf("Invalidate RPC in write unlock timeout 1000\n");
+                }
                 usleep(100);
             }else if (retry_cnt <2000){
-                printf("Invalidate RPC in write unlock timeout 2000\n");
+                if (retry_cnt == 2001) {
+                    printf("Invalidate RPC in write unlock timeout 2000\n");
+                }
                 usleep(1000);
             }else{
                 usleep(5000);
