@@ -115,7 +115,7 @@ extern bool Show_Me_The_Print;
 //#define GETANALYSIS
 #define ROCKSDB_PTHREAD_ADAPTIVE_MUTEX
 #define RECEIVE_OUTSTANDING_SIZE 1024
-#define SEND_OUTSTANDING_SIZE 32
+#define SEND_OUTSTANDING_SIZE 16
 //#define BLOOMANALYSIS
 #include "port/thread_annotations.h"
 
