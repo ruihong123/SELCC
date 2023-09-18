@@ -1889,7 +1889,7 @@ int RDMA_Manager::modify_qp_to_rtr(struct ibv_qp* qp, uint32_t remote_qpn,
   attr.path_mtu = IBV_MTU_4096;
   attr.dest_qp_num = remote_qpn;
   attr.rq_psn = 0;
-  attr.max_dest_rd_atomic = SEND_OUTSTANDING_SIZE/2; //destination should have a larger pending entries. than the qp send outstanding
+  attr.max_dest_rd_atomic = SEND_OUTSTANDING_SIZE; //destination should have a larger pending entries. than the qp send outstanding
   attr.min_rnr_timer = 0xc;
   attr.ah_attr.is_global = 0;
   attr.ah_attr.dlid = dlid;
