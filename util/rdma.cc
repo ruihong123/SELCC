@@ -3725,8 +3725,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             *(uint64_t*) local_CAS_mr->addr = 0;
             //TODO: Can we make the RDMA unlock based on RDMA FAA? In this case, we can use async
             // lock releasing to reduce the RDMA ROUND trips in the protocol
-            uint64_t add = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
-            uint64_t substract = (~add) + 1;
+            volatile uint64_t add = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            volatile uint64_t substract = (~add) + 1;
             // The code below is to prevent a work request overflow in the send queue, since we enable
             // async lock releasing.
             uint32_t * counter = (uint32_t *)async_counter.at(page_addr.nodeID)->Get();
