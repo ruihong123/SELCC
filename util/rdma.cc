@@ -3579,7 +3579,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                     Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
 
                 }else{
-                    printf(" Write invalidation target is itself, this is rare case, page_addr is %p\n", page_addr);
+                    printf(" Write invalidation target is itself, check whether outstanding wr is larger than max_dest_rd_atomic"
+                           ", page_addr is %p\n", page_addr);
                 }
             }
 
