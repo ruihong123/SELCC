@@ -3740,7 +3740,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
                 Batch_Submit_WRs(sr, 1, page_addr.nodeID);
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
-                printf("Issue sync write unlock\n");
+//                printf("Issue sync write unlock\n");
             }else{
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, 0, Internal_and_Leaf);
                 sr[0].next = &sr[1];
@@ -5637,7 +5637,7 @@ void RDMA_Manager::fs_deserilization(
                     if (handle->remote_lock_status.load() == 2){
                         global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr, page_mr->length,lock_gptr);
                         handle->remote_lock_status.store(0);
-                        printf("Release write lock %lu\n", g_ptr);
+//                        printf("Release write lock %lu\n", g_ptr);
                     }
                     handle->rw_mtx.unlock();
                 }
