@@ -3736,7 +3736,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
-            if ( UNLIKELY((*counter % (4)) == 1)){
+            if ( UNLIKELY((*counter % (2)) == 1)){
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Internal_and_Leaf);
                 sr[0].next = &sr[1];
 
