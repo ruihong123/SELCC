@@ -3349,6 +3349,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 Exclusive_lock_invalidate_RPC(page_addr, target_compute_node_id);
 
             }else{
+                // THis could happen if the async write unlock goes out of the send queue.
                 printf("Write invalidation target compute node is itself1, page_addr is %p\n", page_addr);
 
             }
@@ -3500,7 +3501,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             counter = new uint32_t(0);
             async_counter[lock_addr.nodeID]->Reset(counter);
         }
-        if ( UNLIKELY((*counter % (SEND_OUTSTANDING_SIZE/2)) == 1)){
+        if ( UNLIKELY((*counter % (SEND_OUTSTANDING_SIZE/2 - 1)) == 1)){
             RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
         }else{
             RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Internal_and_Leaf);
@@ -3732,7 +3733,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 counter = new uint32_t(0);
                 async_counter[page_addr.nodeID]->Reset(counter);
             }
-            if ( UNLIKELY((*counter % (SEND_OUTSTANDING_SIZE/2)) == 1)){
+            // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
+            // contains one async lock acquiring.
+            if ( UNLIKELY((*counter % (SEND_OUTSTANDING_SIZE/2 - 1)) == 1)){
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Internal_and_Leaf);
                 sr[0].next = &sr[1];
 
