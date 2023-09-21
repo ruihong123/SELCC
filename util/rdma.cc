@@ -3802,7 +3802,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
                 goto retry;
             }
-//            printf("Release write lock for %lu\n",page_addr);
+            printf("Release write lock for %lu\n",page_addr);
 
         }
         assert(page_addr == (((LeafPage<int COMMA int>*)(page_buffer->addr))->hdr.this_page_g_ptr));
