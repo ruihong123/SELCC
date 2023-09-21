@@ -678,6 +678,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                     remote_lock_status.store(2);
                 }else{
                     cache_hit[RDMA_Manager::thread_id][0]++;
+                    assert( remote_lock_status.load() == 2);
                     //TODO:
                 }
             }
