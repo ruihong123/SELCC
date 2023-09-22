@@ -3264,7 +3264,7 @@ re_read:
             handle->writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 
             page_cache->Release(handle);
-            DEBUG_PRINT_CONDITION("retry place 8\n");
+            DEBUG_PRINT_CONDITION_arg("retry place 8, this level is %d\n", level);
             return false;// result in fall back search on the higher level.
         }
         // Clear the retry counter, in case that there is a sibling call.
