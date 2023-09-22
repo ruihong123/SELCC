@@ -3574,13 +3574,13 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 }
             }else if (invalidation_RPC_type == 2){
                 assert(write_invalidation_target != 0-1);
-                assert(write_invalidation_target != node_id);
+//                assert(write_invalidation_target != node_id);
                 if (write_invalidation_target != (RDMA_Manager::node_id)){
                     Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
 
                 }else{
-                    printf(" Write invalidation target is itself, check whether outstanding wr is larger than max_dest_rd_atomic"
-                           ", page_addr is %p\n", page_addr);
+                    //It is okay to have a write invalidation target is itself, if we enable the async write unlock.
+                    printf(" Write invalidation target is itself, this is rare case,, page_addr is %p\n", page_addr);
                 }
             }
 
