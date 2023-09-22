@@ -3613,7 +3613,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
         }
         delete [] wc;
-        memset(page_buffer->addr,0,page_size);
+//        memset(page_buffer->addr,0,page_size);
 #endif
         Batch_Submit_WRs(sr, 1, page_addr.nodeID);
 //        printf("READ page %p from remote memory to local mr %p 2 thread_id is %d\n", page_addr, page_buffer->addr, thread_id);
