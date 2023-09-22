@@ -3703,7 +3703,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
     }
 
     void RDMA_Manager::global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
-                                                     GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
+                                                     GlobalAddress remote_lock_addr, bool async) {
 
         //TODO: If we want to use async unlock, we need to enlarge the max outstand work request that the queue pair support.
         struct ibv_send_wr sr[2];
@@ -3719,7 +3719,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
         page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         assert(remote_lock_addr <= post_gl_page_addr - 8);
-
 
         if (async){
 //            assert(false);
@@ -5642,7 +5641,8 @@ void RDMA_Manager::fs_deserilization(
 //                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                 if (handle->rw_mtx.try_lock()){
                     if (handle->remote_lock_status.load() == 2){
-                        global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr, page_mr->length,lock_gptr);
+                        global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr,
+                                                      page_mr->length, lock_gptr);
                         handle->remote_lock_status.store(0);
 //                        printf("Release write lock %lu\n", g_ptr);
                     }

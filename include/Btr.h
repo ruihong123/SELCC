@@ -310,8 +310,10 @@ class Btr_iter{
                 assert(((LeafPage<uint64_t ,uint64_t>*)mr->addr)->global_lock);
                 assert(handle->gptr == ((LeafPage<uint64_t,uint64_t>*)mr->addr)->hdr.this_page_g_ptr);
 
-                // RDMA write unlock and write back the data.
-                rdma_mg->global_write_page_and_Wunlock(mr, handle->gptr, kLeafPageSize, lock_gptr);
+                // RDMA write unlock and write back the data. THis shall be a sync write back, because the buffer will
+                // be handover to other cache entry after this function. It is possible that the page content is changed when the
+                // RDMA write back has not been finished.
+                rdma_mg->global_write_page_and_Wunlock(mr, handle->gptr, kLeafPageSize, lock_gptr, false);
                 handle->remote_lock_status.store(0);
             }else{
                 //An invalidated page, do nothing
@@ -1093,8 +1095,7 @@ class Btr_iter{
     template <typename Key, typename Value> void Btr<Key,Value>::global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
                                                                                                GlobalAddress lock_addr,
                                                                                                CoroContext *cxt, int coro_id, Cache::Handle *handle, bool async) {
-        rdma_mg->global_write_page_and_Wunlock(page_buffer, page_addr, size, lock_addr, cxt,
-                                               coro_id, async);
+        rdma_mg->global_write_page_and_Wunlock(page_buffer, page_addr, size, lock_addr, async);
         handle->remote_lock_status.store(0);
     }
     template <typename Key, typename Value> void Btr<Key,Value>::global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
@@ -2989,8 +2990,7 @@ re_read:
             assert(page->global_lock == ((uint64_t)(rdma_mg->node_id/2 +1) <<56));
             assert(page->hdr.valid_page);
             //TODO: Change false to true.
-            rdma_mg->global_write_page_and_Wunlock(page_mr, page_addr, kInternalPageSize, lock_addr,
-                                                   cxt, coro_id, false);
+            rdma_mg->global_write_page_and_Wunlock(page_mr, page_addr, kInternalPageSize, lock_addr, false);
             releases_local_optimistic_lock(&page->local_lock_meta);
         }
 //        write_page_and_unlock(local_buffer, page_addr, kInternalPagpeSize,
