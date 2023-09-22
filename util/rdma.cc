@@ -3344,12 +3344,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }else{
                 usleep(5000);
             }
-            assert(target_compute_node_id != (RDMA_Manager::node_id));
+//            assert(target_compute_node_id != (RDMA_Manager::node_id));
             if (target_compute_node_id != (RDMA_Manager::node_id)){
                 Exclusive_lock_invalidate_RPC(page_addr, target_compute_node_id);
 
             }else{
-                // THis could happen if the async write unlock goes out of the send queue.
+                // THis could happen if we enable async write unlock. one thread unlock and another thread acqurie the lock.
                 printf("Write invalidation target compute node is itself1, page_addr is %p\n", page_addr);
 
             }
