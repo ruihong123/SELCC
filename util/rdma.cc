@@ -5642,7 +5642,7 @@ void RDMA_Manager::fs_deserilization(
                 if (handle->rw_mtx.try_lock()){
                     if (handle->remote_lock_status.load() == 2){
                         global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr,
-                                                      page_mr->length, lock_gptr);
+                                                      page_mr->length, lock_gptr, true);
                         handle->remote_lock_status.store(0);
 //                        printf("Release write lock %lu\n", g_ptr);
                     }
