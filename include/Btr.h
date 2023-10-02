@@ -2,8 +2,9 @@
 #define _BTR_H_
 
 
-#include "util/rdma.h"
+#include "storage/rdma.h"
 #include "DSMEngine/cache.h"
+#include "DDSM.h"
 #include "storage/page.h"
 #include <atomic>
 #include <city.h>
@@ -280,57 +281,7 @@ class Btr_iter{
     }
 //TODO: make the function set cache handle as an argument, and we need to modify the remote lock status
 // when unlocking the remote lock.
-    static void Deallocate_MR_WITH_CCP(Cache::Handle *handle) {
-        // TOFIX: The code below is not protected by the lock shared mutex. It is Okay because,
-        // there is definitely no other thread accessing it if a page is destroyed (refs == 0)
-        assert(handle->refs.load() == 0);
-        auto rdma_mg = RDMA_Manager::Get_Instance(nullptr);
-//    Key
-        // Do we need the lock during this deleter? Answer: Probably not, because it is guaratee to have only on thread comes here.
-        auto mr = (ibv_mr*) handle->value;
-        if (handle->strategy == 1){
-            GlobalAddress lock_gptr = handle->gptr;
-            //TODO: Figure out Leafpage or internal page?
-            lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
-            assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
-            if (handle->remote_lock_status == 1){
 
-                // RDMA read unlock
-//            printf("release the read lock during the handle destroy\n ");
-                rdma_mg->global_RUnlock(lock_gptr, rdma_mg->Get_local_CAS_mr());
-                handle->remote_lock_status.store(0);
-
-            }else if(handle->remote_lock_status == 2){
-
-                // TODO: shall we not consider the global lock word when flushing back the page?
-
-//            printf("release the write lock at %lu and write back data during the handle destroy\n ", lock_gptr.offset);
-//            ibv_mr* local_mr = (ibv_mr*)value;
-                assert(mr->addr!= nullptr );
-                assert(((LeafPage<uint64_t ,uint64_t>*)mr->addr)->global_lock);
-                assert(handle->gptr == ((LeafPage<uint64_t,uint64_t>*)mr->addr)->hdr.this_page_g_ptr);
-
-                // RDMA write unlock and write back the data. THis shall be a sync write back, because the buffer will
-                // be handover to other cache entry after this function. It is possible that the page content is changed when the
-                // RDMA write back has not been finished. The write unlock for page invalidation can be a sync write back.
-                rdma_mg->global_write_page_and_Wunlock(mr, handle->gptr, kLeafPageSize, lock_gptr, false);
-                handle->remote_lock_status.store(0);
-            }else{
-                //An invalidated page, do nothing
-            }
-        }else{
-            //TODO: delete the  asserts below when you implement the strategy 2.
-
-            assert(false);
-        }
-//    printf("Deallocate mr for %lu\n", g_ptr.offset);
-        if (!handle->keep_the_mr){
-            rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
-            delete mr;
-        }
-        assert(handle->refs.load() == 0);
-//    delete mr;
-    }
     template <typename Key, typename Value>
     Btr<Key, Value>::Btr(RDMA_Manager *mg, Cache *cache_ptr, RecordSchema *record_scheme_ptr, uint16_t Btr_id)
             : scheme_ptr(record_scheme_ptr), tree_id(Btr_id), page_cache(cache_ptr){
@@ -2291,6 +2242,8 @@ next: // Internal_and_Leaf page search
 #endif
         auto rdma_mg = RDMA_Manager::Get_Instance(nullptr);
         int counter = 0;
+        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
 
@@ -2304,7 +2257,6 @@ next: // Internal_and_Leaf page search
         LeafPage<Key,Value>* page;
         ibv_mr* mr = nullptr;
         assert(level == 0);
-        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
         handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
         assert(handle!= nullptr);
 #ifdef PROCESSANALYSIS
@@ -3158,7 +3110,7 @@ re_read:
 
         handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
         assert(handle!= nullptr);
-        handle->writer_pre_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+        handle->updater_pre_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 
         // TODO: under some situation the lock is not released
         page_buffer = local_mr->addr;
@@ -3207,7 +3159,7 @@ re_read:
 //                    }
 //                    // Has to be unlocked to avoid a deadlock.
 //                    l.unlock();
-                    handle->writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+                    handle->updater_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
                     page_cache->Release(handle);
 
                     return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt, coro_id);
@@ -3220,7 +3172,7 @@ re_read:
 //                        global_unlock_addr(lock_addr,handle, cxt, coro_id, false);
 //                        handle->remote_lock_status.store(0);
 //                    }
-                    handle->writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+                    handle->updater_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 
                     //No matter what strategy it is the cache handle need to be released.
                     page_cache->Release(handle);
@@ -3261,7 +3213,7 @@ re_read:
 //                global_unlock_addr(lock_addr,handle, cxt, coro_id, false);
 //                handle->remote_lock_status.store(0);
 //            }
-            handle->writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+            handle->updater_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 
             page_cache->Release(handle);
             DEBUG_PRINT_CONDITION_arg("retry place 8, this level is %d\n", level);
@@ -3282,7 +3234,7 @@ re_read:
 //        assert(page->hdr.last_index== 0 || page->data_[0]!=0);
         if (!need_split) {
 
-            handle->writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+            handle->updater_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 
             page_cache->Release(handle);
 
@@ -3346,7 +3298,7 @@ re_read:
             delete sibling_mr;
 
         }
-        handle->writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+        handle->updater_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 
         page_cache->Release(handle);
 

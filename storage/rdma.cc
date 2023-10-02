@@ -1,5 +1,5 @@
 #include <fstream>
-#include <util/rdma.h>
+#include "rdma.h"
 #include <cstdint>
 #include "Common.h"
 #include "storage/page.h"
@@ -3660,6 +3660,135 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        printf("Acquire Write Lock at %lu\n", page_addr);
         assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
     }
+    void RDMA_Manager::global_Wlock_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
+                                                               GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
+                                                               int coro_id) {
+
+        uint64_t retry_cnt = 0;
+        uint64_t pre_tag = 0;
+        uint64_t conflict_tag = 0;
+        *(uint64_t *)cas_buffer->addr = 0;
+        std::vector<uint16_t> read_invalidation_targets;
+        uint16_t write_invalidation_target = 0-1;
+        int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
+
+        retry:
+        retry_cnt++;
+        uint64_t compare = 0;
+        // We need a + 1 for the id, because id 0 conflict with the unlock bit
+        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+        //TODO: send an RPC to the destination every 4 retries.
+        // Check whether the invalidation is write type or read type. If it is a read type
+        // we need to broadcast the message to multiple destination.
+        if (retry_cnt % 4 ==  2) {
+            // exponential back up to avoid remote receive buffer overflow.
+            if(retry_cnt < 20){
+                //do nothing
+            }else if (retry_cnt <100){
+                usleep(100);
+            }else if (retry_cnt <1000){
+                if (retry_cnt == 1001) {
+                    printf("Invalidate RPC in write unlock timeout 1000\n");
+                }
+                usleep(500);
+            }
+            else if (retry_cnt <2000){
+                if (retry_cnt == 2001) {
+                    printf("Invalidate RPC in write unlock timeout 2000\n");
+                }
+                usleep(1000);
+            }else{
+                usleep(5000);
+            }
+
+
+            if (invalidation_RPC_type == 1){
+                assert(!read_invalidation_targets.empty());
+                for (auto iter: read_invalidation_targets) {
+                    if (iter != (RDMA_Manager::node_id)){
+                        Shared_lock_invalidate_RPC(page_addr, iter);
+                    }else{
+                        // This rare case is because the cache mutex will be released before the read/write lock release.
+                        // If there is another request comes in immediately for the same page before the lock release, this print
+                        // below will happen.
+                        printf(" read invalidation target is itself, this is rare case,, page_addr is %p\n", page_addr);
+                    }
+                }
+            }else if (invalidation_RPC_type == 2){
+                assert(write_invalidation_target != 0-1);
+//                assert(write_invalidation_target != node_id);
+                if (write_invalidation_target != (RDMA_Manager::node_id)){
+                    Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
+
+                }else{
+                    //It is okay to have a write invalidation target is itself, if we enable the async write unlock.
+                    printf(" Write invalidation target is itself, this is rare case,, page_addr is %p\n", page_addr);
+                }
+            }
+
+            // the compared value is the real id /2 + 1.
+        }
+        if (retry_cnt > 10000) {
+            std::cout << "write lock timeout" << lock_addr << std::endl;
+
+            std::cout << GetMemoryNodeNum() << ", "
+                      << " locked by node  " << (conflict_tag) << std::endl;
+            printf("CAS buffer value is %lu, compare is %lu, swap is %lu\n", (*(uint64_t*) cas_buffer->addr), compare, swap);
+            assert(false);
+            exit(0);
+        }
+        struct ibv_send_wr sr[2];
+        struct ibv_sge sge[2];
+        //Only the second RDMA issue a completion
+        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 1, Internal_and_Leaf);
+//        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+        *(uint64_t *)cas_buffer->addr = 0;
+        assert(page_addr.nodeID == lock_addr.nodeID);
+        std::string str("default");
+        Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+        invalidation_RPC_type = 0;
+        //When the program fail at the code below the remote buffer content (this_page_g_ptr) has already  be incosistent
+#ifndef NDEBUG
+        auto page = (LeafPage<uint64_t,uint64_t>*)(page_buffer->addr);
+        assert(page_addr == page->hdr.this_page_g_ptr);
+#endif
+        if ((*(uint64_t*) cas_buffer->addr) != compare){
+            assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
+
+            // clear the invalidation targets
+            read_invalidation_targets.clear();
+            write_invalidation_target = 0-1;
+            // use usleep ?
+//            conflict_tag = *(uint64_t*)cas_buffer->addr;
+//            if (conflict_tag != pre_tag) {
+//                retry_cnt = 0;
+//                pre_tag = conflict_tag;
+//            }
+            uint64_t cas_value = (*(uint64_t*) cas_buffer->addr);
+            uint64_t write_byte = cas_value >> 56;
+            if (write_byte > 0){
+                invalidation_RPC_type = 2;
+                //The CAS record (ID/2+1), so we need to recover the real ID.
+                write_invalidation_target = (write_byte - 1)*2;
+                goto retry;
+            }
+//            uint64_t read_bit_pos = 0;
+            for (uint32_t i = 1; i < 56; ++i) {
+                uint32_t  remain_bit = (cas_value >> i)%2;
+                if (remain_bit == 1){
+                    read_invalidation_targets.push_back((i-1)*2);
+                    invalidation_RPC_type = 1;
+                }
+            }
+            if (!read_invalidation_targets.empty()){
+                assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
+                goto retry;
+            }
+        }
+//        printf("Acquire Write Lock at %lu\n", page_addr);
+        assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
+    }
+
     void RDMA_Manager::global_Wlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                                                GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
                                                                int coro_id) {

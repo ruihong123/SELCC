@@ -15,7 +15,6 @@
 const int kCoroCnt = 3;
 
 // #define BENCH_LOCK
-
 const int kTthreadUpper = 23;
 
 extern uint64_t cache_miss[MAX_APP_THREAD][8];

@@ -35,11 +35,11 @@ target_sources(DSMEngine
         "util/core_local.h"
 #        "util/bloom.cc"
 #        "util/bloom_impl.h"
-        "util/cache.cc"
+        "storage/cache.cc"
         #    "util/clock.cc"
         "util/coding.cc"
         "util/coding.h"
-        "util/Common.cpp"
+        "storage/Common.cpp"
         "util/comparator.cc"
         "util/crc32c.cc"
         "util/crc32c.h"
@@ -52,16 +52,19 @@ target_sources(DSMEngine
         "util/logging.h"
         "util/mutexlock.h"
         "util/mutexlock.cpp"
+#        "util/epic_log.h"
+#        "util/epic_log.cc"
 
         "storage/page.cpp"
         "storage/page.h"
         "storage/Record.h"
+        "storage/DDSM.cpp"
         "util/no_destructor.h"
         "util/options.cc"
         "util/random.cc"
         "util/random.h"
-        "util/rdma.cc"
-        "util/rdma.h"
+        "storage/rdma.cc"
+        "storage/rdma.h"
         "util/thread_local.cc"
         "util/thread_local.h"
         "util/status.cc"
@@ -74,6 +77,7 @@ target_sources(DSMEngine
         "include/Config.h"
         "include/HugePageAlloc.h"
         "include/Timer.h"
+        "include/DDSM.h"
         )
 
 target_include_directories(DSMEngine
@@ -87,7 +91,7 @@ enable_testing()
 # This project is tested using GoogleTest.
 add_subdirectory("third_party/googletest")
 find_package(ibverbs REQUIRED)
-target_link_libraries(DSMEngine ibverbs::ibverbs -lcityhash -lboost_system -lboost_coroutine)
+target_link_libraries(DSMEngine ibverbs::ibverbs -lcityhash -lboost_system -lboost_coroutine -lmemcached)
 if(WITH_NUMA)
     find_package(NUMA REQUIRED)
     add_definitions(-DNUMA)
@@ -98,10 +102,12 @@ add_executable(TestTrial trial_test.cpp)
 add_executable(memory_server "server.cc"
         "memory_node/memory_node_keeper.h"
         "memory_node/memory_node_keeper.cpp")
-add_executable(btree_bench test/benchmark.cpp)
+add_executable(btree_bench test/benchmark_btree.cpp)
+add_executable(micro_bench test/benchmark_micro.cpp)
 target_link_libraries(TestTrial DSMEngine)
 target_link_libraries(memory_server DSMEngine)
 target_link_libraries(btree_bench DSMEngine)
+target_link_libraries(micro_bench DSMEngine)
 
 
 #add_subdirectory("third_party/googlemock")

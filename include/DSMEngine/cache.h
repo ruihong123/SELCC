@@ -25,7 +25,7 @@
 #include <shared_mutex>
 
 #include "Config.h"
-#include "util/rdma.h"
+#include "storage/rdma.h"
 
 namespace DSMEngine {
 //class RDMA_Manager;
@@ -59,6 +59,7 @@ class DSMEngine_EXPORT Cache;
 // Create a new table_cache with a fixed size capacity.  This implementation
 // of Cache uses a least-recently-used eviction policy.
 DSMEngine_EXPORT Cache* NewLRUCache(size_t capacity);
+
 class DSMEngine_EXPORT Cache {
  public:
   Cache() = default;
@@ -78,6 +79,9 @@ class DSMEngine_EXPORT Cache {
         ~Handle(){}
         void reader_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
         void reader_post_access(GlobalAddress lock_addr);
+        void updater_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
+        void updater_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
+        // Blind write, carefully used.
         void writer_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
         void writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
         bool global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt = nullptr, int coro_id = 0);

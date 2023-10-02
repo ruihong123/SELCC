@@ -6,7 +6,7 @@
 #ifndef MEMORYENGINE_PAGE_H
 #define MEMORYENGINE_PAGE_H
 #include "Common.h"
-#include "util/rdma.h"
+#include "rdma.h"
 #include "DSMEngine/slice.h"
 #include "storage/ColumnInfo.h"
 #include "RecordSchema.h"
@@ -47,6 +47,7 @@ namespace DSMEngine{
 #endif
         }
     };
+
 
     template<typename T>
     class Header {

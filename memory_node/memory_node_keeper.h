@@ -8,7 +8,7 @@
 
 #include <queue>
 //#include <fcntl.h>
-#include "util/rdma.h"
+#include "storage/rdma.h"
 //#include "util/env_posix.h"
 #include "util/ThreadPool.h"
 //#include "db/log_writer.h"

@@ -21,7 +21,7 @@
 #include "DSMEngine/export.h"
 #include "DSMEngine/status.h"
 #include "util/ThreadPool.h"
-#include "util/rdma.h"
+#include "storage/rdma.h"
 
 // This workaround can be removed when DSMEngine::Env::DeleteFile is removed.
 #if defined(_WIN32)

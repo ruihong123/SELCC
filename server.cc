@@ -1,7 +1,7 @@
 #include <iostream>
 #include <memory_node/memory_node_keeper.h>
 
-#include "util/rdma.h"
+#include "storage/rdma.h"
 
 //namespace DSMEngine{
 int main(int argc,char* argv[])

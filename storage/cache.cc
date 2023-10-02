@@ -14,7 +14,7 @@
 #include "util/hash.h"
 #include "util/mutexlock.h"
 #include "HugePageAlloc.h"
-#include "util/rdma.h"
+#include "rdma.h"
 #include "storage/page.h"
 
 // DO not enable the two at the same time otherwise there will be a bug.
@@ -624,7 +624,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
     }
 
     void
-    Cache::Handle::writer_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
+    Cache::Handle::updater_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
         if (rdma_mg == nullptr){
             rdma_mg = RDMA_Manager::Get_Instance(nullptr);
         }
@@ -691,7 +691,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         }
     }
 
-    void Cache::Handle::writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
+    void Cache::Handle::updater_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
         if (strategy == 2){
             rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
             remote_lock_status.store(0);
@@ -700,6 +700,72 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //        if (strategy == 1){
             rw_mtx.unlock();
 //        }
+    }
+    void Cache::Handle::writer_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
+        if (rdma_mg == nullptr){
+            rdma_mg = RDMA_Manager::Get_Instance(nullptr);
+        }
+        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+
+        rw_mtx.lock();
+
+        if(strategy.load() == 1){
+#ifndef NDEBUG
+            bool hint_of_existence = false;
+#endif
+            if(value)
+            {
+#ifndef NDEBUG
+                hint_of_existence = true;
+#endif
+                // This means the page has already be in the cache.
+                mr = (ibv_mr*)value;
+                //TODO: delete the line below.
+//                assert(handle->remote_lock_status != 0);
+            }else{
+#ifndef NDEBUG
+                hint_of_existence = false;
+#endif
+                // This means the page was not in the cache before
+                mr = new ibv_mr{};
+                rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
+                assert(remote_lock_status == 0);
+
+//        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
+//               page_addr, mr->addr, HashSlice(page_id), level);
+                value = mr;
+
+            }
+            // If the remote read lock is not on, lock it
+            if (remote_lock_status == 0){
+                cache_miss[RDMA_Manager::thread_id][0]++;
+                rdma_mg->global_Wlock_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr);
+                remote_lock_status.store(2);
+//                handle->remote_lock_status.store(2);
+
+            }else if (remote_lock_status == 1){
+                cache_hit[RDMA_Manager::thread_id][0]++;
+                if (!global_Rlock_update(lock_addr, cas_mr)){
+//
+                    //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
+                    // is problematice if we want to upgrade the lock during a transaction.
+                    // May be we can take advantage of the lock starvation bit to solve this problem.
+                    //the Read lock has been released, we can directly acquire the write lock
+                    rdma_mg->global_Wlock_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr);
+                    remote_lock_status.store(2);
+                }else{
+                    cache_hit[RDMA_Manager::thread_id][0]++;
+                    assert( remote_lock_status.load() == 2);
+                    //TODO:
+                }
+            }
+        }else{
+            assert(strategy == 2);
+            // if the strategy is 2 then the page actually should not cached in the page.
+            assert(!value);
+            //TODO: access it over thread local mr and do not cache it.
+            assert(false);
+        }
     }
 
     bool
@@ -715,6 +781,18 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             return false;
 
         }
+    }
+
+    void
+    Cache::Handle::writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
+        // Same as updater_post_access
+        if (strategy == 2){
+            rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
+            remote_lock_status.store(0);
+
+        }
+//        if (strategy == 1){
+        rw_mtx.unlock();
     }
 
 }  // namespace DSMEngine
