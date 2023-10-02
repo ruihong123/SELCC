@@ -49,7 +49,7 @@ const char* result_file = "result.csv";
 long ITERATION = 2000000;
 //long FENCE_PERIOD = 1000;
 int no_thread = 2;
-int no_node = 0;
+int Memcache_offset = 1024;
 //int remote_ratio = 0;  //0..100
 int shared_ratio = 10;  //0..100
 int space_locality = 10;  //0..100
@@ -698,13 +698,13 @@ int main(int argc, char* argv[]) {
     res[0] = t_thr;  //total throughput for the current node
     res[1] = a_thr;  //avg throuhgput for the current node
     res[2] = a_lat;  //avg latency for the current node
-    int temp = SYNC_KEY + no_node + node_id;
+    int temp = SYNC_KEY + Memcache_offset + node_id;
     printf("memset temp key %d\n", temp);
     ddsm.memSet((char*)&temp, sizeof(int), (char*)res, sizeof(long) * 3);
     t_thr = a_thr = a_lat = 0;
     for (int i = 0; i < compute_num; i++) {
         memset(res, 0, sizeof(long) * 3);
-        temp = SYNC_KEY + no_node + i*2;
+        temp = SYNC_KEY + Memcache_offset + i * 2;
         size_t len;
         printf("memGet temp key %d\n", temp);
         long* ret = (long*)ddsm.memGet((char*)&temp , sizeof(int), &len);
