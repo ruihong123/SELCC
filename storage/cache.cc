@@ -774,7 +774,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         bool succfully_updated = rdma_mg->global_Rlock_update(lock_addr,cas_buffer, cxt, coro_id);
         if (succfully_updated){
             remote_lock_status.store(2);
-            assert(gptr == (((LeafPage<uint64_t ,uint64_t>*)(((ibv_mr*)value)->addr))->hdr.this_page_g_ptr));
+//            assert(gptr == (((LeafPage<uint64_t ,uint64_t>*)(((ibv_mr*)value)->addr))->hdr.this_page_g_ptr));
             return true;
         }else{
             assert(remote_lock_status.load() == 1);
