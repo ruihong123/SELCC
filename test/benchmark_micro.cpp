@@ -701,7 +701,7 @@ int main(int argc, char* argv[]) {
     int temp = SYNC_KEY + no_node + node_id;
     ddsm.memSet((char*)&temp, sizeof(int), (char*)res, sizeof(long) * 3);
     t_thr = a_thr = a_lat = 0;
-    for (int i = 1; i <= compute_num; i++) {
+    for (int i = 0; i < compute_num; i++) {
         memset(res, 0, sizeof(long) * 3);
         temp = SYNC_KEY + no_node + i*2;
         size_t len;
