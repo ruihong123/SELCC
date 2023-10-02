@@ -40,8 +40,8 @@ bool is_master = false;
 uint16_t tcp_port=19843;
 //string ip_master = get_local_ip("eth0");
 //string ip_worker = get_local_ip("eth0");
-int port_master = 12345;
-int port_worker = 12346;
+//int port_master = 12345;
+//int port_worker = 12346;
 
 const char* result_file = "result.csv";
 
@@ -623,7 +623,7 @@ int main(int argc, char* argv[]) {
 
     //srand(1);
 
-    DSMEngine::Cache* cache_ptr = DSMEngine::NewLRUCache(define::kIndexCacheSize*define::MB);
+    DSMEngine::Cache* cache_ptr = DSMEngine::NewLRUCache(cache_size);
 
     struct DSMEngine::config_t config = {
             NULL,  /* dev_name */
