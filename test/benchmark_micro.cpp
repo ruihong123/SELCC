@@ -300,10 +300,10 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
             case 0:  //read/write
                 if (TrueOrFalse(read_ratio, seedp)) {
                     void* page_buffer;
-                    Cache::Handle handle;
-                    alloc->PrePage_Read(page_buffer, TOPAGE(to_access), &handle);
+                    Cache::Handle* handle;
+                    alloc->PrePage_Read(page_buffer, TOPAGE(to_access), handle);
                     memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
-                    alloc->PostPage_Read(TOPAGE(to_access), &handle);
+                    alloc->PostPage_Read(TOPAGE(to_access), handle);
 
                 } else {
                     void* page_buffer;
@@ -319,10 +319,10 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
             {
                 if (TrueOrFalse(read_ratio, seedp)) {
                     void* page_buffer;
-                    Cache::Handle handle;
-                    alloc->PrePage_Read(page_buffer, TOPAGE(to_access), &handle);
+                    Cache::Handle* handle;
+                    alloc->PrePage_Read(page_buffer, TOPAGE(to_access), handle);
                     memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
-                    alloc->PostPage_Read(TOPAGE(to_access), &handle);
+                    alloc->PostPage_Read(TOPAGE(to_access), handle);
 
                 } else {
                     void* page_buffer;
@@ -339,10 +339,10 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
             {
                 if (TrueOrFalse(read_ratio, seedp)) {
                     void* page_buffer;
-                    Cache::Handle handle;
-                    alloc->PrePage_Read(page_buffer, TOPAGE(to_access), &handle);
+                    Cache::Handle* handle;
+                    alloc->PrePage_Read(page_buffer, TOPAGE(to_access), handle);
                     memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
-                    alloc->PostPage_Read(TOPAGE(to_access), &handle);
+                    alloc->PostPage_Read(TOPAGE(to_access), handle);
 
                 } else {
                     void* page_buffer;
@@ -359,10 +359,10 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
             {
                 if (TrueOrFalse(read_ratio, seedp)) {
                     void* page_buffer;
-                    Cache::Handle handle;
-                    alloc->PrePage_Read(page_buffer, TOPAGE(to_access), &handle);
+                    Cache::Handle* handle;
+                    alloc->PrePage_Read(page_buffer, TOPAGE(to_access), handle);
                     memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
-                    alloc->PostPage_Read(TOPAGE(to_access), &handle);
+                    alloc->PostPage_Read(TOPAGE(to_access), handle);
 
                 } else {
                     void* page_buffer;

@@ -14,7 +14,7 @@ namespace DSMEngine {
         return res;
     }
 
-    void DDSM::PrePage_Read(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *handle) {
+    void DDSM::PrePage_Read(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
 
@@ -28,15 +28,16 @@ namespace DSMEngine {
         page_buffer = mr->addr;
     }
 
-    void DDSM::PostPage_Read(GlobalAddress page_addr, DSMEngine::Cache::Handle *handle) {
+    void DDSM::PostPage_Read(GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
         handle->reader_post_access(lock_addr);
         page_cache->Release(handle);
+        handle = nullptr;
     }
 
-    void DDSM::PrePage_Write(void *&page_buffer, GlobalAddress page_addr, DSMEngine::Cache::Handle *handle) {
+    void DDSM::PrePage_Write(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
 
@@ -50,16 +51,17 @@ namespace DSMEngine {
         page_buffer = mr->addr;
     }
 
-    void DDSM::PostPage_Write(GlobalAddress page_addr, DSMEngine::Cache::Handle *handle) {
+    void DDSM::PostPage_Write(GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
         ibv_mr *local_mr = (ibv_mr *) handle->value;
         handle->writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
         page_cache->Release(handle);
+        handle = nullptr;
     }
 
-    void DDSM::PrePage_Update(void *&page_buffer, GlobalAddress page_addr, DSMEngine::Cache::Handle *handle) {
+    void DDSM::PrePage_Update(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
 
@@ -74,13 +76,14 @@ namespace DSMEngine {
         page_buffer = mr->addr;
     }
 
-    void DDSM::PostPage_Update(GlobalAddress page_addr, DSMEngine::Cache::Handle *handle) {
+    void DDSM::PostPage_Update(GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
         ibv_mr *local_mr = (ibv_mr *) handle->value;
         handle->updater_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
         page_cache->Release(handle);
+        handle = nullptr;
     }
 
     bool DDSM::connectMemcached() {
