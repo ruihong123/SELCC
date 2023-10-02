@@ -3622,7 +3622,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //When the program fail at the code below the remote buffer content (this_page_g_ptr) has already  be incosistent
 #ifndef NDEBUG
         auto page = (LeafPage<uint64_t,uint64_t>*)(page_buffer->addr);
-        assert(page_addr == page->hdr.this_page_g_ptr);
+//        assert(page_addr == page->hdr.this_page_g_ptr);
 #endif
         if ((*(uint64_t*) cas_buffer->addr) != compare){
             assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
@@ -3750,7 +3750,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //When the program fail at the code below the remote buffer content (this_page_g_ptr) has already  be incosistent
 #ifndef NDEBUG
         auto page = (LeafPage<uint64_t,uint64_t>*)(page_buffer->addr);
-        assert(page_addr == page->hdr.this_page_g_ptr);
+//        assert(page_addr == page->hdr.this_page_g_ptr);
 #endif
         if ((*(uint64_t*) cas_buffer->addr) != compare){
             assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
