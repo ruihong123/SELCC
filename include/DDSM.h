@@ -65,7 +65,15 @@ namespace DSMEngine {
         Cache *page_cache;
         RDMA_Manager *rdma_mg = nullptr;
         memcached_st *memc;
-        DDSM(Cache *page_cache, RDMA_Manager *rdma_mg = nullptr) : page_cache(page_cache), rdma_mg(rdma_mg) {};
+        DDSM(Cache *page_cache, RDMA_Manager *rdma_mg = nullptr) : page_cache(page_cache), rdma_mg(rdma_mg) {
+            if (!connectMemcached()) {
+                printf("Failed to connect to memcached\n");
+                return;
+            }
+        };
+        ~DDSM(){
+            disconnectMemcached();
+        }
         void PrePage_Read(void*& page_buffer, GlobalAddress page_addr, Cache::Handle *handle);
         void PostPage_Read(GlobalAddress page_addr, Cache::Handle *handle);
         void PrePage_Write(void*& page_buffer, GlobalAddress page_addr, Cache::Handle *handle);
