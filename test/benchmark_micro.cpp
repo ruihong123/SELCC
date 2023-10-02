@@ -414,7 +414,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
     long throughput = ITERATION / ((double) (end - start) / 1000 / 1000 / 1000);
     long latency = (end - start) / ITERATION;
     printf(
-            "node_id %d, thread %d, average throughput = %ld per-second, latency = %ld ns %s",
+            "node_id %d, thread %d, average throughput = %ld per-second, latency = %ld ns %s\n",
             node_id, id, throughput, latency, warmup ? "(warmup)" : "");
     if (!warmup) {
         total_throughput.fetch_add(throughput);
