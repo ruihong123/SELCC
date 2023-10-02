@@ -60,7 +60,7 @@ int compute_num = 0;
 int memory_num = 100;
 
 float cache_th = 0.15;  //0.15
-long cache_size = 0;
+uint64_t cache_size = 0;
 uint64_t allocated_mem_size = 0;
 
 //runtime statistics
@@ -584,15 +584,13 @@ int main(int argc, char* argv[]) {
             item_size = atoi(argv[++i]);
             items_per_block = kLeafPageSize / item_size;
 
-        } else if (strcmp(argv[i], "--allocated_mem_size") == 0) {
-            allocated_mem_size = atoi(argv[++i]);
-            allocated_mem_size = allocated_mem_size * 1024ull * 1024 * 1024;
+        } else if (strcmp(argv[i], "--cache_size") == 0) {
+            cache_size = atoi(argv[++i]);
+            cache_size = cache_size * 1024ull * 1024 * 1024;
         } else if (strcmp(argv[i], "--compute_num") == 0) {
             compute_num = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--memory_num") == 0) {
             memory_num = atoi(argv[++i]);
-        } else if (strcmp(argv[i], "--cache_th") == 0) {
-            cache_th = atof(argv[++i]);
         } else {
             fprintf(stderr, "Unrecognized option %s for benchmark\n", argv[i]);
         }
