@@ -28,10 +28,14 @@
 //#define STATS_COLLECTION
 //#define LOCAL_MEMORY
 
-#define STEPS 204800 //100M much larger than 10M L3 cache
+//TODO: shall be adjusted according to the no_thread and
+#define NUMOFBLOCKS (25165824ull) //100M much larger than 10M L3 cache
 #define DEBUG_LEVEL LOG_WARNING
 
-#define SYNC_KEY STEPS
+#define SYNC_KEY NUMOFBLOCKS
+
+uint64_t STEPS = 0;
+
 using namespace DSMEngine;
 
 uint16_t node_id;
@@ -46,7 +50,11 @@ uint16_t tcp_port=19843;
 const char* result_file = "result.csv";
 
 //exp parameters
-long ITERATION = 2000000;
+// Cache can hold 4Million cache entries. Considering the random filling mechanism,
+// if we want to gurantee that the cache has been filled, we need to run 8Million iterations.
+long ITERATION_TOTAL = 8192000;
+long ITERATION = 0;
+
 //long FENCE_PERIOD = 1000;
 int no_thread = 2;
 int Memcache_offset = 1024;
@@ -215,7 +223,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
   stat_lock.unlock();
 #endif
     // Access is the address of future acesses.
-    for (int i = 1; i < ITERATION; i++) {
+    for (int i = 1; i < 2*ITERATION; i++) {
         //PopulateOneBlock(alloc, data, ldata, i, l_remote_ratio, l_space_locality, seedp);
         GlobalAddress next;
         if (TrueOrFalse(space_locality, seedp)) {
@@ -484,7 +492,8 @@ void Benchmark(int id, DDSM* alloc) {
 //	for(int i = 0; i < STEPS; i++) {
 //		ldata[i] = (GAddr*)malloc(BLOCK_SIZE);
 //	}
-    GlobalAddress* access = (GlobalAddress*) malloc(sizeof(GlobalAddress) * ITERATION);
+    // gernerate 2*Iteration access target, half for warm up half for the real test
+    GlobalAddress* access = (GlobalAddress*) malloc(sizeof(GlobalAddress) * 2*ITERATION);
 
     //bool shared[STEPS];
     bool* shared = (bool*) malloc(sizeof(bool) * STEPS);
@@ -543,7 +552,7 @@ void Benchmark(int id, DDSM* alloc) {
 //    stat_lock.unlock();
 
     printf( "start run the benchmark on thread %d\n", id);
-    Run(alloc, data, access, addr_to_pos, shared, id, &seedp, warmup);
+    Run(alloc, data, &access[ITERATION], addr_to_pos, shared, id, &seedp, warmup);
 //#ifndef LOCAL_MEMORY
 //    //make sure all the requests are complete
 //    alloc->MFence();
@@ -643,7 +652,11 @@ int main(int argc, char* argv[]) {
     compute_num = ddsm.rdma_mg->GetComputeNodeNum();
     memory_num = ddsm.rdma_mg->GetMemoryNodeNum();
     sleep(1);
-
+    // The formula below is to guranttee that the  Global allocated data is a constant even if
+    // the thread number and share_ratio varied.
+    STEPS = NUMOFBLOCKS/((no_thread - 1)*(100-shared_ratio)/100.00L + 1);
+    printf("number of steps is %d\n", STEPS);
+    ITERATION = ITERATION_TOTAL/no_thread;
     //sync with all the other workers
     //check all the workers are started
     int id;
