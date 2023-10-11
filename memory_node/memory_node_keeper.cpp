@@ -354,7 +354,7 @@ int Memory_Node_Keeper::server_sock_connect(const char* servername, int port) {
       if (bind(listenfd, iterator->ai_addr, iterator->ai_addrlen))
         goto sock_connect_exit;
       listen(listenfd, 20);
-      while (1) {
+      while (!exit_all_threads_) {
 
         sockfd = accept(listenfd, &address, &len);
         std::string client_id =

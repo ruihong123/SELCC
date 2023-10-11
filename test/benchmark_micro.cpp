@@ -29,10 +29,14 @@
 //#define LOCAL_MEMORY
 
 //TODO: shall be adjusted according to the no_thread and
-#define NUMOFBLOCKS (25165824ull) //100M much larger than 10M L3 cache
-#define DEBUG_LEVEL LOG_WARNING
+//#define NUMOFBLOCKS (2516582ull) //around 48GB totally, local cache is 8GB per node. (25165824ull)
+//#define SYNC_KEY NUMOFBLOCKS
 
-#define SYNC_KEY NUMOFBLOCKS
+//2516582ull =  48*1024*1024*1024/(2*1024)
+uint64_t NUMOFBLOCKS = 0;
+uint64_t SYNC_KEY = 0;
+uint64_t cache_size = 0;
+int Memcache_offset = 1024;
 
 uint64_t STEPS = 0;
 
@@ -57,7 +61,6 @@ long ITERATION = 0;
 
 //long FENCE_PERIOD = 1000;
 int no_thread = 2;
-int Memcache_offset = 1024;
 //int remote_ratio = 0;  //0..100
 int shared_ratio = 10;  //0..100
 int space_locality = 10;  //0..100
@@ -68,7 +71,7 @@ int compute_num = 0;
 int memory_num = 100;
 
 float cache_th = 0.15;  //0.15
-uint64_t cache_size = 0;
+//uint64_t cache_size = 0;
 uint64_t allocated_mem_size = 0;
 
 //runtime statistics
@@ -596,6 +599,9 @@ int main(int argc, char* argv[]) {
         } else if (strcmp(argv[i], "--cache_size") == 0) {
             cache_size = atoi(argv[++i]);
             cache_size = cache_size * 1024ull * 1024 * 1024;
+        } else if (strcmp(argv[i], "--allocated_mem_size") == 0) {
+            allocated_mem_size = atoi(argv[++i]);
+            allocated_mem_size = allocated_mem_size * 1024ull * 1024 * 1024;
         } else if (strcmp(argv[i], "--compute_num") == 0) {
             compute_num = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--memory_num") == 0) {
@@ -651,12 +657,13 @@ int main(int argc, char* argv[]) {
     DDSM ddsm = DDSM(cache_ptr, rdma_mg);
     compute_num = ddsm.rdma_mg->GetComputeNodeNum();
     memory_num = ddsm.rdma_mg->GetMemoryNodeNum();
-    sleep(1);
-    // The formula below is to guranttee that the  Global allocated data is a constant even if
-    // the thread number and share_ratio varied.
+    NUMOFBLOCKS = allocated_mem_size/(2*1024);
+    printf("number of blocks is %d\n", NUMOFBLOCKS);
+    SYNC_KEY = NUMOFBLOCKS;
     STEPS = NUMOFBLOCKS/((no_thread - 1)*(100-shared_ratio)/100.00L + 1);
     printf("number of steps is %d\n", STEPS);
     ITERATION = ITERATION_TOTAL/no_thread;
+    sleep(1);
     //sync with all the other workers
     //check all the workers are started
     int id;

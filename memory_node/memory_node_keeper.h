@@ -34,6 +34,10 @@ class Memory_Node_Keeper {
   // this function is for the server.
   void Server_to_Client_Communication();
   void SetBackgroundThreads(int num,  ThreadPoolType type);
+  void ExitAllThreads(){
+      exit_all_threads_ = true;
+      JoinAllThreads(false);
+  }
 //  void MaybeScheduleCompaction(std::string& client_ip);
 //  static void BGWork_Compaction(void* thread_args);
 //  static void RPC_Compaction_Dispatch(void* thread_args);
@@ -45,6 +49,7 @@ class Memory_Node_Keeper {
 //  RDMA_Manager* rdma_mg;
  private:
   int pr_size;
+  bool exit_all_threads_ = false;
   std::unordered_map<unsigned int, std::pair<std::mutex, std::condition_variable>> imm_notifier_pool;
   unsigned int imm_temp = 1;
   std::mutex mtx_temp;
