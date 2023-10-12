@@ -332,7 +332,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
     stat_lock.unlock();
 #endif
         switch (op_type) {
-            case 0:  //read/write
+            case 0:  //blind write no need to read before write.
                 if (TrueOrFalse(read_ratio, seedp)) {
                     void* page_buffer;
                     Cache::Handle* handle;
@@ -344,10 +344,10 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     void* page_buffer;
                     Cache::Handle* handle;
                     memset(buf, i, item_size);
-                    alloc->PrePage_Update(page_buffer, TOPAGE(to_access), handle);
+                    alloc->PrePage_Write(page_buffer, TOPAGE(to_access), handle);
                     // Can not write to random place because we can not hurt the metadata in the page.
                     memcpy((char*)page_buffer + (64), buf, item_size);
-                    alloc->PostPage_Update(TOPAGE(to_access), handle);
+                    alloc->PostPage_Write(TOPAGE(to_access), handle);
                 }
                 break;
             case 1:  //rlock/wlock
