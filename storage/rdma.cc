@@ -3469,6 +3469,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }
             assert(false);
         }
+        printf("Lock update successful\n");
         return true;
     }
     //TODO: Implement a sync read unlock function.
