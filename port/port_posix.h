@@ -100,24 +100,19 @@ extern bool Show_Me_The_Print;
 
 //Debugging macro
 //#define TIMEPRINT
-#define WITHMEMORYVERSIONSET
-//#define WITHPERSISTENCE
 //#define PROCESSANALYSIS
-//#define RDMAPROCESSANAL   YSIS
+//#define RDMAPROCESSANALYSIS
 
 //Configuration macro
 #define RDMAFAAFORREADLOCK
 #define CACHECOHERENCEPROTOCOL
 #define DYNAMIC_ANALYSE_PAGE
 #define TIMEPRINTGAP 100000
-#define BYTEADDRESSABLE
-#define NEARDATACOMPACTION
 //#define GETANALYSIS
 #define ROCKSDB_PTHREAD_ADAPTIVE_MUTEX
 #define RECEIVE_OUTSTANDING_SIZE 1024
 #define SEND_OUTSTANDING_SIZE 16
 #define ASYNC_UNLOCK
-//#define BLOOMANALYSIS
 #include "port/thread_annotations.h"
 
 namespace DSMEngine {
