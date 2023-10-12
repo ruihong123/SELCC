@@ -3516,7 +3516,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             *counter = *counter + 1;
         } else{
             RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-            assert((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) == 1);
+            assert((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) != 0);
         }
 
 
