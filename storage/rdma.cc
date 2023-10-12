@@ -3572,7 +3572,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                         // This rare case is because the cache mutex will be released before the read/write lock release.
                         // If there is another request comes in immediately for the same page before the lock release, this print
                         // below will happen.
-                        printf(" read invalidation target is itself, this is rare case,, page_addr is %p\n", page_addr);
+                        printf(" read invalidation target is itself, this is rare case,, page_addr is %p, retry_cnt is %lu\n", page_addr, retry_cnt);
                     }
                 }
             }else if (invalidation_RPC_type == 2){
@@ -3583,7 +3583,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
                 }else{
                     //It is okay to have a write invalidation target is itself, if we enable the async write unlock.
-                    printf(" Write invalidation target is itself, this is rare case,, page_addr is %p\n", page_addr);
+                    printf(" Write invalidation target is itself, this is rare case,, page_addr is %p, retry_cnt is %lu\n", page_addr, retry_cnt);
                 }
             }
 
@@ -5774,7 +5774,7 @@ void RDMA_Manager::fs_deserilization(
 //                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                 if (handle->rw_mtx.try_lock()){
                     if (handle->remote_lock_status.load() == 2){
-                        // TODO； may not correct to use async RDMA here.
+                        // Do not use async lock release here.
                         global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr,
                                                       page_mr->length, lock_gptr, false);
                         handle->remote_lock_status.store(0);
