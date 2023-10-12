@@ -116,6 +116,7 @@ extern bool Show_Me_The_Print;
 #define ROCKSDB_PTHREAD_ADAPTIVE_MUTEX
 #define RECEIVE_OUTSTANDING_SIZE 1024
 #define SEND_OUTSTANDING_SIZE 16
+#define ASYNC_UNLOCK
 //#define BLOOMANALYSIS
 #include "port/thread_annotations.h"
 
