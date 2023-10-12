@@ -241,11 +241,11 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
 //        rdma_mg_->poll_completion(wc, 1, client_ip, true);
 
 
-      } else if (receive_msg_buf->command == sync_option) {
-        rdma_mg->post_receive<RDMA_Request>(&recv_mr[buffer_position],
-                                            compute_node_id,
-                                            client_ip);
-        sync_option_handler(receive_msg_buf, client_ip, compute_node_id);
+//      } else if (receive_msg_buf->command == sync_option) {
+//        rdma_mg->post_receive<RDMA_Request>(&recv_mr[buffer_position],
+//                                            compute_node_id,
+//                                            client_ip);
+//        sync_option_handler(receive_msg_buf, client_ip, compute_node_id);
       } else if (receive_msg_buf->command == put_qp_info) {
           printf("Put QP information for %u\n",receive_msg_buf->content.qp_config_xcompute.node_id_pairs);
           rdma_mg->post_receive<RDMA_Request>(&recv_mr[buffer_position],compute_node_id,client_ip);
