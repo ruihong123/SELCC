@@ -75,7 +75,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
   }
 
   Memory_Node_Keeper::~Memory_Node_Keeper() {
-    delete opts->filter_policy;
+//    delete opts->filter_policy;
 
   }
 
