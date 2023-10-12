@@ -33,6 +33,7 @@
 //#define SYNC_KEY NUMOFBLOCKS
 
 //2516582ull =  48*1024*1024*1024/(2*1024)
+#define MEMSET_GRANULARITY 1024
 uint64_t NUMOFBLOCKS = 0;
 uint64_t SYNC_KEY = 0;
 uint64_t cache_size = 0;
@@ -148,7 +149,10 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 //  int l_remote_ratio = remote_ratio;
     int l_space_locality = space_locality;
     int l_shared_ratio = shared_ratio;
-
+    GlobalAddress memset_buffer[1024];
+    GlobalAddress* memget_buffer;
+    int memset_buffer_offset = 0;
+    int current_get_block = -1;
     //the main thread (id == 0) in the master node (is_master == true)
     // is responsible for reference data access pattern
     if (is_master && id == 0) {
@@ -172,7 +176,18 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 #endif
             if (shared_ratio != 0)
                 //Register the allocation for master into a key value store.
-                ddsm->memSet((const char*)&i, sizeof(i), (const char*)(&data[i]), sizeof(GlobalAddress));
+                if (memset_buffer_offset == MEMSET_GRANULARITY - 1) {
+                    memset_buffer[memset_buffer_offset] = data[i];
+                    ddsm->memSet((const char*)&i, sizeof(i), (const char*)memset_buffer, sizeof(GlobalAddress) * MEMSET_GRANULARITY);
+                    assert(i%MEMSET_GRANULARITY == MEMSET_GRANULARITY-1);
+                    memset_buffer_offset = 0;
+                }else{
+                    memset_buffer[memset_buffer_offset] = data[i];
+                    memset_buffer_offset++;
+                }
+                if (i == STEPS - 1) {
+                    ddsm->memSet((const char*)&i, sizeof(i), (const char*)memset_buffer, sizeof(GlobalAddress) * 1024);
+                }
 #ifdef BENCHMARK_DEBUG
             if (shared_ratio != 0) {
         GAddr readback;
@@ -184,14 +199,24 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
         }
     } else {
         for (int i = 0; i < STEPS; i++) {
+            if (UNLIKELY(i%MEMSET_GRANULARITY == 0 )) {
+                size_t v_size;
+                int key =  i + MEMSET_GRANULARITY - 1;
+                memget_buffer = (GlobalAddress*)ddsm->memGet((const char*)&key, sizeof(key),  &v_size);
+                assert(v_size == sizeof(GlobalAddress) * MEMSET_GRANULARITY);
+            }
+            if(UNLIKELY(i == (STEPS/1024)*1024ull)){
+                size_t v_size;
+                int key =  STEPS - 1;
+                memget_buffer = (GlobalAddress*)ddsm->memGet((const char*)&i, sizeof(i),  &v_size);
+                assert(v_size == sizeof(GlobalAddress) * 1024);
+            }
             //we prioritize the shared ratio over other parameters
             if (TrueOrFalse(l_shared_ratio, seedp)) {
                 GlobalAddress addr;
                 size_t v_size;
-                //If this block is shared, then acqurie the shared block the same as master.
-                char* value = ddsm->memGet((const char*)&i, sizeof(i), &v_size);
-                assert(v_size == addr_size && v_size == sizeof(GlobalAddress));
-                data[i] = *(GlobalAddress*)value;
+
+                data[i] = memget_buffer[i%MEMSET_GRANULARITY];
                 //revise the l_remote_ratio accordingly if we get the shared addr violate the remote probability
 //        if (TrueOrFalse(l_remote_ratio, seedp)) {  //should be remote
 //          if (alloc->GetID() == WID(addr)) {  //false negative
@@ -320,10 +345,10 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     void* page_buffer;
                     Cache::Handle* handle;
                     memset(buf, i, item_size);
-                    alloc->PrePage_Write(page_buffer, TOPAGE(to_access), handle);
+                    alloc->PrePage_Update(page_buffer, TOPAGE(to_access), handle);
                     // Can not write to random place because we can not hurt the metadata in the page.
                     memcpy((char*)page_buffer + (64), buf, item_size);
-                    alloc->PostPage_Write(TOPAGE(to_access), handle);
+                    alloc->PostPage_Update(TOPAGE(to_access), handle);
                 }
                 break;
             case 1:  //rlock/wlock
@@ -339,10 +364,10 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     void* page_buffer;
                     Cache::Handle* handle;
                     memset(buf, i, item_size);
-                    alloc->PrePage_Write(page_buffer, TOPAGE(to_access), handle);
+                    alloc->PrePage_Update(page_buffer, TOPAGE(to_access), handle);
                     // Can not write to random place because we can not hurt the metadata in the page.
                     memcpy((char*)page_buffer + (64), buf, item_size);
-                    alloc->PostPage_Write(TOPAGE(to_access), handle);
+                    alloc->PostPage_Update(TOPAGE(to_access), handle);
                 }
                 break;
             }
@@ -359,10 +384,10 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     void* page_buffer;
                     Cache::Handle* handle;
                     memset(buf, i, item_size);
-                    alloc->PrePage_Write(page_buffer, TOPAGE(to_access), handle);
+                    alloc->PrePage_Update(page_buffer, TOPAGE(to_access), handle);
                     // Can not write to random place because we can not hurt the metadata in the page.
                     memcpy((char*)page_buffer + (64), buf, item_size);
-                    alloc->PostPage_Write(TOPAGE(to_access), handle);
+                    alloc->PostPage_Update(TOPAGE(to_access), handle);
                 }
                 break;
             }
@@ -379,10 +404,10 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     void* page_buffer;
                     Cache::Handle* handle;
                     memset(buf, i, item_size);
-                    alloc->PrePage_Write(page_buffer, TOPAGE(to_access), handle);
+                    alloc->PrePage_Update(page_buffer, TOPAGE(to_access), handle);
                     // Can not write to random place because we can not hurt the metadata in the page.
                     memcpy((char*)page_buffer + (64), buf, item_size);
-                    alloc->PostPage_Write(TOPAGE(to_access), handle);
+                    alloc->PostPage_Update(TOPAGE(to_access), handle);
                 }
                 break;
             }
