@@ -1039,7 +1039,7 @@ class Btr_iter{
     template <typename Key, typename Value>
     void Btr<Key,Value>::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
                                         Cache::Handle *handle) {
-        rdma_mg->global_RUnlock(lock_addr, cas_buffer, cxt, coro_id);
+        rdma_mg->global_RUnlock(lock_addr, cas_buffer, cxt, coro_id, false);
         handle->remote_lock_status.store(0);
     }
 

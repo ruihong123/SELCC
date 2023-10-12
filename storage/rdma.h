@@ -489,7 +489,8 @@ class RDMA_Manager {
 
     void global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
                                     ibv_mr *cas_buffer, uint64_t tag = 0, CoroContext *cxt= nullptr, int coro_id = 0);
-    void global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt = nullptr, int coro_id = 0);
+    void global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt = nullptr, int coro_id = 0,
+                        bool async = false);
     //TODO: there is a potential lock upgrade deadlock, how to solve it?
     // potential solution: If not upgrade the lock after sending the message, the node should
     // unlock the read lock and then acquire the write lock by seperated RDMAs.

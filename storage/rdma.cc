@@ -3417,7 +3417,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // todo: the read lock release and then lock acquire is not atomic. we need to develop and atomic way
         // for the lock upgrading to gurantee the correctness of 2 phase locking.
         if (retry_cnt > 1){
-            global_RUnlock(lock_addr, cas_buffer,cxt,coro_id);
+            global_RUnlock(lock_addr, cas_buffer, cxt, coro_id, false);
 //            printf("Lock upgrade failed, release the lock, address is %p\n", lock_addr);
             return false;
         }
@@ -3471,7 +3471,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         }
         return true;
     }
-    void RDMA_Manager::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id) {
+    //TODO: Implement a sync read unlock function.
+    void RDMA_Manager::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
+                                      bool async) {
         // TODO: an alternative and better design for read unlock is to use RDMA FAA.
         uint64_t add = (1ull << (RDMA_Manager::node_id/2 +1));
         uint64_t substract = (~add) + 1;
@@ -3499,18 +3501,24 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // TODO: Read unlock do not need to wait for the completion. However, if we consider partial failure recovery,
         //  we need to consider to implement an synchronized RDMA Read unlocking function.
 //        RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Internal_and_Leaf);
-        uint32_t * counter = (uint32_t *)async_counter.at(lock_addr.nodeID)->Get();
-        if (UNLIKELY(!counter)){
-            counter = new uint32_t(0);
-            async_counter[lock_addr.nodeID]->Reset(counter);
-        }
-        if ( UNLIKELY((*counter % (SEND_OUTSTANDING_SIZE/2 - 1)) == 1)){
-            RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-        }else{
-            RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Internal_and_Leaf);
+        if (async){
+            uint32_t * counter = (uint32_t *)async_counter.at(lock_addr.nodeID)->Get();
+            if (UNLIKELY(!counter)){
+                counter = new uint32_t(0);
+                async_counter[lock_addr.nodeID]->Reset(counter);
+            }
+            if ( UNLIKELY((*counter % (SEND_OUTSTANDING_SIZE/2 - 1)) == 1)){
+                RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            }else{
+                RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Internal_and_Leaf);
 
+            }
+            *counter = *counter + 1;
+        } else{
+            RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            assert((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
         }
-        *counter = *counter + 1;
+
 
 
 //        uint64_t return_data = (*(uint64_t*) cas_buffer->addr);
