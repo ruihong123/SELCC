@@ -178,7 +178,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                 //Register the allocation for master into a key value store.
                 if (i%MEMSET_GRANULARITY == MEMSET_GRANULARITY - 1) {
                     memset_buffer[i%MEMSET_GRANULARITY] = data[i];
-                    printf("Memset a key %d\n", i);
+//                    printf("Memset a key %d\n", i);
                     ddsm->memSet((const char*)&i, sizeof(i), (const char*)memset_buffer, sizeof(GlobalAddress) * MEMSET_GRANULARITY);
 //                    assert(i%MEMSET_GRANULARITY == MEMSET_GRANULARITY-1);
                 }else{

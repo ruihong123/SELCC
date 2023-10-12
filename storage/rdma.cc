@@ -900,6 +900,8 @@ int RDMA_Manager::resources_create() {
               << std::endl;
         std::cout << "Maximum number of resources used for RDMA Read & Atomic operations by this HCA as the Target " << res->device_attr.max_res_rd_atom
                   << std::endl;
+        std::cout << "Atomic operations support level " << res->device_attr.atomic_cap
+                  << std::endl;
   std::cout << "maximum completion queue number is" << res->device_attr.max_cq
             << std::endl;
   std::cout << "maximum memory region number is" << res->device_attr.max_mr
@@ -3849,7 +3851,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
         page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         assert(remote_lock_addr <= post_gl_page_addr - 8);
-
+        // Page write back shall never utilize async unlock. because we can not guarantee, whether the page will be overwritten by
+        // another thread before the unlock. It is possible this cache buffer is reused by other cache entry.
         if (async){
 //            assert(false);
             Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Internal_and_Leaf);
@@ -5771,8 +5774,9 @@ void RDMA_Manager::fs_deserilization(
 //                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                 if (handle->rw_mtx.try_lock()){
                     if (handle->remote_lock_status.load() == 2){
+                        // TODO； may not correct to use async RDMA here.
                         global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr,
-                                                      page_mr->length, lock_gptr, true);
+                                                      page_mr->length, lock_gptr, false);
                         handle->remote_lock_status.store(0);
 //                        printf("Release write lock %lu\n", g_ptr);
                     }
