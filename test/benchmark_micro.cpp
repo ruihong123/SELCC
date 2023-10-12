@@ -151,7 +151,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
     int l_shared_ratio = shared_ratio;
     GlobalAddress memset_buffer[1024];
     GlobalAddress* memget_buffer;
-    int memset_buffer_offset = 0;
+//    int memset_buffer_offset = 0;
     int current_get_block = -1;
     //the main thread (id == 0) in the master node (is_master == true)
     // is responsible for reference data access pattern
@@ -176,14 +176,13 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 #endif
             if (shared_ratio != 0)
                 //Register the allocation for master into a key value store.
-                if (memset_buffer_offset == MEMSET_GRANULARITY - 1) {
-                    memset_buffer[memset_buffer_offset] = data[i];
+                if (i%MEMSET_GRANULARITY == MEMSET_GRANULARITY - 1) {
+                    memset_buffer[i%MEMSET_GRANULARITY] = data[i];
+                    printf("Memset a key %d\n", i);
                     ddsm->memSet((const char*)&i, sizeof(i), (const char*)memset_buffer, sizeof(GlobalAddress) * MEMSET_GRANULARITY);
-                    assert(i%MEMSET_GRANULARITY == MEMSET_GRANULARITY-1);
-                    memset_buffer_offset = 0;
+//                    assert(i%MEMSET_GRANULARITY == MEMSET_GRANULARITY-1);
                 }else{
-                    memset_buffer[memset_buffer_offset] = data[i];
-                    memset_buffer_offset++;
+                    memset_buffer[i%MEMSET_GRANULARITY] = data[i];
                 }
                 if (i == STEPS - 1) {
                     ddsm->memSet((const char*)&i, sizeof(i), (const char*)memset_buffer, sizeof(GlobalAddress) * 1024);

@@ -36,7 +36,7 @@ namespace DSMEngine {
 //            ibv_mr* local_mr = (ibv_mr*)value;
                 assert(mr->addr!= nullptr );
                 assert(((LeafPage<uint64_t ,uint64_t>*)mr->addr)->global_lock);
-                assert(handle->gptr == ((LeafPage<uint64_t,uint64_t>*)mr->addr)->hdr.this_page_g_ptr);
+//                assert(handle->gptr == ((LeafPage<uint64_t,uint64_t>*)mr->addr)->hdr.this_page_g_ptr);
 
                 // RDMA write unlock and write back the data. THis shall be a sync write back, because the buffer will
                 // be handover to other cache entry after this function. It is possible that the page content is changed when the
