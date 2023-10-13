@@ -135,7 +135,7 @@ namespace DSMEngine {
             if (rc == MEMCACHED_SUCCESS) {
                 break;
             }
-            memc_mutex.lock();
+            memc_mutex.unlock();
 
             usleep(400);
         }
