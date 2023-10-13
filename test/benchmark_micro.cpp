@@ -564,6 +564,7 @@ void Benchmark(int id, DDSM* alloc) {
     while (thread_sync_counter.load() != no_thread){
         if (id == 0 && thread_sync_counter.load() == no_thread-1){
             alloc->rdma_mg->sync_with_computes_Cside();
+            thread_sync_counter.fetch_add(1);
         }
         usleep(500);
     }
