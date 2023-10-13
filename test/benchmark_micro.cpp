@@ -207,7 +207,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
             if(UNLIKELY(shared_ratio > 0 && i == (STEPS/1024)*1024ull)){
                 size_t v_size;
                 int key =  STEPS - 1;
-                memget_buffer = (GlobalAddress*)ddsm->memGet((const char*)&i, sizeof(i),  &v_size);
+                memget_buffer = (GlobalAddress*)ddsm->memGet((const char*)&key, sizeof(key),  &v_size);
                 assert(v_size == sizeof(GlobalAddress) * 1024);
             }
             //we prioritize the shared ratio over other parameters
