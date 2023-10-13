@@ -94,6 +94,8 @@ std::mutex stat_lock;
 int addr_size = sizeof(GlobalAddress);
 int item_size = addr_size;
 int items_per_block =  kLeafPageSize / item_size;
+std::atomic<int> thread_sync_counter(0);
+
 
 inline int GetRandom(int min, int max, unsigned int* seedp) {
     int ret = (rand_r(seedp) % (max - min)) + min;
@@ -556,7 +558,15 @@ void Benchmark(int id, DDSM* alloc) {
 
     uint64_t SYNC_RUN_BASE = SYNC_KEY + compute_num * 2;
     int sync_id = SYNC_RUN_BASE + compute_num * node_id + id;
-    alloc->rdma_mg->sync_with_computes_Cside();
+    if (id!= 0){
+        thread_sync_counter.fetch_add(1);
+    }
+    while (thread_sync_counter.load() != no_thread){
+        if (id == 0 && thread_sync_counter.load() == no_thread-1){
+            alloc->rdma_mg->sync_with_computes_Cside();
+        }
+        usleep(500);
+    }
 //    alloc->Put(sync_id, &sync_id, sizeof(int));
 //
 //    for (int i = 1; i <= compute_num; i++) {
