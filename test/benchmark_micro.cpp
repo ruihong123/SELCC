@@ -198,13 +198,13 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
         }
     } else {
         for (int i = 0; i < STEPS; i++) {
-            if (UNLIKELY(i%MEMSET_GRANULARITY == 0 )) {
+            if (UNLIKELY(shared_ratio > 0 && i%MEMSET_GRANULARITY == 0 )) {
                 size_t v_size;
                 int key =  i + MEMSET_GRANULARITY - 1;
                 memget_buffer = (GlobalAddress*)ddsm->memGet((const char*)&key, sizeof(key),  &v_size);
                 assert(v_size == sizeof(GlobalAddress) * MEMSET_GRANULARITY);
             }
-            if(UNLIKELY(i == (STEPS/1024)*1024ull)){
+            if(UNLIKELY(shared_ratio > 0 && i == (STEPS/1024)*1024ull)){
                 size_t v_size;
                 int key =  STEPS - 1;
                 memget_buffer = (GlobalAddress*)ddsm->memGet((const char*)&i, sizeof(i),  &v_size);
