@@ -133,9 +133,12 @@ namespace DSMEngine {
 
             rc = memcached_set(memc, key, klen, val, vlen, (time_t)0, (uint32_t)0);
             if (rc == MEMCACHED_SUCCESS) {
+                memc_mutex.unlock();
                 break;
+            }else{
+                memc_mutex.unlock();
+
             }
-            memc_mutex.unlock();
 
             usleep(400);
         }
@@ -152,9 +155,12 @@ namespace DSMEngine {
             memc_mutex.lock();
             res = memcached_get(memc, key, klen, &l, &flags, &rc);
             if (rc == MEMCACHED_SUCCESS) {
+                memc_mutex.unlock();
                 break;
+            }else{
+                memc_mutex.unlock();
+
             }
-            memc_mutex.unlock();
             usleep(400 * rdma_mg->node_id);
         }
 
