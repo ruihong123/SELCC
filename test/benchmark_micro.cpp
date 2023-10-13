@@ -198,18 +198,18 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
         }
     } else {
         for (int i = 0; i < STEPS; i++) {
-            if (UNLIKELY(shared_ratio > 0 && i%MEMSET_GRANULARITY == 0 )) {
-                size_t v_size;
-                int key =  i + MEMSET_GRANULARITY - 1;
-                memget_buffer = (GlobalAddress*)ddsm->memGet((const char*)&key, sizeof(key),  &v_size);
-                assert(v_size == sizeof(GlobalAddress) * MEMSET_GRANULARITY);
-            }
             if(UNLIKELY(shared_ratio > 0 && i == (STEPS/1024)*1024ull)){
                 size_t v_size;
                 int key =  STEPS - 1;
                 memget_buffer = (GlobalAddress*)ddsm->memGet((const char*)&key, sizeof(key),  &v_size);
                 assert(v_size == sizeof(GlobalAddress) * 1024);
+            }else if (UNLIKELY(shared_ratio > 0 && i%MEMSET_GRANULARITY == 0 )) {
+                size_t v_size;
+                int key =  i + MEMSET_GRANULARITY - 1;
+                memget_buffer = (GlobalAddress*)ddsm->memGet((const char*)&key, sizeof(key),  &v_size);
+                assert(v_size == sizeof(GlobalAddress) * MEMSET_GRANULARITY);
             }
+
             //we prioritize the shared ratio over other parameters
             if (TrueOrFalse(l_shared_ratio, seedp)) {
                 GlobalAddress addr;
