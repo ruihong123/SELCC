@@ -566,7 +566,7 @@ void Benchmark(int id, DDSM* alloc) {
             alloc->rdma_mg->sync_with_computes_Cside();
             thread_sync_counter.fetch_add(1);
         }
-        usleep(50);
+        usleep(5);
     }
 //    alloc->Put(sync_id, &sync_id, sizeof(int));
 //
