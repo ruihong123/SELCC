@@ -40,7 +40,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
 //    ClipToRange(&opts->write_buffer_size, 64 << 10, 1 << 30);
 //    ClipToRange(&opts->max_file_size, 1 << 20, 1 << 30);
 //    ClipToRange(&opts->block_size, 1 << 10, 4 << 20);
-    Compactor_pool_.SetBackgroundThreads(4);
+    Compactor_pool_.SetBackgroundThreads(0);
 //    Message_handler_pool_.SetBackgroundThreads(2);
 //    Persistency_bg_pool_.SetBackgroundThreads(1);
 

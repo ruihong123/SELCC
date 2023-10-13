@@ -58,7 +58,7 @@ int main(int argc,char* argv[])
 //    DSMEngine::RDMA_Manager::node_id = 1;
   }
     SYNC_KEY = allocated_mem_size/(2*1024);;
-  mn_keeper->SetBackgroundThreads(12, DSMEngine::ThreadPoolType::CompactionThreadPool);
+  mn_keeper->SetBackgroundThreads(0, DSMEngine::ThreadPoolType::CompactionThreadPool);
   std::thread* TPC_connection_handler = new std::thread(&DSMEngine::Memory_Node_Keeper::Server_to_Client_Communication, mn_keeper);
     DSMEngine::DDSM ddsm(nullptr, nullptr);
     int temp = SYNC_KEY + Memcache_offset + mn_keeper->rdma_mg->node_id;
