@@ -66,6 +66,7 @@ namespace DSMEngine {
         Cache *page_cache;
         RDMA_Manager *rdma_mg = nullptr;
         memcached_st *memc;
+        std::mutex memc_mutex;
         DDSM(Cache *page_cache, RDMA_Manager *rdma_mg = nullptr) : page_cache(page_cache), rdma_mg(rdma_mg) {
             if (!connectMemcached()) {
                 printf("Failed to connect to memcached\n");

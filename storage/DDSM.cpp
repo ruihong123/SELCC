@@ -145,11 +145,12 @@ namespace DSMEngine {
         memcached_return rc;
 
         while (true) {
-
+            memc_mutex.lock();
             res = memcached_get(memc, key, klen, &l, &flags, &rc);
             if (rc == MEMCACHED_SUCCESS) {
                 break;
             }
+            memc_mutex.unlock();
             usleep(400 * rdma_mg->node_id);
         }
 
