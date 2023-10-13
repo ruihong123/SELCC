@@ -129,10 +129,14 @@ namespace DSMEngine {
 
         memcached_return rc;
         while (true) {
+            memc_mutex.lock();
+
             rc = memcached_set(memc, key, klen, val, vlen, (time_t)0, (uint32_t)0);
             if (rc == MEMCACHED_SUCCESS) {
                 break;
             }
+            memc_mutex.lock();
+
             usleep(400);
         }
     }
