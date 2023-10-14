@@ -1,14 +1,31 @@
 #! /usr/bin/env bash
 bin=`dirname "$0"`
 bin=`cd "$bin"; pwd`
-SRC_HOME=$bin/../src
-compute_nodes=$bin/compute_nodes
-memory_nodes=$bin/memory_nodes
+SRC_HOME=$bin/..
+BIN_HOME=$bin/../release
+conf_file=$bin/../connection.conf
+compute_line=$(head -n 1 $conf_file)
+memory_line=$(head -n 2 $conf_file)
+ read -r -a compute_nodes <<< "$compute_line"
+ read -r -a memory_nodes <<< "$memory_line"
+  echo "memory nodes:"
+ for i in "${memory_nodes[@]}"
+ do
+     echo $i
+ done
+echo "compute nodes:"
+for i in "${compute_nodes[@]}"
+ do
+     echo $i
+ done
+#compute_nodes=$bin/compute_nodes
+#memory_nodes=$bin/memory_nodes
 log_file=$bin/log
 cache_mem_size=8 # 8 gb Local memory size
 remote_mem_size=48 # 48 gb Remote memory size
 master_ip=db3.cs.purdue.edu # make sure this is in accordance with the server whose is_master=1
 master_port=12311
+port=19888
 #compute_num = 0
 #memory_num = 0
 run() {
@@ -23,41 +40,32 @@ run() {
     i=0
 #    compute_nodes_arr=`cat "$compute_nodes"`
 #    memory_nodes_arr=`cat "$memory_nodes"`
-#    echo $compute_nodes_arr
-#    echo $memory_nodes_arr
-#    compute_num=${#$compute_nodes_arr[@]}
-#    memory_num=${#$memory_nodes_arr[@]}
-    compute_num=$(wc -l < $compute_nodes)
-    memory_num=$(wc -l < $memory_nodes)
-    compute_num=$((compute_num+1))
-    memory_num=$((memory_num+1))
+#    echo ${#memory_nodes[@]}
+#    echo ${#memory_nodes[@]}
+    compute_num=${#compute_nodes[@]}
+    memory_num=${#memory_nodes[@]}
+#    compute_num=$(wc -l < $compute_nodes)
+#    memory_num=$(wc -l < $memory_nodes)
+#    compute_num=$((compute_num+1))
+#    memory_num=$((memory_num+1))
 #    echo `cat $slaves`
     echo $compute_num
     echo $memory_num
 
     for memory in `cat "$memory_nodes"`
-            do
-            	ip=`echo $memory | cut -d ' ' -f1`
-            	port=`echo $memory | cut -d ' ' -f2`
-            	if [ $i = 0 ]; then
-            		is_master=1
-                    master_ip=$ip
-            	else
-            		is_master=0
-            	fi
-            	if [ $port == $ip ]; then
-            		port=12345
-            	fi
-            	echo ""
-            	echo "memory = $memory, ip = $ip, port = $port"
-            	echo "$SRC_HOME/memory_server_term --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file $result_file --ip_master $master_ip --ip_worker $ip --port_worker $port --port_master $master_port --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num" | tee -a "$log_file".$ip
-            	ssh -i ~/.ssh/id_rsa $ip	"$SRC_HOME/memory_server --op_type $op_type --no_thread $thread --shared_ratio $shared_ratio --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file "$result_file" --ip_master $master_ip --ip_worker $ip --port_worker $port --port_master $master_port --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num | tee -a '$log_file'.$ip" &
-            	sleep 1
-            	i=$((i+1))
-    #        	if [ "$i" = "$node" ]; then
-    #        		break
-    #        	fi
-            done # for slave
+        do
+          ip=$memory
+#            	port=`echo $memory | cut -d ' ' -f2`
+          echo ""
+          echo "memory = $memory, ip = $ip, port = $port"
+          echo "$BIN_HOME/memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size" | tee -a "$log_file".$ip
+          ssh -i ~/.ssh/id_rsa $ip	"$BIN_HOME/memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee -a '$log_file'.$ip " &
+          sleep 1
+          i=$((i+1))
+#        	if [ "$i" = "$node" ]; then
+#        		break
+#        	fi
+        done # for slave
 
     for compute in `cat "$compute_nodes"`
       do
@@ -74,8 +82,8 @@ run() {
         fi
         echo ""
         echo "compute = $compute, ip = $ip, port = $port"
-        echo "$SRC_HOME/benchmark --op_type $op_type --no_thread $thread --shared_ratio $shared_ratio --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file $result_file --ip_master $master_ip --ip_worker $ip --port_worker $port --is_master $is_master --port_master $master_port --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num" | tee -a "$log_file".$ip
-        ssh -i ~/.ssh/id_rsa $ip	"$SRC_HOME/benchmark --op_type $op_type --no_thread $thread --shared_ratio $shared_ratio --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file "$result_file" --ip_master $master_ip --ip_worker $ip --port_worker $port --is_master $is_master --port_master $master_port --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num | tee -a '$log_file'.$ip" &
+        echo "$BIN_HOME/micro_bench --op_type $op_type --no_thread $thread --shared_ratio $shared_ratio --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file $result_file --this_node_id $((2*$i)) --tcp_port $port --is_master $is_master --port_master $master_port --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num" | tee -a "$log_file".$ip
+        ssh -i ~/.ssh/id_rsa $ip	"$BIN_HOME/micro_bench --op_type $op_type --no_thread $thread --shared_ratio $shared_ratio --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file $result_file --this_node_id $((2*$i)) --tcp_port $port --is_master $is_master --port_master $master_port --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num | tee -a '$log_file'.$ip" &
         sleep 1
         i=$((i+1))
   #    	if [ "$i" = "$node" ]; then
@@ -88,7 +96,7 @@ run() {
 	for compute in `cat $compute_nodes`
 	do
 		ip=`echo $compute | cut -d ' ' -f1`
-		ssh -i ~/.ssh/id_rsa $ip killall benchmark > /dev/null 2>&1
+		ssh -i ~/.ssh/id_rsa $ip killall micro_bench > /dev/null 2>&1
 		j=$((j+1))
 #		if [ $j = $node ]; then
 #			break;
@@ -99,13 +107,15 @@ run() {
   	for memory in `cat $memory_nodes`
   	do
   		ip=`echo $memory | cut -d ' ' -f1`
-  		ssh -i ~/.ssh/id_rsa $ip killall benchmark > /dev/null 2>&1
+  		ssh -i ~/.ssh/id_rsa $ip killall memory_server_term > /dev/null 2>&1
   		j=$((j+1))
 #  		if [ $j = $node ]; then
 #  			break;
 #  		fi
   	done
-
+  	read -r -a memcached_node <<< $(head -n 1 $BIN_HOME/memcached.conf)
+    ssh -i ~/.ssh/id_rsa $ip "sudo service memcached restart"
+    sleep 1
     IFS="$old_IFS"
 }
 
