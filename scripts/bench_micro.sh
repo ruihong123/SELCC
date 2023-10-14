@@ -67,6 +67,7 @@ run() {
 #        	fi
         done # for slave
     sleep 5
+    i=0
     for compute in ${compute_nodes[@]}
       do
         ip=$compute
