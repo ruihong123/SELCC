@@ -59,7 +59,7 @@ run() {
           echo ""
           echo "memory = $memory, ip = $ip, port = $port"
           echo "$BIN_HOME/memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size" | tee -a "$log_file".$ip
-          ssh -i ~/.ssh/id_rsa $ip	"cd MemoryEngine/release && numactl --physcpubind=1 ./memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee -a '$log_file'.$ip " &
+          ssh -i ~/.ssh/id_rsa $ip	"cd MemoryEngine/release && numactl --physcpubind=111 ./memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee -a '$log_file'.$ip " &
           sleep 1
           i=$((i+1))
 #        	if [ "$i" = "$node" ]; then
