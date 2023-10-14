@@ -69,8 +69,7 @@ run() {
 
     for compute in ${compute_nodes[@]}
       do
-        ip=`echo $compute | cut -d ' ' -f1`
-        port=`echo $compute | cut -d ' ' -f2`
+        ip=compute
         if [ $i = 0 ]; then
           is_master=1
               master_ip=$ip
@@ -93,7 +92,7 @@ run() {
 
 	wait
 	j=0
-	for compute in `cat $compute_nodes`
+	for compute in ${compute_nodes[@]}
 	do
 		ip=`echo $compute | cut -d ' ' -f1`
 		ssh -i ~/.ssh/id_rsa $ip killall micro_bench > /dev/null 2>&1
@@ -104,7 +103,7 @@ run() {
 	done
 
 	j=0
-  	for memory in `cat $memory_nodes`
+  	for memory in ${memory_nodes[@]}
   	do
   		ip=`echo $memory | cut -d ' ' -f1`
   		ssh -i ~/.ssh/id_rsa $ip killall memory_server_term > /dev/null 2>&1
