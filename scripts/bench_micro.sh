@@ -59,7 +59,7 @@ run() {
           echo ""
           echo "memory = $memory, ip = $ip, port = $port"
           echo "$BIN_HOME/memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size" | tee -a "$log_file".$ip
-          ssh -i ~/.ssh/id_rsa $ip	"numactl --physcpubind=1 $BIN_HOME/memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee -a '$log_file'.$ip " &
+          ssh -i ~/.ssh/id_rsa $ip	"cd MemoryEngine/release && numactl --physcpubind=1 ./memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee -a '$log_file'.$ip " &
           sleep 1
           i=$((i+1))
 #        	if [ "$i" = "$node" ]; then
@@ -82,7 +82,7 @@ run() {
         echo ""
         echo "compute = $compute, ip = $ip, port = $port"
         echo "$BIN_HOME/micro_bench --op_type $op_type --no_thread $thread --shared_ratio $shared_ratio --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file $result_file --this_node_id $((2*$i)) --tcp_port $port --is_master $is_master --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num" | tee -a "$log_file".$ip
-        ssh -i ~/.ssh/id_rsa $ip	"$BIN_HOME/micro_bench --op_type $op_type --no_thread $thread --shared_ratio $shared_ratio --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file $result_file --this_node_id $((2*$i)) --tcp_port $port --is_master $is_master --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num | tee -a '$log_file'.$ip" &
+        ssh -i ~/.ssh/id_rsa $ip	"cd MemoryEngine/release && ./micro_bench --op_type $op_type --no_thread $thread --shared_ratio $shared_ratio --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file $result_file --this_node_id $((2*$i)) --tcp_port $port --is_master $is_master --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num | tee -a '$log_file'.$ip" &
         sleep 1
         i=$((i+1))
   #    	if [ "$i" = "$node" ]; then
@@ -112,7 +112,7 @@ run() {
 #  			break;
 #  		fi
   	done
-  	read -r -a memcached_node <<< $(head -n 1 $BIN_HOME/memcached.conf)
+  	read -r -a memcached_node <<< $(head -n 1 $SRC_HOME/memcached.conf)
     ssh -i ~/.ssh/id_rsa ${memory_nodes[0]} "sudo service memcached restart"
     sleep 1
     IFS="$old_IFS"
