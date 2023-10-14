@@ -81,32 +81,11 @@ function run_bench() {
   do
     echo "Rsync the $node"
     rsync -a ~/MemoryEngine node:~/
+  done
   for node in ${compute_shard[@]}
   do
     echo "Rsync the $node"
     rsync -a ~/MemoryEngine node:~/
-#Set up memory nodes
-#  n=0
-#  while [ $n -lt $nshard ]
-#  do
-#    echo "Set up the ${memory_shard[n]}"
-#    ssh -o StrictHostKeyChecking=no ${memory_shard[n]} "screen -d -m pwd && cd /users/Ruihong/TimberSaw/build &&
-#    numactl --cpunodebind=all --localalloc ./Server ${communication_port[n]} 56 $n" &
-#    #${numa_node[n%${#numa_node[@]}]}
-#    n=$((n+1))
-#
-#  done
-#  sleep 10
-##Set up compute nodes and run the benchmark at the same time
-#  n=0
-#  while [ $n -lt $nshard ]
-#  do
-#    echo "Set up the ${compute_shard[n]}"
-#    ssh -o StrictHostKeyChecking=no ${compute_shard[n]} "screen -d -m pwd && cd /users/Ruihong/TimberSaw/build &&
-#    numactl --cpunodebind=all --localalloc ./db_bench --benchmarks=fillrandomshard,readrandomshard,readrandomshard --threads=16 --value_size=400 --block_size=8192 --num=3125000 --bloom_bits=10 --cache_size=67108864 --readwritepercent=50 --compute_node_id=$i > result_8M8C.txt" &
-#    #
-#    n=$((n+1))
-##    sleep 1
-#  done
+  done
 	}
 	run_bench
