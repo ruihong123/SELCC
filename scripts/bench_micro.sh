@@ -4,8 +4,8 @@ bin=`cd "$bin"; pwd`
 SRC_HOME=$bin/..
 BIN_HOME=$bin/../release
 conf_file=$bin/../connection.conf
-compute_line=$(head -n 1 $conf_file)
-memory_line=$(head -n 2 $conf_file)
+compute_line=$(sed -n '1p' $conf_file)
+memory_line=$(sed -n '2p' $conf_file)
  read -r -a compute_nodes <<< "$compute_line"
  read -r -a memory_nodes <<< "$memory_line"
   echo "memory nodes:"
