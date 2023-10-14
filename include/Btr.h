@@ -546,7 +546,7 @@ class Btr_iter{
         if(++round_robin_cur == rdma_mg->memory_nodes.size()){
             round_robin_cur = 0;
         }
-        auto new_root = new(page_buffer->addr) InternalPage(left, k, right, new_root_addr, level);
+        auto new_root = new(page_buffer->addr) InternalPage<Key>(left, k, right, new_root_addr, level);
 
         // The code below is just for debugging
 //    new_root_addr.mark = 3;
