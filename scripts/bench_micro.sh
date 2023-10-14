@@ -114,7 +114,7 @@ run() {
 #  		fi
   	done
   	read -r -a memcached_node <<< $(head -n 1 $SRC_HOME/memcached.conf)
-    ssh -i ~/.ssh/id_rsa ${memory_nodes[0]} "sudo service memcached restart"
+    ssh -i ~/.ssh/id_rsa ${memcached_node[1]} "sudo service memcached restart"
     sleep 1
     IFS="$old_IFS"
 }
