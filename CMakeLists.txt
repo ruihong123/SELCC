@@ -132,7 +132,7 @@ function(Engine_test test_file)
             "${test_file}"
             )
 
-    target_link_libraries("${test_target_name}" DSMEngine gmock gtest)
+    target_link_libraries("${test_target_name}" DSMEngine)
 
 
 
