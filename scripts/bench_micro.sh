@@ -52,7 +52,7 @@ run() {
     echo $compute_num
     echo $memory_num
 
-    for memory in `cat "$memory_nodes"`
+    for memory in ${memory_nodes[@]}
         do
           ip=$memory
 #            	port=`echo $memory | cut -d ' ' -f2`
@@ -67,7 +67,7 @@ run() {
 #        	fi
         done # for slave
 
-    for compute in `cat "$compute_nodes"`
+    for compute in ${compute_nodes[@]}
       do
         ip=`echo $compute | cut -d ' ' -f1`
         port=`echo $compute | cut -d ' ' -f2`
@@ -77,9 +77,9 @@ run() {
         else
           is_master=0
         fi
-        if [ $port == $ip ]; then
-          port=12345
-        fi
+#        if [ $port == $ip ]; then
+#          port=12345
+#        fi
         echo ""
         echo "compute = $compute, ip = $ip, port = $port"
         echo "$BIN_HOME/micro_bench --op_type $op_type --no_thread $thread --shared_ratio $shared_ratio --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file $result_file --this_node_id $((2*$i)) --tcp_port $port --is_master $is_master --port_master $master_port --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num" | tee -a "$log_file".$ip
