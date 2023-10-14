@@ -69,7 +69,7 @@ run() {
 
     for compute in ${compute_nodes[@]}
       do
-        ip=compute
+        ip=$compute
         if [ $i = 0 ]; then
           is_master=1
               master_ip=$ip
@@ -113,7 +113,7 @@ run() {
 #  		fi
   	done
   	read -r -a memcached_node <<< $(head -n 1 $BIN_HOME/memcached.conf)
-    ssh -i ~/.ssh/id_rsa $ip "sudo service memcached restart"
+    ssh -i ~/.ssh/id_rsa $memcached_node "sudo service memcached restart"
     sleep 1
     IFS="$old_IFS"
 }
