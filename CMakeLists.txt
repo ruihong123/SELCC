@@ -89,7 +89,7 @@ target_include_directories(DSMEngine
 enable_testing()
 #message(STATUS "cmake flag is release ${CMAKE_CXX_FLAGS_RELEASE}")
 # This project is tested using GoogleTest.
-add_subdirectory("third_party/googletest")
+#add_subdirectory("third_party/googletest")
 find_package(ibverbs REQUIRED)
 target_link_libraries(DSMEngine ibverbs::ibverbs -lcityhash -lboost_system -lboost_coroutine -lmemcached)
 if(WITH_NUMA)
