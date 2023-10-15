@@ -151,7 +151,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 //  int l_remote_ratio = remote_ratio;
     int l_space_locality = space_locality;
     int l_shared_ratio = shared_ratio;
-    GlobalAddress memset_buffer[1024];
+    GlobalAddress memset_buffer[MEMSET_GRANULARITY];
     GlobalAddress* memget_buffer;
 //    int memset_buffer_offset = 0;
     int current_get_block = -1;
