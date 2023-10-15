@@ -77,12 +77,14 @@ function run_bench() {
   for node in ${memory_shard[@]}
   do
     echo "Rsync the $node"
-    rsync -a ~/MemoryEngine $node:/users/Ruihong/
+    ssh -o StrictHostKeyChecking=no $node "sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev libboost-all-dev" &
+    rsync -a ~/MemoryEngine $node:/users/Ruihong/MemoryEngine
   done
   for node in ${compute_shard[@]}
   do
     echo "Rsync the $node"
-    rsync -a ~/MemoryEngine $node:/users/Ruihong/
+    ssh -o StrictHostKeyChecking=no $node "sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev libboost-all-dev" &
+    rsync -a ~/MemoryEngine $node:/users/Ruihong/MemoryEngine
   done
 	}
 	run_bench
