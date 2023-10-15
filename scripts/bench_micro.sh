@@ -23,8 +23,8 @@ run() {
     read_ratio=$read_ratio, op_type=$op_type,
     space_locality=$space_locality, time_locality=$time_locality"
 
-    compute_line_all=$(sed -n '1p' conf_file_all)
-    memory_line_all=$(sed -n '2p' conf_file_all)
+#    compute_line_all=$(sed -n '1p' conf_file_all)
+#    memory_line_all=$(sed -n '2p' conf_file_all)
     awk -v pos="$node" -F' ' '{
         for (i=1; i<=NF; i++) {
             if (i <= pos) {
@@ -34,6 +34,16 @@ run() {
         }
         print ""
     }' "$conf_file_all" > "$conf_file"
+    for node in ${memory_shard[@]}
+      do
+        echo "Rsync the connection.conf to $node"
+        rsync -a ~/MemoryEngine/connection.conf $node:/users/Ruihong/MemoryEngine/connection.conf
+      done
+    for node in ${compute_shard[@]}
+      do
+        echo "Rsync the connection.conf to $node"
+        rsync -a ~/MemoryEngine/connection.conf $node:/users/Ruihong/MemoryEngine/connection.conf
+      done
     old_IFS=$IFS
     IFS=$'\t\n'
     compute_line=$(sed -n '1p' $conf_file)
