@@ -72,7 +72,7 @@ run() {
 #            	port=`echo $memory | cut -d ' ' -f2`
           echo ""
           echo "memory = $memory, ip = $ip, port = $port"
-          echo "$BIN_HOME/memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size" | tee -a "$log_file".$ip
+          echo "$BIN_HOME/memory_server_term  $port $(($remote_mem_size+5)) $((2*$i +1)) $remote_mem_size" | tee -a "$log_file".$ip
           ssh -i ~/.ssh/id_rsa $ip	"cd $BIN_HOME && numactl --physcpubind=31 ./memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee -a '$log_file'.$ip " &
           sleep 1
           i=$((i+1))
