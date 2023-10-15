@@ -3,21 +3,9 @@ bin=`dirname "$0"`
 bin=`cd "$bin"; pwd`
 SRC_HOME=$bin/..
 BIN_HOME=$bin/../release
+conf_file_all=$bin/../connection_cloudlab.conf
 conf_file=$bin/../connection.conf
-compute_line=$(sed -n '1p' $conf_file)
-memory_line=$(sed -n '2p' $conf_file)
- read -r -a compute_nodes <<< "$compute_line"
- read -r -a memory_nodes <<< "$memory_line"
-  echo "memory nodes:"
- for i in "${memory_nodes[@]}"
- do
-     echo $i
- done
-echo "compute nodes:"
-for i in "${compute_nodes[@]}"
- do
-     echo $i
- done
+
 #compute_nodes=$bin/compute_nodes
 #memory_nodes=$bin/memory_nodes
 log_file=$bin/log
@@ -35,8 +23,34 @@ run() {
     read_ratio=$read_ratio, op_type=$op_type,
     space_locality=$space_locality, time_locality=$time_locality"
 
+    compute_line_all=$(sed -n '1p' conf_file_all)
+    memory_line_all=$(sed -n '2p' conf_file_all)
+    awk -v pos="$node" -F' ' '{
+        for (i=1; i<=NF; i++) {
+            if (i <= pos) {
+                printf("%s", $i)
+                if (i < pos) printf(",")
+            }
+        }
+        print ""
+    }' "$conf_file_all" > "$conf_file"
     old_IFS=$IFS
-    IFS=$'\n'
+    IFS=$'\t\n'
+    compute_line=$(sed -n '1p' $conf_file)
+    memory_line=$(sed -n '2p' $conf_file)
+    read -r -a compute_nodes <<< "$compute_line"
+    read -r -a memory_nodes <<< "$memory_line"
+    echo "memory nodes:"
+    for i in "${memory_nodes[@]}"
+    do
+       echo $i
+    done
+    echo "compute nodes:"
+    for i in "${compute_nodes[@]}"
+    do
+     echo $i
+    done
+
     i=0
 #    compute_nodes_arr=`cat "$compute_nodes"`
 #    memory_nodes_arr=`cat "$memory_nodes"`
@@ -59,7 +73,7 @@ run() {
           echo ""
           echo "memory = $memory, ip = $ip, port = $port"
           echo "$BIN_HOME/memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size" | tee -a "$log_file".$ip
-          ssh -i ~/.ssh/id_rsa $ip	"cd MemoryEngine/release && numactl --physcpubind=111 ./memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee -a '$log_file'.$ip " &
+          ssh -i ~/.ssh/id_rsa $ip	"cd MemoryEngine/release && numactl --physcpubind=31 ./memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee -a '$log_file'.$ip " &
           sleep 1
           i=$((i+1))
 #        	if [ "$i" = "$node" ]; then
@@ -438,7 +452,7 @@ run_node_test() {
 # node test
 echo "**************************run node test****************************"
 result_file=$bin/results/node
-#node_range=$(wc -l < $compute_nodes)
+node_range="1"
 thread_range="1 4 8 12 16"
 remote_range="0" #"20 40 60 80 100"
 shared_range="0 50 100"
@@ -460,8 +474,8 @@ for space_locality in $space_range
 do
 for time_locality in $time_range
 do
-#for node in $node_range
-#do
+for node in $node_range
+do
   echo $node
 for thread in $thread_range
 do
@@ -479,7 +493,7 @@ done
 done
 done
 done
-#done
+done
 done
 done
 }
