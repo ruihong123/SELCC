@@ -77,12 +77,12 @@ function run_bench() {
   for node in ${memory_shard[@]}
   do
     echo "Rsync the $node"
-    rsync -a ~/MemoryEngine node:~/MemoryEngine
+    rsync -a ~/MemoryEngine node:/home/Ruihong/
   done
   for node in ${compute_shard[@]}
   do
     echo "Rsync the $node"
-    rsync -a ~/MemoryEngine node:~/MemoryEngine
+    rsync -a ~/MemoryEngine node:/home/Ruihong/
   done
 	}
 	run_bench
