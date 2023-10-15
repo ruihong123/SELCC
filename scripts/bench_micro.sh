@@ -34,16 +34,7 @@ run() {
         }
         print ""
     }' "$conf_file_all" > "$conf_file"
-    for node in ${memory_shard[@]}
-      do
-        echo "Rsync the connection.conf to $node"
-        rsync -a ~/MemoryEngine/connection.conf $node:/users/Ruihong/MemoryEngine/connection.conf
-      done
-    for node in ${compute_shard[@]}
-      do
-        echo "Rsync the connection.conf to $node"
-        rsync -a ~/MemoryEngine/connection.conf $node:/users/Ruihong/MemoryEngine/connection.conf
-      done
+
     old_IFS=$IFS
     IFS=$'\t\n'
     compute_line=$(sed -n '1p' $conf_file)
@@ -60,7 +51,16 @@ run() {
     do
      echo $i
     done
-
+    for node in ${memory_nodes[@]}
+      do
+        echo "Rsync the connection.conf to $node"
+        rsync -a ~/MemoryEngine/connection.conf $node:/users/Ruihong/MemoryEngine/connection.conf
+      done
+    for node in ${compute_nodes[@]}
+      do
+        echo "Rsync the connection.conf to $node"
+        rsync -a ~/MemoryEngine/connection.conf $node:/users/Ruihong/MemoryEngine/connection.conf
+      done
     i=0
 #    compute_nodes_arr=`cat "$compute_nodes"`
 #    memory_nodes_arr=`cat "$memory_nodes"`
