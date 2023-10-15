@@ -189,7 +189,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                 }
                 if (i == STEPS - 1) {
                     printf("Memset a key %d\n", i);
-                    ddsm->memSet((const char*)&i, sizeof(i), (const char*)memset_buffer, sizeof(GlobalAddress) * 1024);
+                    ddsm->memSet((const char*)&i, sizeof(i), (const char*)memset_buffer, sizeof(GlobalAddress) * MEMSET_GRANULARITY);
                 }
 #ifdef BENCHMARK_DEBUG
             if (shared_ratio != 0) {
