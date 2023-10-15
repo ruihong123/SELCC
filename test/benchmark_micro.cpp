@@ -180,13 +180,14 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                 //Register the allocation for master into a key value store.
                 if (i%MEMSET_GRANULARITY == MEMSET_GRANULARITY - 1) {
                     memset_buffer[i%MEMSET_GRANULARITY] = data[i];
-//                    printf("Memset a key %d\n", i);
+                    printf("Memset a key %d\n", i);
                     ddsm->memSet((const char*)&i, sizeof(i), (const char*)memset_buffer, sizeof(GlobalAddress) * MEMSET_GRANULARITY);
 //                    assert(i%MEMSET_GRANULARITY == MEMSET_GRANULARITY-1);
                 }else{
                     memset_buffer[i%MEMSET_GRANULARITY] = data[i];
                 }
                 if (i == STEPS - 1) {
+                    printf("Memset a key %d\n", i);
                     ddsm->memSet((const char*)&i, sizeof(i), (const char*)memset_buffer, sizeof(GlobalAddress) * 1024);
                 }
 #ifdef BENCHMARK_DEBUG
@@ -201,11 +202,17 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
     } else {
         for (int i = 0; i < STEPS; i++) {
             if(UNLIKELY(shared_ratio > 0 && i == (STEPS/1024)*1024ull)){
+                if (memget_buffer){
+                    delete memget_buffer;
+                }
                 size_t v_size;
                 int key =  STEPS - 1;
                 memget_buffer = (GlobalAddress*)ddsm->memGet((const char*)&key, sizeof(key),  &v_size);
                 assert(v_size == sizeof(GlobalAddress) * 1024);
             }else if (UNLIKELY(shared_ratio > 0 && i%MEMSET_GRANULARITY == 0 )) {
+                if (memget_buffer){
+                    delete memget_buffer;
+                }
                 size_t v_size;
                 int key =  i + MEMSET_GRANULARITY - 1;
                 memget_buffer = (GlobalAddress*)ddsm->memGet((const char*)&key, sizeof(key),  &v_size);
