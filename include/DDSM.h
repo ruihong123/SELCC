@@ -72,6 +72,8 @@ namespace DSMEngine {
                 printf("Failed to connect to memcached\n");
                 return;
             }
+            char temp[100] = "Try me ahahahahaha! kkk";
+            memSet(reinterpret_cast<const char *>(&temp), 100, reinterpret_cast<const char *>(&temp), 100);
         };
         ~DDSM(){
             disconnectMemcached();
