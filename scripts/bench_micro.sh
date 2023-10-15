@@ -41,33 +41,42 @@ run() {
     memory_line=$(sed -n '2p' $conf_file)
     read -r -a compute_nodes <<< "$compute_line"
     read -r -a memory_nodes <<< "$memory_line"
+    compute_num=${#compute_nodes[@]}
+    memory_num=${#memory_nodes[@]}
     echo "memory nodes:"
-    for i in "${memory_nodes[@]}"
+    i=0
+    while [ $i -lt $memory_num ]
     do
-       echo $i
+       echo ${memory_nodes[i]}
+       i=$((i+1))
     done
+    i=0
     echo "compute nodes:"
-    for i in "${compute_nodes[@]}"
+    while [ $i -lt $compute_num ]
     do
-     echo $i
+       echo ${compute_nodes[i]}
+       i=$((i+1))
     done
-    for node in ${memory_nodes[@]}
-      do
-        echo "Rsync the connection.conf to $node"
-        rsync -vz /users/Ruihong/MemoryEngine/connection.conf $node:/users/Ruihong/MemoryEngine/connection.conf
-      done
-    for node in ${compute_nodes[@]}
-      do
-        echo "Rsync the connection.conf to $node"
-        rsync -vz /users/Ruihong/MemoryEngine/connection.conf $node:/users/Ruihong/MemoryEngine/connection.conf
-      done
+    i=0
+    while [ $i -lt $memory_num ]
+    do
+      echo "Rsync the connection.conf to ${memory_nodes[i]}"
+      rsync -vz /users/Ruihong/MemoryEngine/connection.conf ${memory_nodes[i]}:/users/Ruihong/MemoryEngine/connection.conf
+      i=$((i+1))
+    done
+    i=0
+    while [ $i -lt $compute_num ]
+    do
+      echo "Rsync the connection.conf to ${compute_nodes[i]}"
+      rsync -vz /users/Ruihong/MemoryEngine/connection.conf ${compute_nodes[i]}:/users/Ruihong/MemoryEngine/connection.conf
+      i=$((i+1))
+    done
     i=0
 #    compute_nodes_arr=`cat "$compute_nodes"`
 #    memory_nodes_arr=`cat "$memory_nodes"`
 #    echo ${#memory_nodes[@]}
 #    echo ${#memory_nodes[@]}
-    compute_num=${#compute_nodes[@]}
-    memory_num=${#memory_nodes[@]}
+
 #    compute_num=$(wc -l < $compute_nodes)
 #    memory_num=$(wc -l < $memory_nodes)
 #    compute_num=$((compute_num+1))
@@ -76,7 +85,7 @@ run() {
     echo $compute_num
     echo $memory_num
 
-    for memory in ${memory_nodes[@]}
+    for memory in "${memory_nodes[@]}"
         do
           ip=$memory
 #            	port=`echo $memory | cut -d ' ' -f2`
@@ -92,7 +101,7 @@ run() {
         done # for slave
     sleep 5
     i=0
-    for compute in ${compute_nodes[@]}
+    for compute in "${compute_nodes[@]}"
       do
         ip=$compute
         if [ $i = 0 ]; then
@@ -117,7 +126,7 @@ run() {
 
 	wait
 	j=0
-	for compute in ${compute_nodes[@]}
+	for compute in "${compute_nodes[@]}"
 	do
 		ip=`echo $compute | cut -d ' ' -f1`
 		ssh -o StrictHostKeyChecking=no $ip killall micro_bench > /dev/null 2>&1
@@ -128,7 +137,7 @@ run() {
 	done
 
 	j=0
-  	for memory in ${memory_nodes[@]}
+  	for memory in "${memory_nodes[@]}"
   	do
   		ip=`echo $memory | cut -d ' ' -f1`
   		ssh -o StrictHostKeyChecking=no $ip killall memory_server_term > /dev/null 2>&1

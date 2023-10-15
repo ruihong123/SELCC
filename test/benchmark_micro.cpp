@@ -122,6 +122,7 @@ bool TrueOrFalse(double probability, unsigned int* seedp) {
 GlobalAddress TOPAGE(GlobalAddress addr){
     GlobalAddress ret = addr;
     ret.offset = (ret.offset/kLeafPageSize)*kLeafPageSize;
+    assert(ret.nodeID <= 64);// Just for debug.
     return ret;
 }
 
