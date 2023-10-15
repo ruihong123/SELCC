@@ -54,12 +54,12 @@ run() {
     for node in ${memory_nodes[@]}
       do
         echo "Rsync the connection.conf to $node"
-        rsync -a ~/MemoryEngine/connection.conf $node:/users/Ruihong/MemoryEngine/connection.conf
+        rsync ~/MemoryEngine/connection.conf $node:/users/Ruihong/MemoryEngine/connection.conf
       done
     for node in ${compute_nodes[@]}
       do
         echo "Rsync the connection.conf to $node"
-        rsync -a ~/MemoryEngine/connection.conf $node:/users/Ruihong/MemoryEngine/connection.conf
+        rsync ~/MemoryEngine/connection.conf $node:/users/Ruihong/MemoryEngine/connection.conf
       done
     i=0
 #    compute_nodes_arr=`cat "$compute_nodes"`
