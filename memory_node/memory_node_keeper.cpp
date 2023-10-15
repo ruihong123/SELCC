@@ -115,6 +115,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
     }
 
 
+
 //    char* recv_buff;
 //    if (!rdma_mg_->Local_Memory_Register(&recv_buff, &recv_mr, 1000, std::string())) {
 //      fprintf(stderr, "memory registering failed by size of 0x%x\n", 1000);

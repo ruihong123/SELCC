@@ -227,6 +227,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
     }else{
 //        fprintf(stdout, "Did not find cache entry for %lu\n", (*(GlobalAddress*)key.data()).offset);
         // This LRU handle is not initialized.
+        // TODO: get the LRU handle from the free list.
         e = new LRUHandle();
 //                reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));
 
