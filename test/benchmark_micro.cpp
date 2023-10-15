@@ -33,7 +33,7 @@
 //#define SYNC_KEY NUMOFBLOCKS
 
 //2516582ull =  48*1024*1024*1024/(2*1024)
-#define MEMSET_GRANULARITY 1024
+#define MEMSET_GRANULARITY 4096
 uint64_t NUMOFBLOCKS = 0;
 uint64_t SYNC_KEY = 0;
 uint64_t cache_size = 0;
