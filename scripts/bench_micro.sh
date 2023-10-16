@@ -29,7 +29,7 @@ run() {
         for (i=1; i<=NF; i++) {
             if (i <= pos) {
                 printf("%s", $i)
-                if (i < pos) printf(",")
+                if (i < pos) printf(" ")
             }
         }
         print ""
