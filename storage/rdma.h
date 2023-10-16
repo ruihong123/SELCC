@@ -73,6 +73,7 @@
 #define RDMA_WRITE_BLOCK  (8*1024*1024)
 #define INDEX_BLOCK  (8*1024*1024)
 #define FILTER_BLOCK  (2*1024*1024)
+#define NUM_QP_ACCROSS_COMPUTE 16
 namespace DSMEngine {
 class Cache;
 enum Chunk_type {Internal_and_Leaf, LockTable, Message, Version_edit, IndexChunk, FilterChunk, FlushBuffer, DataChunk};
@@ -105,7 +106,6 @@ struct Registered_qp_config {
   uint16_t node_id;
 } __attribute__((packed));
 
-#define NUM_QP_ACCROSS_COMPUTE 16
 
 struct Registered_qp_config_xcompute {
     uint32_t qp_num[NUM_QP_ACCROSS_COMPUTE]; /* QP numbers */

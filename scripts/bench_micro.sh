@@ -91,8 +91,8 @@ run() {
 #            	port=`echo $memory | cut -d ' ' -f2`
           echo ""
           echo "memory = $memory, ip = $ip, port = $port"
-          echo "$BIN_HOME/memory_server_term  $port $(($remote_mem_size+4)) $((2*$i +1)) $remote_mem_size" | tee -a "$log_file".$ip
-          ssh -o StrictHostKeyChecking=no $ip	"cd $BIN_HOME && numactl --physcpubind=31 ./memory_server_term  $port $(($remote_mem_size+4)) $((2*$i +1)) $remote_mem_size | tee -a '$log_file'.$ip " &
+          echo "$BIN_HOME/memory_server_term  $port $(($remote_mem_size+2)) $((2*$i +1)) $remote_mem_size" | tee -a "$log_file".$ip
+          ssh -o StrictHostKeyChecking=no $ip	"cd $BIN_HOME && numactl --physcpubind=31 ./memory_server_term  $port $(($remote_mem_size+2)) $((2*$i +1)) $remote_mem_size | tee -a '$log_file'.$ip " &
           sleep 1
           i=$((i+1))
 #        	if [ "$i" = "$node" ]; then
@@ -471,7 +471,7 @@ run_node_test() {
 # node test
 echo "**************************run node test****************************"
 result_file=$bin/results/node
-node_range="2 4 8"
+node_range="4 8"
 thread_range="1"
 remote_range="0" #"20 40 60 80 100"
 shared_range="50"
