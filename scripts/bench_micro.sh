@@ -45,16 +45,16 @@ run() {
     memory_num=${#memory_nodes[@]}
     echo "memory nodes:"
     i=0
-    while [ $i -lt $memory_num ]
+    for memory in "${memory_nodes[@]}"
     do
-       echo ${memory_nodes[$i]}
+       echo $memory
        i=$((i+1))
     done
     i=0
     echo "compute nodes:"
-    while [ $i -lt $compute_num ]
+    for compute in "${compute_nodes[@]}"
     do
-       echo ${compute_nodes[$i]}
+       echo $compute
        i=$((i+1))
     done
     i=0
