@@ -36,7 +36,7 @@ run() {
     }' "$conf_file_all" > "$conf_file"
 
     old_IFS=$IFS
-    IFS=$'\t\n'
+    IFS=' '
     compute_line=$(sed -n '1p' $conf_file)
     memory_line=$(sed -n '2p' $conf_file)
     read -r -a compute_nodes <<< "$compute_line"
