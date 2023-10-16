@@ -3744,7 +3744,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             // the compared value is the real id /2 + 1.
         }
-        if (retry_cnt > 10000) {
+        if (retry_cnt > 1000000) {
             std::cout << "write lock timeout" << lock_addr << std::endl;
 
             std::cout << GetMemoryNodeNum() << ", "
