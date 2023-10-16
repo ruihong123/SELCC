@@ -226,6 +226,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                 size_t v_size;
 
                 data[i] = memget_buffer[i%MEMSET_GRANULARITY];
+                assert(data[i].offset <= 64ull*1024ull*1024*1024);
                 //revise the l_remote_ratio accordingly if we get the shared addr violate the remote probability
 //        if (TrueOrFalse(l_remote_ratio, seedp)) {  //should be remote
 //          if (alloc->GetID() == WID(addr)) {  //false negative
