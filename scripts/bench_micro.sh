@@ -57,6 +57,29 @@ run() {
        echo $compute
        i=$((i+1))
     done
+
+    j=0
+    	for compute in "${compute_nodes[@]}"
+    	do
+    		ip=`echo $compute | cut -d ' ' -f1`
+    		ssh -o StrictHostKeyChecking=no $ip killall micro_bench > /dev/null 2>&1
+    		j=$((j+1))
+    #		if [ $j = $node ]; then
+    #			break;
+    #		fi
+    	done
+
+    	j=0
+      	for memory in "${memory_nodes[@]}"
+      	do
+      		ip=`echo $memory | cut -d ' ' -f1`
+      		ssh -o StrictHostKeyChecking=no $ip killall memory_server_term > /dev/null 2>&1
+      		j=$((j+1))
+    #  		if [ $j = $node ]; then
+    #  			break;
+    #  		fi
+      	done
+
     i=0
     while [ $i -lt $memory_num ]
     do
@@ -127,27 +150,7 @@ run() {
       done # for compute
 
 	wait
-	j=0
-	for compute in "${compute_nodes[@]}"
-	do
-		ip=`echo $compute | cut -d ' ' -f1`
-		ssh -o StrictHostKeyChecking=no $ip killall micro_bench > /dev/null 2>&1
-		j=$((j+1))
-#		if [ $j = $node ]; then
-#			break;
-#		fi
-	done
 
-	j=0
-  	for memory in "${memory_nodes[@]}"
-  	do
-  		ip=`echo $memory | cut -d ' ' -f1`
-  		ssh -o StrictHostKeyChecking=no $ip killall memory_server_term > /dev/null 2>&1
-  		j=$((j+1))
-#  		if [ $j = $node ]; then
-#  			break;
-#  		fi
-  	done
 
     sleep 1
     IFS="$old_IFS"
