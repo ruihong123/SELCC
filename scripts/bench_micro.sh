@@ -84,7 +84,9 @@ run() {
 #    echo `cat $slaves`
     echo $compute_num
     echo $memory_num
-
+  	read -r -a memcached_node <<< $(head -n 1 $SRC_HOME/memcached.conf)
+  	echo "restart memcached on ${memcached_node[0]}"
+    ssh -o StrictHostKeyChecking=no ${memcached_node[0]} "sudo service memcached restart"
     for memory in "${memory_nodes[@]}"
         do
           ip=$memory
@@ -146,9 +148,7 @@ run() {
 #  			break;
 #  		fi
   	done
-  	read -r -a memcached_node <<< $(head -n 1 $SRC_HOME/memcached.conf)
-  	echo "restart memcached on ${memcached_node[0]}"
-    ssh -o StrictHostKeyChecking=no ${memcached_node[0]} "sudo service memcached restart"
+
     sleep 1
     IFS="$old_IFS"
 }

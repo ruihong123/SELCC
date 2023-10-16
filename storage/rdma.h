@@ -73,7 +73,7 @@
 #define RDMA_WRITE_BLOCK  (8*1024*1024)
 #define INDEX_BLOCK  (8*1024*1024)
 #define FILTER_BLOCK  (2*1024*1024)
-#define NUM_QP_ACCROSS_COMPUTE 1
+#define NUM_QP_ACCROSS_COMPUTE 4
 namespace DSMEngine {
 class Cache;
 enum Chunk_type {Internal_and_Leaf, LockTable, Message, Version_edit, IndexChunk, FilterChunk, FlushBuffer, DataChunk};
