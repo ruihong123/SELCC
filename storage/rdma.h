@@ -620,6 +620,7 @@ class RDMA_Manager {
   ThreadLocalPtr* CAS_buffer;
 //  ThreadPool Invalidation_bg_threads;
     std::vector<std::thread> Invalidation_bg_threads;
+    std::atomic<int> sync_invalidation_qp_info_put = 0;
 
   // TODO: replace the std::map<void*, In_Use_Array*> as a thread local vector of In_Use_Array*, so that
   // the conflict can be minimized.

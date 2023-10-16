@@ -1028,7 +1028,9 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
     create_qp_xcompute(target_node_id, cq_arr, qp_arr);
     Put_qp_info_into_RemoteM(target_node_id, cq_arr, qp_arr);
 
-
+    // Need to sync all threads here because the RPC can get blocked if there is one thread invoke Get_qp_info_from_RemoteM
+    sync_invalidation_qp_info_put.fetch_add(1);
+    while (sync_invalidation_qp_info_put.load() != compute_nodes.size());
 
     //    Registered_qp_config_xcompute* qpXcompute = new Registered_qp_config_xcompute();
 
