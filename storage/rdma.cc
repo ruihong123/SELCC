@@ -1059,10 +1059,12 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
     compute_connection_counter.fetch_add(1);
     //Do we need to sync below?, probably not at below, should be synced outside this function.
     for (int i = 0; i < NUM_QP_ACCROSS_COMPUTE; ++i) {
-//        std::thread p_t();
+        std::unique_lock<std::mutex> lck(invalidate_channel_mtx);
+//        std::thread p_t(&::DSMEngine::RDMA_Manager::compute_message_handling_thread, this, target_node_id, i, recv_mr[i]);
         Invalidation_bg_threads.emplace_back(&RDMA_Manager::invalidation_message_handling_worker, this, target_node_id, i, recv_mr[i]);
 //        Invalidation_bg_threads.back().detach();
     }
+    std::unique_lock<std::mutex> lck(invalidate_channel_mtx);
     for (auto &iter:Invalidation_bg_threads) {
         iter.join();
     }
