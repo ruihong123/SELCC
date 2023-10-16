@@ -1077,7 +1077,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
         int miss_poll_counter= 0;
         while (true) {
 //      rdma_mg->poll_completion(wc, 1, client_ip, false, compute_node_id);
-            // Event driven programming?
+            // TODO: Event driven programming is better than polling.
                 if (try_poll_completions_xcompute(wc, 1, false, target_node_id, qp_num) == 0){
                     // exponetial back off to save cpu cycles.
                     if(++miss_poll_counter < 10240){
