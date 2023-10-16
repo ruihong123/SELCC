@@ -3361,7 +3361,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }
 
         }
-        if (retry_cnt > 1000000) {
+        if (retry_cnt > 10000) {
             std::cout << "Deadlock " << lock_addr << std::endl;
 
             std::cout << GetMemoryNodeNum() << ", "
@@ -3744,7 +3744,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             // the compared value is the real id /2 + 1.
         }
-        if (retry_cnt > 1000000) {
+        if (retry_cnt > 10000) {
             std::cout << "write lock timeout" << lock_addr << std::endl;
 
             std::cout << GetMemoryNodeNum() << ", "
@@ -5752,14 +5752,14 @@ void RDMA_Manager::fs_deserilization(
                     if ( handle->remote_lock_status.load() == 1){
                         global_RUnlock(lock_gptr, cas_mr);
                         handle->remote_lock_status.store(0);
-//                        printf("Release read lock %lu\n", g_ptr);
+                        printf("Release read lock %lu\n", g_ptr);
                     }
                     handle->rw_mtx.unlock();
                 }
             }
             page_cache_->Release(handle);
         }else {
-//                    printf("Release read lock Handle not found\n");
+                    printf("Release read lock Handle not found\n");
         }
         delete receive_msg_buf;
 
@@ -5792,14 +5792,14 @@ void RDMA_Manager::fs_deserilization(
                         global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr,
                                                       page_mr->length, lock_gptr, false);
                         handle->remote_lock_status.store(0);
-//                        printf("Release write lock %lu\n", g_ptr);
+                        printf("Release write lock %lu\n", g_ptr);
                     }
                     handle->rw_mtx.unlock();
                 }
             }
             page_cache_->Release(handle);
         }else{
-//                    printf("Release write lock Handle not found\n");
+                    printf("Release write lock Handle not found\n");
         }
         delete receive_msg_buf;
     }
