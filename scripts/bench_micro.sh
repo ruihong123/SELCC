@@ -473,7 +473,7 @@ echo "**************************run node test****************************"
 result_file=$bin/results/node
 node_range="4 8"
 thread_range="1"
-remote_range="0" #"20 40 60 80 100"
+remote_range="0"
 shared_range="50"
 read_range="50"
 space_range="0"
