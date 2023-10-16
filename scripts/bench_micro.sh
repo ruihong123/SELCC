@@ -10,7 +10,7 @@ conf_file=$bin/../connection.conf
 #memory_nodes=$bin/memory_nodes
 log_file=$bin/log
 cache_mem_size=8 # 8 gb Local memory size
-remote_mem_size=48 # 48 gb Remote memory size
+remote_mem_size=56 # 48 gb Remote memory size
 master_ip=db3.cs.purdue.edu # make sure this is in accordance with the server whose is_master=1
 master_port=12311
 port=19888
@@ -47,28 +47,28 @@ run() {
     i=0
     while [ $i -lt $memory_num ]
     do
-       echo ${memory_nodes[i]}
+       echo ${memory_nodes[$i]}
        i=$((i+1))
     done
     i=0
     echo "compute nodes:"
     while [ $i -lt $compute_num ]
     do
-       echo ${compute_nodes[i]}
+       echo ${compute_nodes[$i]}
        i=$((i+1))
     done
     i=0
     while [ $i -lt $memory_num ]
     do
-      echo "Rsync the connection.conf to ${memory_nodes[i]}"
-      rsync -vz /users/Ruihong/MemoryEngine/connection.conf ${memory_nodes[i]}:/users/Ruihong/MemoryEngine/connection.conf
+      echo "Rsync the connection.conf to ${memory_nodes[$i]}"
+      rsync -vz /users/Ruihong/MemoryEngine/connection.conf ${memory_nodes[$i]}:/users/Ruihong/MemoryEngine/connection.conf
       i=$((i+1))
     done
     i=0
     while [ $i -lt $compute_num ]
     do
-      echo "Rsync the connection.conf to ${compute_nodes[i]}"
-      rsync -vz /users/Ruihong/MemoryEngine/connection.conf ${compute_nodes[i]}:/users/Ruihong/MemoryEngine/connection.conf
+      echo "Rsync the connection.conf to ${compute_nodes[$i]}"
+      rsync -vz /users/Ruihong/MemoryEngine/connection.conf ${compute_nodes[$i]}:/users/Ruihong/MemoryEngine/connection.conf
       i=$((i+1))
     done
     i=0
@@ -91,8 +91,8 @@ run() {
 #            	port=`echo $memory | cut -d ' ' -f2`
           echo ""
           echo "memory = $memory, ip = $ip, port = $port"
-          echo "$BIN_HOME/memory_server_term  $port $(($remote_mem_size+5)) $((2*$i +1)) $remote_mem_size" | tee -a "$log_file".$ip
-          ssh -o StrictHostKeyChecking=no $ip	"cd $BIN_HOME && numactl --physcpubind=31 ./memory_server_term  $port $(($remote_mem_size+5)) $((2*$i +1)) $remote_mem_size | tee -a '$log_file'.$ip " &
+          echo "$BIN_HOME/memory_server_term  $port $(($remote_mem_size+4)) $((2*$i +1)) $remote_mem_size" | tee -a "$log_file".$ip
+          ssh -o StrictHostKeyChecking=no $ip	"cd $BIN_HOME && numactl --physcpubind=31 ./memory_server_term  $port $(($remote_mem_size+4)) $((2*$i +1)) $remote_mem_size | tee -a '$log_file'.$ip " &
           sleep 1
           i=$((i+1))
 #        	if [ "$i" = "$node" ]; then
