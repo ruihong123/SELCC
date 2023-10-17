@@ -187,6 +187,8 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 //                    assert(i%MEMSET_GRANULARITY == MEMSET_GRANULARITY-1);
                 }else{
                     memset_buffer[i%MEMSET_GRANULARITY] = data[i];
+                    assert(data[i].offset <= 64ull*1024ull*1024*1024);
+
                 }
                 if (i == STEPS - 1) {
                     printf("Memset a key %d\n", i);
@@ -246,6 +248,8 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 #else
 //        if (TrueOrFalse(remote_ratio, seedp)) {
                 data[i] = ddsm->Allocate_Remote(Internal_and_Leaf);
+                assert(data[i].offset <= 64ull*1024ull*1024*1024);
+
 //        } else {
 //          data[i] = alloc->AlignedMalloc(BLOCK_SIZE);
 //        }
@@ -703,10 +707,10 @@ int main(int argc, char* argv[]) {
     compute_num = ddsm.rdma_mg->GetComputeNodeNum();
     memory_num = ddsm.rdma_mg->GetMemoryNodeNum();
     NUMOFBLOCKS = allocated_mem_size/(kLeafPageSize);
-    printf("number of blocks is %d\n", NUMOFBLOCKS);
+    printf("number of blocks is %lu\n", NUMOFBLOCKS);
     SYNC_KEY = NUMOFBLOCKS;
     STEPS = NUMOFBLOCKS/((no_thread - 1)*(100-shared_ratio)/100.00L + 1);
-    printf("number of steps is %d\n", STEPS);
+    printf("number of steps is %lu\n", STEPS);
     ITERATION = ITERATION_TOTAL/no_thread;
     sleep(1);
     //sync with all the other workers
