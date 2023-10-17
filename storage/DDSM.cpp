@@ -185,7 +185,8 @@ namespace DSMEngine {
     GlobalAddress DDSM::Allocate_Remote(Chunk_type pool_name) {
         if (rdma_mg) {
             uint8_t target_node = target_node_counter.fetch_add(1) % rdma_mg->memory_nodes.size();
-            return rdma_mg->Allocate_Remote_RDMA_Slot(pool_name, 2*target_node+1);
+            auto ret = rdma_mg->Allocate_Remote_RDMA_Slot(pool_name, 2*target_node+1);
+            return ret;
         } else {
             assert(false);
             DEBUG_PRINT("RDMA manager is not initialized\n");
