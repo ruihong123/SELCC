@@ -73,7 +73,7 @@ void General_Destroy(void* ptr){
 ******************************************************************************/
     RDMA_Manager::RDMA_Manager(config_t config, size_t remote_block_size)
     : total_registered_size(0),
-      LeafPageSize(remote_block_size),
+      CachelineSize(remote_block_size),
       read_buffer(new ThreadLocalPtr(&Destroy_mr)),
       send_message_buffer(new ThreadLocalPtr(&Destroy_mr)),
       receive_message_buffer(new ThreadLocalPtr(&Destroy_mr)),
@@ -4817,8 +4817,8 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
   // push the bitmap of the new registed buffer to the bitmap vector in resource.
   int placeholder_num =
       static_cast<int>(temp_pointer->length) /
-      (LeafPageSize);  // here we supposing the SSTables are 4 megabytes
-  In_Use_Array* in_use_array = new In_Use_Array(placeholder_num, LeafPageSize, temp_pointer);
+      (CachelineSize);  // here we supposing the SSTables are 4 megabytes
+  In_Use_Array* in_use_array = new In_Use_Array(placeholder_num, CachelineSize, temp_pointer);
   //    std::unique_lock l(remote_pool_mutex);
   Remote_Leaf_Node_Bitmap.at(target_node_id)->insert({temp_pointer->addr, in_use_array});
   //    l.unlock();
@@ -5065,8 +5065,8 @@ void RDMA_Manager::Allocate_Remote_RDMA_Slot(ibv_mr &remote_mr, Chunk_type pool_
             if (sst_index >= 0) {
                 remote_mr = *((ptr->second)->get_mr_ori());
                 remote_mr.addr = static_cast<void*>(static_cast<char*>(remote_mr.addr) +
-                                                    sst_index * LeafPageSize);
-                remote_mr.length = LeafPageSize;
+                                                    sst_index * CachelineSize);
+                remote_mr.length = CachelineSize;
 
 //        remote_data_mrs->fname = file_name;
 //        remote_data_mrs->map_pointer =
@@ -5092,8 +5092,8 @@ void RDMA_Manager::Allocate_Remote_RDMA_Slot(ibv_mr &remote_mr, Chunk_type pool_
         //  sst_meta->mr = new ibv_mr();
         remote_mr = *(mr_last);
         remote_mr.addr = static_cast<void*>(static_cast<char*>(remote_mr.addr) +
-                                            sst_index * LeafPageSize);
-        remote_mr.length = LeafPageSize;
+                                            sst_index * CachelineSize);
+        remote_mr.length = CachelineSize;
         //    remote_data_mrs->fname = file_name;
         //    remote_data_mrs->map_pointer = mr_last;
 //  DEBUG_arg("Allocate Remote pointer %p",  remote_mr.addr);
@@ -5125,8 +5125,8 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
 
       remote_mr = *((ptr->second)->get_mr_ori());
       remote_mr.addr = static_cast<void*>(static_cast<char*>(remote_mr.addr) +
-                                          sst_index * LeafPageSize);
-      remote_mr.length = LeafPageSize;
+                                          sst_index * CachelineSize);
+      remote_mr.length = CachelineSize;
       ret.nodeID = target_node_id;
       ret.offset = static_cast<char*>(remote_mr.addr) - (char*)base_addr_map_data[target_node_id];
 
@@ -5146,8 +5146,8 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
     //Not necessaryly be the last one
     ibv_mr* mr_last = remote_mem_pool.back();
     int sst_index = -1;
-    In_Use_Array* last_element = --Remote_Leaf_Node_Bitmap.at(target_node_id)->at(mr_last->addr);
-    if (last_element->get_chunk_size() == LeafPageSize){
+    In_Use_Array* last_element = Remote_Leaf_Node_Bitmap.at(target_node_id)->at(mr_last->addr);
+    if (last_element->get_chunk_size() == CachelineSize){
         sst_index = last_element->allocate_memory_slot();
 
     }
@@ -5243,13 +5243,12 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
         // the last chunk bit mapm and if it is full then allocate new big chunk of memory.
         ibv_mr* mr_last = local_mem_regions.back();
         int block_index = -1;
-        auto last_element = --name_to_mem_pool.at(pool_name).at(mr_last->addr);
+        In_Use_Array* last_element;
         // If other thread pool is allocated during the lock waiting, then the last element chunck size is not the target chunck size
         // in this thread. Optimisticall, we need to search the map again, but we directly allocate a new one for simplicity.
-        if (last_element->get_chunk_size() == chunk_size){
+        if (name_to_mem_pool.at(pool_name).find(mr_last->addr) != name_to_mem_pool.at(pool_name).end()){
+            last_element = name_to_mem_pool.at(pool_name).at(mr_last->addr);
             block_index = last_element->allocate_memory_slot();
-
-
         }
         if( block_index>=0){
 
