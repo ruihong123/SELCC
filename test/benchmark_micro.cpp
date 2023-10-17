@@ -181,6 +181,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                 //Register the allocation for master into a key value store.
                 if (i%MEMSET_GRANULARITY == MEMSET_GRANULARITY - 1) {
                     memset_buffer[i%MEMSET_GRANULARITY] = data[i];
+                    assert(data[i].offset <= 64ull*1024ull*1024*1024);
                     printf("Memset a key %d\n", i);
                     ddsm->memSet((const char*)&i, sizeof(i), (const char*)memset_buffer, sizeof(GlobalAddress) * MEMSET_GRANULARITY);
 //                    assert(i%MEMSET_GRANULARITY == MEMSET_GRANULARITY-1);
@@ -202,14 +203,14 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
         }
     } else {
         for (int i = 0; i < STEPS; i++) {
-            if(UNLIKELY(shared_ratio > 0 && i == (STEPS/1024)*1024ull)){
+            if(UNLIKELY(shared_ratio > 0 && i == (STEPS/MEMSET_GRANULARITY)*MEMSET_GRANULARITY)){
                 if (memget_buffer){
                     delete memget_buffer;
                 }
                 size_t v_size;
                 int key =  STEPS - 1;
                 memget_buffer = (GlobalAddress*)ddsm->memGet((const char*)&key, sizeof(key),  &v_size);
-                assert(v_size == sizeof(GlobalAddress) * 1024);
+                assert(v_size == sizeof(GlobalAddress) * MEMSET_GRANULARITY);
             }else if (UNLIKELY(shared_ratio > 0 && i%MEMSET_GRANULARITY == 0 )) {
                 if (memget_buffer){
                     delete memget_buffer;
@@ -701,7 +702,7 @@ int main(int argc, char* argv[]) {
     DDSM ddsm = DDSM(cache_ptr, rdma_mg);
     compute_num = ddsm.rdma_mg->GetComputeNodeNum();
     memory_num = ddsm.rdma_mg->GetMemoryNodeNum();
-    NUMOFBLOCKS = allocated_mem_size/(2*1024);
+    NUMOFBLOCKS = allocated_mem_size/(kLeafPageSize);
     printf("number of blocks is %d\n", NUMOFBLOCKS);
     SYNC_KEY = NUMOFBLOCKS;
     STEPS = NUMOFBLOCKS/((no_thread - 1)*(100-shared_ratio)/100.00L + 1);
