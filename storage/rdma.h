@@ -593,7 +593,7 @@ class RDMA_Manager {
 //    std::map<uint16_t, uint32_t> rkey_map_lock_area_size;
   size_t total_registered_size;
 
-  uint64_t Table_Size;
+  uint64_t LeafPageSize;
   std::shared_mutex remote_mem_mutex;
 
   std::shared_mutex rw_mutex;
