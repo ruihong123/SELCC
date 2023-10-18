@@ -1030,7 +1030,7 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
   compute_message_handling_thread(qp_type, target_node_id);
   return false;
 }
-void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
+void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(volatile uint16_t target_node_id) {
     auto* cq_arr = new  std::array<ibv_cq*, NUM_QP_ACCROSS_COMPUTE*2>();
     auto* qp_arr = new  std::array<ibv_qp*, NUM_QP_ACCROSS_COMPUTE>();
     create_qp_xcompute(target_node_id, cq_arr, qp_arr);
