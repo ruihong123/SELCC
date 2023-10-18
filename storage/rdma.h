@@ -572,8 +572,7 @@ class RDMA_Manager {
     static thread_local int qp_inc_ticket;
 //#endif
   resources* res = nullptr;
-  std::vector<ibv_mr*>
-      remote_mem_pool; /* a vector for all the remote memory regions*/
+    std::map<uint16_t,std::vector<ibv_mr*>*> remote_mem_pool; /* a vector for all the remote memory regions*/
  // TODO: seperate the pool for different shards
   std::vector<ibv_mr*>
       local_mem_regions; /* a vector for all the local memory regions.*/

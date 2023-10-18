@@ -156,7 +156,10 @@ RDMA_Manager::~RDMA_Manager() {
 
   if (!remote_mem_pool.empty()) {
     for (auto p : remote_mem_pool) {
-      delete p;  // remote buffer is not registered on this machine so just delete the structure
+        for(auto iter : *p.second){
+            delete iter;
+        }
+      delete p.second;  // remote buffer is not registered on this machine so just delete the structure
     }
     remote_mem_pool.clear();
   }
@@ -794,6 +797,7 @@ void RDMA_Manager::Initialize_threadlocal_map(){
     local_read_qp_info.insert({target_node_id, new ThreadLocalPtr(&General_Destroy<Registered_qp_config*>)});
     async_counter.insert({target_node_id, new ThreadLocalPtr(&General_Destroy<uint32_t*>)});
     Remote_Leaf_Node_Bitmap.insert({target_node_id, new std::map<void*, In_Use_Array*>()});
+    remote_mem_pool.insert({target_node_id, new std::vector<ibv_mr*>()});
     top.insert({target_node_id,0});
     mtx_imme_map.insert({target_node_id, new std::mutex});
     imm_gen_map.insert({target_node_id, new std::atomic<uint32_t>{0}});
@@ -4809,7 +4813,7 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
   // Please remember to delete it when diregistering mem region from the remote memory
   *temp_pointer = receive_pointer->content.mr;  // create a new ibv_mr for storing the new remote memory region handler
 
-  remote_mem_pool.push_back(
+  remote_mem_pool.at(target_node_id)->push_back(
       temp_pointer);  // push the new pointer for the new ibv_mr (different from the receive buffer) to remote_mem_pool
 
     //put the rkey in the rkey map
@@ -5084,7 +5088,7 @@ void RDMA_Manager::Allocate_Remote_RDMA_Slot(ibv_mr &remote_mr, Chunk_type pool_
         Remote_Memory_Register(1 * 1024 * 1024 * 1024, target_node_id, FlushBuffer);
         //  fs_meta_save();
         ibv_mr* mr_last;
-        mr_last = remote_mem_pool.back();
+        mr_last = remote_mem_pool.at(target_node_id)->back();
         int sst_index = Remote_Leaf_Node_Bitmap.at(target_node_id)->at(mr_last->addr)->allocate_memory_slot();
         assert(sst_index >= 0);
         mem_write_lock.unlock();
@@ -5144,10 +5148,10 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
     // If not find remote buffers are all used, allocate another remote memory region.
     std::unique_lock<std::shared_mutex> mem_write_lock(remote_mem_mutex);
     //Not necessaryly be the last one
-    ibv_mr* mr_last = remote_mem_pool.back();
+    ibv_mr* mr_last = remote_mem_pool.at(target_node_id)->back();
     int sst_index = -1;
     In_Use_Array* last_element;
-    if (last_element->get_chunk_size() == CachelineSize && ){
+    if (last_element->get_chunk_size() == CachelineSize){
         last_element = Remote_Leaf_Node_Bitmap.at(target_node_id)->at(mr_last->addr);
         sst_index = last_element->allocate_memory_slot();
     }
@@ -5163,7 +5167,7 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
         Remote_Memory_Register(1 * 1024 * 1024 * 1024ull, target_node_id, pool_name);
         //  fs_meta_save();
         //  ibv_mr* mr_last;
-        mr_last = remote_mem_pool.back();
+        mr_last = remote_mem_pool.at(target_node_id)->back();
         sst_index = Remote_Leaf_Node_Bitmap.at(target_node_id)->at(mr_last->addr)->allocate_memory_slot();
         assert(sst_index >= 0);
         mem_write_lock.unlock();
