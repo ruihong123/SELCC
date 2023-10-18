@@ -1075,7 +1075,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
 //    std::unique_lock<std::mutex> lck(invalidate_channel_mtx);
     sleep(2);
     for (auto &iter:Invalidation_bg_threads) {
-        iter.join();
+        iter.detach();
     }
 
 }
@@ -1322,18 +1322,27 @@ void RDMA_Manager::sync_with_computes_Cside() {
         char buffer[100];
         int number_of_ready = 0;
         uint64_t rc = 0;
-
+#ifndef NDEBUG
+        std::vector<uint16_t > answered_nodes;
+#endif
 
         while (1){
             for(auto iter : res->sock_map){
                 rc =read(iter.second, buffer, 100);
                 if(rc != 0){
                     number_of_ready++;
+#ifndef NDEBUG
+                    answered_nodes.push_back(iter.first);
+#endif
                     if (number_of_ready == compute_nodes.size()){
                         //TODO: answer back.
                         printf("compute node sync number is %d", number_of_ready );
+
                         broadcast_to_computes_through_socket();
                         number_of_ready = 0;
+#ifndef NDEBUG
+                        answered_nodes.clear();
+#endif
                     }
                     rc = 0;
                 }
