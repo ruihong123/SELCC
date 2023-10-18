@@ -5146,10 +5146,10 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
     //Not necessaryly be the last one
     ibv_mr* mr_last = remote_mem_pool.back();
     int sst_index = -1;
-    In_Use_Array* last_element = Remote_Leaf_Node_Bitmap.at(target_node_id)->at(mr_last->addr);
-    if (last_element->get_chunk_size() == CachelineSize){
+    In_Use_Array* last_element;
+    if (last_element->get_chunk_size() == CachelineSize && ){
+        last_element = Remote_Leaf_Node_Bitmap.at(target_node_id)->at(mr_last->addr);
         sst_index = last_element->allocate_memory_slot();
-
     }
     if (sst_index>=0){
         remote_mr = *(last_element->get_mr_ori());
