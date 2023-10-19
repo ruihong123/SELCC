@@ -4436,7 +4436,7 @@ int RDMA_Manager::post_receive_xcompute(ibv_mr *mr, uint16_t target_node_id, int
     {
         qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
     }
-    catch (int e)
+    catch (...)
     {
         printf("An exception occurred. Exception Nr. %d, target node is %hu, number of qp is  %d \n", e, target_node_id, num_of_qp);
     }
