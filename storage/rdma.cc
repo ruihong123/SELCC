@@ -1326,27 +1326,27 @@ void RDMA_Manager::sync_with_computes_Cside() {
         char buffer[100];
         int number_of_ready = 0;
         uint64_t rc = 0;
-#ifndef NDEBUG
+//#ifndef NDEBUG
         std::vector<uint16_t > answered_nodes;
-#endif
+//#endif
 
         while (1){
             for(auto iter : res->sock_map){
                 rc =read(iter.second, buffer, 100);
                 if(rc != 0){
                     number_of_ready++;
-#ifndef NDEBUG
+//#ifndef NDEBUG
                     answered_nodes.push_back(iter.first);
-#endif
+//#endif
                     if (number_of_ready == compute_nodes.size()){
                         //TODO: answer back.
                         printf("compute node sync number is %d\n", number_of_ready );
 
                         broadcast_to_computes_through_socket();
                         number_of_ready = 0;
-#ifndef NDEBUG
+//#ifndef NDEBUG
                         answered_nodes.clear();
-#endif
+//#endif
                     }
                     rc = 0;
                 }
