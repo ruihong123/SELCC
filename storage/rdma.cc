@@ -4431,7 +4431,15 @@ int RDMA_Manager::post_receive_xcompute(ibv_mr *mr, uint16_t target_node_id, int
     rr.sg_list = &sge;
     rr.num_sge = 1;
     /* post the Receive Request to the RQ */
-    ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
+    ibv_qp* qp;
+    try
+    {
+        qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
+    }
+    catch (int e)
+    {
+        printf("An exception occurred. Exception Nr. %d, target node is %hu, number of qp is  %d \n", e, target_node_id, num_of_qp);
+    }
     rc = ibv_post_recv(qp, &rr, &bad_wr);
 
     return rc;

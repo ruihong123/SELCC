@@ -149,7 +149,7 @@ run() {
   #    	fi
       done # for compute
 
-	wait
+	  wait
 
 
     sleep 1
