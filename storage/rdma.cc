@@ -1039,7 +1039,6 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(volatile uint16_t target_n
     // Need to sync all threads here because the RPC can get blocked if there is one thread invoke Get_qp_info_from_RemoteM
     sync_invalidation_qp_info_put.fetch_add(1);
     while (sync_invalidation_qp_info_put.load() != compute_nodes.size() -1);
-
     //    Registered_qp_config_xcompute* qpXcompute = new Registered_qp_config_xcompute();
 
     Registered_qp_config_xcompute qp_info =  Get_qp_info_from_RemoteM(target_node_id);
@@ -1050,7 +1049,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(volatile uint16_t target_n
     std::unique_lock<std::shared_mutex> l(qp_cq_map_mutex);
     cq_xcompute.insert({target_node_id, cq_arr});
     qp_xcompute.insert({target_node_id, qp_arr});
-    l.unlock();
+    // we need lock for post_receive_xcompute because qp_xcompute is not thread safe.
     printf("Prepare receive mr for %hu", target_node_id);
     ibv_mr recv_mr[NUM_QP_ACCROSS_COMPUTE][RECEIVE_OUTSTANDING_SIZE] = {};
     for (int j = 0; j < NUM_QP_ACCROSS_COMPUTE; ++j) {
@@ -1059,13 +1058,16 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(volatile uint16_t target_n
             post_receive_xcompute(&recv_mr[j][i], target_node_id, j);
         }
     }
-
+    l.unlock();
     //TODO: delete the code below.
 //    if(node_id == 2 && compute_nodes.size() == 2){
 //        Send_heart_beat_xcompute(0);
 //
 //    }
     compute_connection_counter.fetch_add(1);
+    //sync among thread here. If not the since try poll complemtion across compute nodes is not thread safe,
+    // the concurrent cq insertion can result in error.
+    while (compute_connection_counter.load() != compute_nodes.size() -1);
     //Do we need to sync below?, probably not at below, should be synced outside this function.
     for (int i = 0; i < NUM_QP_ACCROSS_COMPUTE; ++i) {
         std::unique_lock<std::mutex> lck(invalidate_channel_mtx);
@@ -4432,14 +4434,15 @@ int RDMA_Manager::post_receive_xcompute(ibv_mr *mr, uint16_t target_node_id, int
     rr.num_sge = 1;
     /* post the Receive Request to the RQ */
     ibv_qp* qp;
-    try
+//    try
     {
+//        std::shared_lock<std::shared_mutex> l(qp_cq_map_mutex);
         qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
     }
-    catch (...)
-    {
-        printf("An exception occurred. target node is %hu, number of qp is  %d \n", target_node_id, num_of_qp);
-    }
+//    catch (...)
+//    {
+//        printf("An exception occurred. target node is %hu, number of qp is  %d \n", target_node_id, num_of_qp);
+//    }
     rc = ibv_post_recv(qp, &rr, &bad_wr);
 
     return rc;
@@ -4475,8 +4478,10 @@ int RDMA_Manager::post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int nu
     sr.num_sge = 1;
     sr.opcode = static_cast<ibv_wr_opcode>(IBV_WR_SEND);
     sr.send_flags = IBV_SEND_SIGNALED;
+//    std::shared_lock<std::shared_mutex> l(qp_cq_map_mutex);
     /* post the Send Request to the RQ */
     ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
+//    l.unlock();
     rc = ibv_post_send(qp, &sr, &bad_wr);
     if (rc) {
         assert(false);
@@ -4714,11 +4719,12 @@ int RDMA_Manager::try_poll_completions_xcompute(ibv_wc *wc_p, int num_entries, b
     // gettimeofday(&cur_time, NULL);
     // start_time_msec = (cur_time.tv_sec * 1000) + (cur_time.tv_usec / 1000);
     ibv_cq* cq;
+    std::shared_lock<std::shared_mutex> l(qp_cq_map_mutex);
     if (send_cq)
         cq = (*cq_xcompute.at(target_node_id))[num_of_cp*2];
     else
         cq = (*cq_xcompute.at(target_node_id))[num_of_cp*2+1];
-
+    l.unlock();
     poll_result = ibv_poll_cq(cq, num_entries, &wc_p[poll_num]);
 #ifndef NDEBUG
     if (poll_result > 0){

@@ -620,7 +620,7 @@ class RDMA_Manager {
     std::vector<std::thread> Invalidation_bg_threads;
     std::mutex invalidate_channel_mtx;
     std::atomic<int> sync_invalidation_qp_info_put = 0;
-
+//    std::atomic<int> invalidation_threads_start_sync = 0;
   // TODO: replace the std::map<void*, In_Use_Array*> as a thread local vector of In_Use_Array*, so that
   // the conflict can be minimized.
   std::unordered_map<Chunk_type, std::map<void*, In_Use_Array*>>
