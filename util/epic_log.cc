@@ -8,18 +8,21 @@
 #include <execinfo.h>
 #include <cstdio>
 #include "epic_log.h"
+#include "storage/rdma.h"
+using namespace std;
+using namespace DSMEngine;
 
 void _epicLogRaw(int level, const char* msg) {
   const char *c = ".-*#";
   FILE *fp;
   char buf[128];
 
-  fp =
-      (GAllocFactory::LogFile() == nullptr) ?
-          (level <= LOG_FATAL ? stderr : stdout) :
-          fopen(GAllocFactory::LogFile()->c_str(), "a");
-  if (!fp)
-    return;
+//  fp =
+//      (GAllocFactory::LogFile() == nullptr) ?
+//          (level <= LOG_FATAL ? stderr : stdout) :
+//          fopen(GAllocFactory::LogFile()->c_str(), "a");
+//  if (!fp)
+//    return;
 
   int off;
   struct timeval tv;
@@ -32,13 +35,13 @@ void _epicLogRaw(int level, const char* msg) {
 
   fflush(fp);
 
-  if (GAllocFactory::LogFile())
-    fclose(fp);
+//  if (GAllocFactory::LogFile())
+//    fclose(fp);
 }
 
 void _epicLog(char* file, char* func, int lineno, int level, const char *fmt,
               ...) {
-  if (level > GAllocFactory::LogLevel())
+  if (level > RDMA_Manager::LogLevel())
     return;
 
   va_list ap;
@@ -63,7 +66,7 @@ void PrintStackTrace() {
   strings = backtrace_symbols(buffer, nptrs);
   if (strings == NULL) {
     perror("backtrace_symbols");
-    exit(EXIT_FAILURE);
+    exit(0);
   }
   for (j = 0; j < nptrs; j++) {
     printf("%s\n", strings[j]);

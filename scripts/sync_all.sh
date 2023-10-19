@@ -90,6 +90,9 @@ function run_bench() {
     ssh -o StrictHostKeyChecking=no $node "killall micro_bench memory_server_term > /dev/null 2>&1"
 
   done
+  read -r -a memcached_node <<< $(head -n 1 $SRC_HOME/memcached_ip.conf)
+  echo "restart memcached on ${memcached_node[0]}"
+  ssh -o StrictHostKeyChecking=no ${memcached_node[0]} "sudo service memcached restart"
 
 
 	}
