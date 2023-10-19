@@ -1337,7 +1337,7 @@ void RDMA_Manager::sync_with_computes_Cside() {
 #endif
                     if (number_of_ready == compute_nodes.size()){
                         //TODO: answer back.
-                        printf("compute node sync number is %d", number_of_ready );
+                        printf("compute node sync number is %d\n", number_of_ready );
 
                         broadcast_to_computes_through_socket();
                         number_of_ready = 0;
