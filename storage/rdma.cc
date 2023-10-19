@@ -1051,6 +1051,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(volatile uint16_t target_n
     cq_xcompute.insert({target_node_id, cq_arr});
     qp_xcompute.insert({target_node_id, qp_arr});
     l.unlock();
+    printf("Prepare receive mr for %hu", target_node_id);
     ibv_mr recv_mr[NUM_QP_ACCROSS_COMPUTE][RECEIVE_OUTSTANDING_SIZE] = {};
     for (int j = 0; j < NUM_QP_ACCROSS_COMPUTE; ++j) {
         for(int i = 0; i < RECEIVE_OUTSTANDING_SIZE; i++){
