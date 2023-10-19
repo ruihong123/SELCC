@@ -6,6 +6,10 @@ nmachines="20"
 nshard="10"
 numa_node=("0" "1")
 port=$((10000+RANDOM%1000))
+bin=`dirname "$0"`
+bin=`cd "$bin"; pwd`
+SRC_HOME=$bin/..
+BIN_HOME=$bin/../release
 github_repo="https://github.com/ruihong123/MemoryEngine"
 gitbranch="reserved_branch1"
 function run_bench() {
