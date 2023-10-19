@@ -2,7 +2,7 @@
 bin=`dirname "$0"`
 bin=`cd "$bin"; pwd`
 SRC_HOME=$bin/..
-BIN_HOME=$bin/../release
+BIN_HOME=$bin/../debug
 conf_file_all=$bin/../connection_cloudlab.conf
 conf_file=$bin/../connection.conf
 
@@ -478,7 +478,7 @@ node_range="8"
 thread_range="16"
 remote_range="0"
 shared_range="100"
-read_range="0 50"
+read_range="0"
 space_range="0"
 time_range="0"
 op_range="0"
