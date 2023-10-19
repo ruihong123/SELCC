@@ -4438,7 +4438,7 @@ int RDMA_Manager::post_receive_xcompute(ibv_mr *mr, uint16_t target_node_id, int
     }
     catch (...)
     {
-        printf("An exception occurred. Exception Nr. %d, target node is %hu, number of qp is  %d \n", e, target_node_id, num_of_qp);
+        printf("An exception occurred. target node is %hu, number of qp is  %d \n", target_node_id, num_of_qp);
     }
     rc = ibv_post_recv(qp, &rr, &bad_wr);
 
