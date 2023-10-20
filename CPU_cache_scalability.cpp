@@ -19,30 +19,44 @@ void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& 
     srand(node);
     uint64_t total_block_number = ACCESSED_DATA_SIZE / CACHE_LINE_SIZE;
     uint64_t block_number_per_shard = (ACCESSED_DATA_SIZE / num_numa_nodes) / CACHE_LINE_SIZE;
-    for (size_t i = 0; i < NUM_STEPS; ++i) {
+    //TODO: decrease the generated set size to 4 times of the block number.
+    for (size_t i = 0; i < 4*total_block_number; ++i) {
         cache_lines.push_back(rand()%total_block_number);
     }
     // warm up
-    for (size_t cache_line_idx : cache_lines) {
+    uint64_t operation_count = 0;
+    while (operation_count < NUM_STEPS) {
+        for (size_t cache_line_idx : cache_lines) {
 
-        uint64_t get_block_idx = cache_line_idx % block_number_per_shard;
-        uint64_t  buffer_index = cache_line_idx / block_number_per_shard;
-        size_t target_offset = get_block_idx * CACHE_LINE_SIZE;
-        memset(buffers[buffer_index]+ target_offset, node, CACHE_LINE_SIZE);
-
+            uint64_t get_block_idx = cache_line_idx % block_number_per_shard;
+            uint64_t  buffer_index = cache_line_idx / block_number_per_shard;
+            size_t target_offset = get_block_idx * CACHE_LINE_SIZE;
+            memset(buffers[buffer_index]+ target_offset, node, CACHE_LINE_SIZE);
+            operation_count++;
+            if (operation_count >= NUM_STEPS) {
+                break;
+            }
+        }
     }
+
     printf("Node %d warm up finished\n", node);
     // real run.
     start_sync.fetch_add(1);
     while (start_sync.load() != NUM_THREADS) {}
 
-    for (size_t cache_line_idx : cache_lines) {
+    operation_count = 0;
+    while (operation_count < NUM_STEPS) {
+        for (size_t cache_line_idx: cache_lines) {
 
-        uint64_t get_block_idx = cache_line_idx % block_number_per_shard;
-        uint64_t  buffer_index = cache_line_idx / block_number_per_shard;
-        size_t target_offset = get_block_idx * CACHE_LINE_SIZE;
-        memset(buffers[buffer_index]+ target_offset, node, CACHE_LINE_SIZE);
-
+            uint64_t get_block_idx = cache_line_idx % block_number_per_shard;
+            uint64_t buffer_index = cache_line_idx / block_number_per_shard;
+            size_t target_offset = get_block_idx * CACHE_LINE_SIZE;
+            memset(buffers[buffer_index] + target_offset, node, CACHE_LINE_SIZE);
+            operation_count++;
+            if (operation_count >= NUM_STEPS) {
+                break;
+            }
+        }
     }
 
     end_sync.fetch_add(1);
