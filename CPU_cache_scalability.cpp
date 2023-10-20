@@ -53,8 +53,7 @@ int main() {
 
 
     num_numa_nodes = numa_num_configured_nodes(); // Get the number of configured NUMA nodes
-    char* buffer = nullptr;
-
+    std::cout << "Number of NUMA nodes: " << num_numa_nodes << std::endl;
     // Allocate memory on each NUMA node
     std::vector<char*> buffers(num_numa_nodes);
     for (int i = 0; i < num_numa_nodes; ++i) {
@@ -83,10 +82,10 @@ int main() {
         thread.join(); // Wait for all threads to finish
     }
 
-    std::chrono::duration<double> duration = end - start;
-
-    std::cout << "Time taken: " << duration.count() << " seconds" << std::endl;
-
+    std::chrono::duration<double> duration =std::chrono::duration_cast<std::chrono::microseconds>( end - start);
+    uint64_t throughput = NUM_STEPS*1000*1000ull / (duration.count());
+    std::cout << "Time taken: " << duration.count() << " micro seconds" << std::endl;
+    std::cout << "Aggregated throughput is : " << throughput << " ops/sec" << std::endl;
     // Free the allocated memory
     for (int i = 0; i < num_numa_nodes; ++i) {
         numa_free(buffers[i], ACCESSED_DATA_SIZE / num_numa_nodes);
