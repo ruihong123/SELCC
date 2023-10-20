@@ -31,6 +31,7 @@ void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& 
         memset(buffers[buffer_index]+ target_offset, node, CACHE_LINE_SIZE);
 
     }
+    printf("Node %d warm up finished\n", node);
     // real run.
     start_sync.fetch_add(1);
     while (start_sync.load() != NUM_THREADS) {}
@@ -55,6 +56,7 @@ int main() {
     num_numa_nodes = numa_num_configured_nodes(); // Get the number of configured NUMA nodes
     std::cout << "Number of NUMA nodes: " << num_numa_nodes << std::endl;
     // Allocate memory on each NUMA node
+    printf("Prepare the accessed data over all the numa nodes\n");
     std::vector<char*> buffers(num_numa_nodes);
     for (int i = 0; i < num_numa_nodes; ++i) {
         numa_run_on_node(i); // Run on the specified NUMA node
@@ -71,6 +73,8 @@ int main() {
     for (int i = 0; i < NUM_THREADS; ++i) {
         threads.emplace_back(memset_on_node, i % num_numa_nodes, std::ref(buffers), std::ref(thread_cache_lines[i]));
     }
+    printf("Start the test\n");
+
 
     while (start_sync.load() != NUM_THREADS) {}
     auto start = std::chrono::high_resolution_clock::now();
