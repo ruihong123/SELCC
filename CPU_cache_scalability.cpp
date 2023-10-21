@@ -20,7 +20,7 @@ void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& 
     uint64_t total_block_number = ACCESSED_DATA_SIZE / CACHE_LINE_SIZE;
     uint64_t block_number_per_shard = (ACCESSED_DATA_SIZE / num_numa_nodes) / CACHE_LINE_SIZE;
     //TODO: decrease the generated set size to 4 times of the block number.
-    for (size_t i = 0; i < 4*total_block_number; ++i) {
+    for (size_t i = 0; i < 16*total_block_number; ++i) {
         cache_lines.push_back(rand()%total_block_number);
     }
     // warm up
@@ -102,7 +102,7 @@ int main() {
     }
 
     std::chrono::duration<double> duration =std::chrono::duration_cast<std::chrono::microseconds>( end - start);
-    uint64_t throughput = NUM_STEPS*1000*1000ull / (duration.count());
+    uint64_t throughput = NUM_STEPS*1000*1000ull*8 / (duration.count());
     std::cout << "Time taken: " << duration.count() << " micro seconds" << std::endl;
     std::cout << "Aggregated throughput is : " << throughput << " ops/sec" << std::endl;
     // Free the allocated memory
