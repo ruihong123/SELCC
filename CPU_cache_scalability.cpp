@@ -102,7 +102,7 @@ int main() {
     }
 
     std::chrono::duration<double> duration =std::chrono::duration_cast<std::chrono::microseconds>( end - start);
-    uint64_t throughput = NUM_STEPS*1000*1000ull*8 / (duration.count());
+    uint64_t throughput = NUM_STEPS*1000*1000ull*NUM_THREADS / (duration.count());
     std::cout << "Time taken: " << duration.count() << " micro seconds" << std::endl;
     std::cout << "Aggregated throughput is : " << throughput << " ops/sec" << std::endl;
     // Free the allocated memory
