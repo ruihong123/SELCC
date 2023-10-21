@@ -10,7 +10,7 @@ constexpr size_t ACCESSED_DATA_SIZE = 1 << 26; // 64 MB of memory, smaller than 
 constexpr uint64_t NUM_STEPS = 1024*1024ull*1024; // 1 Billion of operation
 
 constexpr size_t CACHE_LINE_SIZE = 64; // Assuming a common cache line size of 64 bytes
-constexpr int NUM_THREADS = 8; // Number of threads
+constexpr int NUM_THREADS = 1; // Number of threads
 int num_numa_nodes;
 std::atomic<uint16_t> start_sync = 0;
 std::atomic<uint16_t> end_sync = 0;
