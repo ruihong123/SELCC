@@ -23,6 +23,7 @@ void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& 
     for (size_t i = 0; i < 16*total_block_number; ++i) {
         cache_lines.push_back(rand()%total_block_number);
     }
+    uint64_t writter_value = rand();
     // warm up
     uint64_t operation_count = 0;
     while (operation_count < NUM_STEPS) {
@@ -31,6 +32,14 @@ void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& 
             uint64_t get_block_idx = cache_line_idx % block_number_per_shard;
             uint64_t  buffer_index = cache_line_idx / block_number_per_shard;
             size_t target_offset = get_block_idx * CACHE_LINE_SIZE;
+            //50 read 50 write.
+            if (operation_count % 2 == 0) {
+                // write
+                memcpy(buffers[buffer_index] + target_offset, reinterpret_cast<void *>(writter_value), 8);
+            } else {
+                // read
+                memcpy(reinterpret_cast<void *>(writter_value), buffers[buffer_index] + target_offset, 8);
+            }
             memset(buffers[buffer_index]+ target_offset, node, CACHE_LINE_SIZE);
             operation_count++;
             if (operation_count >= NUM_STEPS) {
