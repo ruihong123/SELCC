@@ -158,7 +158,7 @@ int main() {
     std::vector<std::thread> threads;
 
     for (int i = 0; i < NUM_THREADS; ++i) {
-        threads.emplace_back(memset_on_node, (i + 7) % num_numa_nodes, std::ref(buffers), std::ref(thread_cache_lines[i]));
+        threads.emplace_back(memset_on_node, (i ) % num_numa_nodes, std::ref(buffers), std::ref(thread_cache_lines[i]));
     }
     printf("Start the test\n");
 
