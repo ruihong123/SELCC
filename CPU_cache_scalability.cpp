@@ -59,11 +59,11 @@ void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& 
                 for (size_t i = 0; i < ACCESS_BLOCK_SIZE/CACHELINE_SIZE; ++i) {
                     access_addr = access_base + i*CACHELINE_SIZE;
                     asm volatile (
-                            "mov %%rax, %1\n\t"
-                            "mov (%%rax), %0\n\t"
+                            "mov %%rdx, %1\n\t"
+                            "mov (%%rdx), %0\n\t"
                             :
                             : "ri" (node), "r" (access_addr)
-                            : "%rax"
+                            : "%rdx"
                             );
 //                    memcpy(access_addr + i*CACHELINE_SIZE, reinterpret_cast<void *>(&written_value), 8);
                     asm ("" ::: "memory");
@@ -112,11 +112,11 @@ void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& 
             for (size_t i = 0; i < ACCESS_BLOCK_SIZE/CACHELINE_SIZE; ++i) {
                 access_addr = access_base + i*CACHELINE_SIZE;
                 asm volatile (
-                        "mov %%rax, %1\n\t"
-                        "mov (%%rax), %0\n\t"
+                        "mov %%rdx, %1\n\t"
+                        "mov (%%rdx), %0\n\t"
                         :
                         : "ri" (node), "r" (access_addr)
-                        : "%rax"
+                        : "%rdx"
                         );
 //                    memcpy(access_addr + i*CACHELINE_SIZE, reinterpret_cast<void *>(&written_value), 8);
                     asm ("" ::: "memory");
