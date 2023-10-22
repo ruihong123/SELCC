@@ -173,9 +173,9 @@ int main() {
         thread.join(); // Wait for all threads to finish
     }
 
-    std::chrono::duration<double> duration =std::chrono::duration_cast<std::chrono::milliseconds>( end - start);
+    std::chrono::duration<double> duration =std::chrono::duration_cast<std::chrono::seconds>(end - start);
     uint64_t throughput = NUM_STEPS*1000ull*NUM_THREADS / (duration.count());
-    std::cout << "Time taken: " << duration.count() << " micro seconds" << std::endl;
+    std::cout << "Time taken: " << duration.count() << " seconds" << std::endl;
     std::cout << "Aggregated throughput is : " << throughput << " ops/sec" << std::endl;
     // Free the allocated memory
     for (int i = 0; i < num_numa_nodes; ++i) {
