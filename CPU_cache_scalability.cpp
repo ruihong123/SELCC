@@ -7,7 +7,7 @@
 #include <atomic>
 #include <random>
 constexpr size_t ACCESSED_DATA_SIZE = 1 << 26; // 64 MB of memory, smaller than L3 cache on bigdata servers.
-constexpr uint64_t NUM_STEPS = 8*1024*1024ull*1024; // 2 Billion of operation
+constexpr uint64_t NUM_STEPS = 2*1024*1024ull*1024; // 2 Billion of operation
 
 constexpr size_t ACCESS_BLOCK_SIZE = 8192; // Assuming a common cache line size of 64 bytes
 constexpr size_t CACHELINE_SIZE = 64; // Assuming a common cache line size of 64 bytes
@@ -171,8 +171,8 @@ int main() {
         thread.join(); // Wait for all threads to finish
     }
 
-    std::chrono::duration<double> duration =std::chrono::duration_cast<std::chrono::microseconds>( end - start);
-    uint64_t throughput = NUM_STEPS*1000*1000ull*NUM_THREADS / (duration.count());
+    std::chrono::duration<double> duration =std::chrono::duration_cast<std::chrono::milliseconds>( end - start);
+    uint64_t throughput = NUM_STEPS*1000ull*NUM_THREADS / (duration.count());
     std::cout << "Time taken: " << duration.count() << " micro seconds" << std::endl;
     std::cout << "Aggregated throughput is : " << throughput << " ops/sec" << std::endl;
     // Free the allocated memory
