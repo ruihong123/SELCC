@@ -66,7 +66,7 @@ void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& 
                             : "%rax"
                             );
 //                    memcpy(access_addr + i*CACHELINE_SIZE, reinterpret_cast<void *>(&written_value), 8);
-//                    asm ("" ::: "memory");
+                    asm ("" ::: "memory");
                 }
 //            }
             operation_count = operation_count + ACCESS_BLOCK_SIZE/CACHELINE_SIZE;
@@ -119,7 +119,7 @@ void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& 
                         : "%rax"
                         );
 //                    memcpy(access_addr + i*CACHELINE_SIZE, reinterpret_cast<void *>(&written_value), 8);
-//                    asm ("" ::: "memory");
+                    asm ("" ::: "memory");
             }
 //            }
             operation_count = operation_count + ACCESS_BLOCK_SIZE/CACHELINE_SIZE;
@@ -156,7 +156,7 @@ int main() {
     std::vector<std::thread> threads;
 
     for (int i = 0; i < NUM_THREADS; ++i) {
-        threads.emplace_back(memset_on_node, i % num_numa_nodes, std::ref(buffers), std::ref(thread_cache_lines[i]));
+        threads.emplace_back(memset_on_node, (i + 7) % num_numa_nodes, std::ref(buffers), std::ref(thread_cache_lines[i]));
     }
     printf("Start the test\n");
 
