@@ -35,6 +35,7 @@ void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& 
             uint64_t get_block_idx = cache_line_idx % block_number_per_shard;
             uint64_t  buffer_index = cache_line_idx / block_number_per_shard;
             size_t target_offset = get_block_idx * ACCESS_BLOCK_SIZE;
+            char* access_addr = buffers[buffer_index] + target_offset;
             //50 read 50 write.
 //            if (operation_count % 2 == 0) {
 //                // write
@@ -62,7 +63,7 @@ void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& 
 //                            : "ri" (written_value), "r" (buffers[buffer_index] + target_offset + i*CACHELINE_SIZE)
 //                            : "%rax"
 //                            );
-                    memcpy(buffers[buffer_index] + target_offset + i*CACHELINE_SIZE, reinterpret_cast<void *>(written_value), 8);
+                    memcpy(access_addr + i*CACHELINE_SIZE, reinterpret_cast<void *>(written_value), 8);
 //                    asm ("" ::: "memory");
                 }
 //            }
