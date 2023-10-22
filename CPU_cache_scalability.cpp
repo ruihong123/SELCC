@@ -11,7 +11,7 @@ constexpr uint64_t NUM_STEPS = 2*1024*1024ull*1024; // 2 Billion of operation
 
 constexpr size_t ACCESS_BLOCK_SIZE = 8192; // Assuming a common cache line size of 64 bytes
 constexpr size_t CACHELINE_SIZE = 64; // Assuming a common cache line size of 64 bytes
-constexpr int NUM_THREADS = 2; // Number of threads
+constexpr int NUM_THREADS = 1; // Number of threads
 int num_numa_nodes;
 std::atomic<uint16_t> start_sync = 0;
 std::atomic<uint16_t> end_sync = 0;
@@ -175,8 +175,8 @@ int main() {
 
     auto duration =std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     uint64_t throughput = NUM_STEPS*NUM_THREADS*1000ull / (duration.count());
-    printf("time duration for the test is  (%ld)\n", duration.count() );
-    printf("Aggregated throughput is : %lu\n" ,throughput );
+    printf("time duration for the test is  (%ld)ms\n", duration.count() );
+    printf("Aggregated throughput is : %lu ops/s\n" ,throughput );
     // Free the allocated memory
     for (int i = 0; i < num_numa_nodes; ++i) {
         numa_free(buffers[i], ACCESSED_DATA_SIZE / num_numa_nodes);
