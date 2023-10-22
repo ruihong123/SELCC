@@ -272,6 +272,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
         GlobalAddress next;
         if (TrueOrFalse(space_locality, seedp)) {
             next = access[i - 1];
+            next.offset += item_size;
             if (TOPAGE(next) != TOPAGE(access[i - 1])) {
                 next = TOPAGE(access[i - 1]);
             }
