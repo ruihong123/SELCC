@@ -173,10 +173,10 @@ int main() {
         thread.join(); // Wait for all threads to finish
     }
 
-    std::chrono::duration<double> duration =std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    uint64_t throughput = NUM_STEPS*NUM_THREADS / (duration.count());
-    std::cout << "Time taken: " << duration.count() << " seconds" << std::endl;
-    std::cout << "Aggregated throughput is : " << throughput << " ops/sec" << std::endl;
+    auto duration =std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    uint64_t throughput = NUM_STEPS*NUM_THREADS*1000ull / (duration.count());
+    printf("time duration for the test is  (%ld)\n", duration.count() );
+    printf("Aggregated throughput is : %lu\n" ,throughput );
     // Free the allocated memory
     for (int i = 0; i < num_numa_nodes; ++i) {
         numa_free(buffers[i], ACCESSED_DATA_SIZE / num_numa_nodes);
