@@ -23,6 +23,7 @@ void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& 
     for (size_t i = 0; i < 16*total_block_number; ++i) {
         cache_lines.push_back(rand()%total_block_number);
     }
+    printf("Node %d preparing access set finished\n", node);
     //TODO: making the write value a long buffer sized as Cache line size (or 2KB) and then copy the value to the target address.
     // Also initialize the buffer with random value.
     uint64_t written_value = rand();
