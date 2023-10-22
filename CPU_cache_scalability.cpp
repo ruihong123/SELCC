@@ -7,23 +7,25 @@
 #include <atomic>
 #include <random>
 constexpr size_t ACCESSED_DATA_SIZE = 1 << 26; // 64 MB of memory, smaller than L3 cache on bigdata servers.
-constexpr uint64_t NUM_STEPS = 1024*1024ull*1024; // 1 Billion of operation
+constexpr uint64_t NUM_STEPS = 2*1024*1024ull*1024; // 2 Billion of operation
 
-constexpr size_t CACHE_LINE_SIZE = 64; // Assuming a common cache line size of 64 bytes
-constexpr int NUM_THREADS = 8; // Number of threads
+constexpr size_t ACCESS_BLOCK_SIZE = 2048; // Assuming a common cache line size of 64 bytes
+constexpr size_t CACHELINE_SIZE = 64; // Assuming a common cache line size of 64 bytes
+constexpr int NUM_THREADS = 1; // Number of threads
 int num_numa_nodes;
 std::atomic<uint16_t> start_sync = 0;
 std::atomic<uint16_t> end_sync = 0;
 void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& cache_lines) {
     numa_run_on_node(node); // Run on the specified NUMA node
     srand(node);
-    uint64_t total_block_number = ACCESSED_DATA_SIZE / CACHE_LINE_SIZE;
-    uint64_t block_number_per_shard = (ACCESSED_DATA_SIZE / num_numa_nodes) / CACHE_LINE_SIZE;
-    //TODO: decrease the generated set size to 4 times of the block number.
+    uint64_t total_block_number = ACCESSED_DATA_SIZE / ACCESS_BLOCK_SIZE;
+    uint64_t block_number_per_shard = (ACCESSED_DATA_SIZE / num_numa_nodes) / ACCESS_BLOCK_SIZE;
     for (size_t i = 0; i < 16*total_block_number; ++i) {
         cache_lines.push_back(rand()%total_block_number);
     }
-    uint64_t writter_value = rand();
+    //TODO: making the write value a long buffer sized as Cache line size (or 2KB) and then copy the value to the target address.
+    // Also initialize the buffer with random value.
+    uint64_t written_value = rand();
     // warm up
     uint64_t operation_count = 0;
     while (operation_count < NUM_STEPS) {
@@ -31,17 +33,38 @@ void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& 
 
             uint64_t get_block_idx = cache_line_idx % block_number_per_shard;
             uint64_t  buffer_index = cache_line_idx / block_number_per_shard;
-            size_t target_offset = get_block_idx * CACHE_LINE_SIZE;
+            size_t target_offset = get_block_idx * ACCESS_BLOCK_SIZE;
             //50 read 50 write.
-            if (operation_count % 2 == 0) {
-                // write
-                memcpy(buffers[buffer_index] + target_offset, reinterpret_cast<void *>(writter_value), 8);
-            } else {
+//            if (operation_count % 2 == 0) {
+//                // write
+////                memcpy(buffers[buffer_index] + target_offset, reinterpret_cast<void *>(written_value), 8);
+//                for (size_t i = 0; i < ACCESS_BLOCK_SIZE/CACHELINE_SIZE; ++i) {
+//                    asm volatile (
+//                            "mov %%rax, %1,\n\t"
+//                            "mov %0, (%%rax)\n\t"
+//                            :
+//                            : "r" (written_value), "r" (buffers[buffer_index] + target_offset + i*CACHELINE_SIZE)
+//                            : "%rax"
+//                            );
+////                    asm ("" ::: "memory");
+//
+//                }
+//
+//            } else {
                 // read
-                memcpy(reinterpret_cast<void *>(writter_value), buffers[buffer_index] + target_offset, 8);
-            }
-            memset(buffers[buffer_index]+ target_offset, node, CACHE_LINE_SIZE);
-            operation_count++;
+//                memcpy(reinterpret_cast<void *>(written_value), buffers[buffer_index] + target_offset, 8);
+                for (size_t i = 0; i < ACCESS_BLOCK_SIZE/CACHELINE_SIZE; ++i) {
+                    asm volatile (
+                            "mov %%rax, %1\n\t"
+                            "mov (%%rax), %0\n\t"
+                            :
+                            : "r" (written_value), "r" (buffers[buffer_index] + target_offset + i*CACHELINE_SIZE)
+                            : "%rax"
+                            );
+//                    asm ("" ::: "memory");
+                }
+//            }
+            operation_count = operation_count + ACCESS_BLOCK_SIZE/CACHELINE_SIZE;
             if (operation_count >= NUM_STEPS) {
                 break;
             }
@@ -55,13 +78,46 @@ void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& 
 
     operation_count = 0;
     while (operation_count < NUM_STEPS) {
-        for (size_t cache_line_idx: cache_lines) {
+        for (size_t cache_line_idx : cache_lines) {
 
             uint64_t get_block_idx = cache_line_idx % block_number_per_shard;
-            uint64_t buffer_index = cache_line_idx / block_number_per_shard;
-            size_t target_offset = get_block_idx * CACHE_LINE_SIZE;
-            memset(buffers[buffer_index] + target_offset, node, CACHE_LINE_SIZE);
-            operation_count++;
+            uint64_t  buffer_index = cache_line_idx / block_number_per_shard;
+            size_t target_offset = get_block_idx * ACCESS_BLOCK_SIZE;
+            //50 read 50 write.
+//            if (operation_count % 2 == 0) {
+//                // write
+////                memcpy(buffers[buffer_index] + target_offset, reinterpret_cast<void *>(written_value), 8);
+//                for (size_t i = 0; i < ACCESS_BLOCK_SIZE/CACHELINE_SIZE; ++i) {
+//                    // The output place holder means the value in the register will be written to the memory address of the output value after
+//                    // the instruction is executed. In contrasct, the input placeholder means the value in the memory address of the input value
+//                    // will be written to the register before the instruction is executed. THerefore we do not need set written value as output.
+//                    asm volatile (
+//                            "mov %%rax, %1,\n\t"
+//                            "mov %0, (%%rax)\n\t"
+//                            :
+//                            : "r" (written_value), "r" (buffers[buffer_index] + target_offset + i*CACHELINE_SIZE)
+//                            : "%rax"
+//                            );
+////                    asm ("" ::: "memory");
+//
+//                }
+//
+//            } else {
+                // read
+//                memcpy(reinterpret_cast<void *>(written_value), buffers[buffer_index] + target_offset, 8);
+                for (size_t i = 0; i < ACCESS_BLOCK_SIZE/CACHELINE_SIZE; ++i) {
+                    asm volatile (
+                            "mov %%rax, %1\n\t"
+                            "mov (%%rax), %0\n\t"
+                            :
+                            : "r" (written_value), "r" (buffers[buffer_index] + target_offset + i*CACHELINE_SIZE)
+                            : "%rax"
+                            );
+//                    asm ("" ::: "memory");
+
+                }
+//            }
+            operation_count = operation_count + ACCESS_BLOCK_SIZE/CACHELINE_SIZE;
             if (operation_count >= NUM_STEPS) {
                 break;
             }
