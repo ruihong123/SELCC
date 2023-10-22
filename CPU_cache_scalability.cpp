@@ -6,12 +6,12 @@
 #include <vector>
 #include <atomic>
 #include <random>
-constexpr size_t ACCESSED_DATA_SIZE = 1 << 31; // 64 MB of memory, smaller than L3 cache on bigdata servers.
+constexpr size_t ACCESSED_DATA_SIZE = 1 << 30; // 64 MB of memory, smaller than L3 cache on bigdata servers.
 constexpr uint64_t NUM_STEPS = 2*1024*1024ull*1024; // 2 Billion of operation
 
 constexpr size_t ACCESS_BLOCK_SIZE = 2048; // Assuming a common cache line size of 64 bytes
 constexpr size_t CACHELINE_SIZE = 64; // Assuming a common cache line size of 64 bytes
-constexpr int NUM_THREADS = 2; // Number of threads
+constexpr int NUM_THREADS = 1; // Number of threads
 int num_numa_nodes;
 std::atomic<uint16_t> start_sync = 0;
 std::atomic<uint16_t> end_sync = 0;
