@@ -26,7 +26,7 @@ void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& 
     printf("Node %d preparing access set finished\n", node);
     //TODO: making the write value a long buffer sized as Cache line size (or 2KB) and then copy the value to the target address.
     // Also initialize the buffer with random value.
-    uint64_t written_value = rand();
+    uint64_t written_value = node;
     // warm up
     uint64_t operation_count = 0;
     while (operation_count < NUM_STEPS) {
@@ -55,13 +55,14 @@ void memset_on_node(int node, std::vector<char*>& buffers, std::vector<size_t>& 
                 // read
 //                memcpy(reinterpret_cast<void *>(written_value), buffers[buffer_index] + target_offset, 8);
                 for (size_t i = 0; i < ACCESS_BLOCK_SIZE/CACHELINE_SIZE; ++i) {
-                    asm volatile (
-                            "mov %%rax, %1\n\t"
-                            "mov (%%rax), %0\n\t"
-                            :
-                            : "r" (written_value), "r" (buffers[buffer_index] + target_offset + i*CACHELINE_SIZE)
-                            : "%rax"
-                            );
+//                    asm volatile (
+//                            "mov %%rax, %1\n\t"
+//                            "mov (%%rax), %0\n\t"
+//                            :
+//                            : "ri" (written_value), "r" (buffers[buffer_index] + target_offset + i*CACHELINE_SIZE)
+//                            : "%rax"
+//                            );
+                    memcpy(buffers[buffer_index] + target_offset + i*CACHELINE_SIZE, reinterpret_cast<void *>(written_value), 8);
 //                    asm ("" ::: "memory");
                 }
 //            }
