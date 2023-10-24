@@ -11,6 +11,8 @@
 extern int TimePrintCounter[MAX_APP_THREAD];
 extern bool Show_Me_The_Print;
 #endif
+uint64_t cache_invalidation[MAX_APP_THREAD] = {0};
+
 namespace DSMEngine {
 uint16_t RDMA_Manager::node_id = 0;
 #ifdef PROCESSANALYSIS
@@ -32,7 +34,6 @@ std::atomic<uint64_t> RDMA_Manager::ReadCount1 = 0;
     thread_local int RDMA_Manager::qp_inc_ticket = 0;
 //#endif
 
-uint64_t cache_invalidation[MAX_APP_THREAD] = {0};
 //uint64_t cache_hit[MAX_APP_THREAD][8];
 //#define R_SIZE 32
 void UnrefHandle_rdma(void* ptr) { delete static_cast<std::string*>(ptr); }

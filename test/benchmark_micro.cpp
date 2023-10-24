@@ -96,7 +96,8 @@ int addr_size = sizeof(GlobalAddress);
 int item_size = addr_size;
 int items_per_block =  kLeafPageSize / item_size;
 std::atomic<int> thread_sync_counter(0);
- extern uint64_t cache_invalidation[MAX_APP_THREAD];
+
+extern uint64_t cache_invalidation[MAX_APP_THREAD];
 
 inline int GetRandom(int min, int max, unsigned int* seedp) {
     int ret = (rand_r(seedp) % (max - min)) + min;
