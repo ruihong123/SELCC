@@ -32,7 +32,8 @@ std::atomic<uint64_t> RDMA_Manager::ReadCount1 = 0;
     thread_local int RDMA_Manager::qp_inc_ticket = 0;
 //#endif
 
-
+uint64_t cache_invalidation[MAX_APP_THREAD] = {0};
+//uint64_t cache_hit[MAX_APP_THREAD][8];
 //#define R_SIZE 32
 void UnrefHandle_rdma(void* ptr) { delete static_cast<std::string*>(ptr); }
 void UnrefHandle_qp(void* ptr) {
@@ -3347,6 +3348,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t conflict_tag = 0;
         *(uint64_t *)cas_buffer->addr = 0;
         uint8_t target_compute_node_id = 0;
+#ifdef INVALIDATION_STATISTICS
+        bool invalidation_counted = false;
+#endif
 //        printf("READ page %p from remote memory to local mr %p 1, thread_id is %d\n", page_addr, page_buffer->addr, thread_id);
 
 //        printf("global read lock at %p \n", page_addr);
@@ -3374,6 +3378,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }
 //            assert(target_compute_node_id != (RDMA_Manager::node_id));
             if (target_compute_node_id != (RDMA_Manager::node_id)){
+#ifdef INVALIDATION_STATISTICS
+                if(!invalidation_counted){
+                    invalidation_counted = true;
+                    cache_invalidation[RDMA_Manager::thread_id]++;
+                }
+#endif
                 Exclusive_lock_invalidate_RPC(page_addr, target_compute_node_id);
 
             }else{
@@ -3567,7 +3577,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         std::vector<uint16_t> read_invalidation_targets;
         uint16_t write_invalidation_target = 0-1;
         int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
-
+#ifdef INVALIDATION_STATISTICS
+        bool invalidation_counted = false;
+#endif
     retry:
         retry_cnt++;
         uint64_t compare = 0;
@@ -3602,6 +3614,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 assert(!read_invalidation_targets.empty());
                 for (auto iter: read_invalidation_targets) {
                     if (iter != (RDMA_Manager::node_id)){
+#ifdef INVALIDATION_STATISTICS
+                        if(!invalidation_counted){
+                            invalidation_counted = true;
+                            cache_invalidation[RDMA_Manager::thread_id]++;
+                        }
+#endif
                         Shared_lock_invalidate_RPC(page_addr, iter);
                     }else{
                         // This rare case is because the cache mutex will be released before the read/write lock release.
@@ -3614,6 +3632,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 assert(write_invalidation_target != 0-1);
 //                assert(write_invalidation_target != node_id);
                 if (write_invalidation_target != (RDMA_Manager::node_id)){
+#ifdef INVALIDATION_STATISTICS
+                    if(!invalidation_counted){
+                        invalidation_counted = true;
+                        cache_invalidation[RDMA_Manager::thread_id]++;
+                    }
+#endif
                     Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
 
                 }else{
@@ -3709,6 +3733,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         std::vector<uint16_t> read_invalidation_targets;
         uint16_t write_invalidation_target = 0-1;
         int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
+#ifdef INVALIDATION_STATISTICS
+        bool invalidation_counted = false;
+#endif
 
         retry:
         retry_cnt++;
@@ -3744,6 +3771,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 assert(!read_invalidation_targets.empty());
                 for (auto iter: read_invalidation_targets) {
                     if (iter != (RDMA_Manager::node_id)){
+#ifdef INVALIDATION_STATISTICS
+                        if(!invalidation_counted){
+                            invalidation_counted = true;
+                            cache_invalidation[RDMA_Manager::thread_id]++;
+                        }
+#endif
                         Shared_lock_invalidate_RPC(page_addr, iter);
                     }else{
                         // This rare case is because the cache mutex will be released before the read/write lock release.
@@ -3756,6 +3789,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 assert(write_invalidation_target != 0-1);
 //                assert(write_invalidation_target != node_id);
                 if (write_invalidation_target != (RDMA_Manager::node_id)){
+#ifdef INVALIDATION_STATISTICS
+                    if(!invalidation_counted){
+                        invalidation_counted = true;
+                        cache_invalidation[RDMA_Manager::thread_id]++;
+                    }
+#endif
                     Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
 
                 }else{

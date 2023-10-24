@@ -478,10 +478,10 @@ node_range="1 2 4 8"
 thread_range="16"
 remote_range="0"
 shared_range="100"
-read_range="0 50"
-space_range="50"
+read_range="0 50 100"
+space_range="0"
 time_range="0"
-op_range="0" # use 1
+op_range="1" # use 1
 #cache_th=0.5
 
 for remote_ratio in $remote_range

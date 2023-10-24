@@ -57,8 +57,8 @@ const char* result_file = "result.csv";
 //exp parameters
 // Cache can hold 4Million cache entries. Considering the random filling mechanism,
 // if we want to gurantee that the cache has been filled, we need to run 8Million iterations (2 times). space locality use 16384000
-//long ITERATION_TOTAL = 8192000;
-long ITERATION_TOTAL = 16384000;
+long ITERATION_TOTAL = 8192000;
+//long ITERATION_TOTAL = 16384000;
 long ITERATION = 0;
 
 //long FENCE_PERIOD = 1000;
@@ -96,7 +96,7 @@ int addr_size = sizeof(GlobalAddress);
 int item_size = addr_size;
 int items_per_block =  kLeafPageSize / item_size;
 std::atomic<int> thread_sync_counter(0);
-
+ extern uint64_t cache_invalidation[MAX_APP_THREAD];
 
 inline int GetRandom(int min, int max, unsigned int* seedp) {
     int ret = (rand_r(seedp) % (max - min)) + min;
@@ -480,6 +480,7 @@ void Benchmark(int id, DDSM* alloc) {
 
     unsigned int seedp = compute_num * alloc->GetID() + id;
     printf("seedp = %d\n", seedp);
+    bindCore(id);
 
 #ifdef PERF_MALLOC
     long it = 1000000;
@@ -572,7 +573,9 @@ void Benchmark(int id, DDSM* alloc) {
 
     bool warmup = true;
     Run(alloc, data, access, addr_to_pos, shared, id, &seedp, warmup);
-
+    for (int i = 0; i < MAX_APP_THREAD; ++i) {
+        cache_invalidation[i] = 0;
+    }
     uint64_t SYNC_RUN_BASE = SYNC_KEY + compute_num * 2;
     int sync_id = SYNC_RUN_BASE + compute_num * node_id + id;
     if (id!= 0){
@@ -787,7 +790,10 @@ int main(int argc, char* argv[]) {
     }
     a_thr /= compute_num;
     a_lat /= compute_num;
-
+    uint64_t total_invalidation = 0;
+    for (int i = 0; i < MAX_APP_THREAD; ++i) {
+        total_invalidation = cache_invalidation[i] + total_invalidation;
+    }
     if (is_master) {
         std::ofstream result;
         result.open(result_file, std::ios::app);
@@ -800,10 +806,11 @@ int main(int argc, char* argv[]) {
                 "results for all the nodes: "
                 "compute_num: %d, no_thread: %d, shared_ratio: %d, read_ratio: %d, space_locality: %d, "
                 "time_locality: %d, op_type = %d, memory_type = %d, item_size = %d, "
-                "total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld, cache_th = %f\n\n",
+                "total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld, operation with cache invalidation message accounts for %f percents \n\n",
                 compute_num, no_thread, shared_ratio, read_ratio,
                 space_locality, time_locality, op_type, memory_type, item_size, t_thr,
-                a_thr, a_lat, cache_th);
+                a_thr, a_lat, static_cast<double>(total_invalidation)/ITERATION_TOTAL);
+
         result.close();
     }
 
