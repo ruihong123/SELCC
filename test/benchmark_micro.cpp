@@ -807,7 +807,7 @@ int main(int argc, char* argv[]) {
                 "results for all the nodes: "
                 "compute_num: %d, no_thread: %d, shared_ratio: %d, read_ratio: %d, space_locality: %d, "
                 "time_locality: %d, op_type = %d, memory_type = %d, item_size = %d, "
-                "total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld, operation with cache invalidation message accounts for %f percents \n\n",
+                "operation with cache invalidation message accounts for %f percents, total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld, \n\n",
                 compute_num, no_thread, shared_ratio, read_ratio,
                 space_locality, time_locality, op_type, memory_type, item_size, t_thr,
                 a_thr, a_lat, static_cast<double>(total_invalidation)/ITERATION_TOTAL);
