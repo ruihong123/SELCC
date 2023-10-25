@@ -124,7 +124,8 @@ public:
 //            zipfian_values[i] = i;
         }
         double smallest_probability = 1.0 / (pow(array_size, skewness) * harmonic_number);
-        std::cout << "Smallest Probability: " << smallest_probability << std::endl;
+        printf("Smallest Probability: %f\n", smallest_probability);
+//        std::cout << "Smallest Probability: " << smallest_probability << std::endl;
 //        std::shuffle(zipfian_values.begin(), zipfian_values.end(), generator);
     }
 
