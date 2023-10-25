@@ -141,7 +141,7 @@ run() {
         echo ""
         echo "compute = $compute, ip = $ip, port = $port"
         echo "$BIN_HOME/micro_bench --op_type $op_type --no_thread $thread --shared_ratio $shared_ratio --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file $result_file --this_node_id $((2*$i)) --tcp_port $port --is_master $is_master --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num" | tee -a "$log_file".$ip
-        ssh -o StrictHostKeyChecking=no $ip	"cd $BIN_HOME && ./micro_bench --op_type $op_type --no_thread $thread --shared_ratio $shared_ratio --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file $result_file --this_node_id $((2*$i)) --tcp_port $port --is_master $is_master --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num | tee -a '$log_file'.$ip" &
+        ssh -o StrictHostKeyChecking=no $ip	"cd $BIN_HOME && ./micro_bench --op_type $op_type --workload $workload --zipfian_alpha $zipfian_alpha --no_thread $thread --shared_ratio $shared_ratio --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file $result_file --this_node_id $((2*$i)) --tcp_port $port --is_master $is_master --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num | tee -a '$log_file'.$ip" &
         sleep 1
         i=$((i+1))
   #    	if [ "$i" = "$node" ]; then
@@ -481,6 +481,7 @@ shared_range="100"
 read_range="0 50 100"
 space_range="0"
 time_range="0"
+zipfian_alpha_range="0.1 0.5"
 op_range="1" # use 1
 #cache_th=0.5
 
