@@ -20,8 +20,7 @@ std::atomic<uint64_t> RDMA_Manager::RDMAReadTimeElapseSum = 0;
 std::atomic<uint64_t> RDMA_Manager::ReadCount = 0;
 #endif
 //TODO: This should be moved to some other classes which is strongly related to btree or storage engine.
-thread_local GlobalAddress path_stack[define::kMaxCoro]
-[define::kMaxLevelOfTree];
+thread_local GlobalAddress path_stack[define::kMaxCoro][define::kMaxLevelOfTree];
 
 #ifdef GETANALYSIS
 std::atomic<uint64_t> RDMA_Manager::RDMAFindmrElapseSum = 0;
