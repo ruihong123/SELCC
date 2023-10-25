@@ -723,7 +723,7 @@ int main(int argc, char* argv[]) {
         } else if (strcmp(argv[i], "--op_type") == 0) {
             op_type = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--workload") == 0) {
-            op_type = atoi(argv[++i]);
+            workload = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--zipfian_alpha") == 0) {
             zipfian_alpha = atof(argv[++i]);
         } else if (strcmp(argv[i], "--result_file") == 0) {
