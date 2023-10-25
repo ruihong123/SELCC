@@ -13,6 +13,7 @@
 #include <cstring>
 #include <mutex>
 #include <set>
+#include <random>
 
 #include "Common.h"
 #include "storage/rdma.h"
@@ -69,6 +70,9 @@ int space_locality = 10;  //0..100
 int time_locality = 10;  //0..100 (how probable it is to re-visit the current position)
 int read_ratio = 10;  //0..100
 int op_type = 0;  //0: read/write; 1: rlock/wlock; 2: rlock+read/wlock+write
+int workload = 0;  //0: random; 1: zipfian
+double zipfian_alpha = 1;
+
 int compute_num = 0;
 int memory_num = 100;
 
@@ -98,6 +102,59 @@ int items_per_block =  kLeafPageSize / item_size;
 std::atomic<int> thread_sync_counter(0);
 
 extern uint64_t cache_invalidation[MAX_APP_THREAD];
+
+class ZipfianDistributionGenerator {
+private:
+    uint64_t array_size;
+    double skewness;
+    std::vector<double> probabilities;
+//    std::vector<int> zipfian_values;
+    std::default_random_engine generator;
+    std::discrete_distribution<int> distribution;
+
+public:
+    ZipfianDistributionGenerator(uint64_t size, double s) : array_size(size), skewness(s), probabilities(size), distribution(probabilities.begin(), probabilities.end()) {
+        double harmonic_number = 0.0;
+        for(int i = 1; i <= array_size; ++i) {
+            harmonic_number += 1.0 / pow(i, skewness);
+        }
+
+        for(int i = 0; i < array_size; ++i) {
+            probabilities[i] = 1.0 / (pow(i+1, skewness) * harmonic_number);
+//            zipfian_values[i] = i;
+        }
+        double smallest_probability = 1.0 / (pow(array_size, skewness) * harmonic_number);
+        std::cout << "Smallest Probability: " << smallest_probability << std::endl;
+//        std::shuffle(zipfian_values.begin(), zipfian_values.end(), generator);
+    }
+
+    int getZipfianValue() {
+//        return zipfian_values[distribution(generator)];
+        return distribution(generator);
+    }
+};
+
+//get a zipfian generator.
+void Zipf_GenData(int n) {
+    //seed
+    std::random_device rd;
+    // random number generator.
+    std::array<int, std::mt19937::state_size> seed_data{};
+    std::generate(std::begin(seed_data), std::end(seed_data), std::ref(rd));
+    std::seed_seq seq(std::begin(seed_data), std::end(seed_data));
+    auto engine = std::mt19937{seq};
+
+
+    //calculate zipfian probability
+    std::vector<double> probabilities;
+    const double a = 1.5; // Zipf alpha
+
+    for (int i = 1; i<=n;i++){
+        probabilities.push_back(1.0/ pow(i, a));
+    }
+
+    std::discrete_distribution<> di(probabilities.begin(), probabilities.end());
+}
 
 inline int GetRandom(int min, int max, unsigned int* seedp) {
     int ret = (rand_r(seedp) % (max - min)) + min;
@@ -268,6 +325,12 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
   gen_accesses.insert(TOBLOCK(access[0]));
   stat_lock.unlock();
 #endif
+    ZipfianDistributionGenerator* zipf_gen;
+    if (workload == 1){
+        zipf_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha);
+    }
+
+
     // Access is the address of future acesses.
     for (int i = 1; i < 2*ITERATION; i++) {
         //PopulateOneBlock(alloc, data, ldata, i, l_remote_ratio, l_space_locality, seedp);
@@ -279,11 +342,21 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                 next = TOPAGE(access[i - 1]);
             }
         } else {
-            GlobalAddress n = data[GetRandom(0, STEPS, seedp)];
-            while (TOPAGE(n) == TOPAGE(access[i - 1])) {
-                n = data[GetRandom(0, STEPS, seedp)];
+            if (workload == 0){
+                GlobalAddress n = data[GetRandom(0, STEPS, seedp)];
+                while (TOPAGE(n) == TOPAGE(access[i - 1])) {
+                    n = data[GetRandom(0, STEPS, seedp)];
+                }
+                next = GADD(n, GetRandom(0, items_per_block, seedp) * item_size);
+            } else if (workload == 1){
+                uint64_t pos = zipf_gen->getZipfianValue();
+                GlobalAddress n = data[pos];
+                while (TOPAGE(n) == TOPAGE(access[i - 1])) {
+                    n = data[GetRandom(0, STEPS, seedp)];
+                }
+                next = GADD(n, GetRandom(0, items_per_block, seedp) * item_size);
             }
-            next = GADD(n, GetRandom(0, items_per_block, seedp) * item_size);
+
 
 //            GlobalAddress n = data[GetRandom(0, STEPS, seedp)];
 //            while (n == access[i - 1]) {
@@ -299,6 +372,9 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 #endif
     }
     printf("end init\n");
+    if (workload == 1){
+        delete zipf_gen;
+    }
 }
 
 bool Equal(char buf1[], char buf2[], int size) {
@@ -643,9 +719,11 @@ int main(int argc, char* argv[]) {
         } else if (strcmp(argv[i], "--time_locality") == 0) {
             time_locality = atoi(argv[++i]);  //0..100
         } else if (strcmp(argv[i], "--op_type") == 0) {
-            op_type = atoi(argv[++i]);  //0..100
-//    } else if (strcmp(argv[i], "--compute_num") == 0) {
-//      compute_num = atoi(argv[++i]);  //0..100
+            op_type = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--workload") == 0) {
+            op_type = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--zipfian_alpha") == 0) {
+            zipfian_alpha = atof(argv[++i]);
         } else if (strcmp(argv[i], "--result_file") == 0) {
             result_file = argv[++i];  //0..100
         } else if (strcmp(argv[i], "--item_size") == 0) {
