@@ -352,7 +352,8 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                 uint64_t pos = zipf_gen->getZipfianValue();
                 GlobalAddress n = data[pos];
                 while (TOPAGE(n) == TOPAGE(access[i - 1])) {
-                    n = data[GetRandom(0, STEPS, seedp)];
+                    pos = zipf_gen->getZipfianValue();
+                    n = data[pos];
                 }
                 next = GADD(n, GetRandom(0, items_per_block, seedp) * item_size);
             }
