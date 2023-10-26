@@ -127,7 +127,7 @@ public:
 
     int getZipfianValue() {
 //        return zipfian_values[distribution(generator)];
-        return distribution(generator);
+        return (*distribution)(generator);
     }
 };
 
