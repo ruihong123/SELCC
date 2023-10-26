@@ -1327,6 +1327,7 @@ void RDMA_Manager::sync_with_computes_Cside() {
         char buffer[100];
         int number_of_ready = 0;
         uint64_t rc = 0;
+        int round  = 0;
 //#ifndef NDEBUG
         std::vector<uint16_t > answered_nodes;
 //#endif
@@ -1346,6 +1347,7 @@ void RDMA_Manager::sync_with_computes_Cside() {
                         number_of_ready = 0;
 //#ifndef NDEBUG
                         answered_nodes.clear();
+                        round++;
 //#endif
                     }
                     rc = 0;
