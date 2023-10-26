@@ -113,7 +113,7 @@ private:
     std::discrete_distribution<int>* distribution;
 
 public:
-    ZipfianDistributionGenerator(uint64_t size, double s) : array_size(size), skewness(s), probabilities(size) {
+    ZipfianDistributionGenerator(uint64_t size, double s, unsigned int seed) : array_size(size), skewness(s), probabilities(size), generator(seed) {
         for(int i = 0; i < array_size; ++i) {
             probabilities[i] = 1.0 / (pow(i+1, skewness));
 //            zipfian_values[i] = i;
@@ -302,7 +302,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 #endif
     ZipfianDistributionGenerator* zipf_gen;
     if (workload == 1){
-        zipf_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha);
+        zipf_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha, *seedp);
     }
 
 
@@ -531,7 +531,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
 
 void Benchmark(int id, DDSM* alloc) {
 
-    unsigned int seedp = compute_num * alloc->GetID() + id;
+    unsigned int seedp = no_thread * alloc->GetID() + id;
     printf("seedp = %d\n", seedp);
     bindCore(id);
 
