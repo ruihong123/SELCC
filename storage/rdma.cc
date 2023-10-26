@@ -1334,6 +1334,7 @@ void RDMA_Manager::sync_with_computes_Cside() {
 
         while (1){
             for(auto iter : res->sock_map){
+                //Read is a block function
                 rc =read(iter.second, buffer, 100);
                 if(rc != 0){
                     number_of_ready++;
