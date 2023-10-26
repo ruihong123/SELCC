@@ -114,16 +114,11 @@ private:
 
 public:
     ZipfianDistributionGenerator(uint64_t size, double s) : array_size(size), skewness(s), probabilities(size), distribution(probabilities.begin(), probabilities.end()) {
-        double harmonic_number = 0.0;
-        for(int i = 1; i <= array_size; ++i) {
-            harmonic_number += 1.0 / pow(i, skewness);
-        }
-
         for(int i = 0; i < array_size; ++i) {
-            probabilities[i] = 1.0 / (pow(i+1, skewness) * harmonic_number);
+            probabilities[i] = 1.0 / (pow(i+1, skewness));
 //            zipfian_values[i] = i;
         }
-        double smallest_probability = 1.0 / (pow(array_size, skewness) * harmonic_number);
+        double smallest_probability = 1.0 / (pow(array_size, skewness));
         printf("Smallest Probability: %f\n", smallest_probability);
 //        std::cout << "Smallest Probability: " << smallest_probability << std::endl;
 //        std::shuffle(zipfian_values.begin(), zipfian_values.end(), generator);
@@ -134,28 +129,6 @@ public:
         return distribution(generator);
     }
 };
-
-//get a zipfian generator.
-void Zipf_GenData(int n) {
-    //seed
-    std::random_device rd;
-    // random number generator.
-    std::array<int, std::mt19937::state_size> seed_data{};
-    std::generate(std::begin(seed_data), std::end(seed_data), std::ref(rd));
-    std::seed_seq seq(std::begin(seed_data), std::end(seed_data));
-    auto engine = std::mt19937{seq};
-
-
-    //calculate zipfian probability
-    std::vector<double> probabilities;
-    const double a = 1.5; // Zipf alpha
-
-    for (int i = 1; i<=n;i++){
-        probabilities.push_back(1.0/ pow(i, a));
-    }
-
-    std::discrete_distribution<> di(probabilities.begin(), probabilities.end());
-}
 
 inline int GetRandom(int min, int max, unsigned int* seedp) {
     int ret = (rand_r(seedp) % (max - min)) + min;
