@@ -110,16 +110,17 @@ private:
     std::vector<double> probabilities;
 //    std::vector<int> zipfian_values;
     std::default_random_engine generator;
-    std::discrete_distribution<int> distribution;
+    std::discrete_distribution<int>* distribution;
 
 public:
-    ZipfianDistributionGenerator(uint64_t size, double s) : array_size(size), skewness(s), probabilities(size), distribution(probabilities.begin(), probabilities.end()) {
+    ZipfianDistributionGenerator(uint64_t size, double s) : array_size(size), skewness(s), probabilities(size) {
         for(int i = 0; i < array_size; ++i) {
             probabilities[i] = 1.0 / (pow(i+1, skewness));
 //            zipfian_values[i] = i;
         }
         double smallest_probability = 1.0 / (pow(array_size, skewness));
         printf("Smallest Probability: %f\n", smallest_probability);
+        distribution = new std::discrete_distribution<int>(probabilities.begin(), probabilities.end());
 //        std::cout << "Smallest Probability: " << smallest_probability << std::endl;
 //        std::shuffle(zipfian_values.begin(), zipfian_values.end(), generator);
     }
