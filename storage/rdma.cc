@@ -3375,10 +3375,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                     printf("Invalidate RPC in Read lock timeout 81\n");
                 }
                 usleep(2000);
-            }else{
+            }else if (retry_cnt <200){
                 sleep(1);
                 // The lock could be in starvation, restart with a lower retry_cnt.
-//                retry_cnt = 0;
+                retry_cnt = 0;
             }
 //            assert(target_compute_node_id != (RDMA_Manager::node_id));
             if (target_compute_node_id != (RDMA_Manager::node_id)){
@@ -3609,10 +3609,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                     printf("Invalidate RPC in Read lock timeout 81\n");
                 }
                 usleep(2000);
-            }else{
+            }else if (retry_cnt <200){
                 sleep(1);
                 // The lock could be in starvation, restart with a lower retry_cnt.
-//                retry_cnt = 0;
+                retry_cnt = 0;
             }
 
 
@@ -3768,10 +3768,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                     printf("Invalidate RPC in Read lock timeout 81\n");
                 }
                 usleep(2000);
-            }else{
+            }else if (retry_cnt <200){
                 sleep(1);
                 // The lock could be in starvation, restart with a lower retry_cnt.
-//                retry_cnt = 0;
+                retry_cnt = 0;
             }
 
 
