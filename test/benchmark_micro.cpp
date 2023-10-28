@@ -119,9 +119,13 @@ public:
 //            zipfian_values[i] = i;
         }
         double smallest_probability = 1.0 / (pow(array_size, skewness));
-        printf("Smallest Probability: %f\n", smallest_probability);
+// Convert smallest_probability to a string
+        char buffer[50];
+        snprintf(buffer, sizeof(buffer), "%.15f", smallest_probability);
+
+        // Print the smallest_probability
+        printf("Smallest Probability: %s\n", buffer);
         distribution = new std::discrete_distribution<int>(probabilities.begin(), probabilities.end());
-//        std::cout << "Smallest Probability: " << smallest_probability << std::endl;
 //        std::shuffle(zipfian_values.begin(), zipfian_values.end(), generator);
     }
 
