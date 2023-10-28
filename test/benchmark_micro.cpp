@@ -820,8 +820,8 @@ int main(int argc, char* argv[]) {
     long a_lat = avg_latency;
     a_lat /= no_thread;
     printf(
-            "results for node_id %d: total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld",
-            node_id, t_thr, a_thr, a_lat);
+            "results for node_id %d: total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld， operation need cache invalidation %lu, total operation executed %ld\n\n",
+            node_id, t_thr, a_thr, a_lat, cache_invalidation[id], ITERATION_TOTAL);
 
     //sync with all the other workers
     //check all the benchmark are completed
