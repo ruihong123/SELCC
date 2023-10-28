@@ -604,6 +604,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
 
         }else{
+            // Currently we do not support the second strategy.
+            assert(false) ;
             assert(strategy.load() == 2);
             cache_miss[RDMA_Manager::thread_id][0]++;
             // TODO: acquire the lock and read to local buffer and remeber to release in the end.
@@ -621,7 +623,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             remote_lock_status.store(0);
         }
 //        assert(handle->refs.load() == 2);
-            rw_mtx.unlock_shared();
+        rw_mtx.unlock_shared();
     }
 
     void
