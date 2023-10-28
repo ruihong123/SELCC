@@ -819,9 +819,13 @@ int main(int argc, char* argv[]) {
     a_thr /= no_thread;
     long a_lat = avg_latency;
     a_lat /= no_thread;
+    uint64_t total_invalidation = 0;
+    for (int i = 0; i < MAX_APP_THREAD; ++i) {
+        total_invalidation = cache_invalidation[i] + total_invalidation;
+    }
     printf(
             "results for node_id %d: total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld， operation need cache invalidation %lu, total operation executed %ld\n\n",
-            node_id, t_thr, a_thr, a_lat, cache_invalidation[id], ITERATION_TOTAL);
+            node_id, t_thr, a_thr, a_lat, total_invalidation, ITERATION_TOTAL);
 
     //sync with all the other workers
     //check all the benchmark are completed
@@ -846,10 +850,7 @@ int main(int argc, char* argv[]) {
     }
     a_thr /= compute_num;
     a_lat /= compute_num;
-    uint64_t total_invalidation = 0;
-    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-        total_invalidation = cache_invalidation[i] + total_invalidation;
-    }
+
     if (is_master) {
         std::ofstream result;
         result.open(result_file, std::ios::app);
