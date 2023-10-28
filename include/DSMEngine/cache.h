@@ -75,6 +75,7 @@ class DSMEngine_EXPORT Cache {
         bool keep_the_mr = false;
         std::shared_mutex rw_mtx;
         RDMA_Manager* rdma_mg = nullptr;
+        std::set<uint16_t> holder_ids;
         void (*deleter)(Cache::Handle* handle);
         ~Handle(){}
         void reader_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);

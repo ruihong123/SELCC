@@ -562,6 +562,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
             //No matter what strategy we are following, we always utilize local read-write lock to reduce the RDMA traffic
         rw_mtx.lock_shared();
+        holder_ids.insert(RDMA_Manager::thread_id);
         // First check whether the strategy is 1 and read or write lock is on, if so do nothing. If not, fetch the page
         // and read lock the page
         if(strategy.load() == 1){
@@ -572,9 +573,12 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 cache_miss[RDMA_Manager::thread_id][0]++;
                 // upgrade the lock the write lock.
                 //Can we use the std::call_once here?
+                holder_ids.remove(RDMA_Manager::thread_id);
                 rw_mtx.unlock_shared();
 //                std::unique_lock<std::shared_mutex> w_l(handle->rw_mtx);
                 rw_mtx.lock();
+                holder_ids.insert(RDMA_Manager::thread_id);
+
                 if (strategy.load() == 1 && remote_lock_status.load() == 0){
                     if(value) {
                         mr = (ibv_mr*)value;
@@ -594,9 +598,12 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                     rdma_mg->global_Rlock_and_read_page(mr, page_addr, page_size, lock_addr, cas_mr);
                     remote_lock_status.store(1);
                 }
+                holder_ids.remove(RDMA_Manager::thread_id);
 
                 rw_mtx.unlock();
                 rw_mtx.lock_shared();
+                holder_ids.insert(RDMA_Manager::thread_id);
+
             }else{
                 cache_hit[RDMA_Manager::thread_id][0]++;
             }
@@ -623,6 +630,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             remote_lock_status.store(0);
         }
 //        assert(handle->refs.load() == 2);
+        holder_ids.remove(RDMA_Manager::thread_id);
         rw_mtx.unlock_shared();
     }
 
@@ -634,6 +642,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
 
         rw_mtx.lock();
+        holder_ids.insert(RDMA_Manager::thread_id);
 
         if(strategy.load() == 1){
 #ifndef NDEBUG
@@ -701,6 +710,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
         }
 //        if (strategy == 1){
+        holder_ids.remove(RDMA_Manager::thread_id);
+
             rw_mtx.unlock();
 //        }
     }
@@ -711,6 +722,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
 
         rw_mtx.lock();
+        holder_ids.insert(RDMA_Manager::thread_id);
 
         if(strategy.load() == 1){
 #ifndef NDEBUG
@@ -795,6 +807,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
         }
 //        if (strategy == 1){
+        holder_ids.insert(RDMA_Manager::thread_id);
+
         rw_mtx.unlock();
     }
 

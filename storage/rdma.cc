@@ -5170,11 +5170,7 @@ void RDMA_Manager::Allocate_Remote_RDMA_Slot(ibv_mr &remote_mr, Chunk_type pool_
         remote_mr.addr = static_cast<void*>(static_cast<char*>(remote_mr.addr) +
                                             sst_index * CachelineSize);
         remote_mr.length = CachelineSize;
-        //    remote_data_mrs->fname = file_name;
-        //    remote_data_mrs->map_pointer = mr_last;
-//  DEBUG_arg("Allocate Remote pointer %p",  remote_mr.addr);
-        return;
-    }
+   }
 
 GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint16_t target_node_id) {
   // If the Remote buffer is empty, register one from the remote memory.
