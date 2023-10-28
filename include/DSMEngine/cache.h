@@ -19,7 +19,7 @@
 #define STORAGE_DSMEngine_INCLUDE_CACHE_H_
 
 #include <cstdint>
-
+#include <set>
 #include "DSMEngine/export.h"
 #include "DSMEngine/slice.h"
 #include <shared_mutex>
@@ -170,7 +170,7 @@ class DSMEngine_EXPORT Cache {
         LRUHandle* next_hash;// Next LRUhandle in the hash
         LRUHandle* next;
         LRUHandle* prev;
-        size_t charge;  // TODO(opt): Only allow uint32_t?
+        uint64_t charge;
         size_t key_length;
         std::atomic<bool> in_cache;     // Whether entry is in the table_cache.
         uint32_t hash;     // Hash of key(); used for fast sharding and comparisons

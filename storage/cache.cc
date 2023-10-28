@@ -573,7 +573,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 cache_miss[RDMA_Manager::thread_id][0]++;
                 // upgrade the lock the write lock.
                 //Can we use the std::call_once here?
-                holder_ids.remove(RDMA_Manager::thread_id);
+                holder_ids.erase(RDMA_Manager::thread_id);
                 rw_mtx.unlock_shared();
 //                std::unique_lock<std::shared_mutex> w_l(handle->rw_mtx);
                 rw_mtx.lock();
@@ -598,7 +598,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                     rdma_mg->global_Rlock_and_read_page(mr, page_addr, page_size, lock_addr, cas_mr);
                     remote_lock_status.store(1);
                 }
-                holder_ids.remove(RDMA_Manager::thread_id);
+                holder_ids.erase(RDMA_Manager::thread_id);
 
                 rw_mtx.unlock();
                 rw_mtx.lock_shared();
@@ -630,7 +630,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             remote_lock_status.store(0);
         }
 //        assert(handle->refs.load() == 2);
-        holder_ids.remove(RDMA_Manager::thread_id);
+        holder_ids.erase(RDMA_Manager::thread_id);
         rw_mtx.unlock_shared();
     }
 
@@ -710,7 +710,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
         }
 //        if (strategy == 1){
-        holder_ids.remove(RDMA_Manager::thread_id);
+        holder_ids.erase(RDMA_Manager::thread_id);
 
             rw_mtx.unlock();
 //        }
