@@ -157,10 +157,14 @@ long get_time() {
 bool TrueOrFalse(double probability, unsigned int* seedp) {
     return (rand_r(seedp) % 100) < probability;
 }
+//TODO: This to page operation is wrong. !!!!!!! THe page is not aligned to 2048, it only
+// alligned to 8.
 GlobalAddress TOPAGE(GlobalAddress addr){
     GlobalAddress ret = addr;
+    ret.offset = ret.offset % 1024ull*1024*1024;
     ret.offset = (ret.offset/kLeafPageSize)*kLeafPageSize;
     assert(ret.nodeID <= 64);// Just for debug.
+    assert(addr.offset - ret.offset < kLeafPageSize);
     return ret;
 }
 
@@ -823,24 +827,25 @@ int main(int argc, char* argv[]) {
     a_thr /= no_thread;
     long a_lat = avg_latency;
     a_lat /= no_thread;
-    uint64_t total_invalidation = 0;
+    uint64_t invalidation_num = 0;
     for (int i = 0; i < MAX_APP_THREAD; ++i) {
-        total_invalidation = cache_invalidation[i] + total_invalidation;
+        invalidation_num = cache_invalidation[i] + invalidation_num;
     }
     printf(
-            "results for node_id %d: total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld， operation need cache invalidation %lu, total operation executed %ld\n\n",
-            node_id, t_thr, a_thr, a_lat, total_invalidation, ITERATION_TOTAL);
+            "results for workload: %d, zipfian_alpha: %f node_id %d: total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld， operation need cache invalidation %lu, total operation executed %ld\n\n",
+            workload, zipfian_alpha, node_id, t_thr, a_thr, a_lat, invalidation_num, ITERATION_TOTAL);
 
     //sync with all the other workers
     //check all the benchmark are completed
-    long res[3];
+    long res[4];
     res[0] = t_thr;  //total throughput for the current node
     res[1] = a_thr;  //avg throuhgput for the current node
     res[2] = a_lat;  //avg latency for the current node
+    res[3] = invalidation_num;  //avg latency for the current node
     int temp = SYNC_KEY + Memcache_offset + node_id;
     printf("memset temp key %d\n", temp);
-    ddsm.memSet((char*)&temp, sizeof(int), (char*)res, sizeof(long) * 3);
-    t_thr = a_thr = a_lat = 0;
+    ddsm.memSet((char*)&temp, sizeof(int), (char*)res, sizeof(long) * 4);
+    t_thr = a_thr = a_lat = invalidation_num = 0;
     for (int i = 0; i < compute_num; i++) {
         memset(res, 0, sizeof(long) * 3);
         temp = SYNC_KEY + Memcache_offset + i * 2;
@@ -851,9 +856,11 @@ int main(int argc, char* argv[]) {
         t_thr += ret[0];
         a_thr += ret[1];
         a_lat += ret[2];
+        invalidation_num += ret[3];
     }
     a_thr /= compute_num;
     a_lat /= compute_num;
+    invalidation_num /= compute_num;
 
     if (is_master) {
         std::ofstream result;
@@ -869,8 +876,8 @@ int main(int argc, char* argv[]) {
                 "time_locality: %d, op_type = %d, memory_type = %d, item_size = %d, "
                 "operation with cache invalidation message accounts for %f percents, total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld, \n\n",
                 compute_num, no_thread, shared_ratio, read_ratio,
-                space_locality, time_locality, op_type, memory_type, item_size, t_thr,
-                a_thr, a_lat, static_cast<double>(total_invalidation)/ITERATION_TOTAL);
+                space_locality, time_locality, op_type, memory_type, item_size, static_cast<double>(invalidation_num) / ITERATION_TOTAL, t_thr,
+                a_thr, a_lat);
 
         result.close();
     }
