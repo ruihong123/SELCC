@@ -161,8 +161,10 @@ bool TrueOrFalse(double probability, unsigned int* seedp) {
 // alligned to 8.
 GlobalAddress TOPAGE(GlobalAddress addr){
     GlobalAddress ret = addr;
-    ret.offset = ret.offset % 1024ull*1024*1024;
-    ret.offset = (ret.offset/kLeafPageSize)*kLeafPageSize;
+    size_t bulk_granularity = 1024ull*1024*1024;
+    size_t bulk_offset = ret.offset / bulk_granularity;
+    ret.offset = ret.offset % bulk_granularity;
+    ret.offset = bulk_offset*bulk_granularity + (ret.offset/kLeafPageSize)*kLeafPageSize;
     assert(ret.nodeID <= 64);// Just for debug.
     assert(addr.offset - ret.offset < kLeafPageSize);
     return ret;
