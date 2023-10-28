@@ -611,9 +611,9 @@ void Benchmark(int id, DDSM* alloc) {
     Init(alloc, data, access, shared, id, &seedp);
 
     //init addr_to_pos map
-    for (int i = 0; i < STEPS; i++) {
-        addr_to_pos[data[i]] = i;
-    }
+//    for (int i = 0; i < STEPS; i++) {
+//        addr_to_pos[data[i]] = i;
+//    }
 
 //	//localize the shared data access part
 //	for(int i = 0; i < STEPS; i++) {
