@@ -561,7 +561,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
             //No matter what strategy we are following, we always utilize local read-write lock to reduce the RDMA traffic
-            rw_mtx.lock_shared();
+        rw_mtx.lock_shared();
         // First check whether the strategy is 1 and read or write lock is on, if so do nothing. If not, fetch the page
         // and read lock the page
         if(strategy.load() == 1){
