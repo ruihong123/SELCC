@@ -75,7 +75,9 @@ class DSMEngine_EXPORT Cache {
         bool keep_the_mr = false;
         std::shared_mutex rw_mtx;
         RDMA_Manager* rdma_mg = nullptr;
+        //TODO: The logic for holder_ids is not correct
         std::set<uint16_t> holder_ids;
+        std::mutex holder_id_mtx;
         void (*deleter)(Cache::Handle* handle);
         ~Handle(){}
         void reader_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
