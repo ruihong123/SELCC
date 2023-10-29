@@ -18,7 +18,7 @@
 #ifndef STORAGE_DSMEngine_INCLUDE_CACHE_H_
 #define STORAGE_DSMEngine_INCLUDE_CACHE_H_
 
-#define LOCAL_LOCK_DEBUG
+//#define LOCAL_LOCK_DEBUG
 #include <cstdint>
 #include <set>
 #include "DSMEngine/export.h"
