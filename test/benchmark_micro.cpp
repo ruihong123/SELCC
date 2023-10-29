@@ -834,8 +834,8 @@ int main(int argc, char* argv[]) {
         invalidation_num = cache_invalidation[i] + invalidation_num;
     }
     printf(
-            "results for workload: %d, zipfian_alpha: %f node_id %d: total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld， operation need cache invalidation %lu, total operation executed %ld\n\n",
-            workload, zipfian_alpha, node_id, t_thr, a_thr, a_lat, invalidation_num, ITERATION_TOTAL);
+            "results for  node_id %d: workload: %d, zipfian_alpha: %f total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld， operation need cache invalidation %lu, total operation executed %ld\n\n",
+            node_id, workload, zipfian_alpha, t_thr, a_thr, a_lat, invalidation_num, ITERATION_TOTAL);
 
     //sync with all the other workers
     //check all the benchmark are completed
