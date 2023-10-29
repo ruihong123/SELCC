@@ -854,7 +854,7 @@ int main(int argc, char* argv[]) {
         size_t len;
         printf("memGet temp key %d\n", temp);
         long* ret = (long*)ddsm.memGet((char*)&temp , sizeof(int), &len);
-        assert(len == sizeof(long) * 3);
+        assert(len == sizeof(long) * 4);
         t_thr += ret[0];
         a_thr += ret[1];
         a_lat += ret[2];

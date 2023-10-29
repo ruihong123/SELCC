@@ -18,6 +18,7 @@
 #ifndef STORAGE_DSMEngine_INCLUDE_CACHE_H_
 #define STORAGE_DSMEngine_INCLUDE_CACHE_H_
 
+//#define LOCAL_LOCK_DEBUG
 #include <cstdint>
 #include <set>
 #include "DSMEngine/export.h"
@@ -75,9 +76,10 @@ class DSMEngine_EXPORT Cache {
         bool keep_the_mr = false;
         std::shared_mutex rw_mtx;
         RDMA_Manager* rdma_mg = nullptr;
-        //TODO: The logic for holder_ids is not correct
+#ifdef LOCAL_LOCK_DEBUG
         std::set<uint16_t> holder_ids;
         std::mutex holder_id_mtx;
+#endif
         void (*deleter)(Cache::Handle* handle);
         ~Handle(){}
         void reader_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
