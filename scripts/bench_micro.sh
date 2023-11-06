@@ -18,7 +18,7 @@ port=19888
 #memory_num = 0
 run() {
     echo "run for result_file=$result_file,
-    thread=$thread,
+    thread=$thread, zipfian_alpha=$zipfian_alpha, workload=$workload,
     remote_ratio=$remote_ratio, shared_ratio=$shared_ratio,
     read_ratio=$read_ratio, op_type=$op_type,
     space_locality=$space_locality, time_locality=$time_locality"
