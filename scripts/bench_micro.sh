@@ -482,7 +482,7 @@ read_range="50"
 space_range="0"
 time_range="0"
 workload_range="0"
-zipfian_alpha_range="0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9"
+zipfian_alpha_range="0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9"
 op_range="1" # use 1
 #cache_th=0.5
 for workload in $workload_range
