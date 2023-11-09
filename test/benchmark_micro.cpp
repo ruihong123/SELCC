@@ -874,10 +874,10 @@ int main(int argc, char* argv[]) {
                << cache_th << "\n";
         printf(
                 "results for all the nodes: "
-                "compute_num: %d, no_thread: %d, shared_ratio: %d, read_ratio: %d, space_locality: %d, "
+                "compute_num: %d, workload: %d, zipfian_alpha: %f no_thread: %d, shared_ratio: %d, read_ratio: %d, space_locality: %d, "
                 "time_locality: %d, op_type = %d, memory_type = %d, item_size = %d, "
                 "operation with cache invalidation message accounts for %f percents, total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld, \n\n",
-                compute_num, no_thread, shared_ratio, read_ratio,
+                compute_num, workload, zipfian_alpha, no_thread, shared_ratio, read_ratio,
                 space_locality, time_locality, op_type, memory_type, item_size, static_cast<double>(invalidation_num) / ITERATION_TOTAL, t_thr,
                 a_thr, a_lat);
 
