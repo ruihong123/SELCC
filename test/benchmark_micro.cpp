@@ -639,6 +639,7 @@ void Benchmark(int id, DDSM* alloc) {
 
     bool warmup = true;
     Run(alloc, data, access, addr_to_pos, shared, id, &seedp, warmup);
+    fflush(stdout);
     for (int i = 0; i < MAX_APP_THREAD; ++i) {
         cache_invalidation[i] = 0;
     }
