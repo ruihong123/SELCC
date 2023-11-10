@@ -546,6 +546,7 @@ void RDMA_Manager::ConnectQPThroughSocket(std::string qp_type, int socket_fd,
   if (sock_sync_data(socket_fd, sizeof(struct Registered_qp_config),
       (char*)&local_con_data, (char*)&tmp_con_data) < 0) {
     fprintf(stderr, "failed to exchange connection data between sides\n");
+      assert(false);
   }
   remote_con_data->qp_num = ntohl(tmp_con_data.qp_num);
   remote_con_data->lid = ntohs(tmp_con_data.lid);
@@ -953,6 +954,7 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
                      (char*)&local_con_data, (char*)&tmp_con_data) < 0) {
     fprintf(stderr, "failed to exchange connection data between sides\n");
     rc = 1;
+    assert(false);
   }
   remote_con_data->qp_num = ntohl(tmp_con_data.qp_num);
   remote_con_data->lid = ntohs(tmp_con_data.lid);
