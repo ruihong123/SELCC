@@ -16,7 +16,7 @@
 //#include "port/port_posix.h"
 //
 ////uint64_t cache_miss[MAX_APP_THREAD][8];
-////uint64_t cache_hit[MAX_APP_THREAD][8];
+////uint64_t cache_hit_valid[MAX_APP_THREAD][8];
 ////uint64_t invalid_counter[MAX_APP_THREAD][8];
 ////uint64_t lock_fail[MAX_APP_THREAD][8];
 ////uint64_t pattern[MAX_APP_THREAD][8];
@@ -1268,7 +1268,7 @@
 ////    GlobalAddress cache_addr;
 ////    entry = page_cache->search_from_cache(k, &cache_addr);
 ////    if (entry) { // cache hit
-//////      cache_hit[rdma_mg->getMyThreadID()][0]++;
+//////      cache_hit_valid[rdma_mg->getMyThreadID()][0]++;
 ////      from_cache = true;
 ////      p = cache_addr;
 ////      isroot = false;
@@ -1691,7 +1691,7 @@
 //        // Answer: Still optimistic latch free, the local read of internal node do not need local lock,
 //        // but the local write will write through the memory node and acquire the global lock.
 //        if (handle != nullptr){
-//            cache_hit[RDMA_Manager::thread_id][0]++;
+//            cache_hit_valid[RDMA_Manager::thread_id][0]++;
 //            mr = (ibv_mr*)page_cache->Value(handle);
 //            page_buffer = mr->addr;
 //            header = (Header<Key> *)((char*)page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
@@ -2155,7 +2155,7 @@
 //                w_l.unlock();
 //                r_l.lock();
 //            }else{
-//                cache_hit[RDMA_Manager::thread_id][0]++;
+//                cache_hit_valid[RDMA_Manager::thread_id][0]++;
 //            }
 //            mr = (ibv_mr*)handle->value;
 //
@@ -2168,7 +2168,7 @@
 //            //
 //        }
 ////        if (handle->remote_lock_status.load() != 0){
-////            cache_hit[RDMA_Manager::thread_id][0]++;
+////            cache_hit_valid[RDMA_Manager::thread_id][0]++;
 ////            assert(handle->value != nullptr);
 ////            mr = (ibv_mr*)handle->value;
 ////        }
@@ -2458,7 +2458,7 @@
 //    Cache::Handle* handle = nullptr;
 //    // TODO: also use page hint to access the internal store to bypassing the cache
 //    if (level == tree_height.load()) {
-//        cache_hit[RDMA_Manager::thread_id][0]++;
+//        cache_hit_valid[RDMA_Manager::thread_id][0]++;
 //
 //        page_mr = cached_root_page_mr.load();
 //        page_buffer = page_mr->addr;
@@ -2518,7 +2518,7 @@
 //        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
 ////    int flag = 3;
 //        if (handle!= nullptr){
-//            cache_hit[RDMA_Manager::thread_id][0]++;
+//            cache_hit_valid[RDMA_Manager::thread_id][0]++;
 //            // TODO: only fetch the data outside the local metadata.
 //            // is possible that the reader need to have a local reread, during the execution.
 //            page_mr = (ibv_mr*)page_cache->Value(handle);
@@ -4117,7 +4117,7 @@
 //    template <class Key, class Value>
 //    void Btr<Key, Value>::clear_statistics() {
 //  for (int i = 0; i < MAX_APP_THREAD; ++i) {
-//    cache_hit[i][0] = 0;
+//    cache_hit_valid[i][0] = 0;
 //    cache_miss[i][0] = 0;
 //  }
 //}

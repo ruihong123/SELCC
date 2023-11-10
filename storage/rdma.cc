@@ -33,7 +33,7 @@ std::atomic<uint64_t> RDMA_Manager::ReadCount1 = 0;
     thread_local int RDMA_Manager::qp_inc_ticket = 0;
 //#endif
 
-//uint64_t cache_hit[MAX_APP_THREAD][8];
+//uint64_t cache_hit_valid[MAX_APP_THREAD][8];
 //#define R_SIZE 32
 void UnrefHandle_rdma(void* ptr) { delete static_cast<std::string*>(ptr); }
 void UnrefHandle_qp(void* ptr) {

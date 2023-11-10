@@ -18,7 +18,7 @@ const int kCoroCnt = 3;
 const int kTthreadUpper = 23;
 
 extern uint64_t cache_miss[MAX_APP_THREAD][8];
-extern uint64_t cache_hit[MAX_APP_THREAD][8];
+extern uint64_t cache_hit_valid[MAX_APP_THREAD][8];
 extern uint64_t invalid_counter[MAX_APP_THREAD][8];
 extern uint64_t lock_fail[MAX_APP_THREAD][8];
 extern uint64_t pattern[MAX_APP_THREAD][8];
@@ -399,10 +399,10 @@ int main(int argc, char *argv[]) {
     uint64_t hit = 0;
 //    uint64_t realhit = 0;
     for (int i = 0; i < MAX_APP_THREAD; ++i) {
-      all += (cache_hit[i][0] + cache_miss[i][0]);
-      hit += cache_hit[i][0];
+      all += (cache_hit_valid[i][0] + cache_miss[i][0]);
+      hit += cache_hit_valid[i][0];
       //May be we need atomic variable here.
-        cache_hit[i][0] = 0;
+        cache_hit_valid[i][0] = 0;
         cache_miss[i][0] = 0;
 //      realhit += invalid_counter[i][0];
     }
