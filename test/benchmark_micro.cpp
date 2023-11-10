@@ -518,6 +518,9 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
             to_access = access[j];
             //epicAssert(buf == to_access || addr_to_pos.count(buf) == 0);
         }
+        if (i%10000 == 0){
+            printf("Node %d finish %d ops \n", node_id, i);
+        }
     }
 
 //    if (op_type == 0) {
