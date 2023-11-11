@@ -495,7 +495,7 @@ void RDMA_Manager::ConnectQPThroughSocket(std::string qp_type, int socket_fd,
 
 
   /* exchange using TCP sockets info required to connect QPs */
-  printf("checkpoint1");
+  printf("checkpoint1\n");
 
 
     bool seperated_cq = true;
