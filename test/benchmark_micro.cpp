@@ -520,6 +520,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
         }
         if (i%10000 == 0 && id == 0){
             printf("Node %d finish %d ops \n", node_id, i);
+            fflush(stdout);
         }
     }
 
