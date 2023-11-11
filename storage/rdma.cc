@@ -4006,22 +4006,26 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        rdma_mg->RDMA_CAS( remote_lock_addr, local_CAS_mr, 1,0, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
 //        assert(*(uint64_t *)local_CAS_mr->addr == 1);
             //We can apply async unlock here to reduce the latency.
-            uint64_t swap = 0;
+//            uint64_t swap = 0;
             uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
-            Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare,swap, IBV_SEND_SIGNALED, Internal_and_Leaf);
+            volatile uint64_t substract = (~compare) + 1;
+            //TODO: USE rdma faa to release the write lock to avoid continuous spurious unlock resulting from the concurrent read lock request.
+            Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Internal_and_Leaf);
+
+//            Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare,swap, IBV_SEND_SIGNALED, Internal_and_Leaf);
             sr[0].next = &sr[1];
 
 
 
             assert(page_addr.nodeID == remote_lock_addr.nodeID);
             Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-//            printf("Write page from local mr %p   to remote memory %p  1, thread_id is %d\n", page_buffer->addr, page_addr, thread_id);
-            if((*(uint64_t*) local_CAS_mr->addr) != compare){
-//                printf("RDMA write lock unlock happen with RDMA faa FOR rdma READ LOCK\n");
-                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (compare >> 56));
-
-                goto retry;
-            }
+            assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (compare >> 56));
+//            if((*(uint64_t*) local_CAS_mr->addr) != compare){
+////                printf("RDMA write lock unlock happen with RDMA faa FOR rdma READ LOCK\n");
+//                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (compare >> 56));
+//
+//                goto retry;
+//            }
 
         }
 //        printf("Release write lock for %lu\n",page_addr);
