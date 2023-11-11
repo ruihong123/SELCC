@@ -952,10 +952,12 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
   fprintf(stdout, "\nLocal LID = 0x%x\n", res->port_attr.lid);
   if (sock_sync_data(res->sock_map[target_node_id], sizeof(struct Registered_qp_config),
                      (char*)&local_con_data, (char*)&tmp_con_data) < 0) {
-    fprintf(stderr, "failed to exchange connection data between sides\n");
+    fprintf(stderr, "failed to exchange connection data between sides, node%d and node%d\n", node_id, target_node_id);
     rc = 1;
-    assert(false);
+//    assert(false);
+      return rc;
   }
+
   remote_con_data->qp_num = ntohl(tmp_con_data.qp_num);
   remote_con_data->lid = ntohs(tmp_con_data.lid);
   memcpy(remote_con_data->gid, tmp_con_data.gid, 16);
