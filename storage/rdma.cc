@@ -4758,7 +4758,7 @@ int RDMA_Manager::try_poll_completions(ibv_wc* wc_p,
               node_id, poll_result-1, wc_p[poll_result-1].status, wc_p[poll_result-1].vendor_err);
       assert(false);
     }
-      printf("Get a completion from try queue\n");
+//      printf("Get a completion from try queue\n");
 
   }
 #endif
