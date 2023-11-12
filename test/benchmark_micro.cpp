@@ -853,7 +853,7 @@ int main(int argc, char* argv[]) {
     res[1] = a_thr;  //avg throuhgput for the current node
     res[2] = a_lat;  //avg latency for the current node
     res[3] = invalidation_num;  //avg invalidated message number
-    res[3] = hit_valid_num;  //avg latency for the current node
+    res[4] = hit_valid_num;  //avg latency for the current node
     int temp = SYNC_KEY + Memcache_offset + node_id;
     printf("memset temp key %d\n", temp);
     ddsm.memSet((char*)&temp, sizeof(int), (char*)res, sizeof(long) * 5);
