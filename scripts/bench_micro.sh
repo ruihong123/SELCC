@@ -117,7 +117,7 @@ run() {
           echo ""
           echo "memory = $memory, ip = $ip, port = $port"
           echo "$BIN_HOME/memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee $log_file.$ip"
-          ssh -o StrictHostKeyChecking=no $ip	"cd $BIN_HOME && numactl --physcpubind=31 ./memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee $log_file.$ip " &
+          ssh -o StrictHostKeyChecking=no $ip	"ulimit -c 10000 && cd $BIN_HOME && numactl --physcpubind=31 ./memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee $log_file.$ip " &
           sleep 1
           i=$((i+1))
 #        	if [ "$i" = "$node" ]; then
