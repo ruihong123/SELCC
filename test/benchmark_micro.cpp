@@ -643,6 +643,7 @@ void Benchmark(int id, DDSM* alloc) {
     fflush(stdout);
     for (int i = 0; i < MAX_APP_THREAD; ++i) {
         cache_invalidation[i] = 0;
+        cache_hit_valid[i][0] = 0;
     }
     uint64_t SYNC_RUN_BASE = SYNC_KEY + compute_num * 2;
     int sync_id = SYNC_RUN_BASE + compute_num * node_id + id;
