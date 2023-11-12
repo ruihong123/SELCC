@@ -102,7 +102,7 @@ int items_per_block =  kLeafPageSize / item_size;
 std::atomic<int> thread_sync_counter(0);
 
 extern uint64_t cache_invalidation[MAX_APP_THREAD];
-extern uint64_t cache_hit_valid[MAX_APP_THREAD];
+extern uint64_t cache_hit_valid[MAX_APP_THREAD][8];
 class ZipfianDistributionGenerator {
 private:
     uint64_t array_size;
@@ -840,7 +840,7 @@ int main(int argc, char* argv[]) {
         invalidation_num = cache_invalidation[i] + invalidation_num;
     }
     for (int i = 0; i < MAX_APP_THREAD; ++i) {
-        hit_valid_num = cache_hit_valid[i] + hit_valid_num;
+        hit_valid_num = cache_hit_valid[i][0] + hit_valid_num;
     }
     printf(
             "results for  node_id %d: workload: %d, zipfian_alpha: %f total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld， operation need cache invalidation %lu, operation cache hit and valid is %lu,  total operation executed %ld\n\n",
