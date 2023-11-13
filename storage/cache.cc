@@ -586,8 +586,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 }
 #endif
                 rw_mtx.unlock_shared();
-//                std::unique_lock<std::shared_mutex> w_l(handle->rw_mtx);
-                rw_mtx.lock();
+                std::unique_lock<std::shared_mutex> w_l(rw_mtx);
+//                rw_mtx.lock();
 #ifdef LOCAL_LOCK_DEBUG
 
                 {
@@ -599,8 +599,6 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 if (strategy.load() == 1 && remote_lock_status.load() == 0){
                     if(value) {
                         mr = (ibv_mr*)value;
-
-
                     }else{
                         mr = new ibv_mr{};
                         rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
@@ -623,7 +621,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
                 }
 #endif
-                rw_mtx.unlock();
+                w_l.unlock();
+//                rw_mtx.unlock();
                 rw_mtx.lock_shared();
 #ifdef LOCAL_LOCK_DEBUG
                 {

@@ -62,7 +62,7 @@ run() {
     for compute in "${compute_nodes[@]}"
     do
       ip=`echo $compute | cut -d ' ' -f1`
-      ssh -o StrictHostKeyChecking=no $ip killall micro_bench > /dev/null 2>&1
+      ssh -o StrictHostKeyChecking=no $ip "killall micro_bench > /dev/null 2>&1 && tee -a $log_file.$ip"
       j=$((j+1))
   #		if [ $j = $node ]; then
   #			break;
@@ -73,7 +73,7 @@ run() {
       for memory in "${memory_nodes[@]}"
       do
         ip=`echo $memory | cut -d ' ' -f1`
-        ssh -o StrictHostKeyChecking=no $ip killall memory_server_term > /dev/null 2>&1
+        ssh -o StrictHostKeyChecking=no $ip "killall memory_server_term > /dev/null 2>&1 && tee -a $log_file.$ip"
         j=$((j+1))
   #  		if [ $j = $node ]; then
   #  			break;
@@ -116,8 +116,8 @@ run() {
 #            	port=`echo $memory | cut -d ' ' -f2`
           echo ""
           echo "memory = $memory, ip = $ip, port = $port"
-          echo "$BIN_HOME/memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee $log_file.$ip"
-          ssh -o StrictHostKeyChecking=no $ip	"ulimit -c 1000000 && cd $BIN_HOME && numactl --physcpubind=31 ./memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee $log_file.$ip " &
+          echo "$BIN_HOME/memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee -a $log_file.$ip"
+          ssh -o StrictHostKeyChecking=no $ip	"ulimit -c 1000000 && cd $BIN_HOME && numactl --physcpubind=31 ./memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee -a $log_file.$ip " &
           sleep 1
           i=$((i+1))
 #        	if [ "$i" = "$node" ]; then
@@ -140,8 +140,8 @@ run() {
 #        fi
         echo ""
         echo "compute = $compute, ip = $ip, port = $port"
-        echo "$BIN_HOME/micro_bench --op_type $op_type --workload $workload --zipfian_alpha $zipfian_alpha --no_thread $thread --shared_ratio $shared_ratio --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file $result_file --this_node_id $((2*$i)) --tcp_port $port --is_master $is_master --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num | tee $log_file.$ip"
-        ssh -o StrictHostKeyChecking=no $ip	"ulimit -c 1000000 && cd $BIN_HOME && ./micro_bench --op_type $op_type --workload $workload --zipfian_alpha $zipfian_alpha --no_thread $thread --shared_ratio $shared_ratio --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file $result_file --this_node_id $((2*$i)) --tcp_port $port --is_master $is_master --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num | tee $log_file.$ip" &
+        echo "$BIN_HOME/micro_bench --op_type $op_type --workload $workload --zipfian_alpha $zipfian_alpha --no_thread $thread --shared_ratio $shared_ratio --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file $result_file --this_node_id $((2*$i)) --tcp_port $port --is_master $is_master --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num | tee -a $log_file.$ip"
+        ssh -o StrictHostKeyChecking=no $ip	"ulimit -c 1000000 && cd $BIN_HOME && ./micro_bench --op_type $op_type --workload $workload --zipfian_alpha $zipfian_alpha --no_thread $thread --shared_ratio $shared_ratio --read_ratio $read_ratio --space_locality $space_locality --time_locality $time_locality --result_file $result_file --this_node_id $((2*$i)) --tcp_port $port --is_master $is_master --cache_size $cache_mem_size --allocated_mem_size $remote_mem_size --compute_num $compute_num --memory_num $memory_num | tee -a $log_file.$ip" &
         sleep 1
         i=$((i+1))
   #    	if [ "$i" = "$node" ]; then
