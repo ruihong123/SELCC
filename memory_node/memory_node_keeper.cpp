@@ -127,11 +127,14 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
 //    rdma_mg_->post_receive(recv_mr, client_ip, sizeof(Computing_to_memory_msg));
     // sync after send & recv buffer creation and receive request posting.
     rdma_mg->local_mem_regions.reserve(100);
-    if(rdma_mg->pre_allocated_pool.size() < pr_size)
+    if(!rdma_mg->pre_allocated_flag)
     {
       std::unique_lock<std::shared_mutex> lck(rdma_mg->local_mem_mutex);
-      rdma_mg->Preregister_Memory(pr_size);
-
+        if(!rdma_mg->pre_allocated_flag)
+        {
+          rdma_mg->Preregister_Memory(pr_size);
+          rdma_mg->pre_allocated_flag = true;
+        }
     }
       ibv_mr* mr_data = rdma_mg->preregistered_region;
       assert(mr_data->length == (uint64_t)pr_size*1024*1024*1024);

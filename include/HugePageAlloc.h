@@ -31,7 +31,7 @@ namespace DSMEngine{
             res = aligned_alloc(128, size);
             auto set_ret = memset(res, 0,size);
             assert(set_ret != nullptr);
-            assert(res != NULL);
+            assert(res != nullptr);
             return res;
         }else{
             printf("The returned pointer is %p size is %zu\n", res, size);
