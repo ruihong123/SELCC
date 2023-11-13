@@ -1357,7 +1357,7 @@ void RDMA_Manager::sync_with_computes_Cside() {
                     }
                     rc = 0;
                 }else{
-                    printf("The socket return is not normal, %lu\n", rc);
+                    printf("The socket return is not normal, %lu, target node is \n", rc);
                 }
             }
 
