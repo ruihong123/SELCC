@@ -717,7 +717,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //                handle->remote_lock_status.store(2);
 
             }else if (remote_lock_status == 1){
-                cache_hit_valid[RDMA_Manager::thread_id][0]++;
+                cache_miss[RDMA_Manager::thread_id][0]++;
+//                cache_hit_valid[RDMA_Manager::thread_id][0]++;
                 if (!global_Rlock_update(lock_addr, cas_mr)){
 //
                     //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
@@ -727,10 +728,12 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                     rdma_mg->global_Wlock_and_read_page_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr);
                     remote_lock_status.store(2);
                 }else{
-                    cache_hit_valid[RDMA_Manager::thread_id][0]++;
                     assert( remote_lock_status.load() == 2);
                     //TODO:
                 }
+            }else{
+                cache_hit_valid[RDMA_Manager::thread_id][0]++;
+
             }
         }else{
             assert(strategy == 2);
@@ -806,7 +809,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //                handle->remote_lock_status.store(2);
 
             }else if (remote_lock_status == 1){
-                cache_hit_valid[RDMA_Manager::thread_id][0]++;
+                cache_miss[RDMA_Manager::thread_id][0]++;
+
+//                cache_hit_valid[RDMA_Manager::thread_id][0]++;
                 if (!global_Rlock_update(lock_addr, cas_mr)){
 //
                     //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
@@ -816,10 +821,12 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                     rdma_mg->global_Wlock_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr);
                     remote_lock_status.store(2);
                 }else{
-                    cache_hit_valid[RDMA_Manager::thread_id][0]++;
+//                    cache_hit_valid[RDMA_Manager::thread_id][0]++;
                     assert( remote_lock_status.load() == 2);
                     //TODO:
                 }
+            }else{
+                cache_hit_valid[RDMA_Manager::thread_id][0]++;
             }
         }else{
             assert(strategy == 2);
