@@ -62,7 +62,7 @@ run() {
     for compute in "${compute_nodes[@]}"
     do
       ip=`echo $compute | cut -d ' ' -f1`
-      ssh -o StrictHostKeyChecking=no $ip "killall micro_bench > /dev/null 2>&1 && tee -a $log_file.$ip"
+      ssh -o StrictHostKeyChecking=no $ip "killall micro_bench > /dev/null 2>&1 && cd $BIN_HOME && rm $log_file.$ip"
       j=$((j+1))
   #		if [ $j = $node ]; then
   #			break;
@@ -73,7 +73,7 @@ run() {
       for memory in "${memory_nodes[@]}"
       do
         ip=`echo $memory | cut -d ' ' -f1`
-        ssh -o StrictHostKeyChecking=no $ip "killall memory_server_term > /dev/null 2>&1 && tee -a $log_file.$ip"
+        ssh -o StrictHostKeyChecking=no $ip "killall memory_server_term > /dev/null 2>&1 && cd $BIN_HOME && rm $log_file.$ip"
         j=$((j+1))
   #  		if [ $j = $node ]; then
   #  			break;
