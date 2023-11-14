@@ -478,11 +478,11 @@ node_range="1 2 4 8"
 thread_range="16"
 remote_range="0"
 shared_range="100"
-read_range="0 50 100"
+read_range="0"
 space_range="0"
 time_range="0"
-workload_range="0"
-zipfian_alpha_range="0"
+workload_range="1"
+zipfian_alpha_range="1.2"
 #
 op_range="1" # use 1
 #cache_th=0.5
