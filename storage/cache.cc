@@ -586,7 +586,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 }
 #endif
                 rw_mtx.unlock_shared();
-
+                asm volatile ("sfence\n" : : );
+                asm volatile ("lfence\n" : : );
+                asm volatile ("mfence\n" : : );
                 std::unique_lock<std::shared_mutex> w_l(rw_mtx);
 //                rw_mtx.lock();
 #ifdef LOCAL_LOCK_DEBUG
