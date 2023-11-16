@@ -62,7 +62,7 @@ run() {
     for compute in "${compute_nodes[@]}"
     do
       ip=`echo $compute | cut -d ' ' -f1`
-      ssh -o StrictHostKeyChecking=no $ip "killall micro_bench > /dev/null 2>&1 && cd $BIN_HOME && tee $log_file.$ip"
+      ssh -o StrictHostKeyChecking=no $ip "killall micro_bench > /dev/null 2>&1 && cd $BIN_HOME"
       j=$((j+1))
   #		if [ $j = $node ]; then
   #			break;
@@ -73,7 +73,7 @@ run() {
       for memory in "${memory_nodes[@]}"
       do
         ip=`echo $memory | cut -d ' ' -f1`
-        ssh -o StrictHostKeyChecking=no $ip "killall memory_server_term > /dev/null 2>&1 && cd $BIN_HOME && tee $log_file.$ip"
+        ssh -o StrictHostKeyChecking=no $ip "killall memory_server_term > /dev/null 2>&1 && cd $BIN_HOME"
         j=$((j+1))
   #  		if [ $j = $node ]; then
   #  			break;
@@ -474,15 +474,15 @@ run_node_test() {
 # node test
 echo "**************************run node test****************************"
 result_file=$bin/results/node
-node_range="2 4 8"
+node_range="1 2 4 8"
 thread_range="16"
 remote_range="0"
 shared_range="100"
-read_range="50"
+read_range="0 50 95 100"
 space_range="0"
 time_range="0"
 workload_range="1"
-zipfian_alpha_range="0.9"
+zipfian_alpha_range="0.3 0.6 0.9 1.2 1.5"
 #
 op_range="1" # use 1
 #cache_th=0.5
