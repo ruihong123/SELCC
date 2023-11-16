@@ -23,7 +23,8 @@
 #include <set>
 #include "DSMEngine/export.h"
 #include "DSMEngine/slice.h"
-#include <shared_mutex>
+//#include <shared_mutex>
+#include <boost/thread.hpp>
 
 #include "Config.h"
 #include "storage/rdma.h"
@@ -74,7 +75,8 @@ class DSMEngine_EXPORT Cache {
         GlobalAddress gptr = GlobalAddress::Null();
         std::atomic<int> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
         bool keep_the_mr = false;
-        std::shared_mutex rw_mtx;
+//        std::shared_mutex rw_mtx;
+        boost::shared_mutex rw_mtx;
         RDMA_Manager* rdma_mg = nullptr;
 #ifdef LOCAL_LOCK_DEBUG
         std::set<uint16_t> holder_ids;

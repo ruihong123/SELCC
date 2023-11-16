@@ -91,7 +91,7 @@ enable_testing()
 # This project is tested using GoogleTest.
 #add_subdirectory("third_party/googletest")
 find_package(ibverbs REQUIRED)
-target_link_libraries(DSMEngine ibverbs::ibverbs -lcityhash -lboost_system -lboost_coroutine -lmemcached)
+target_link_libraries(DSMEngine ibverbs::ibverbs -lcityhash -lboost_system -lboost_coroutine -lboost_thread -lmemcached)
 if(WITH_NUMA)
     find_package(NUMA REQUIRED)
     add_definitions(-DNUMA)
