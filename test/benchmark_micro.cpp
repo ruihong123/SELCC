@@ -18,9 +18,9 @@
 #include "Common.h"
 #include "storage/rdma.h"
 #include "storage/page.h"
-//#include "util/epic_log.h"
 #include "storage/rdma.h"
 #include "DDSM.h"
+#include "Common.h"
 
 //#define PERF_GET
 //#define PERF_MALLOC
@@ -418,18 +418,28 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                 if (TrueOrFalse(read_ratio, seedp)) {
                     void* page_buffer;
                     Cache::Handle* handle;
-                    alloc->PrePage_Read(page_buffer, TOPAGE(to_access), handle);
+                    GlobalAddress target_cache_line = TOPAGE(to_access);
+//                    uint64_t cache_line_offset = to_access.offset - target_cache_line.offset;
+//                    if (UNLIKELY(cache_line_offset == STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock))){
+//                        cache_line_offset += sizeof(uint64_t);
+//                    }
+                    alloc->PrePage_Read(page_buffer, target_cache_line, handle);
                     memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
-                    alloc->PostPage_Read(TOPAGE(to_access), handle);
+                    alloc->PostPage_Read(target_cache_line, handle);
 
                 } else {
                     void* page_buffer;
                     Cache::Handle* handle;
                     memset(buf, i, item_size);
-                    alloc->PrePage_Write(page_buffer, TOPAGE(to_access), handle);
+                    GlobalAddress target_cache_line = TOPAGE(to_access);
+                    uint64_t cache_line_offset = to_access.offset - target_cache_line.offset;
+                    if (UNLIKELY(cache_line_offset == STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock))){
+                        cache_line_offset += sizeof(uint64_t);
+                    }
+                    alloc->PrePage_Write(page_buffer, target_cache_line, handle);
                     // Can not write to random place because we can not hurt the metadata in the page.
-                    memcpy((char*)page_buffer + (64), buf, item_size);
-                    alloc->PostPage_Write(TOPAGE(to_access), handle);
+                    memcpy((char*)page_buffer + (cache_line_offset), buf, item_size);
+                    alloc->PostPage_Write(target_cache_line, handle);
                 }
                 break;
             case 1:  //rlock/wlock
@@ -437,18 +447,23 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                 if (TrueOrFalse(read_ratio, seedp)) {
                     void* page_buffer;
                     Cache::Handle* handle;
-                    alloc->PrePage_Read(page_buffer, TOPAGE(to_access), handle);
+                    GlobalAddress target_cache_line = TOPAGE(to_access);
+                    alloc->PrePage_Read(page_buffer, target_cache_line, handle);
                     memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
-                    alloc->PostPage_Read(TOPAGE(to_access), handle);
-
+                    alloc->PostPage_Read(target_cache_line, handle);
                 } else {
                     void* page_buffer;
                     Cache::Handle* handle;
                     memset(buf, i, item_size);
-                    alloc->PrePage_Update(page_buffer, TOPAGE(to_access), handle);
+                    GlobalAddress target_cache_line = TOPAGE(to_access);
+                    uint64_t cache_line_offset = to_access.offset - target_cache_line.offset;
+                    if (UNLIKELY(cache_line_offset == STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock))){
+                        cache_line_offset += sizeof(uint64_t);
+                    }
+                    alloc->PrePage_Update(page_buffer, target_cache_line, handle);
                     // Can not write to random place because we can not hurt the metadata in the page.
-                    memcpy((char*)page_buffer + (64), buf, item_size);
-                    alloc->PostPage_Update(TOPAGE(to_access), handle);
+                    memcpy((char*)page_buffer + (cache_line_offset), buf, item_size);
+                    alloc->PostPage_Update(target_cache_line, handle);
                 }
                 break;
             }
@@ -457,18 +472,23 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                 if (TrueOrFalse(read_ratio, seedp)) {
                     void* page_buffer;
                     Cache::Handle* handle;
-                    alloc->PrePage_Read(page_buffer, TOPAGE(to_access), handle);
+                    GlobalAddress target_cache_line = TOPAGE(to_access);
+                    alloc->PrePage_Read(page_buffer, target_cache_line, handle);
                     memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
-                    alloc->PostPage_Read(TOPAGE(to_access), handle);
-
+                    alloc->PostPage_Read(target_cache_line, handle);
                 } else {
                     void* page_buffer;
                     Cache::Handle* handle;
                     memset(buf, i, item_size);
-                    alloc->PrePage_Update(page_buffer, TOPAGE(to_access), handle);
+                    GlobalAddress target_cache_line = TOPAGE(to_access);
+                    uint64_t cache_line_offset = to_access.offset - target_cache_line.offset;
+                    if (UNLIKELY(cache_line_offset == STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock))){
+                        cache_line_offset += sizeof(uint64_t);
+                    }
+                    alloc->PrePage_Update(page_buffer, target_cache_line, handle);
                     // Can not write to random place because we can not hurt the metadata in the page.
-                    memcpy((char*)page_buffer + (64), buf, item_size);
-                    alloc->PostPage_Update(TOPAGE(to_access), handle);
+                    memcpy((char*)page_buffer + (cache_line_offset), buf, item_size);
+                    alloc->PostPage_Update(target_cache_line, handle);
                 }
                 break;
             }
@@ -477,18 +497,23 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                 if (TrueOrFalse(read_ratio, seedp)) {
                     void* page_buffer;
                     Cache::Handle* handle;
-                    alloc->PrePage_Read(page_buffer, TOPAGE(to_access), handle);
+                    GlobalAddress target_cache_line = TOPAGE(to_access);
+                    alloc->PrePage_Read(page_buffer, target_cache_line, handle);
                     memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
-                    alloc->PostPage_Read(TOPAGE(to_access), handle);
-
+                    alloc->PostPage_Read(target_cache_line, handle);
                 } else {
                     void* page_buffer;
                     Cache::Handle* handle;
                     memset(buf, i, item_size);
-                    alloc->PrePage_Update(page_buffer, TOPAGE(to_access), handle);
+                    GlobalAddress target_cache_line = TOPAGE(to_access);
+                    uint64_t cache_line_offset = to_access.offset - target_cache_line.offset;
+                    if (UNLIKELY(cache_line_offset == STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock))){
+                        cache_line_offset += sizeof(uint64_t);
+                    }
+                    alloc->PrePage_Update(page_buffer, target_cache_line, handle);
                     // Can not write to random place because we can not hurt the metadata in the page.
-                    memcpy((char*)page_buffer + (64), buf, item_size);
-                    alloc->PostPage_Update(TOPAGE(to_access), handle);
+                    memcpy((char*)page_buffer + (cache_line_offset), buf, item_size);
+                    alloc->PostPage_Update(target_cache_line, handle);
                 }
                 break;
             }
