@@ -1,5 +1,5 @@
 #!/bin/bash
-home_dir="/users/Ruihong/MemoryEngine"
+home_dir="/users/Ruihong/MemoryEngine/"
 nmemory="10"
 ncompute="10"
 nmachines="20"
