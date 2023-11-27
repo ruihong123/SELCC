@@ -82,7 +82,7 @@ function run_bench() {
   do
     echo "Rsync the $node"
 #    ssh -o StrictHostKeyChecking=no $node "sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev libboost-all-dev" &
-    rsync -a /users/Ruihong/MemoryEngine/ $node:/users/Ruihong/MemoryEngine/
+    rsync -a $home_dir $node:$home_dir
     ssh -o StrictHostKeyChecking=no $node "killall micro_bench memory_server_term > /dev/null 2>&1"
 
   done
@@ -90,7 +90,7 @@ function run_bench() {
   do
     echo "Rsync the $node"
 #    ssh -o StrictHostKeyChecking=no $node "sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev libboost-all-dev" &
-    rsync -a /users/Ruihong/MemoryEngine/ $node:/users/Ruihong/MemoryEngine/
+    rsync -a $home_dir $node:$home_dir
     ssh -o StrictHostKeyChecking=no $node "killall micro_bench memory_server_term > /dev/null 2>&1"
 
   done

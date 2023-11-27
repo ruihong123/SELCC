@@ -12,6 +12,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DROCKSDB_SUPPORT_THREAD_LOCAL -Wall -We
 #set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -O0 -ggdb -Wall -Wextra -pthread")
 include_directories(
         "${PROJECT_SOURCE_DIR}"
+        "${PROJECT_SOURCE_DIR}/txn"
+        "${PROJECT_SOURCE_DIR}/storage"
+        "${PROJECT_SOURCE_DIR}/tpcc"
+        "${PROJECT_SOURCE_DIR}/bench"
+        "${PROJECT_SOURCE_DIR}/utils"
 #        "${PROJECT_SOURCE_DIR}/third_party/googletest/googlemock"
 #        "${PROJECT_SOURCE_DIR}/third_party/googletest/googletest"
         )
@@ -108,6 +113,19 @@ add_executable(memory_server_term "server_termination.cc"
 add_executable(cpu_scale_test "CPU_cache_scalability.cpp")
 add_executable(btree_bench test/benchmark_btree.cpp)
 add_executable(micro_bench test/benchmark_micro.cpp)
+
+file(GLOB TPCC_DEPENDENCY
+
+        "${PROJECT_SOURCE_DIR}/storage/*.h"
+        "${PROJECT_SOURCE_DIR}/bench/*.h"
+        "${PROJECT_SOURCE_DIR}/tpcc/*.h"
+        "${PROJECT_SOURCE_DIR}/tpcc/*.cpp"
+        "${PROJECT_SOURCE_DIR}/util/*.h"
+        "${PROJECT_SOURCE_DIR}/txn/*.cpp"
+        "${PROJECT_SOURCE_DIR}/txn/*.h"
+)
+add_executable(TPCC ${TPCC_DEPENDENCY})
+target_link_libraries(TPCC DSMEngine)
 target_link_libraries(TestTrial DSMEngine)
 target_link_libraries(memory_server DSMEngine)
 target_link_libraries(memory_server_term DSMEngine)
