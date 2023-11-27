@@ -482,7 +482,7 @@ read_range="0 50 95 100"
 space_range="0"
 time_range="0"
 workload_range="1"
-zipfian_alpha_range="1.2 1.5"
+zipfian_alpha_range="1"
 #
 op_range="1" # use 1
 #cache_th=0.5
