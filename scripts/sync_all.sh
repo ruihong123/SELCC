@@ -80,7 +80,7 @@ function run_bench() {
 #  done
   for node in ${memory_shard[@]}
   do
-    echo "Rsync the $node"
+    echo "Rsync the $node rsync -a $home_dir $node:$home_dir"
 #    ssh -o StrictHostKeyChecking=no $node "sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev libboost-all-dev" &
     rsync -a $home_dir $node:$home_dir
     ssh -o StrictHostKeyChecking=no $node "killall micro_bench memory_server_term > /dev/null 2>&1"
@@ -88,7 +88,7 @@ function run_bench() {
   done
   for node in ${compute_shard[@]}
   do
-    echo "Rsync the $node"
+    echo "Rsync the $node rsync -a $home_dir $node:$home_dir"
 #    ssh -o StrictHostKeyChecking=no $node "sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev libboost-all-dev" &
     rsync -a $home_dir $node:$home_dir
     ssh -o StrictHostKeyChecking=no $node "killall micro_bench memory_server_term > /dev/null 2>&1"
