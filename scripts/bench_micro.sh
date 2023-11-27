@@ -478,11 +478,11 @@ node_range="1 2 4 8"
 thread_range="16"
 remote_range="0"
 shared_range="100"
-read_range="0 50 95 100"
+read_range="95"
 space_range="0"
 time_range="0"
-workload_range="1"
-zipfian_alpha_range="1.5 2"
+workload_range="0"
+zipfian_alpha_range="0" #make sure workload = 1 if we want to test zipfian.
 #
 op_range="1" # use 1
 #cache_th=0.5
