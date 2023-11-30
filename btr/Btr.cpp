@@ -855,11 +855,11 @@
 ////
 //    template <typename Key, typename Value>
 //
-//    void Btr<Key,Value>::global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+//    void Btr<Key,Value>::global_Rlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
 //                                         GlobalAddress lock_addr,
 //                                         ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id,
 //                                         Cache::Handle *handle) {
-//        rdma_mg->global_Rlock_and_read_page(page_buffer, page_addr, page_size, lock_addr, cas_buffer,
+//        rdma_mg->global_Rlock_and_read_page_with_INVALID(page_buffer, page_addr, page_size, lock_addr, cas_buffer,
 //                                            tag, cxt, coro_id);
 //        handle->remote_lock_status.store(1);
 //
@@ -2147,7 +2147,7 @@
 //                        handle->value = mr;
 //
 //                    }
-//                    global_Rlock_and_read_page(mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
+//                    global_Rlock_and_read_page_with_INVALID(mr, page_addr, kLeafPageSize, lock_addr, cas_mr,
 //                                               1, cxt, coro_id, handle);
 ////                handle->remote_lock_status.store(1);
 //                }

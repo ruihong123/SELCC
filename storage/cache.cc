@@ -613,7 +613,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                         value = mr;
 
                     }
-                    rdma_mg->global_Rlock_and_read_page(mr, page_addr, page_size, lock_addr, cas_mr);
+                    rdma_mg->global_Rlock_and_read_page_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr);
                     remote_lock_status.store(1);
                 }
 #ifdef LOCAL_LOCK_DEBUG

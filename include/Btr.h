@@ -1005,8 +1005,8 @@ class Btr_iter{
                                                     GlobalAddress lock_addr,
                                                     ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id,
                                                     Cache::Handle *handle) {
-        rdma_mg->global_Rlock_and_read_page(page_buffer, page_addr, page_size, lock_addr, cas_buffer,
-                                            tag, cxt, coro_id);
+        rdma_mg->global_Rlock_and_read_page_with_INVALID(page_buffer, page_addr, page_size, lock_addr, cas_buffer,
+                                                         tag, cxt, coro_id);
         handle->remote_lock_status.store(1);
 
     }
