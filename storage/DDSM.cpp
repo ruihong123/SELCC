@@ -139,7 +139,7 @@ namespace DSMEngine {
         lock_addr.nodeID = page_addr.nodeID;
 
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
-        ibv_mr *mr = nullptr;
+        ibv_mr *mr = rdma_mg->Get_local_read_mr();
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
         rdma_mg->global_Wlock_and_read_page_without_INVALID(mr, page_addr, kLeafPageSize, lock_addr, cas_mr);
         page_buffer = mr->addr;
