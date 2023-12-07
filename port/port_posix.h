@@ -114,7 +114,7 @@ extern bool Show_Me_The_Print;
 #define SEND_OUTSTANDING_SIZE 16
 #define ASYNC_UNLOCK
 #define INVALIDATION_STATISTICS
-#define ACCESS_MODE 1 // 0 No cache no sharding, 1 cache with CC protocol, 2 sharding.
+#define ACCESS_MODE 0 // 0 No cache no sharding, 1 cache with CC protocol, 2 sharding.
 #include "port/thread_annotations.h"
 
 namespace DSMEngine {
