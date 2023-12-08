@@ -934,7 +934,9 @@ int main(int argc, char* argv[]) {
                 compute_num, workload, zipfian_alpha, no_thread, shared_ratio, read_ratio,
                 space_locality, time_locality, op_type, memory_type, item_size, static_cast<double>(invalidation_num) / ITERATION_TOTAL, static_cast<double>(hit_valid_num) / ITERATION_TOTAL,t_thr,
                 a_thr, a_lat);
+#ifdef GETANALYSIS
         printf("Preread average time elapse is %lu ns, Postread average time elapse is %lu ns\n", PrereadTotal/Prereadcounter, PostreadTotal/Postreadcounter);
+#endif
         result.close();
     }
 
