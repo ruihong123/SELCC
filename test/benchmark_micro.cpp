@@ -42,8 +42,14 @@ int Memcache_offset = 1024;
 
 uint64_t STEPS = 0;
 
-using namespace DSMEngine;
 
+using namespace DSMEngine;
+#ifdef GETANALYSIS
+std::atomic<uint64_t> PrereadTotal;
+std::atomic<uint64_t> Prereadcounter;
+std::atomic<uint64_t> PostreadTotal;
+std::atomic<uint64_t> Postreadcounter;
+#endif
 uint16_t node_id;
 
 bool is_master = false;
@@ -439,9 +445,27 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     void* page_buffer;
                     Cache::Handle* handle;
                     GlobalAddress target_cache_line = TOPAGE(to_access);
+#ifdef GETANALYSIS
+                    auto start = std::chrono::high_resolution_clock::now();
+#endif
                     alloc->PrePage_Read(page_buffer, target_cache_line, handle);
+#ifdef GETANALYSIS
+                    auto stop = std::chrono::high_resolution_clock::now();
+                    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+                    PrereadTotal.fetch_add(duration.count());
+                    PrereadTotal.fetch_add(1);
+#endif
                     memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
+#ifdef GETANALYSIS
+                    start = std::chrono::high_resolution_clock::now();
+#endif
                     alloc->PostPage_Read(target_cache_line, handle);
+#ifdef GETANALYSIS
+                    stop = std::chrono::high_resolution_clock::now();
+                    duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+                    PostreadTotal.fetch_add(duration.count());
+                    PostreadTotal.fetch_add(1);
+#endif
                 } else {
                     void* page_buffer;
                     Cache::Handle* handle;
@@ -910,7 +934,7 @@ int main(int argc, char* argv[]) {
                 compute_num, workload, zipfian_alpha, no_thread, shared_ratio, read_ratio,
                 space_locality, time_locality, op_type, memory_type, item_size, static_cast<double>(invalidation_num) / ITERATION_TOTAL, static_cast<double>(hit_valid_num) / ITERATION_TOTAL,t_thr,
                 a_thr, a_lat);
-
+        printf("Preread average time elapse is %lu ns, Postread average time elapse is %lu ns\n", PrereadTotal/Prereadcounter, PostreadTotal/Postreadcounter);
         result.close();
     }
 

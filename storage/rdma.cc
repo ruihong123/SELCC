@@ -22,11 +22,11 @@ std::atomic<uint64_t> RDMA_Manager::ReadCount = 0;
 //TODO: This should be moved to some other classes which is strongly related to btree or storage engine.
 thread_local GlobalAddress path_stack[define::kMaxCoro][define::kMaxLevelOfTree];
 
-#ifdef GETANALYSIS
-std::atomic<uint64_t> RDMA_Manager::RDMAFindmrElapseSum = 0;
-std::atomic<uint64_t> RDMA_Manager::RDMAMemoryAllocElapseSum = 0;
-std::atomic<uint64_t> RDMA_Manager::ReadCount1 = 0;
-#endif
+//#ifdef GETANALYSIS
+//std::atomic<uint64_t> RDMA_Manager::RDMAFindmrElapseSum = 0;
+//std::atomic<uint64_t> RDMA_Manager::RDMAMemoryAllocElapseSum = 0;
+//std::atomic<uint64_t> RDMA_Manager::ReadCount1 = 0;
+//#endif
 
 //#ifndef NDEBUG
     thread_local int RDMA_Manager::thread_id = 0;
