@@ -453,7 +453,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     auto stop = std::chrono::high_resolution_clock::now();
                     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
                     PrereadTotal.fetch_add(duration.count());
-                    PrereadTotal.fetch_add(1);
+                    Prereadcounter.fetch_add(1);
 #endif
                     memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
 #ifdef GETANALYSIS
@@ -464,7 +464,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     stop = std::chrono::high_resolution_clock::now();
                     duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
                     PostreadTotal.fetch_add(duration.count());
-                    PostreadTotal.fetch_add(1);
+                    Prereadcounter.fetch_add(1);
 #endif
                 } else {
                     void* page_buffer;
