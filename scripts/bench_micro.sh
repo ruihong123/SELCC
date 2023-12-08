@@ -479,7 +479,7 @@ thread_range="16"
 remote_range="0"
 shared_range="100"
 read_range="0 50 95 100"
-space_range="0"
+space_range="50"
 time_range="0"
 workload_range="0"
 zipfian_alpha_range="0" #make sure workload = 1 if we want to test zipfian.
