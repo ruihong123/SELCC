@@ -464,7 +464,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     stop = std::chrono::high_resolution_clock::now();
                     duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
                     PostreadTotal.fetch_add(duration.count());
-                    Prereadcounter.fetch_add(1);
+                    Postreadcounter.fetch_add(1);
 #endif
                 } else {
                     void* page_buffer;
