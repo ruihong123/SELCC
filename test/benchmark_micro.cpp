@@ -49,6 +49,8 @@ std::atomic<uint64_t> PrereadTotal = 0;
 std::atomic<uint64_t> Prereadcounter = 0;
 std::atomic<uint64_t> PostreadTotal = 0;
 std::atomic<uint64_t> Postreadcounter = 0;
+std::atomic<uint64_t> MemcopyTotal = 0;
+std::atomic<uint64_t> Memcopycounter = 0;
 #endif
 uint16_t node_id;
 
@@ -454,9 +456,14 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
                     PrereadTotal.fetch_add(duration.count());
                     Prereadcounter.fetch_add(1);
+                    start = std::chrono::high_resolution_clock::now();
 #endif
                     memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
 #ifdef GETANALYSIS
+                    stop = std::chrono::high_resolution_clock::now();
+                    duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+                    MemcopyTotal.fetch_add(duration.count());
+                    Memcopycounter.fetch_add(1);
                     start = std::chrono::high_resolution_clock::now();
 #endif
                     alloc->PostPage_Read(target_cache_line, handle);

@@ -108,7 +108,9 @@ namespace DSMEngine {
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+
         rdma_mg->global_RUnlock(lock_addr, cas_mr);
+
     }
 
     void DDSM::PrePage_Write(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
