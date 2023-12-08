@@ -45,10 +45,10 @@ uint64_t STEPS = 0;
 
 using namespace DSMEngine;
 #ifdef GETANALYSIS
-std::atomic<uint64_t> PrereadTotal;
-std::atomic<uint64_t> Prereadcounter;
-std::atomic<uint64_t> PostreadTotal;
-std::atomic<uint64_t> Postreadcounter;
+std::atomic<uint64_t> PrereadTotal = 0;
+std::atomic<uint64_t> Prereadcounter = 0;
+std::atomic<uint64_t> PostreadTotal = 0;
+std::atomic<uint64_t> Postreadcounter = 0;
 #endif
 uint16_t node_id;
 
