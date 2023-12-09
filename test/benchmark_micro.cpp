@@ -53,6 +53,8 @@ std::atomic<uint64_t> MemcopyTotal = 0;
 std::atomic<uint64_t> Memcopycounter = 0;
 std::atomic<uint64_t> NextStepTotal = 0;
 std::atomic<uint64_t> NextStepcounter = 0;
+std::atomic<uint64_t> WholeopTotal = 0;
+std::atomic<uint64_t> Wholeopcounter = 0;
 #endif
 uint16_t node_id;
 
@@ -70,6 +72,7 @@ const char* result_file = "result.csv";
 // if we want to gurantee that the cache has been filled, we need to run 8Million iterations (2 times). space locality use 16384000
 long ITERATION_TOTAL = 8192000;
 //long ITERATION_TOTAL = 16384000;
+
 long ITERATION = 0;
 
 //long FENCE_PERIOD = 1000;
@@ -446,6 +449,9 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
             case 1:  //rlock/wlock
             {
                 if (TrueOrFalse(read_ratio, seedp)) {
+#ifdef GETANALYSIS
+                    auto wholeop_start = std::chrono::high_resolution_clock::now();
+#endif
                     void* page_buffer;
                     Cache::Handle* handle;
                     GlobalAddress target_cache_line = TOPAGE(to_access);
@@ -474,6 +480,12 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - statistic_start);
                     PostreadTotal.fetch_add(duration.count());
                     Postreadcounter.fetch_add(1);
+#endif
+#ifdef GETANALYSIS
+                    auto wholeop_stop = std::chrono::high_resolution_clock::now();
+                    auto wholeop_duration = std::chrono::duration_cast<std::chrono::nanoseconds>(wholeop_stop - wholeop_start);
+                    WholeopTotal.fetch_add(duration.count());
+                    Wholeopcounter.fetch_add(1);
 #endif
                 } else {
                     void* page_buffer;
@@ -952,8 +964,10 @@ int main(int argc, char* argv[]) {
                 space_locality, time_locality, op_type, memory_type, item_size, static_cast<double>(invalidation_num) / ITERATION_TOTAL, static_cast<double>(hit_valid_num) / ITERATION_TOTAL,t_thr,
                 a_thr, a_lat);
 #ifdef GETANALYSIS
-        printf("Preread average time elapse is %lu ns, Postread average time elapse is %lu ns, Memcopy average time elapse is %lu ns, prepare next step is %lu ns, counter is %lu\n",
-               PrereadTotal.load()/Prereadcounter.load(), PostreadTotal.load()/Postreadcounter.load(), MemcopyTotal.load()/Memcopycounter.load(), NextStepTotal.load()/NextStepcounter.load(), NextStepcounter.load());
+        printf("Preread average time elapse is %lu ns, Postread average time elapse is %lu ns, Memcopy average time elapse is %lu ns, "
+               "prepare next step is %lu ns, counter is %lu, whole ops average time elapse is %lu ns, PostreadCOunter is %lu\n",
+               PrereadTotal.load()/Prereadcounter.load(), PostreadTotal.load()/Postreadcounter.load(), MemcopyTotal.load()/Memcopycounter.load(),
+               NextStepTotal.load()/NextStepcounter.load(), NextStepcounter.load(), WholeopTotal/Wholeopcounter, Postreadcounter.load());
 #endif
         result.close();
     }
