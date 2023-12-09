@@ -51,6 +51,8 @@ std::atomic<uint64_t> PostreadTotal = 0;
 std::atomic<uint64_t> Postreadcounter = 0;
 std::atomic<uint64_t> MemcopyTotal = 0;
 std::atomic<uint64_t> Memcopycounter = 0;
+std::atomic<uint64_t> NextStepTotal = 0;
+std::atomic<uint64_t> NextStepcounter = 0;
 #endif
 uint16_t node_id;
 
@@ -448,28 +450,28 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     Cache::Handle* handle;
                     GlobalAddress target_cache_line = TOPAGE(to_access);
 #ifdef GETANALYSIS
-                    auto start = std::chrono::high_resolution_clock::now();
+                    auto statistic_start = std::chrono::high_resolution_clock::now();
 #endif
                     alloc->PrePage_Read(page_buffer, target_cache_line, handle);
 #ifdef GETANALYSIS
                     auto stop = std::chrono::high_resolution_clock::now();
-                    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+                    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - statistic_start);
                     PrereadTotal.fetch_add(duration.count());
                     Prereadcounter.fetch_add(1);
-                    start = std::chrono::high_resolution_clock::now();
+                    statistic_start = std::chrono::high_resolution_clock::now();
 #endif
                     memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
 #ifdef GETANALYSIS
                     stop = std::chrono::high_resolution_clock::now();
-                    duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+                    duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - statistic_start);
                     MemcopyTotal.fetch_add(duration.count());
                     Memcopycounter.fetch_add(1);
-                    start = std::chrono::high_resolution_clock::now();
+                    statistic_start = std::chrono::high_resolution_clock::now();
 #endif
                     alloc->PostPage_Read(target_cache_line, handle);
 #ifdef GETANALYSIS
                     stop = std::chrono::high_resolution_clock::now();
-                    duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+                    duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - statistic_start);
                     PostreadTotal.fetch_add(duration.count());
                     Postreadcounter.fetch_add(1);
 #endif
@@ -543,7 +545,9 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                 printf( "unknown op type\n");
                 break;
         }
-
+#ifdef GETANALYSIS
+        auto statistic_start = std::chrono::high_resolution_clock::now();
+#endif
         //time locality
         if (TrueOrFalse(time_locality, seedp)) {
             //we keep to access the same addr
@@ -569,6 +573,12 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
             printf("Node %d finish %d ops \n", node_id, i);
             fflush(stdout);
         }
+#ifdef GETANALYSIS
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - statistic_start);
+        NextStepTotal.fetch_add(duration.count());
+        NextStepcounter.fetch_add(1);
+#endif
     }
 
 //    if (op_type == 0) {
@@ -942,7 +952,8 @@ int main(int argc, char* argv[]) {
                 space_locality, time_locality, op_type, memory_type, item_size, static_cast<double>(invalidation_num) / ITERATION_TOTAL, static_cast<double>(hit_valid_num) / ITERATION_TOTAL,t_thr,
                 a_thr, a_lat);
 #ifdef GETANALYSIS
-        printf("Preread average time elapse is %lu ns, Postread average time elapse is %lu ns, Memcopy average time elapse is %lu ns\n", PrereadTotal/Prereadcounter, PostreadTotal/Postreadcounter, MemcopyTotal/Memcopycounter);
+        printf("Preread average time elapse is %lu ns, Postread average time elapse is %lu ns, Memcopy average time elapse is %lu ns, prepare next step is %lu ns, counter is %lu\n",
+               PrereadTotal.load()/Prereadcounter.load(), PostreadTotal.load()/Postreadcounter.load(), MemcopyTotal.load()/Memcopycounter.load(), NextStepTotal.load()/NextStepcounter.load(), NextStepcounter.load());
 #endif
         result.close();
     }
