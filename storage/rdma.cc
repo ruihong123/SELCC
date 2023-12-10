@@ -13,16 +13,16 @@ extern bool Show_Me_The_Print;
 #endif
 uint64_t cache_invalidation[MAX_APP_THREAD] = {0};
 #ifdef GETANALYSIS
-extern std::atomic<uint64_t> PrereadTotal;
-extern std::atomic<uint64_t> Prereadcounter;
-extern std::atomic<uint64_t> PostreadTotal;
-extern std::atomic<uint64_t> Postreadcounter;
-extern std::atomic<uint64_t> MemcopyTotal;
-extern std::atomic<uint64_t> Memcopycounter;
-extern std::atomic<uint64_t> NextStepTotal;
-extern std::atomic<uint64_t> NextStepcounter;
-extern std::atomic<uint64_t> WholeopTotal;
-extern std::atomic<uint64_t> Wholeopcounter;
+std::atomic<uint64_t> PrereadTotal = 0;
+std::atomic<uint64_t> Prereadcounter = 0;
+std::atomic<uint64_t> PostreadTotal = 0;
+std::atomic<uint64_t> Postreadcounter = 0;
+std::atomic<uint64_t> MemcopyTotal = 0;
+std::atomic<uint64_t> Memcopycounter = 0;
+std::atomic<uint64_t> NextStepTotal = 0;
+std::atomic<uint64_t> NextStepcounter = 0;
+std::atomic<uint64_t> WholeopTotal = 0;
+std::atomic<uint64_t> Wholeopcounter = 0;
 #endif
 namespace DSMEngine {
 uint16_t RDMA_Manager::node_id = 0;

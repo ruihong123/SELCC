@@ -106,17 +106,18 @@ std::atomic<int> thread_sync_counter(0);
 extern uint64_t cache_invalidation[MAX_APP_THREAD];
 extern uint64_t cache_hit_valid[MAX_APP_THREAD][8];
 #ifdef GETANALYSIS
-std::atomic<uint64_t> PrereadTotal = 0;
-std::atomic<uint64_t> Prereadcounter = 0;
-std::atomic<uint64_t> PostreadTotal = 0;
-std::atomic<uint64_t> Postreadcounter = 0;
-std::atomic<uint64_t> MemcopyTotal = 0;
-std::atomic<uint64_t> Memcopycounter = 0;
-std::atomic<uint64_t> NextStepTotal = 0;
-std::atomic<uint64_t> NextStepcounter = 0;
-std::atomic<uint64_t> WholeopTotal = 0;
-std::atomic<uint64_t> Wholeopcounter = 0;
+extern std::atomic<uint64_t> PrereadTotal;
+extern std::atomic<uint64_t> Prereadcounter;
+extern std::atomic<uint64_t> PostreadTotal;
+extern std::atomic<uint64_t> Postreadcounter;
+extern std::atomic<uint64_t> MemcopyTotal;
+extern std::atomic<uint64_t> Memcopycounter;
+extern std::atomic<uint64_t> NextStepTotal;
+extern std::atomic<uint64_t> NextStepcounter;
+extern std::atomic<uint64_t> WholeopTotal;
+extern std::atomic<uint64_t> Wholeopcounter;
 #endif
+
 class ZipfianDistributionGenerator {
 private:
     uint64_t array_size;
