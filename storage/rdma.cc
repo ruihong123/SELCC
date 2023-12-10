@@ -12,7 +12,18 @@ extern int TimePrintCounter[MAX_APP_THREAD];
 extern bool Show_Me_The_Print;
 #endif
 uint64_t cache_invalidation[MAX_APP_THREAD] = {0};
-
+#ifdef GETANALYSIS
+extern std::atomic<uint64_t> PrereadTotal;
+extern std::atomic<uint64_t> Prereadcounter;
+extern std::atomic<uint64_t> PostreadTotal;
+extern std::atomic<uint64_t> Postreadcounter;
+extern std::atomic<uint64_t> MemcopyTotal;
+extern std::atomic<uint64_t> Memcopycounter;
+extern std::atomic<uint64_t> NextStepTotal;
+extern std::atomic<uint64_t> NextStepcounter;
+extern std::atomic<uint64_t> WholeopTotal;
+extern std::atomic<uint64_t> Wholeopcounter;
+#endif
 namespace DSMEngine {
 uint16_t RDMA_Manager::node_id = 0;
 #ifdef PROCESSANALYSIS
@@ -3478,9 +3489,16 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, -add, 0, Internal_and_Leaf);
             //TODO: check the starvation bit to decide whether there is an immediate retry. If there is a starvation
             // unlock the lock this time util see a write lock.
-
+#ifdef GETANALYSIS
+            auto statistic_start = std::chrono::high_resolution_clock::now();
+#endif
             RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-
+#ifdef GETANALYSIS
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - statistic_start);
+            PrereadTotal.fetch_add(duration.count());
+            Prereadcounter.fetch_add(1);
+#endif
             target_compute_node_id = ((return_value >> 56) - 1)*2;
             goto retry;
         }
@@ -3602,7 +3620,17 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }
             *counter = *counter + 1;
         } else{
+#ifdef GETANALYSIS
+
+            auto statistic_start = std::chrono::high_resolution_clock::now();
+#endif
             RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+#ifdef GETANALYSIS
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - statistic_start);
+            PostreadTotal.fetch_add(duration.count());
+            Postreadcounter.fetch_add(1);
+#endif
             assert((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) != 0);
         }
 
