@@ -44,18 +44,7 @@ uint64_t STEPS = 0;
 
 
 using namespace DSMEngine;
-#ifdef GETANALYSIS
-std::atomic<uint64_t> PrereadTotal = 0;
-std::atomic<uint64_t> Prereadcounter = 0;
-std::atomic<uint64_t> PostreadTotal = 0;
-std::atomic<uint64_t> Postreadcounter = 0;
-std::atomic<uint64_t> MemcopyTotal = 0;
-std::atomic<uint64_t> Memcopycounter = 0;
-std::atomic<uint64_t> NextStepTotal = 0;
-std::atomic<uint64_t> NextStepcounter = 0;
-std::atomic<uint64_t> WholeopTotal = 0;
-std::atomic<uint64_t> Wholeopcounter = 0;
-#endif
+
 uint16_t node_id;
 
 bool is_master = false;
@@ -116,6 +105,18 @@ std::atomic<int> thread_sync_counter(0);
 
 extern uint64_t cache_invalidation[MAX_APP_THREAD];
 extern uint64_t cache_hit_valid[MAX_APP_THREAD][8];
+#ifdef GETANALYSIS
+std::atomic<uint64_t> PrereadTotal = 0;
+std::atomic<uint64_t> Prereadcounter = 0;
+std::atomic<uint64_t> PostreadTotal = 0;
+std::atomic<uint64_t> Postreadcounter = 0;
+std::atomic<uint64_t> MemcopyTotal = 0;
+std::atomic<uint64_t> Memcopycounter = 0;
+std::atomic<uint64_t> NextStepTotal = 0;
+std::atomic<uint64_t> NextStepcounter = 0;
+std::atomic<uint64_t> WholeopTotal = 0;
+std::atomic<uint64_t> Wholeopcounter = 0;
+#endif
 class ZipfianDistributionGenerator {
 private:
     uint64_t array_size;
@@ -484,7 +485,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
 #ifdef GETANALYSIS
                     auto wholeop_stop = std::chrono::high_resolution_clock::now();
                     auto wholeop_duration = std::chrono::duration_cast<std::chrono::nanoseconds>(wholeop_stop - wholeop_start);
-                    WholeopTotal.fetch_add(duration.count());
+                    WholeopTotal.fetch_add(wholeop_duration.count());
                     Wholeopcounter.fetch_add(1);
 #endif
                 } else {
@@ -715,6 +716,18 @@ void Benchmark(int id, DDSM* alloc) {
         cache_invalidation[i] = 0;
         cache_hit_valid[i][0] = 0;
     }
+#ifdef GETANALYSIS
+    PrereadTotal = 0;
+    Prereadcounter = 0;
+    PostreadTotal = 0;
+    Postreadcounter = 0;
+    MemcopyTotal = 0;
+    Memcopycounter = 0;
+    NextStepTotal = 0;
+    NextStepcounter = 0;
+    WholeopTotal = 0;
+    Wholeopcounter = 0;
+#endif
     uint64_t SYNC_RUN_BASE = SYNC_KEY + compute_num * 2;
     int sync_id = SYNC_RUN_BASE + compute_num * node_id + id;
     if (id!= 0){
