@@ -2013,8 +2013,8 @@ int RDMA_Manager::sock_sync_data(int sock, int xfer_size, char* local_data,
   rc = write(sock, local_data, xfer_size);
   if (rc < xfer_size)
     fprintf(stderr,
-            "Failed writing data during sock_sync_data, total bytes are %d\n",
-            rc);
+            "Failed writing data during sock_sync_data, total bytes are %d, erron is %d\n",
+            rc, errno);
   else
     rc = 0;
   printf("total bytes: %d", xfer_size);
