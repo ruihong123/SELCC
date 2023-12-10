@@ -3477,7 +3477,16 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         sr[0].next = &sr[1];
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
+#ifdef GETANALYSIS
+        auto statistic_start = std::chrono::high_resolution_clock::now();
+#endif
         Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+#ifdef GETANALYSIS
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - statistic_start);
+        PrereadTotal.fetch_add(duration.count());
+        Prereadcounter.fetch_add(1);
+#endif
         uint64_t return_value = *(uint64_t*) cas_buffer->addr;
 #ifndef ASYNC_UNLOCK
         assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
@@ -3489,16 +3498,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, -add, 0, Internal_and_Leaf);
             //TODO: check the starvation bit to decide whether there is an immediate retry. If there is a starvation
             // unlock the lock this time util see a write lock.
-#ifdef GETANALYSIS
-            auto statistic_start = std::chrono::high_resolution_clock::now();
-#endif
+
             RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-#ifdef GETANALYSIS
-            auto stop = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - statistic_start);
-            PrereadTotal.fetch_add(duration.count());
-            Prereadcounter.fetch_add(1);
-#endif
+
             target_compute_node_id = ((return_value >> 56) - 1)*2;
             goto retry;
         }
