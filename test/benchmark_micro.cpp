@@ -461,21 +461,21 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
 //                    auto statistic_start = std::chrono::high_resolution_clock::now();
 //#endif
                     alloc->PrePage_Read(page_buffer, target_cache_line, handle);
-//#ifdef GETANALYSIS
+#ifdef GETANALYSIS
 //                    auto stop = std::chrono::high_resolution_clock::now();
 //                    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - statistic_start);
 //                    PrereadTotal.fetch_add(duration.count());
 //                    Prereadcounter.fetch_add(1);
-//                    statistic_start = std::chrono::high_resolution_clock::now();
-//#endif
+                    auto statistic_start = std::chrono::high_resolution_clock::now();
+#endif
                     memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
-//#ifdef GETANALYSIS
-//                    stop = std::chrono::high_resolution_clock::now();
-//                    duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - statistic_start);
-//                    MemcopyTotal.fetch_add(duration.count());
-//                    Memcopycounter.fetch_add(1);
+#ifdef GETANALYSIS
+                    auto stop = std::chrono::high_resolution_clock::now();
+                    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - statistic_start);
+                    MemcopyTotal.fetch_add(duration.count());
+                    Memcopycounter.fetch_add(1);
 //                    statistic_start = std::chrono::high_resolution_clock::now();
-//#endif
+#endif
                     alloc->PostPage_Read(target_cache_line, handle);
 //#ifdef GETANALYSIS
 //                    stop = std::chrono::high_resolution_clock::now();
