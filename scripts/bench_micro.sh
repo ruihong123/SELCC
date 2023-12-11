@@ -477,12 +477,12 @@ result_file=$bin/results/node
 node_range="8"
 thread_range="16"
 remote_range="0"
-shared_range="100"
+shared_range="0 50 95 100"
 read_range="100"
 space_range="0 50"
 time_range="0"
-workload_range="0"
-zipfian_alpha_range="0" #make sure workload = 1 if we want to test zipfian.
+workload_range="1"
+zipfian_alpha_range="1" #make sure workload = 1 if we want to test zipfian.
 #
 op_range="1" # use 1
 #cache_th=0.5
