@@ -10,7 +10,7 @@ conf_file=$bin/../connection.conf
 #memory_nodes=$bin/memory_nodes
 log_file=$bin/log
 cache_mem_size=8 # 8 gb Local memory size
-remote_mem_size=48 # 48 gb Remote memory size
+remote_mem_size_base=48 # 48 gb Remote memory size
 #master_ip=db3.cs.purdue.edu # make sure this is in accordance with the server whose is_master=1
 master_port=12311
 port=$((10000+RANDOM%1000))
@@ -110,6 +110,12 @@ run() {
   	read -r -a memcached_node <<< $(head -n 1 $SRC_HOME/memcached_ip.conf)
   	echo "restart memcached on ${memcached_node[0]}"
     ssh -o StrictHostKeyChecking=no ${memcached_node[0]} "sudo service memcached restart"
+    if [ $size_grow = 1  ]; then
+      remote_mem_size=$(($remote_mem_size_base*$compute_num))
+    else
+      remote_mem_size=$remote_mem_size_base
+    fi
+
     for memory in "${memory_nodes[@]}"
         do
           ip=$memory
@@ -477,8 +483,9 @@ result_file=$bin/results/node
 node_range="8"
 thread_range="16"
 remote_range="0"
-shared_range="0 50 95 100"
-read_range="100"
+shared_range="100"
+size_grow=0 # 0 not grow, 1 grow with node number
+read_range="0 50 95 100"
 space_range="0"
 time_range="0"
 workload_range="1"
@@ -494,6 +501,9 @@ for remote_ratio in $remote_range
 do
 for shared_ratio in $shared_range
 do
+  if [ $shared_ratio != 100 && $size_grow=1]; then
+      exit
+  fi
 for op_type in $op_range
 do
 for read_ratio in $read_range
