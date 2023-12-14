@@ -59,7 +59,7 @@ const char* result_file = "result.csv";
 //exp parameters
 // Cache can hold 4Million cache entries. Considering the random filling mechanism,
 // if we want to gurantee that the cache has been filled, we need to run 8Million iterations (2 times). space locality use 16384000
-long ITERATION_TOTAL = 8192000;
+long ITERATION_TOTAL = 16384000;
 //long ITERATION_TOTAL = 16384000;
 
 long ITERATION = 0;
@@ -71,7 +71,7 @@ int shared_ratio = 10;  //0..100
 int space_locality = 10;  //0..100
 int time_locality = 10;  //0..100 (how probable it is to re-visit the current position)
 int read_ratio = 10;  //0..100
-int op_type = 0;  //0: read/write; 1: rlock/wlock; 2: rlock+read/wlock+write
+int op_type = 1;  //0: read/write; 1: rlock/wlock; 2: rlock+read/wlock+write
 int workload = 0;  //0: random; 1: zipfian
 double zipfian_alpha = 1;
 
