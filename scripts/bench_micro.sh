@@ -482,7 +482,7 @@ echo "**************************run node test****************************"
 result_file=$bin/results/node
 node_range="1 2 4 8"
 thread_range="16"
-remote_range="0"
+remote_range="100"
 shared_range="100"
 size_grow=0 # 0 not grow, 1 grow with node number
 read_range="0 50 95 100"
@@ -523,10 +523,8 @@ do
 #    if [[ $node = 1 ]]; then
 #        continue;
 #    fi
-	if [[ $remote_ratio -gt 0 && $node = 1 ]]; then
-		continue;
-	fi
-    run
+
+  run
 done
 done
 done
