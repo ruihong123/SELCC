@@ -523,7 +523,6 @@ do
 #    if [[ $node = 1 ]]; then
 #        continue;
 #    fi
-
   run
 done
 done
