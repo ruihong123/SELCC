@@ -6050,8 +6050,10 @@ void RDMA_Manager::fs_deserilization(
 //                        printf("Leaf node page %p's global lock state is %lu\n", g_ptr, ((LeafPage*)(page_mr->addr))->global_lock);
 
             }else{
-                // Only the leaf page have eager cache coherence protocol.
-                assert(false);
+//                // Only the leaf page have eager cache coherence protocol.
+//                if (header->p_type == P_Internal){
+//                    assert(false);
+//                }
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, global_lock);
             }
             // double check locking

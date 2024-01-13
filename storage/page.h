@@ -14,6 +14,7 @@
 #include <iostream>
 
 namespace DSMEngine{
+    enum Page_Type { P_Plain = 0, P_Internal, P_Leaf};
     template<class Key, class Value>
     struct SearchResult {
         bool is_leaf;
@@ -52,6 +53,7 @@ namespace DSMEngine{
     template<typename T>
     class Header {
     private:
+        Page_Type p_type = P_Plain;
         GlobalAddress leftmost_ptr;
         GlobalAddress sibling_ptr;
         // the last index is initialized as -1 in leaf node and internal nodes,
@@ -176,8 +178,8 @@ namespace DSMEngine{
 //        std::atomic<uint8_t> front_version;
 //        uint8_t front_version;
         alignas(8) uint64_t global_lock;
-        uint8_t busy;
-        uint8_t front_version = 0;
+//        uint8_t busy;
+//        uint8_t front_version = 0;
         Header<Key> hdr;
         InternalEntry<Key> records[kInternalCardinality] = {};
 //        char data[1] = {};
@@ -192,6 +194,7 @@ namespace DSMEngine{
         InternalPage(GlobalAddress left, const Key &key, GlobalAddress right, GlobalAddress this_page_g_ptr,
                      uint32_t level = 0) {
             assert(STRUCT_OFFSET(InternalPage<Key>, local_lock_meta) == 0);
+            hdr.p_type = P_Internal;
             hdr.leftmost_ptr = left;
             hdr.level = level;
             hdr.valid_page = true;
@@ -365,9 +368,8 @@ namespace DSMEngine{
         Local_Meta local_lock_meta;
         // if busy we will not cache it in cache, switch back to the Naive
         alignas(8) uint64_t global_lock = 0;
-
-        uint8_t busy;
-        uint8_t front_version;
+//        uint8_t busy;
+//        uint8_t front_version;
         Header<TKey> hdr;
 #ifdef DYNAMIC_ANALYSE_PAGE
         char data_[1];// The data segment is beyond this class.
@@ -381,6 +383,7 @@ namespace DSMEngine{
 
     public:
         LeafPage(GlobalAddress this_page_g_ptr, uint32_t level = 0) {
+            hdr.p_type = P_Leaf;
             hdr.level = level;
             hdr.this_page_g_ptr = this_page_g_ptr;
             global_lock = 0;
