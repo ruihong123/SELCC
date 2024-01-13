@@ -108,7 +108,7 @@ extern bool Show_Me_The_Print;
 #define CACHECOHERENCEPROTOCOL
 #define DYNAMIC_ANALYSE_PAGE
 #define TIMEPRINTGAP 100000
-//#define GETANALYSIS
+#define GETANALYSIS
 #define ROCKSDB_PTHREAD_ADAPTIVE_MUTEX
 #define RECEIVE_OUTSTANDING_SIZE 1024
 #define SEND_OUTSTANDING_SIZE 4 // Increase this if we have a lot of async ops

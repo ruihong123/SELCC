@@ -117,8 +117,13 @@ extern std::atomic<uint64_t> NextStepcounter;
 extern std::atomic<uint64_t> WholeopTotal;
 extern std::atomic<uint64_t> Wholeopcounter;
 #endif
+class WorkloadGenerator {
+public:
+    WorkloadGenerator() = default;
+    virtual int getValue() = 0;
+};
 
-class ZipfianDistributionGenerator {
+class ZipfianDistributionGenerator: public WorkloadGenerator {
 private:
     uint64_t array_size;
     double skewness;
@@ -144,7 +149,49 @@ public:
 //        std::shuffle(zipfian_values.begin(), zipfian_values.end(), generator);
     }
 
-    int getZipfianValue() {
+    int getValue() {
+//        return zipfian_values[distribution(generator)];
+        return (*distribution)(generator);
+    }
+};
+
+class MultiHotSpotGenerator: public WorkloadGenerator {
+private:
+    uint64_t array_size;
+    int spot_num_;
+    double skewness;
+    std::vector<double> probabilities;
+//    std::vector<int> zipfian_values;
+    std::default_random_engine generator;
+    std::discrete_distribution<int>* distribution;
+
+public:
+    MultiHotSpotGenerator(uint64_t size, double s, unsigned int seed, int spot_num) : array_size(size), spot_num_(spot_num),
+    skewness(s), probabilities(size), generator(seed) {
+        uint64_t spot_interval = array_size/spot_num_;
+        uint64_t spot_offset = 0;
+        uint64_t overflow_offset = 0;
+        for (int j = 0; j < spot_num; ++j) {
+            spot_offset = spot_interval*j;
+            for(int i = 0; i < array_size; ++i) {
+                overflow_offset = (i+spot_offset)%array_size;
+                probabilities[overflow_offset] = 1.0 / (pow(i+1, skewness));
+//            zipfian_values[i] = i;
+            }
+        }
+
+        double smallest_probability = 1.0 / (pow(array_size, skewness));
+// Convert smallest_probability to a string
+        char buffer[50];
+        snprintf(buffer, sizeof(buffer), "%.15f", smallest_probability);
+
+        // Print the smallest_probability
+        printf("Smallest Probability: %s\n", buffer);
+        distribution = new std::discrete_distribution<int>(probabilities.begin(), probabilities.end());
+//        std::shuffle(zipfian_values.begin(), zipfian_values.end(), generator);
+    }
+
+    int getValue() {
 //        return zipfian_values[distribution(generator)];
         return (*distribution)(generator);
     }
@@ -237,23 +284,22 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 //        data[i] = alloc->AlignedMalloc(BLOCK_SIZE);
 //      }
 #endif
-            if (shared_ratio != 0)
-                //Register the allocation for master into a key value store.
-                if (i%MEMSET_GRANULARITY == MEMSET_GRANULARITY - 1) {
-                    memset_buffer[i%MEMSET_GRANULARITY] = data[i];
-                    assert(data[i].offset <= 64ull*1024ull*1024*1024);
-                    printf("Memset a key %d\n", i);
-                    ddsm->memSet((const char*)&i, sizeof(i), (const char*)memset_buffer, sizeof(GlobalAddress) * MEMSET_GRANULARITY);
+            //Register the allocation for master into a key value store.
+            if (i%MEMSET_GRANULARITY == MEMSET_GRANULARITY - 1) {
+                memset_buffer[i%MEMSET_GRANULARITY] = data[i];
+                assert(data[i].offset <= 64ull*1024ull*1024*1024);
+                printf("Memset a key %d\n", i);
+                ddsm->memSet((const char*)&i, sizeof(i), (const char*)memset_buffer, sizeof(GlobalAddress) * MEMSET_GRANULARITY);
 //                    assert(i%MEMSET_GRANULARITY == MEMSET_GRANULARITY-1);
-                }else{
-                    memset_buffer[i%MEMSET_GRANULARITY] = data[i];
-                    assert(data[i].offset <= 64ull*1024ull*1024*1024);
+            }else{
+                memset_buffer[i%MEMSET_GRANULARITY] = data[i];
+                assert(data[i].offset <= 64ull*1024ull*1024*1024);
 
-                }
-                if (i == STEPS - 1) {
-                    printf("Memset a key %d\n", i);
-                    ddsm->memSet((const char*)&i, sizeof(i), (const char*)memset_buffer, sizeof(GlobalAddress) * MEMSET_GRANULARITY);
-                }
+            }
+            if (i == STEPS - 1) {
+                printf("Memset a key %d\n", i);
+                ddsm->memSet((const char*)&i, sizeof(i), (const char*)memset_buffer, sizeof(GlobalAddress) * MEMSET_GRANULARITY);
+            }
 #ifdef BENCHMARK_DEBUG
             if (shared_ratio != 0) {
         GAddr readback;
@@ -316,9 +362,11 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
   gen_accesses.insert(TOBLOCK(access[0]));
   stat_lock.unlock();
 #endif
-    ZipfianDistributionGenerator* zipf_gen;
+    WorkloadGenerator* workload_gen;
     if (workload == 1){
-        zipf_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha, *seedp);
+        workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha, *seedp);
+    } else if (workload > 1){
+        workload_gen = new MultiHotSpotGenerator(STEPS, zipfian_alpha, *seedp, workload);
     }
 
 
@@ -340,10 +388,10 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                 }
                 next = GADD(n, GetRandom(0, items_per_block, seedp) * item_size);
             } else if (workload == 1){
-                uint64_t pos = zipf_gen->getZipfianValue();
+                uint64_t pos = workload_gen->getValue();
                 GlobalAddress n = data[pos];
                 while (TOPAGE(n) == TOPAGE(access[i - 1])) {
-                    pos = zipf_gen->getZipfianValue();
+                    pos = workload_gen->getValue();
                     n = data[pos];
                 }
                 next = GADD(n, GetRandom(0, items_per_block, seedp) * item_size);
@@ -364,8 +412,8 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 #endif
     }
     printf("end init\n");
-    if (workload == 1){
-        delete zipf_gen;
+    if (workload > 1){
+        delete workload_gen;
     }
 }
 
