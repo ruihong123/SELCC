@@ -179,7 +179,7 @@ namespace DSMEngine{
 //        uint8_t front_version;
         alignas(8) uint64_t global_lock;
 //        uint8_t busy;
-//        uint8_t front_version = 0;
+        uint8_t front_version = 0;
         Header<Key> hdr;
         InternalEntry<Key> records[kInternalCardinality] = {};
 //        char data[1] = {};
@@ -369,7 +369,7 @@ namespace DSMEngine{
         // if busy we will not cache it in cache, switch back to the Naive
         alignas(8) uint64_t global_lock = 0;
 //        uint8_t busy;
-//        uint8_t front_version;
+        uint8_t front_version;
         Header<TKey> hdr;
 #ifdef DYNAMIC_ANALYSE_PAGE
         char data_[1];// The data segment is beyond this class.
