@@ -6013,7 +6013,7 @@ void RDMA_Manager::fs_deserilization(
 
             } else {
                 // Only the leaf page have eager cache coherence protocol.
-                assert(false);
+//                assert(false);
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, global_lock);
             }
             if (handle->remote_lock_status.load() == 1) {
