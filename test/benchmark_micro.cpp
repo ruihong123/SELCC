@@ -74,6 +74,7 @@ int read_ratio = 10;  //0..100
 int op_type = 1;  //0: read/write; 1: rlock/wlock; 2: rlock+read/wlock+write
 int workload = 0;  //0: random; 1: zipfian 2: multi-hotspot 3: exclusive hotspot per compute.
 double zipfian_alpha = 1;
+int total_spot_num = 0; // used when workload == 2
 
 int compute_num = 0;
 int memory_num = 100;
