@@ -72,7 +72,7 @@ int space_locality = 10;  //0..100
 int time_locality = 10;  //0..100 (how probable it is to re-visit the current position)
 int read_ratio = 10;  //0..100
 int op_type = 1;  //0: read/write; 1: rlock/wlock; 2: rlock+read/wlock+write
-int workload = 0;  //0: random; 1: zipfian
+int workload = 0;  //0: random; 1: zipfian 2: multi-hotspot 3: exclusive hotspot per compute.
 double zipfian_alpha = 1;
 
 int compute_num = 0;
@@ -133,9 +133,16 @@ private:
     std::discrete_distribution<int>* distribution;
 
 public:
-    ZipfianDistributionGenerator(uint64_t size, double s, unsigned int seed) : array_size(size), skewness(s), probabilities(size), generator(seed) {
+    ZipfianDistributionGenerator(uint64_t size, double s, unsigned int seed, uint8_t rank_of_spot = 0,
+                                 uint8_t total_num_of_spot = 1)
+            : array_size(size), skewness(s), probabilities(size), generator(seed) {
+        probabilities.resize(array_size);
+        uint64_t spot_interval = array_size/total_num_of_spot;
+        uint64_t spot_offset = rank_of_spot*spot_interval;
+        uint64_t overflow_offset = 0;
         for(int i = 0; i < array_size; ++i) {
-            probabilities[i] = 1.0 / (pow(i+1, skewness));
+            overflow_offset = (i+spot_offset)%array_size;
+            probabilities[overflow_offset] = 1.0 / (pow(i+1, skewness));
 //            zipfian_values[i] = i;
         }
         double smallest_probability = 1.0 / (pow(array_size, skewness));
@@ -149,7 +156,7 @@ public:
 //        std::shuffle(zipfian_values.begin(), zipfian_values.end(), generator);
     }
 
-    int getValue() {
+    int getValue() override {
 //        return zipfian_values[distribution(generator)];
         return (*distribution)(generator);
     }
@@ -168,6 +175,7 @@ private:
 public:
     MultiHotSpotGenerator(uint64_t size, double s, unsigned int seed, int spot_num) : array_size(size), spot_num_(spot_num),
     skewness(s), probabilities(size), generator(seed) {
+        probabilities.resize(array_size, 0);
         uint64_t spot_interval = array_size/spot_num_;
         uint64_t spot_offset = 0;
         uint64_t overflow_offset = 0;
@@ -175,7 +183,7 @@ public:
             spot_offset = spot_interval*j;
             for(int i = 0; i < array_size; ++i) {
                 overflow_offset = (i+spot_offset)%array_size;
-                probabilities[overflow_offset] = 1.0 / (pow(i+1, skewness));
+                probabilities[overflow_offset] = probabilities[overflow_offset] + 1.0 / (pow(i+1, skewness));
 //            zipfian_values[i] = i;
             }
         }
@@ -191,7 +199,7 @@ public:
 //        std::shuffle(zipfian_values.begin(), zipfian_values.end(), generator);
     }
 
-    int getValue() {
+    int getValue() override {
 //        return zipfian_values[distribution(generator)];
         return (*distribution)(generator);
     }
@@ -364,7 +372,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 #endif
     WorkloadGenerator* workload_gen;
     if (workload == 1){
-        workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha, *seedp);
+        workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha, *seedp, 0, 0);
     } else if (workload > 1){
         workload_gen = new MultiHotSpotGenerator(STEPS, zipfian_alpha, *seedp, workload);
     }
