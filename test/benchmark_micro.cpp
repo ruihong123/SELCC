@@ -400,7 +400,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                     n = data[GetRandom(0, STEPS, seedp)];
                 }
                 next = GADD(n, GetRandom(0, items_per_block, seedp) * item_size);
-            } else if (workload > 1){
+            } else if (workload > 0){
                 uint64_t pos = workload_gen->getValue();
                 GlobalAddress n = data[pos];
                 while (TOPAGE(n) == TOPAGE(access[i - 1])) {
@@ -425,7 +425,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 #endif
     }
     printf("end init\n");
-    if (workload > 1){
+    if (workload >= 1){
         delete workload_gen;
     }
 }
