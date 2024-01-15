@@ -374,7 +374,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
     WorkloadGenerator* workload_gen;
     if (workload == 1){
 #ifdef EXCLUSIVE_HOTSPOT
-        workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha, *seedp, ddsm->GetID(), compute_num);
+        workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha, *seedp, ddsm->GetID()/2, compute_num);
 #else
         workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha, *seedp, 0, 0);
 #endif
