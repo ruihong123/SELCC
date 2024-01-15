@@ -114,7 +114,8 @@ extern bool Show_Me_The_Print;
 #define SEND_OUTSTANDING_SIZE 4 // Increase this if we have a lot of async ops
 #define ASYNC_UNLOCK
 #define INVALIDATION_STATISTICS
-#define ACCESS_MODE 0 // 0 No cache no sharding, 1 cache with CC protocol, 2 sharding.
+//#define EXCLUSIVE_HOTSPOT // exclusive hotspot per compute. workload == 1.
+#define ACCESS_MODE 1 // 0 No cache no sharding, 1 cache with CC protocol, 2 sharding.
 #include "port/thread_annotations.h"
 
 namespace DSMEngine {

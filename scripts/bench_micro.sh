@@ -488,7 +488,7 @@ size_grow=0 # 0 not grow, 1 grow with node number
 read_range="0 50 95 100"
 space_range="0"
 time_range="0"
-workload_range="16 32" # 0 uniform, 1 single zipfian, n >1 multispot zipfian.
+workload_range="32" # 0 uniform, 1 single zipfian, n >1 multispot zipfian.
 zipfian_alpha_range="1" #make sure workload = 1 if we want to test zipfian.
 #
 op_range="1" # use 1

@@ -72,9 +72,9 @@ int space_locality = 10;  //0..100
 int time_locality = 10;  //0..100 (how probable it is to re-visit the current position)
 int read_ratio = 10;  //0..100
 int op_type = 1;  //0: read/write; 1: rlock/wlock; 2: rlock+read/wlock+write
-int workload = 0;  //0: random; 1: zipfian 2: multi-hotspot 3: exclusive hotspot per compute.
+int workload = 0;  //0: random; 1: zipfian 2: multi-hotspot
 double zipfian_alpha = 1;
-int total_spot_num = 0; // used when workload == 2
+//int total_spot_num = 0; // used when workload == 2
 
 int compute_num = 0;
 int memory_num = 100;
@@ -373,7 +373,11 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 #endif
     WorkloadGenerator* workload_gen;
     if (workload == 1){
+#ifdef EXCLUSIVE_HOTSPOT
+        workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha, *seedp, ddsm->GetID(), compute_num);
+#else
         workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha, *seedp, 0, 0);
+#endif
     } else if (workload > 1){
         workload_gen = new MultiHotSpotGenerator(STEPS, zipfian_alpha, *seedp, workload);
     }
