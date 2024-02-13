@@ -9,7 +9,7 @@
 #include <chrono>
 #include <unordered_set>
 
-namespace Database {
+namespace DSMEngine {
 namespace TpccBenchmark {
 class TpccRandomGenerator {
  public:

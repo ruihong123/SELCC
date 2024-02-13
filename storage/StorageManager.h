@@ -41,7 +41,7 @@ public:
     return table_count_;
   }
 
-  virtual void Serialize(const GAddr& addr, GAlloc *gallocator) {
+  virtual void Serialize(const char*& addr) {
     gallocator->Write(addr, &table_count_, sizeof(size_t));
     GAddr cur_addr = GADD(addr, sizeof(size_t));
     for (size_t i = 0; i < table_count_; ++i) {
@@ -50,7 +50,7 @@ public:
     }
   }
     
-  virtual void Deserialize(const GAddr& addr, GAlloc *gallocator) {
+  virtual void Deserialize(const char*& addr) {
     gallocator->Read(addr, &table_count_, sizeof(size_t));
     GAddr cur_addr = GADD(addr, sizeof(size_t));
     tables_ = new Table*[table_count_];
@@ -68,7 +68,6 @@ public:
 
 public:
   Table **tables_;
-
 private:
   size_t table_count_;
 };

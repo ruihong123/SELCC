@@ -19,7 +19,7 @@
 #include <string>
 
 #include "DSMEngine/export.h"
-#include "util/hash.h"
+#include "utils/hash.h"
 #include "DSMEngine/slice.h"
 namespace DSMEngine {
 

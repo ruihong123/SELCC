@@ -10,8 +10,8 @@
 #include "ClusterSync.h"
 #include <iostream>
 
-using namespace Database::TpccBenchmark;
-using namespace Database;
+using namespace DSMEngine::TpccBenchmark;
+using namespace DSMEngine;
 
 void ExchPerfStatistics(ClusterConfig* config, 
     ClusterSync* synchronizer, PerfStatistics* s);
@@ -19,8 +19,8 @@ void ExchPerfStatistics(ClusterConfig* config,
 int main(int argc, char* argv[]) {
   ArgumentsParser(argc, argv);
 
-  std::string my_host_name = ClusterHelper::GetLocalHostName();
-  ClusterConfig config(my_host_name, port, config_filename);
+//  std::string my_host_name = ClusterHelper::GetLocalHostName();
+  ClusterConfig config(my_host_name, conn_port, config_filename);
   ClusterSync synchronizer(&config);
   FillScaleParams(config);
   PrintScaleParams();
@@ -28,13 +28,14 @@ int main(int argc, char* argv[]) {
   TpccInitiator initiator(gThreadCount, &config);
   // initialize GAM storage layer
   initiator.InitGAllocator();
-  synchronizer.Fence();
+    // the RDMA Manager have a synchronization accross the nodes.
+
   // initialize benchmark data
-  GAddr storage_addr = initiator.InitStorage();
-  synchronizer.MasterBroadcast<GAddr>(&storage_addr); 
+  GlobalAddress storage_addr = initiator.InitStorage();
+  synchronizer.MasterBroadcast<GlobalAddress>(&storage_addr);
   std::cout << "storage_addr=" << storage_addr << std::endl;
   StorageManager storage_manager;
-  storage_manager.Deserialize(storage_addr, default_gallocator);
+  storage_manager.Deserialize(storage_addr);
 
   // populate database
   INIT_PROFILE_TIME(gThreadCount);
@@ -42,7 +43,7 @@ int main(int argc, char* argv[]) {
   populator.Start();
   REPORT_PROFILE_TIME
   (gThreadCount);
-  synchronizer.Fence();
+    synchronizer.FenceXComputes();
 
   // generate workload
   IORedirector redirector(gThreadCount);
@@ -52,7 +53,7 @@ int main(int argc, char* argv[]) {
                      config.GetMyPartitionId());
   //TpccSource sourcer(&tpcc_scale_params, &redirector, num_txn, SourceType::RANDOM_SOURCE, gThreadCount, dist_ratio);
   sourcer.Start();
-  synchronizer.Fence();
+    synchronizer.FenceXComputes();
 
   {
     // warm up
@@ -61,7 +62,7 @@ int main(int argc, char* argv[]) {
     executor.Start();
     REPORT_PROFILE_TIME(gThreadCount);
   }
-  synchronizer.Fence();
+    synchronizer.FenceXComputes();
 
   {
     // run workload
@@ -74,7 +75,8 @@ int main(int argc, char* argv[]) {
   }
 
   std::cout << "prepare to exit..." << std::endl;
-  synchronizer.Fence();
+    synchronizer.Fence_XALLNodes();
+
   std::cout << "over.." << std::endl;
   return 0;
 }

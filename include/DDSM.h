@@ -65,6 +65,7 @@ namespace DSMEngine {
     public:
         Cache *page_cache;
         RDMA_Manager *rdma_mg = nullptr;
+        //TODO: implement a thread local cache line hold memo.
         memcached_st *memc;
         std::mutex memc_mutex;
         DDSM(Cache *page_cache, RDMA_Manager *rdma_mg = nullptr) : page_cache(page_cache), rdma_mg(rdma_mg) {
@@ -91,8 +92,12 @@ namespace DSMEngine {
         char *memGet(const char *key, uint32_t klen, size_t *v_size = nullptr);
         uint64_t memFetchAndAdd(const char *key, uint32_t klen);
         GlobalAddress Allocate_Remote(Chunk_type pool_name);
-        uint8_t GetID(){
+        uint16_t GetID(){
             return rdma_mg->node_id;
+        }
+        static uint64_t GetNextIndexID(){
+            static std::atomic<uint64_t> index_id = {0};
+            return index_id.fetch_add(1);
         }
     private:
         std::atomic<uint64_t > target_node_counter = {0};

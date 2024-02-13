@@ -3,16 +3,17 @@
 #define __DATABASE_TXN_TXN_ACCESS_H__
 
 #include "Record.h"
-#include "gallocator.h"
+#include "DDSM.h"
 
-namespace Database {
+namespace DSMEngine {
 struct Access {
   Access()
-      : access_record_(nullptr), access_addr_(Gnullptr) {
+      : access_record_(nullptr), access_addr_(GlobalAddress::Null()) {
   }
   AccessType access_type_;
   Record *access_record_;
-  GAddr access_addr_;
+//  Cache::Handle *access_handle_;
+  GlobalAddress access_addr_;
 };
 
 template<int N>

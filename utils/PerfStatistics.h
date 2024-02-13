@@ -5,7 +5,7 @@
 #include <iostream>
 #include <cstdio>
 
-namespace Database {
+namespace DSMEngine {
 struct PerfStatistics {
   PerfStatistics() {
     total_count_ = 0;

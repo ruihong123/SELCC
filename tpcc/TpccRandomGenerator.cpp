@@ -1,7 +1,7 @@
 // NOTICE: this file is adapted from Cavalia
 #include "TpccRandomGenerator.h"
 
-namespace Database {
+namespace DSMEngine {
 namespace TpccBenchmark {
 const std::string TpccRandomGenerator::syllables_[10] = { "BAR", "OUGHT",
     "ABLE", "PRI", "PRES", "ESE", "ANTI", "CALLY", "ATION", "EING" };

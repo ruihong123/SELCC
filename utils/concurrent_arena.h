@@ -14,14 +14,14 @@
 #include <sstream>
 #include <utility>
 
-#include "util/arena.h"
+#include "utils/arena.h"
 
 #include "allocator.h"
 //#include "port/lang.h"
 #include "port/likely.h"
-#include "util/core_local.h"
-#include "util/mutexlock.h"
-//#include "util/thread_local.h"
+#include "utils/core_local.h"
+#include "utils/mutexlock.h"
+//#include "utils/thread_local.h"
 
 // Only generate field unused warning for padding array, or build under
 // GCC 4.8.1 will fail.

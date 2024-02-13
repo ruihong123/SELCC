@@ -3,23 +3,25 @@
 
 #include <cstring>
 #include <cstdint>
+//#include "DDSM.h"
 
 //#include "gallocator.h"
 
 namespace DSMEngine {
 typedef uint32_t HashcodeType;
 typedef uint64_t IndexKey;
-
+class DDSM;
 enum LockType
   : size_t {NO_LOCK,
   READ_LOCK,
   WRITE_LOCK,
 };
 enum AccessType
-  : size_t {READ_ONLY,
-  READ_WRITE,
-  INSERT_ONLY,
-  DELETE_ONLY
+  : size_t {READ_ONLY,// prepageRead
+  INSERT_ONLY,// prepageWrite
+  DELETE_ONLY,
+  READ_WRITE // prepageUpdate
+
 };
 enum SourceType
   : size_t {RANDOM_SOURCE,
@@ -36,8 +38,8 @@ const uint64_t kHashIndexBucketHeaderNum = 1000007;
 const size_t kTryLockLimit = 1;
 const size_t kMaxAccessLimit = 256;
 
-//extern GAlloc* default_gallocator;
-//extern GAlloc** gallocators;
+extern DDSM* default_gallocator;
+extern DDSM** gallocators;
 extern size_t gThreadCount;
 
 // source

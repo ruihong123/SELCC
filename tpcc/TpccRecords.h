@@ -5,7 +5,7 @@
 #include <string>
 #include <sstream>
 
-namespace Database {
+namespace DSMEngine {
 namespace TpccBenchmark {
 
 /******************** records **********************/

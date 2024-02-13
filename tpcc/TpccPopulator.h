@@ -2,12 +2,11 @@
 #ifndef __DATABASE_TPCC_POPULATOR_H__
 #define __DATABASE_TPCC_POPULATOR_H__
 
-#include "gallocator.h"
 #include "BenchmarkPopulator.h"
 #include "TpccRandomGenerator.h"
 #include "TpccKeyGenerator.h"
 
-namespace Database {
+namespace DSMEngine {
 namespace TpccBenchmark {
 class TpccPopulator : public BenchmarkPopulator {
  public:
@@ -18,7 +17,7 @@ class TpccPopulator : public BenchmarkPopulator {
   }
 
   virtual void StartPopulate() {
-    GAlloc* gallocator = default_gallocator;
+    DDSM* gallocator = default_gallocator;
     ItemRecord* item_record = new ItemRecord();
     WarehouseRecord* warehouse_record = new WarehouseRecord();
     DistrictRecord* district_record = new DistrictRecord();
@@ -190,6 +189,7 @@ class TpccPopulator : public BenchmarkPopulator {
 
  private:
   TpccScaleParams* scale_params_;
+
 
   void GenerateItemRecord(const int &item_id, const int&w_id, bool original,
                           ItemRecord* record) const {
@@ -369,210 +369,259 @@ class TpccPopulator : public BenchmarkPopulator {
 
   void InsertItemRecord(ItemRecord* record_ptr, Record *record_buf,
                         size_t thread_id) {
-    GAlloc *gallocator = gallocators[thread_id];
-    GAddr data_addr = gallocator->Malloc(record_buf->GetSchemaSize());
-    record_buf->SetColumn(0, &record_ptr->i_id_);
-    record_buf->SetColumn(1, &record_ptr->i_im_id_);
-    record_buf->SetColumn(2, record_ptr->i_name_, 32);
-    record_buf->SetColumn(3, &record_ptr->i_price_);
-    record_buf->SetColumn(4, record_ptr->i_data_, 64);
-    record_buf->SetVisible(true);
-    record_buf->Serialize(data_addr, gallocator);
+      DDSM *gallocator = gallocators[thread_id];
+      Cache::Handle *handle = nullptr;
+      char* tuple_data_;
+      GlobalAddress tuple_gaddr;
+      storage_manager_->tables_[ITEM_TABLE_ID]->AllocateNewTuple(
+              tuple_data_, tuple_gaddr, handle, gallocator);
+
+      Record record_in_cache = Record(storage_manager_->tables_[ITEM_TABLE_ID]->GetSchema(), tuple_data_);
+      record_in_cache.SetColumn(0, &record_ptr->i_id_);
+      record_in_cache.SetColumn(1, &record_ptr->i_im_id_);
+      record_in_cache.SetColumn(2, record_ptr->i_name_, 32);
+      record_in_cache.SetColumn(3, &record_ptr->i_price_);
+      record_in_cache.SetColumn(4, record_ptr->i_data_, 64);
     IndexKey key = GetItemPrimaryKey(record_ptr->i_id_, record_ptr->w_id_);
-    storage_manager_->tables_[ITEM_TABLE_ID]->InsertRecord(
-        &key, 1, data_addr, gallocator, thread_id);
+
+      storage_manager_->tables_[ITEM_TABLE_ID]->InsertPriIndex(
+              &key, 1, tuple_gaddr);
+    gallocator->PostPage_Update(handle->gptr, handle);
   }
 
   void InsertWarehouseRecord(WarehouseRecord* record_ptr, Record *record_buf,
                              size_t thread_id) {
-    GAlloc *gallocator = gallocators[thread_id];
-    GAddr data_addr = gallocator->Malloc(record_buf->GetSchemaSize());
-    record_buf->SetColumn(0, &record_ptr->w_id_);
-    record_buf->SetColumn(1, record_ptr->w_name_, 16);
-    record_buf->SetColumn(2, record_ptr->w_street_1_, 32);
-    record_buf->SetColumn(3, record_ptr->w_street_2_, 32);
-    record_buf->SetColumn(4, record_ptr->w_city_, 32);
-    record_buf->SetColumn(5, record_ptr->w_state_, 2);
-    record_buf->SetColumn(6, record_ptr->w_zip_, 9);
-    record_buf->SetColumn(7, &record_ptr->w_tax_);
-    record_buf->SetColumn(8, &record_ptr->w_ytd_);
-    record_buf->SetVisible(true);
-    record_buf->Serialize(data_addr, gallocator);
+      DDSM *gallocator = gallocators[thread_id];
+      Cache::Handle *handle = nullptr;
+      char* tuple_data_;
+      GlobalAddress tuple_gaddr;
+      storage_manager_->tables_[WAREHOUSE_TABLE_ID]->AllocateNewTuple(
+              tuple_data_, tuple_gaddr, handle, gallocator);
+//    GAddr data_addr = gallocator->Malloc(record_buf->GetSchemaSize());
+      Record record_in_cache = Record(storage_manager_->tables_[WAREHOUSE_TABLE_ID]->GetSchema(), tuple_data_);
+    record_in_cache.SetColumn(0, &record_ptr->w_id_);
+    record_in_cache.SetColumn(1, record_ptr->w_name_, 16);
+    record_in_cache.SetColumn(2, record_ptr->w_street_1_, 32);
+    record_in_cache.SetColumn(3, record_ptr->w_street_2_, 32);
+    record_in_cache.SetColumn(4, record_ptr->w_city_, 32);
+    record_in_cache.SetColumn(5, record_ptr->w_state_, 2);
+    record_in_cache.SetColumn(6, record_ptr->w_zip_, 9);
+    record_in_cache.SetColumn(7, &record_ptr->w_tax_);
+    record_in_cache.SetColumn(8, &record_ptr->w_ytd_);
     IndexKey k = GetWarehousePrimaryKey(record_ptr->w_id_);
-    storage_manager_->tables_[WAREHOUSE_TABLE_ID]->InsertRecord(
-        &k, 1, data_addr, gallocator, thread_id);
+      storage_manager_->tables_[WAREHOUSE_TABLE_ID]->InsertPriIndex(
+              &k, 1, tuple_gaddr);
+      gallocator->PostPage_Update(handle->gptr, handle);
   }
 
   void InsertDistrictRecord(DistrictRecord* record_ptr, Record *record_buf,
                             size_t thread_id) {
-    GAlloc *gallocator = gallocators[thread_id];
-    GAddr data_addr = gallocator->Malloc(record_buf->GetSchemaSize());
-    record_buf->SetColumn(0, &record_ptr->d_id_);
-    record_buf->SetColumn(1, &record_ptr->d_w_id_);
-    record_buf->SetColumn(2, record_ptr->d_name_, 16);
-    record_buf->SetColumn(3, record_ptr->d_street_1_, 32);
-    record_buf->SetColumn(4, record_ptr->d_street_2_, 32);
-    record_buf->SetColumn(5, record_ptr->d_city_, 32);
-    record_buf->SetColumn(6, record_ptr->d_state_, 2);
-    record_buf->SetColumn(7, record_ptr->d_zip_, 9);
-    record_buf->SetColumn(8, &record_ptr->d_tax_);
-    record_buf->SetColumn(9, &record_ptr->d_ytd_);
-    record_buf->SetColumn(10, &record_ptr->d_next_o_id_);
-    record_buf->SetVisible(true);
-    record_buf->Serialize(data_addr, gallocator);
+      DDSM *gallocator = gallocators[thread_id];
+      Cache::Handle *handle = nullptr;
+      char* tuple_data_;
+      GlobalAddress tuple_gaddr;
+      storage_manager_->tables_[DISTRICT_TABLE_ID]->AllocateNewTuple(
+              tuple_data_, tuple_gaddr, handle, gallocator);
+      Record record_in_cache = Record(storage_manager_->tables_[DISTRICT_TABLE_ID]->GetSchema(), tuple_data_);
+
+      record_in_cache.SetColumn(0, &record_ptr->d_id_);
+      record_in_cache.SetColumn(1, &record_ptr->d_w_id_);
+      record_in_cache.SetColumn(2, record_ptr->d_name_, 16);
+      record_in_cache.SetColumn(3, record_ptr->d_street_1_, 32);
+      record_in_cache.SetColumn(4, record_ptr->d_street_2_, 32);
+      record_in_cache.SetColumn(5, record_ptr->d_city_, 32);
+      record_in_cache.SetColumn(6, record_ptr->d_state_, 2);
+      record_in_cache.SetColumn(7, record_ptr->d_zip_, 9);
+      record_in_cache.SetColumn(8, &record_ptr->d_tax_);
+      record_in_cache.SetColumn(9, &record_ptr->d_ytd_);
+      record_in_cache.SetColumn(10, &record_ptr->d_next_o_id_);
     IndexKey k = GetDistrictPrimaryKey(record_ptr->d_id_, record_ptr->d_w_id_);
-    storage_manager_->tables_[DISTRICT_TABLE_ID]->InsertRecord(
-        &k, 1, data_addr, gallocator, thread_id);
+      storage_manager_->tables_[DISTRICT_TABLE_ID]->InsertPriIndex(
+              &k, 1, tuple_gaddr);
+      gallocator->PostPage_Update(handle->gptr, handle);
   }
 
   void InsertCustomerRecord(CustomerRecord* record_ptr, Record *record_buf,
                             size_t thread_id) {
-    GAlloc *gallocator = gallocators[thread_id];
-    GAddr data_addr = gallocator->Malloc(record_buf->GetSchemaSize());
-    record_buf->SetColumn(0, &record_ptr->c_id_);
-    record_buf->SetColumn(1, &record_ptr->c_d_id_);
-    record_buf->SetColumn(2, &record_ptr->c_w_id_);
-    record_buf->SetColumn(3, record_ptr->c_first_, 32);
-    record_buf->SetColumn(4, record_ptr->c_middle_, 2);
-    record_buf->SetColumn(5, record_ptr->c_last_, 32);
-    record_buf->SetColumn(6, record_ptr->c_street_1_, 32);
-    record_buf->SetColumn(7, record_ptr->c_street_2_, 32);
-    record_buf->SetColumn(8, record_ptr->c_city_, 32);
-    record_buf->SetColumn(9, record_ptr->c_state_, 2);
-    record_buf->SetColumn(10, record_ptr->c_zip_, 9);
-    record_buf->SetColumn(11, record_ptr->c_phone_, 32);
-    record_buf->SetColumn(12, &record_ptr->c_since_);
-    record_buf->SetColumn(13, record_ptr->c_credit_, 2);
-    record_buf->SetColumn(14, &record_ptr->c_credit_lim_);
-    record_buf->SetColumn(15, &record_ptr->c_discount_);
-    record_buf->SetColumn(16, &record_ptr->c_balance_);
-    record_buf->SetColumn(17, &record_ptr->c_ytd_payment_);
-    record_buf->SetColumn(18, &record_ptr->c_payment_cnt_);
-    record_buf->SetColumn(19, &record_ptr->c_delivery_cnt_);
-    record_buf->SetColumn(20, record_ptr->c_data_, 500);
-    record_buf->SetVisible(true);
-    record_buf->Serialize(data_addr, gallocator);
+      DDSM *gallocator = gallocators[thread_id];
+      Cache::Handle *handle = nullptr;
+      char* tuple_data_;
+      GlobalAddress tuple_gaddr;
+      storage_manager_->tables_[CUSTOMER_TABLE_ID]->AllocateNewTuple(
+              tuple_data_, tuple_gaddr, handle, gallocator);
+      Record record_in_cache = Record(storage_manager_->tables_[CUSTOMER_TABLE_ID]->GetSchema(), tuple_data_);
+
+      record_in_cache.SetColumn(0, &record_ptr->c_id_);
+      record_in_cache.SetColumn(1, &record_ptr->c_d_id_);
+      record_in_cache.SetColumn(2, &record_ptr->c_w_id_);
+      record_in_cache.SetColumn(3, record_ptr->c_first_, 32);
+      record_in_cache.SetColumn(4, record_ptr->c_middle_, 2);
+      record_in_cache.SetColumn(5, record_ptr->c_last_, 32);
+      record_in_cache.SetColumn(6, record_ptr->c_street_1_, 32);
+      record_in_cache.SetColumn(7, record_ptr->c_street_2_, 32);
+      record_in_cache.SetColumn(8, record_ptr->c_city_, 32);
+      record_in_cache.SetColumn(9, record_ptr->c_state_, 2);
+      record_in_cache.SetColumn(10, record_ptr->c_zip_, 9);
+      record_in_cache.SetColumn(11, record_ptr->c_phone_, 32);
+      record_in_cache.SetColumn(12, &record_ptr->c_since_);
+      record_in_cache.SetColumn(13, record_ptr->c_credit_, 2);
+      record_in_cache.SetColumn(14, &record_ptr->c_credit_lim_);
+      record_in_cache.SetColumn(15, &record_ptr->c_discount_);
+      record_in_cache.SetColumn(16, &record_ptr->c_balance_);
+      record_in_cache.SetColumn(17, &record_ptr->c_ytd_payment_);
+      record_in_cache.SetColumn(18, &record_ptr->c_payment_cnt_);
+      record_in_cache.SetColumn(19, &record_ptr->c_delivery_cnt_);
+      record_in_cache.SetColumn(20, record_ptr->c_data_, 500);
     IndexKey key = GetCustomerPrimaryKey(record_ptr->c_id_, record_ptr->c_d_id_,
                                          record_ptr->c_w_id_);
-    storage_manager_->tables_[CUSTOMER_TABLE_ID]->InsertRecord(
-        &key, 1, data_addr, gallocator, thread_id);
+      storage_manager_->tables_[CUSTOMER_TABLE_ID]->InsertPriIndex(
+              &key, 1, tuple_gaddr);
+      gallocator->PostPage_Update(handle->gptr, handle);
   }
 
   void InsertStockRecord(StockRecord* record_ptr, Record *record_buf,
                          size_t thread_id) {
-    GAlloc *gallocator = gallocators[thread_id];
-    GAddr data_addr = gallocator->Malloc(record_buf->GetSchemaSize());
-    record_buf->SetColumn(0, &record_ptr->s_i_id_);
-    record_buf->SetColumn(1, &record_ptr->s_w_id_);
-    record_buf->SetColumn(2, &record_ptr->s_quantity_);
+      DDSM *gallocator = gallocators[thread_id];
+      Cache::Handle *handle = nullptr;
+      char* tuple_data_;
+      GlobalAddress tuple_gaddr;
+      storage_manager_->tables_[STOCK_TABLE_ID]->AllocateNewTuple(
+              tuple_data_, tuple_gaddr, handle, gallocator);
+      Record record_in_cache = Record(storage_manager_->tables_[STOCK_TABLE_ID]->GetSchema(), tuple_data_);
+
+      record_in_cache.SetColumn(0, &record_ptr->s_i_id_);
+      record_in_cache.SetColumn(1, &record_ptr->s_w_id_);
+      record_in_cache.SetColumn(2, &record_ptr->s_quantity_);
     for (int i = 3; i < 3 + 10; ++i) {
-      record_buf->SetColumn(i, record_ptr->s_dists_[i - 3], 32);
+        record_in_cache.SetColumn(i, record_ptr->s_dists_[i - 3], 32);
     }
-    record_buf->SetColumn(13, &record_ptr->s_ytd_);
-    record_buf->SetColumn(14, &record_ptr->s_order_cnt_);
-    record_buf->SetColumn(15, &record_ptr->s_remote_cnt_);
-    record_buf->SetColumn(16, record_ptr->s_data_, 64);
-    record_buf->SetVisible(true);
-    record_buf->Serialize(data_addr, gallocator);
+      record_in_cache.SetColumn(13, &record_ptr->s_ytd_);
+      record_in_cache.SetColumn(14, &record_ptr->s_order_cnt_);
+      record_in_cache.SetColumn(15, &record_ptr->s_remote_cnt_);
+      record_in_cache.SetColumn(16, record_ptr->s_data_, 64);
     IndexKey key = GetStockPrimaryKey(record_ptr->s_i_id_, record_ptr->s_w_id_);
-    storage_manager_->tables_[STOCK_TABLE_ID]->InsertRecord(
-        &key, 1, data_addr, gallocator, thread_id);
+      storage_manager_->tables_[STOCK_TABLE_ID]->InsertPriIndex(
+              &key, 1, tuple_gaddr);
+      gallocator->PostPage_Update(handle->gptr, handle);
   }
 
   void InsertOrderRecord(OrderRecord* record_ptr, Record *record_buf,
                          size_t thread_id) {
-    GAlloc *gallocator = gallocators[thread_id];
-    GAddr data_addr = gallocator->Malloc(record_buf->GetSchemaSize());
-    record_buf->SetColumn(0, &record_ptr->o_id_);
-    record_buf->SetColumn(1, &record_ptr->o_c_id_);
-    record_buf->SetColumn(2, &record_ptr->o_d_id_);
-    record_buf->SetColumn(3, &record_ptr->o_w_id_);
-    record_buf->SetColumn(4, &record_ptr->o_entry_d_);
-    record_buf->SetColumn(5, &record_ptr->o_carrier_id_);
-    record_buf->SetColumn(6, &record_ptr->o_ol_cnt_);
-    record_buf->SetColumn(7, &record_ptr->o_all_local_);
-    record_buf->SetVisible(true);
-    record_buf->Serialize(data_addr, gallocator);
+      DDSM *gallocator = gallocators[thread_id];
+      Cache::Handle *handle = nullptr;
+      char* tuple_data_;
+      GlobalAddress tuple_gaddr;
+      storage_manager_->tables_[ORDER_TABLE_ID]->AllocateNewTuple(
+              tuple_data_, tuple_gaddr, handle, gallocator);
+      Record record_in_cache = Record(storage_manager_->tables_[ORDER_TABLE_ID]->GetSchema(), tuple_data_);
+
+      record_in_cache.SetColumn(0, &record_ptr->o_id_);
+      record_in_cache.SetColumn(1, &record_ptr->o_c_id_);
+      record_in_cache.SetColumn(2, &record_ptr->o_d_id_);
+      record_in_cache.SetColumn(3, &record_ptr->o_w_id_);
+      record_in_cache.SetColumn(4, &record_ptr->o_entry_d_);
+      record_in_cache.SetColumn(5, &record_ptr->o_carrier_id_);
+      record_in_cache.SetColumn(6, &record_ptr->o_ol_cnt_);
+      record_in_cache.SetColumn(7, &record_ptr->o_all_local_);
     IndexKey key = GetOrderPrimaryKey(record_ptr->o_id_, record_ptr->o_d_id_,
                                       record_ptr->o_w_id_);
-    storage_manager_->tables_[ORDER_TABLE_ID]->InsertRecord(
-        &key, 1, data_addr, gallocator, thread_id);
+      storage_manager_->tables_[ORDER_TABLE_ID]->InsertPriIndex(
+              &key, 1, tuple_gaddr);
+      gallocator->PostPage_Update(handle->gptr, handle);
   }
 
   void InsertNewOrderRecord(NewOrderRecord* record_ptr, Record *record_buf,
                             size_t thread_id) {
-    GAlloc *gallocator = gallocators[thread_id];
-    GAddr data_addr = gallocator->Malloc(record_buf->GetSchemaSize());
-    record_buf->SetColumn(0, &record_ptr->o_id_);
-    record_buf->SetColumn(1, &record_ptr->d_id_);
-    record_buf->SetColumn(2, &record_ptr->w_id_);
-    record_buf->SetVisible(true);
-    record_buf->Serialize(data_addr, gallocator);
+      DDSM *gallocator = gallocators[thread_id];
+      Cache::Handle *handle = nullptr;
+      char* tuple_data_;
+      GlobalAddress tuple_gaddr;
+      storage_manager_->tables_[NEW_ORDER_TABLE_ID]->AllocateNewTuple(
+              tuple_data_, tuple_gaddr, handle, gallocator);
+      Record record_in_cache = Record(storage_manager_->tables_[NEW_ORDER_TABLE_ID]->GetSchema(), tuple_data_);
+
+      record_in_cache.SetColumn(0, &record_ptr->o_id_);
+      record_in_cache.SetColumn(1, &record_ptr->d_id_);
+      record_in_cache.SetColumn(2, &record_ptr->w_id_);
     IndexKey key = GetNewOrderPrimaryKey(record_ptr->o_id_, record_ptr->d_id_,
                                          record_ptr->w_id_);
-    storage_manager_->tables_[NEW_ORDER_TABLE_ID]->InsertRecord(
-        &key, 1, data_addr, gallocator, thread_id);
+      storage_manager_->tables_[NEW_ORDER_TABLE_ID]->InsertPriIndex(
+              &key, 1, tuple_gaddr);
+      gallocator->PostPage_Update(handle->gptr, handle);
   }
 
   void InsertOrderLineRecord(OrderLineRecord* record_ptr, Record *record_buf,
                              size_t thread_id) {
-    GAlloc *gallocator = gallocators[thread_id];
-    GAddr data_addr = gallocator->Malloc(record_buf->GetSchemaSize());
-    record_buf->SetColumn(0, &record_ptr->ol_o_id_);
-    record_buf->SetColumn(1, &record_ptr->ol_d_id_);
-    record_buf->SetColumn(2, &record_ptr->ol_w_id_);
-    record_buf->SetColumn(3, &record_ptr->ol_number_);
-    record_buf->SetColumn(4, &record_ptr->ol_i_id_);
-    record_buf->SetColumn(5, &record_ptr->ol_supply_w_id_);
-    record_buf->SetColumn(6, &record_ptr->ol_delivery_d_);
-    record_buf->SetColumn(7, &record_ptr->ol_quantity_);
-    record_buf->SetColumn(8, &record_ptr->ol_amount_);
-    record_buf->SetColumn(9, record_ptr->ol_dist_info_, 32);
-    record_buf->SetVisible(true);
-    record_buf->Serialize(data_addr, gallocator);
+      DDSM *gallocator = gallocators[thread_id];
+      Cache::Handle *handle = nullptr;
+      char* tuple_data_;
+      GlobalAddress tuple_gaddr;
+      storage_manager_->tables_[ORDER_LINE_TABLE_ID]->AllocateNewTuple(
+              tuple_data_, tuple_gaddr, handle, gallocator);
+      Record record_in_cache = Record(storage_manager_->tables_[ORDER_LINE_TABLE_ID]->GetSchema(), tuple_data_);
+      record_in_cache.SetColumn(0, &record_ptr->ol_o_id_);
+      record_in_cache.SetColumn(1, &record_ptr->ol_d_id_);
+      record_in_cache.SetColumn(2, &record_ptr->ol_w_id_);
+      record_in_cache.SetColumn(3, &record_ptr->ol_number_);
+      record_in_cache.SetColumn(4, &record_ptr->ol_i_id_);
+      record_in_cache.SetColumn(5, &record_ptr->ol_supply_w_id_);
+      record_in_cache.SetColumn(6, &record_ptr->ol_delivery_d_);
+      record_in_cache.SetColumn(7, &record_ptr->ol_quantity_);
+      record_in_cache.SetColumn(8, &record_ptr->ol_amount_);
+      record_in_cache.SetColumn(9, record_ptr->ol_dist_info_, 32);
     IndexKey key = GetOrderLinePrimaryKey(record_ptr->ol_o_id_,
                                           record_ptr->ol_d_id_,
                                           record_ptr->ol_w_id_,
                                           record_ptr->ol_number_);
     //keys[1] = GetOrderLineSecondaryKey(record_ptr->ol_o_id_, record_ptr->ol_d_id_, record_ptr->ol_w_id_);
-    storage_manager_->tables_[ORDER_LINE_TABLE_ID]->InsertRecord(
-        &key, 1, data_addr, gallocator, thread_id);
+      storage_manager_->tables_[ORDER_LINE_TABLE_ID]->InsertPriIndex(
+              &key, 1, tuple_gaddr);
+      gallocator->PostPage_Update(handle->gptr, handle);
   }
 
   void InsertHistoryRecord(HistoryRecord* record_ptr, Record *record_buf,
                            size_t thread_id) {
-    GAlloc *gallocator = gallocators[thread_id];
-    GAddr data_addr = gallocator->Malloc(record_buf->GetSchemaSize());
-    record_buf->SetColumn(0, &record_ptr->h_c_id_);
-    record_buf->SetColumn(1, &record_ptr->h_c_d_id_);
-    record_buf->SetColumn(2, &record_ptr->h_c_w_id_);
-    record_buf->SetColumn(3, &record_ptr->h_d_id_);
-    record_buf->SetColumn(4, &record_ptr->h_w_id_);
-    record_buf->SetColumn(5, &record_ptr->h_date_);
-    record_buf->SetColumn(6, &record_ptr->h_amount_);
-    record_buf->SetColumn(7, record_ptr->h_data_, 32);
-    record_buf->SetVisible(true);
-    record_buf->Serialize(data_addr, gallocator);
+      DDSM *gallocator = gallocators[thread_id];
+      Cache::Handle *handle = nullptr;
+      char* tuple_data_;
+      GlobalAddress tuple_gaddr;
+      storage_manager_->tables_[HISTORY_TABLE_ID]->AllocateNewTuple(
+              tuple_data_, tuple_gaddr, handle, gallocator);
+      Record record_in_cache = Record(storage_manager_->tables_[HISTORY_TABLE_ID]->GetSchema(), tuple_data_);
+      record_in_cache.SetColumn(0, &record_ptr->h_c_id_);
+      record_in_cache.SetColumn(1, &record_ptr->h_c_d_id_);
+      record_in_cache.SetColumn(2, &record_ptr->h_c_w_id_);
+      record_in_cache.SetColumn(3, &record_ptr->h_d_id_);
+      record_in_cache.SetColumn(4, &record_ptr->h_w_id_);
+      record_in_cache.SetColumn(5, &record_ptr->h_date_);
+      record_in_cache.SetColumn(6, &record_ptr->h_amount_);
+      record_in_cache.SetColumn(7, record_ptr->h_data_, 32);
     IndexKey key = GetHistoryPrimaryKey(record_ptr->h_c_id_,
                                         record_ptr->h_d_id_,
                                         record_ptr->h_w_id_);
-    storage_manager_->tables_[HISTORY_TABLE_ID]->InsertRecord(
-        &key, 1, data_addr, gallocator, thread_id);
+      storage_manager_->tables_[HISTORY_TABLE_ID]->InsertPriIndex(
+              &key, 1, tuple_gaddr);
+      gallocator->PostPage_Update(handle->gptr, handle);
   }
 
   void InsertDistrictNewOrderRecord(DistrictNewOrderRecord* record_ptr,
                                     Record *record_buf, size_t thread_id) {
-    GAlloc *gallocator = gallocators[thread_id];
-    GAddr data_addr = gallocator->Malloc(record_buf->GetSchemaSize());
-    record_buf->SetColumn(0, &record_ptr->d_id_);
-    record_buf->SetColumn(1, &record_ptr->w_id_);
-    record_buf->SetColumn(2, &record_ptr->o_id_);
-    record_buf->SetVisible(true);
-    record_buf->Serialize(data_addr, gallocator);
+      DDSM *gallocator = gallocators[thread_id];
+      Cache::Handle *handle = nullptr;
+      char* tuple_data_;
+      GlobalAddress tuple_gaddr;
+      storage_manager_->tables_[DISTRICT_NEW_ORDER_TABLE_ID]->AllocateNewTuple(
+              tuple_data_, tuple_gaddr, handle, gallocator);
+      Record record_in_cache = Record(storage_manager_->tables_[DISTRICT_NEW_ORDER_TABLE_ID]->GetSchema(), tuple_data_);
+
+      record_in_cache.SetColumn(0, &record_ptr->d_id_);
+      record_in_cache.SetColumn(1, &record_ptr->w_id_);
+      record_in_cache.SetColumn(2, &record_ptr->o_id_);
     IndexKey key = GetDistrictNewOrderPrimaryKey(record_ptr->d_id_,
                                                  record_ptr->w_id_);
-    storage_manager_->tables_[DISTRICT_NEW_ORDER_TABLE_ID]->InsertRecord(
-        &key, 1, data_addr, gallocator, thread_id);
+      storage_manager_->tables_[DISTRICT_NEW_ORDER_TABLE_ID]->InsertPriIndex(
+              &key, 1, tuple_gaddr);
+      gallocator->PostPage_Update(handle->gptr, handle);
   }
 };
 

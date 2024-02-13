@@ -1,9 +1,8 @@
 #include "Timer.h"
 #include "Btr.h"
 #include "zipf.h"
-#include "util/random.h"
-//#include "util/rdma.h"
-
+#include "utils/random.h"
+#include "DDSM.h"
 #include <city.h>
 #include <stdlib.h>
 #include <thread>
@@ -332,7 +331,8 @@ int main(int argc, char *argv[]) {
     schema_ptr->InsertColumns(columns);
     size_t column_ids[1] = {0};
     schema_ptr->SetPrimaryColumns(column_ids,1);
-    tree = new DSMEngine::Btr<uint64_t, uint64_t>(rdma_mg, cache_ptr, schema_ptr, 0);
+    DSMEngine::DDSM ddsm = DSMEngine::DDSM(cache_ptr, rdma_mg);
+    tree = new DSMEngine::Btr<uint64_t, uint64_t>(&ddsm, cache_ptr, schema_ptr, 0);
 
 #ifndef BENCH_LOCK
     char* tuple_buff = new char[schema_ptr->GetSchemaSize()];

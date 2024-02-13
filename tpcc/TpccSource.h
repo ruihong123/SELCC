@@ -8,7 +8,7 @@
 #include "TpccKeyGenerator.h"
 #include <ctime>
 
-namespace Database {
+namespace DSMEngine {
 namespace TpccBenchmark {
 class TpccSource : public BenchmarkSource {
  public:

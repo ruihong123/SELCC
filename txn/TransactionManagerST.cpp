@@ -1,7 +1,7 @@
 #if defined(ST)
 #include "TransactionManager.h"
 
-namespace Database {
+namespace DSMEngine {
   bool TransactionManager::InsertRecord(TxnContext* context, size_t table_id, const IndexKey* keys, 
       size_t key_num, Record *record, const GAddr& record_addr) {
     Access *access = access_list_.NewAccess();

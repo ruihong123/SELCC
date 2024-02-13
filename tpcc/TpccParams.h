@@ -8,7 +8,7 @@
 
 #include <cassert>
 
-namespace Database {
+namespace DSMEngine {
 namespace TpccBenchmark {
 
 struct TpccScaleParams {

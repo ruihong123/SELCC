@@ -9,8 +9,8 @@
 #include <queue>
 //#include <fcntl.h>
 #include "storage/rdma.h"
-//#include "util/env_posix.h"
-#include "util/ThreadPool.h"
+//#include "utils/env_posix.h"
+#include "utils/ThreadPool.h"
 //#include "db/log_writer.h"
 //#include "db/version_set.h"
 #include "DSMEngine/options.h"
@@ -81,8 +81,8 @@ class Memory_Node_Keeper {
    * @param socket_fd
    */
   void server_communication_thread(std::string client_ip, int socket_fd);
-  void create_mr_handler(RDMA_Request* request, std::string& client_ip,
-                         uint8_t target_node_id);
+  void create_mr_1GB_handler(RDMA_Request* request, std::string& client_ip,
+                             uint8_t target_node_id);
   void create_qp_handler(RDMA_Request* request, std::string& client_ip,
                          uint8_t target_node_id);
 

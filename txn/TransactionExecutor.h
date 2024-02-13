@@ -16,7 +16,7 @@
 #include <atomic>
 #include <xmmintrin.h>
 
-namespace Database {
+namespace DSMEngine {
 class TransactionExecutor {
  public:
   TransactionExecutor(IORedirector* const redirector, 

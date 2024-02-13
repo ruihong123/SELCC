@@ -11,10 +11,20 @@ namespace DSMEngine {
 class Record {
 public:
   Record(RecordSchema *schema_ptr, char* data) : schema_ptr_(schema_ptr), data_ptr_(data) {
-//    data_size_ = schema_ptr_->GetSchemaSize();
-//    data_ptr_ = data;
+    data_size_ = schema_ptr_->GetSchemaSize();
+    data_ptr_ = data;
+    need_delete_ = false;
   }
+  Record(RecordSchema *schema_ptr) : schema_ptr_(schema_ptr) {
+        data_size_ = schema_ptr_->GetSchemaSize();
+        data_ptr_ = new char[data_size_];
+        need_delete_ = true;
+    }
   ~Record() {
+      if (need_delete_){
+          delete[] data_ptr_;
+          data_ptr_ = NULL;
+      }
   }
     size_t GetTableId() const{
         return schema_ptr_->GetTableId();
@@ -35,26 +45,26 @@ public:
     }
 
     // set column. type can be any type.
-    void SetColumn(const size_t &column_id, const char *data){
+    void SetColumn(const size_t &column_id, void *data){
         memcpy(data_ptr_ + schema_ptr_->GetColumnOffset(column_id), data, schema_ptr_->GetColumnSize(column_id));
     }
 
     // rename.
-    void UpdateColumn(const size_t &column_id, const char*data){
+    void UpdateColumn(const size_t &column_id, void*data){
         memcpy(data_ptr_ + schema_ptr_->GetColumnOffset(column_id), data, schema_ptr_->GetColumnSize(column_id));
     }
 
     // set column. type must be varchar.
-    void SetColumn(const size_t &column_id, const char* data, size_t size){
+    void SetColumn(const size_t &column_id, void* data, size_t size){
         assert(schema_ptr_->GetColumnType(column_id) == ValueType::VARCHAR && schema_ptr_->GetColumnSize(column_id) >= size);
         memcpy(data_ptr_ + schema_ptr_->GetColumnOffset(column_id), data, size);
     }
 
-    // set column. type must be varchar.
-    void SetColumn(const size_t &column_id, const char *data_str, const size_t &data_size){
-        assert(schema_ptr_->GetColumnType(column_id) == ValueType::VARCHAR && schema_ptr_->GetColumnSize(column_id) >= data_size);
-        memcpy(data_ptr_ + schema_ptr_->GetColumnOffset(column_id), data_str, data_size);
-    }
+//    // set column. type must be varchar.
+//    void SetColumn(const size_t &column_id, void *data_str, const size_t &data_size){
+//        assert(schema_ptr_->GetColumnType(column_id) == ValueType::VARCHAR && schema_ptr_->GetColumnSize(column_id) >= data_size);
+//        memcpy(data_ptr_ + schema_ptr_->GetColumnOffset(column_id), data_str, data_size);
+//    }
 
     // set column. type must be varchar.
     void SetColumn(const size_t &column_id, const std::string &data){
@@ -72,10 +82,10 @@ public:
     }
 
     // copy data, memory allocated outside
-    char* GetColumn(const size_t &column_id, char *data) const {
+    char* GetColumn(const size_t &column_id, void *data) const {
         assert(schema_ptr_->GetColumnType(column_id) != ValueType::VARCHAR);
         memcpy(data, data_ptr_ + schema_ptr_->GetColumnOffset(column_id), schema_ptr_->GetColumnSize(column_id));
-        return data;
+        return (char*)data;
     }
 
     // copy data, memory allocated inside
@@ -161,6 +171,20 @@ public:
         return hashcode;
     }
 
+        bool GetVisible() const {
+            size_t meta_col_id = schema_ptr_->GetMetaColumnId();
+            MetaColumn meta_col;
+            GetColumn(meta_col_id, &meta_col);
+            return meta_col.is_visible_;
+        }
+        void SetVisible(bool val) {
+            size_t meta_col_id = schema_ptr_->GetMetaColumnId();
+            MetaColumn meta_col;
+            this->GetColumn(meta_col_id, &meta_col);
+            meta_col.is_visible_ = val;
+            this->SetColumn(meta_col_id, &meta_col);
+        }
+
 private:
     Record(const Record&);
     Record& operator=(const Record&);
@@ -169,8 +193,9 @@ private:
 public:
   RecordSchema *schema_ptr_;
   char *data_ptr_;
-//  size_t data_size_;
-        bool is_visible_;
+  bool need_delete_;
+  size_t data_size_;
+    bool is_visible_;
 };
 
 

@@ -8,7 +8,7 @@
 #include "CharArray.h"
 #include "Meta.h"
 
-namespace Database {
+namespace DSMEngine {
 class TxnParam {
  public:
   TxnParam() {

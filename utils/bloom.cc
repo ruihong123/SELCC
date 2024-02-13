@@ -5,7 +5,7 @@
 #include "DSMEngine/filter_policy.h"
 
 #include "DSMEngine/slice.h"
-//#include "util/hash.h"
+//#include "utils/hash.h"
 
 namespace DSMEngine {
 

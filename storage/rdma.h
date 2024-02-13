@@ -24,13 +24,13 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include "util/thread_local.h"
+#include "utils/thread_local.h"
 //#include "page.h"
 //#include "HugePageAlloc.h"
 #include "Common.h"
 #include "port/port_posix.h"
-#include "util/mutexlock.h"
-#include "util/ThreadPool.h"
+#include "utils/mutexlock.h"
+#include "utils/ThreadPool.h"
 //#include "DSMEngine/cache.h"
 #include <atomic>
 #include <chrono>
@@ -145,7 +145,8 @@ struct New_Root {
 enum RDMA_Command_Type {
   invalid_command_ = 0,
   create_qp_,
-  create_mr_,
+  create_mr_1GB_,
+  create_mr_any_,
   near_data_compaction,
   install_version_edit,
   version_unpin_,
@@ -371,7 +372,7 @@ class RDMA_Manager {
   //  }
   //  RDMA_Manager()=delete;
   ~RDMA_Manager();
-  static RDMA_Manager *Get_Instance(config_t* config);
+  static RDMA_Manager *Get_Instance(config_t* config = nullptr);
   /**
    *
    */

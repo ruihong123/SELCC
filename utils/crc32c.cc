@@ -4,13 +4,13 @@
 //
 // A portable implementation of crc32c.
 
-#include "util/crc32c.h"
+#include "utils/crc32c.h"
 
 #include <cstddef>
 #include <cstdint>
 
 #include "port/port.h"
-#include "util/coding.h"
+#include "utils/coding.h"
 
 namespace DSMEngine {
 namespace crc32c {

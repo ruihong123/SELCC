@@ -15,8 +15,8 @@
 //#include "table/filter_block.h"
 #include "table/full_filter_block.h"
 #include "table/format.h"
-//#include "util/coding.h"
-//#include "util/crc32c.h"
+//#include "utils/coding.h"
+//#include "utils/crc32c.h"
 namespace DSMEngine {
 
 //class BlockBuilder;

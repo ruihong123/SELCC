@@ -8,7 +8,7 @@
 #include <iostream>
 #include <string>
 
-namespace Database {
+namespace DSMEngine {
 namespace TpccBenchmark {
 class DeliveryProcedure : public StoredProcedure {
  public:
@@ -35,6 +35,7 @@ class DeliveryProcedure : public StoredProcedure {
 
       IndexKey new_order_key = GetNewOrderPrimaryKey(no_o_id, no_d_id,
                                                      delivery_param->w_id_);
+      //todo: Remember to delete the record.
       Record *new_order_record = nullptr;
       if (transaction_manager_->SearchRecord(&context_, NEW_ORDER_TABLE_ID,
                                              new_order_key, new_order_record,
@@ -132,7 +133,7 @@ class NewOrderProcedure : public StoredProcedure {
   virtual ~NewOrderProcedure() {
   }
   virtual bool Execute(TxnParam *param, CharArray &ret) {
-    epicLog(LOG_DEBUG, "thread_id=%u,start new order", thread_id_);
+//    epicLog(LOG_DEBUG, "thread_id=%u,start new order", thread_id_);
     NewOrderParam *new_order_param = static_cast<NewOrderParam*>(param);
     double total = 0;
     //new_order_param->ol_cnt_ : number of item to be checked out.
@@ -233,38 +234,50 @@ class NewOrderProcedure : public StoredProcedure {
     double c_discount = 0;
     customer_record->GetColumn(15, &c_discount);
     // "createNewOrder": "INSERT INTO NEW_ORDER (NO_O_ID, NO_D_ID, NO_W_ID) VALUES (?, ?, ?)"
-    GAddr new_order_addr = gallocators[thread_id_]->Malloc(
-        transaction_manager_->storage_manager_->
-        tables_[NEW_ORDER_TABLE_ID]->GetSchemaSize());
+      //    GAddr new_order_addr = gallocators[thread_id_]->Malloc(
+//        transaction_manager_->storage_manager_->
+//        tables_[NEW_ORDER_TABLE_ID]->GetSchemaSize());
+    Cache::Handle *new_order_handle = nullptr;
+    char* new_order_buffer;
+    GlobalAddress new_order_gaddr;
+    // TODO: need to allocate a allocation in the transaction manager, and make sure that the access_handle for the same
+    // cache line was not locked muliple time.
+    transaction_manager_->AllocateNewRecord(&context_, NEW_ORDER_TABLE_ID, new_order_handle, new_order_gaddr, new_order_buffer);
+//    ->storage_manager_->tables_[NEW_ORDER_TABLE_ID]->AllocateNewTuple(
+//            new_order_buffer, new_order_gaddr, new_order_handle, gallocators[thread_id_]);
     Record *new_order_record = new Record(
         transaction_manager_->storage_manager_->
-        tables_[NEW_ORDER_TABLE_ID]->GetSchema());
+        tables_[NEW_ORDER_TABLE_ID]->GetSchema(), new_order_buffer);
     new_order_record->SetColumn(0, (char*) (&d_next_o_id));
     new_order_record->SetColumn(1, (char*) (&new_order_param->d_id_));
     new_order_record->SetColumn(2, (char*) (&new_order_param->w_id_));
     new_order_record->SetVisible(true);
-    if (new_order_param->new_order_access_type_ != READ_ONLY) {
-      new_order_record->Serialize(new_order_addr, gallocators[thread_id_]);
-    }
+//    if (new_order_param->new_order_access_type_ != READ_ONLY) {
+//      new_order_record->Serialize(new_order_addr, gallocators[thread_id_]);
+//    }
     IndexKey new_order_key = GetNewOrderPrimaryKey(d_next_o_id,
                                                    new_order_param->d_id_,
                                                    new_order_param->w_id_);
     DB_QUERY(
         InsertRecord(&context_, NEW_ORDER_TABLE_ID, 
-          &new_order_key, 1, new_order_record, new_order_addr));
+          &new_order_key, 1, new_order_record, new_order_handle, new_order_gaddr));
 
     bool all_local = true;
     for (auto & w_id : new_order_param->i_w_ids_) {
       all_local = (all_local && (new_order_param->w_id_ == w_id));
     }
     // "createOrder": "INSERT INTO ORDERS (O_ID, O_D_ID, O_W_ID, O_C_ID, O_ENTRY_D, O_CARRIER_ID, O_OL_CNT, O_ALL_LOCAL) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-    GAddr order_addr = gallocators[thread_id_]->Malloc(
-        transaction_manager_->storage_manager_->
-        tables_[ORDER_TABLE_ID]->GetSchemaSize());
+      Cache::Handle *order_handle = nullptr;
+      char* order_buffer;
+      GlobalAddress order_gaddr;
+      transaction_manager_->AllocateNewRecord(&context_, ORDER_TABLE_ID, order_handle, order_gaddr, order_buffer);
+
+//      GAddr order_addr = gallocators[thread_id_]->Malloc(
+//        transaction_manager_->storage_manager_->
+//        tables_[ORDER_TABLE_ID]->GetSchemaSize());
     Record *order_record = new Record(
         transaction_manager_->storage_manager_->
-        tables_[ORDER_TABLE_ID]->GetSchema()
-        );
+        tables_[ORDER_TABLE_ID]->GetSchema(), order_buffer);
     order_record->SetColumn(0, (char*) (&d_next_o_id));
     order_record->SetColumn(1, (char*) (&new_order_param->c_id_));
     order_record->SetColumn(2, (char*) (&new_order_param->d_id_));
@@ -274,14 +287,14 @@ class NewOrderProcedure : public StoredProcedure {
     order_record->SetColumn(6, (char*) (&new_order_param->ol_cnt_));
     order_record->SetColumn(7, (char*) (&all_local));
     order_record->SetVisible(true);
-    if (new_order_param->order_access_type_ != READ_ONLY) {
-      order_record->Serialize(order_addr, gallocators[thread_id_]);
-    }
+//    if (new_order_param->order_access_type_ != READ_ONLY) {
+//      order_record->Serialize(order_addr, gallocators[thread_id_]);
+//    }
     IndexKey order_key = GetOrderPrimaryKey(d_next_o_id, new_order_param->d_id_,
                                             new_order_param->w_id_);
     DB_QUERY(
         InsertRecord(&context_, ORDER_TABLE_ID, 
-          &order_key, 1, order_record, order_addr));
+          &order_key, 1, order_record, order_handle, order_gaddr));
 
     for (size_t i = 0; i < new_order_param->ol_cnt_; ++i) {
       int ol_number = i + 1;
@@ -289,12 +302,14 @@ class NewOrderProcedure : public StoredProcedure {
       int ol_supply_w_id = new_order_param->i_w_ids_[i];
       int ol_quantity = new_order_param->i_qtys_[i];
       // "createOrderLine": "INSERT INTO ORDER_LINE (OL_O_ID, OL_D_ID, OL_W_ID, OL_NUMBER, OL_I_ID, OL_SUPPLY_W_ID, OL_DELIVERY_D, OL_QUANTITY, OL_AMOUNT, OL_DIST_INFO) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-      GAddr order_line_addr = gallocators[thread_id_]->Malloc(
-          transaction_manager_->storage_manager_->
-          tables_[ORDER_LINE_TABLE_ID]->GetSchemaSize());
+        Cache::Handle *order_line_handle = nullptr;
+        char* order_line_buffer;
+        GlobalAddress order_line_gaddr;
+        transaction_manager_->AllocateNewRecord(&context_, ORDER_TABLE_ID, order_line_handle, order_line_gaddr, order_line_buffer);
+
       Record *order_line_record = new Record(
           transaction_manager_->storage_manager_->
-          tables_[ORDER_LINE_TABLE_ID]->GetSchema()
+          tables_[ORDER_LINE_TABLE_ID]->GetSchema(), order_line_buffer
           );
       order_line_record->SetColumn(0, (char*) (&d_next_o_id));
       order_line_record->SetColumn(1, (char*) (&new_order_param->d_id_));
@@ -307,9 +322,9 @@ class NewOrderProcedure : public StoredProcedure {
       order_line_record->SetColumn(8, (char*) (&ol_amounts[i]));
       order_line_record->SetColumn(9, s_dists[i]);
       order_line_record->SetVisible(true);
-      if (new_order_param->order_line_access_type_[i] != READ_ONLY) {
-        order_line_record->Serialize(order_line_addr, gallocators[thread_id_]);
-      }
+//      if (new_order_param->order_line_access_type_[i] != READ_ONLY) {
+//        order_line_record->Serialize(order_line_addr, gallocators[thread_id_]);
+//      }
       IndexKey order_line_key = GetOrderLinePrimaryKey(d_next_o_id,
                                                        new_order_param->d_id_,
                                                        new_order_param->w_id_,
@@ -317,7 +332,7 @@ class NewOrderProcedure : public StoredProcedure {
       //order_line_keys[1] = GetOrderLineSecondaryKey(d_next_o_id, new_order_param->d_id_, new_order_param->w_id_);
       DB_QUERY(
           InsertRecord(&context_, ORDER_LINE_TABLE_ID, 
-            &order_line_key, 1, order_line_record, order_line_addr));
+            &order_line_key, 1, order_line_record, order_line_handle, order_line_gaddr));
     }
 
     ret.Memcpy(ret.size_, (char*) (&w_tax), sizeof(w_tax));
@@ -346,7 +361,7 @@ class PaymentProcedure : public StoredProcedure {
   }
 
   virtual bool Execute(TxnParam *param, CharArray &ret) {
-    epicLog(LOG_DEBUG, "thread_id=%u,start payment", thread_id_);
+//    epicLog(LOG_DEBUG, "thread_id=%u,start payment", thread_id_);
     PaymentParam *payment_param = static_cast<PaymentParam*>(param);
     // "getWarehouse": "SELECT W_NAME, W_STREET_1, W_STREET_2, W_CITY, W_STATE, W_ZIP FROM WAREHOUSE WHERE W_ID = ?"
     // "updateWarehouseBalance": "UPDATE WAREHOUSE SET W_YTD = W_YTD + ? WHERE W_ID = ?"
@@ -401,12 +416,14 @@ class PaymentProcedure : public StoredProcedure {
     payment_cnt += 1;
     customer_record->SetColumn(18, &payment_cnt);
     // "insertHistory": "INSERT INTO HISTORY VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-    GAddr history_addr = gallocators[thread_id_]->Malloc(
-        transaction_manager_->storage_manager_->
-        tables_[HISTORY_TABLE_ID]->GetSchemaSize());
+      Cache::Handle *history_handle = nullptr;
+      char* history_buffer;
+      GlobalAddress history_gaddr;
+      transaction_manager_->AllocateNewRecord(&context_, ORDER_TABLE_ID, history_handle, history_gaddr, history_buffer);
+
     Record *history_record = new Record(
         transaction_manager_->storage_manager_->
-        tables_[HISTORY_TABLE_ID]->GetSchema()
+        tables_[HISTORY_TABLE_ID]->GetSchema(), history_buffer
         );
     history_record->SetColumn(0, (char*) (&payment_param->c_id_));
     history_record->SetColumn(1, (char*) (&payment_param->c_d_id_));
@@ -416,15 +433,15 @@ class PaymentProcedure : public StoredProcedure {
     history_record->SetColumn(5, (char*) (&payment_param->h_date_));
     history_record->SetColumn(6, (char*) (&payment_param->h_amount_));
     history_record->SetVisible(true);
-    if (payment_param->history_access_type_ != READ_ONLY) {
-      history_record->Serialize(history_addr, gallocators[thread_id_]);
-    }
+//    if (payment_param->history_access_type_ != READ_ONLY) {
+//      history_record->Serialize(history_addr, gallocators[thread_id_]);
+//    }
     IndexKey history_key = GetHistoryPrimaryKey(payment_param->c_id_,
                                                 payment_param->d_id_,
                                                 payment_param->w_id_);
     DB_QUERY(
         InsertRecord(&context_, HISTORY_TABLE_ID, 
-          &history_key, 1, history_record, history_addr));
+          &history_key, 1, history_record, history_handle, history_gaddr));
 
     return transaction_manager_->CommitTransaction(&context_, param, ret);
   }

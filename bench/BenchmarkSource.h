@@ -8,7 +8,7 @@
 #include "IORedirector.h"
 #include "TimeMeasurer.h"
 
-namespace Database {
+namespace DSMEngine {
 class BenchmarkSource {
  public:
   BenchmarkSource(IORedirector* redirector, size_t num_txn, size_t source_type,

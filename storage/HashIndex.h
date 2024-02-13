@@ -83,7 +83,7 @@ public:
     }
   }
 
-  virtual void Serialize(const GAddr& addr, GAlloc *gallocator) {
+  virtual void Serialize(const char*& addr) {
     size_t off = 0;
     buckets_.Serialize(addr, gallocator);
     off += buckets_.GetSerializeSize();
@@ -91,7 +91,7 @@ public:
     off += sizeof(uint64_t);
     gallocator->Write(addr, off, &record_count_, sizeof(uint64_t));
   }
-  virtual void Deserialize(const GAddr& addr, GAlloc *gallocator) {
+  virtual void Deserialize(const char*& addr) {
     size_t off = 0;
     buckets_.Deserialize(addr, gallocator);
     off += buckets_.GetSerializeSize();

@@ -70,7 +70,7 @@ namespace DSMEngine {
             primary_col_num_ = column_num;
             primary_col_length_ = column_num * sizeof(size_t);
             primary_symbol_ = std::string((char*)(primary_col_ids_), sizeof(size_t)*primary_col_num_);
-            leaf_cardinality_ = (kLeafPageSize - HEADER_LENGTH - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - LOCAL_LOCK_SIZE) / column_offset_;
+//
 
         }
 
@@ -95,7 +95,7 @@ namespace DSMEngine {
             }
             secondary_col_num_[secondary_num_] = column_num;
             secondary_col_length_[secondary_num_] = column_num * sizeof(size_t);
-            secondary_symbols_[std::string((char*)(column_ids), sizeof(size_t)*column_num)] = secondary_num_;
+//            secondary_symbols_[std::string((char*)(column_ids), sizeof(size_t)*column_num)] = secondary_num_;
             secondary_num_ += 1;
         }
 
@@ -106,7 +106,7 @@ namespace DSMEngine {
 
         const size_t& GetSchemaSize()const{ return column_offset_; }
         const size_t& GetColumnCount()const{ return column_count_; }
-        const int GetLeafCardi() const { return leaf_cardinality_;}
+//        const int GetLeafCardi() const { return leaf_cardinality_;}
         //const std::string& GetColumnName(const size_t &index)const{
         //	assert(index < column_count_);
         //	return columns_[index]->column_name_;
@@ -181,14 +181,14 @@ namespace DSMEngine {
             return symbol == primary_symbol_;
         }
 
-        int IsSecondaryKey(std::string &symbol)const{
-            if (secondary_symbols_.find(symbol) != secondary_symbols_.end()){
-                return secondary_symbols_.at(symbol);
-            }
-            else{
-                return -1;
-            }
-        }
+//        int IsSecondaryKey(std::string &symbol)const{
+//            if (secondary_symbols_.find(symbol) != secondary_symbols_.end()){
+//                return secondary_symbols_.at(symbol);
+//            }
+//            else{
+//                return -1;
+//            }
+//        }
 
         HashcodeType GetPartitionHashcode(const std::string &primary_key) const {
             HashcodeType hashcode = 0;
@@ -223,6 +223,22 @@ namespace DSMEngine {
             assert(false);
             return hashcode;
         }
+        virtual void Serialize(const char*& addr) {
+            size_t off = 0;
+            memcpy((void *) addr, this, sizeof(RecordSchema));
+        }
+
+        virtual void Deserialize(const char*& addr) {
+            size_t off = 0;
+            memcpy((void*)this, addr, sizeof(RecordSchema));
+        }
+
+        static size_t GetSerializeSize() {
+            return sizeof(RecordSchema);
+        }
+        const size_t GetMetaColumnId() const {
+            return column_count_ - 1;
+        }
 
     private:
         RecordSchema(const RecordSchema &);
@@ -253,9 +269,9 @@ namespace DSMEngine {
         size_t secondary_col_length_[5]; // col_length = col_num * sizeof(size_t)
         size_t secondary_col_ids_[5][5];
         size_t secondary_col_sizes_[5][5];
-        std::unordered_map<std::string, size_t> secondary_symbols_;
+
         size_t secondary_num_;
-        int leaf_cardinality_ = 0;
+//        std::unordered_map<std::string, size_t> secondary_symbols_;
     };
 
 }

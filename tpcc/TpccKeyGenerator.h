@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <cassert>
 
-namespace Database {
+namespace DSMEngine {
 namespace TpccBenchmark {
 /******************** get primary key **********************/
 static IndexKey GetItemPrimaryKey(int i_id, int w_id) {

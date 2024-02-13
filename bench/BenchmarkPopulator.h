@@ -8,7 +8,7 @@
 #include "Meta.h"
 #include "TimeMeasurer.h"
 
-namespace Database {
+namespace DSMEngine {
 class BenchmarkPopulator {
  public:
   BenchmarkPopulator(StorageManager *storage_manager)

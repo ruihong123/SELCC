@@ -7,7 +7,7 @@
 #include "TxnContext.h"
 #include "Meta.h"
 
-namespace Database {
+namespace DSMEngine {
 #define DB_QUERY(statement) \
 	if (transaction_manager_->statement == false) return false;
 

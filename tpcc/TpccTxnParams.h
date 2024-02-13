@@ -6,7 +6,7 @@
 #include "TpccConstants.h"
 #include <string>
 
-namespace Database {
+namespace DSMEngine {
 namespace TpccBenchmark {
 
 class DeliveryParam : public TxnParam {

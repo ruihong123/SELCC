@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "util/autovector.h"
+#include "utils/autovector.h"
 #include "port/port.h"
 
 namespace DSMEngine {

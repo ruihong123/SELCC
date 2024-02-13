@@ -5,7 +5,7 @@
 #include "BenchmarkInitiator.h"
 #include "Meta.h"
 
-namespace Database {
+namespace DSMEngine {
 namespace TpccBenchmark {
 class TpccInitiator : public BenchmarkInitiator {
  public:

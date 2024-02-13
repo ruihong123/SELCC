@@ -7,7 +7,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
-#include "util/arena.h"
+#include "utils/arena.h"
 #ifndef OS_WIN
 #include <sys/mman.h>
 #endif
@@ -16,7 +16,7 @@
 #include <malloc.h>
 #include "port/port.h"
 #include "DSMEngine/env.h"
-//#include "test_util/sync_point.h"
+//#include "test_utils/sync_point.h"
 
 namespace DSMEngine {
 

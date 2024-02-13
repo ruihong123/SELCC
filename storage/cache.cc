@@ -11,8 +11,8 @@
 
 #include "port/port.h"
 #include "port/thread_annotations.h"
-#include "util/hash.h"
-#include "util/mutexlock.h"
+#include "utils/hash.h"
+#include "utils/mutexlock.h"
 #include "HugePageAlloc.h"
 #include "rdma.h"
 #include "storage/page.h"

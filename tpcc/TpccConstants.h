@@ -4,7 +4,7 @@
 
 #include <string>
 
-namespace Database {
+namespace DSMEngine {
 namespace TpccBenchmark {
 /********************procedure **********************/
 enum TupleType

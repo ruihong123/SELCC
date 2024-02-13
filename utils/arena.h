@@ -21,9 +21,9 @@
 #include <stdint.h>
 #include <vector>
 
-#include "util/mutexlock.h"
+#include "utils/mutexlock.h"
 
-#include "util/allocator.h"
+#include "utils/allocator.h"
 
 namespace DSMEngine {
 

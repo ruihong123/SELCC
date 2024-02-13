@@ -5037,7 +5037,7 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
   Allocate_Local_RDMA_Slot(send_mr, Message);
   Allocate_Local_RDMA_Slot(receive_mr, Message);
   send_pointer = (RDMA_Request*)send_mr.addr;
-  send_pointer->command = create_mr_;
+  send_pointer->command = create_mr_1GB_;
   send_pointer->content.mem_size = size;
   send_pointer->buffer = receive_mr.addr;
   send_pointer->rkey = receive_mr.rkey;
@@ -5360,7 +5360,7 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
     // begginning.
     std::unique_lock<std::shared_mutex> mem_write_lock(remote_mem_mutex);
     if (Remote_Leaf_Node_Bitmap.at(target_node_id)->empty()) {
-        Remote_Memory_Register(1 * 1024 * 1024 * 1024, target_node_id, Internal_and_Leaf);
+        Remote_Memory_Register(1 * 1024 * 1024 * 1024ull, target_node_id, Internal_and_Leaf);
       //      fs_meta_save();
     }
     mem_write_lock.unlock();
@@ -5381,13 +5381,6 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
       remote_mr.length = CachelineSize;
       ret.nodeID = target_node_id;
       ret.offset = static_cast<char*>(remote_mr.addr) - (char*)base_addr_map_data[target_node_id];
-
-//        remote_data_mrs->fname = file_name;
-//        remote_data_mrs->map_pointer =
-//          (ptr->second).get_mr_ori();  // it could be confused that the map_pointer is for the memtadata deletion
-// so that we can easily find where to deallocate our RDMA buffer. The key is a pointer to ibv_mr.
-//      remote_data_mrs->file_size = 0;
-//      DEBUG_arg("Allocate Remote pointer %p",  remote_mr.addr);
       return ret;
     } else
       ptr++;
@@ -6002,13 +5995,13 @@ void RDMA_Manager::fs_deserilization(
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         //The template will not impact the offset of level in the header so we can random give the tempalate a Type to access the leve in ther header.
-        assert(STRUCT_OFFSET(Header<uint64_t>, level) == STRUCT_OFFSET(Header<char>, level));
+        assert(STRUCT_OFFSET(Header_Index<uint64_t>, level) == STRUCT_OFFSET(Header_Index<char>, level));
         if (handle) {
             ibv_mr *page_mr = (ibv_mr *) handle->value;
             GlobalAddress lock_gptr = g_ptr;
-            Header<uint64_t> *header = (Header<uint64_t> *) ((char *) ((ibv_mr *) handle->value)->addr +
-                                         (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
-            if (header->level == 0) {
+            Header_Index<uint64_t> *header = (Header_Index<uint64_t> *) ((char *) ((ibv_mr *) handle->value)->addr +
+                                                                         (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
+            if (header->p_type != P_Internal) {
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
 
             } else {
@@ -6044,8 +6037,8 @@ void RDMA_Manager::fs_deserilization(
         if (handle){
             auto* page_mr = (ibv_mr*)handle->value;
             GlobalAddress lock_gptr = g_ptr;
-            Header<uint64_t>* header = (Header<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
-            if (header->level == 0){
+            Header_Index<uint64_t>* header = (Header_Index<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
+            if (header->p_type != P_Internal){
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
 //                        printf("Leaf node page %p's global lock state is %lu\n", g_ptr, ((LeafPage*)(page_mr->addr))->global_lock);
 

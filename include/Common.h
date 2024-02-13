@@ -28,8 +28,7 @@
 
 #define COMMA ,
 #define STRUCT_OFFSET(type, field)                                             \
-  (char *)&((type *)(0))->field - (char *)((type *)(0))
-
+  ((char *)&((type *)(0))->field - (char *)((type *)(0)))
 #define CALCULATE_CLASS_OFFSET(type, field)                                             \
   (char *)&((type *)(0))->field - (char *)((type *)(0))
 #define MAX_MACHINE 8
@@ -57,6 +56,7 @@
 #define kInternalPageSize (2*1024 + 8)
 
 #define kLeafPageSize (2*1024 + 8)
+#define kDataPageSize kLeafPageSize
 
 #define KEY_PADDING 12
 
@@ -179,6 +179,18 @@ public:
         return zero;
     };
 } __attribute__((packed));
+//TODO: This to page operation is wrong. !!!!!!! THe page is not aligned to 2048, it only
+// alligned to 8.
+static GlobalAddress TOPAGE(GlobalAddress addr){
+    GlobalAddress ret = addr;
+    size_t bulk_granularity = 1024ull*1024*1024;
+    size_t bulk_offset = ret.offset / bulk_granularity;
+    ret.offset = ret.offset % bulk_granularity;
+    ret.offset = bulk_offset*bulk_granularity + (ret.offset/kLeafPageSize)*kLeafPageSize;
+    assert(ret.nodeID <= 64);// Just for debug.
+    assert(addr.offset - ret.offset < kLeafPageSize);
+    return ret;
+}
 struct LocalAddress{
     uint64_t addr;
     uint32_t lkey;

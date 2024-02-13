@@ -228,18 +228,8 @@ long get_time() {
 bool TrueOrFalse(double probability, unsigned int* seedp) {
     return (rand_r(seedp) % 100) < probability;
 }
-//TODO: This to page operation is wrong. !!!!!!! THe page is not aligned to 2048, it only
-// alligned to 8.
-GlobalAddress TOPAGE(GlobalAddress addr){
-    GlobalAddress ret = addr;
-    size_t bulk_granularity = 1024ull*1024*1024;
-    size_t bulk_offset = ret.offset / bulk_granularity;
-    ret.offset = ret.offset % bulk_granularity;
-    ret.offset = bulk_offset*bulk_granularity + (ret.offset/kLeafPageSize)*kLeafPageSize;
-    assert(ret.nodeID <= 64);// Just for debug.
-    assert(addr.offset - ret.offset < kLeafPageSize);
-    return ret;
-}
+
+
 
 //int GetRandom(int min, int max, unsigned int* seedp) {
 //	int ret = (rand_r(seedp) % (max-min)) + min;
@@ -376,7 +366,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 #ifdef EXCLUSIVE_HOTSPOT
         workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha, *seedp, ddsm->GetID()/2, compute_num);
 #else
-        workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha, *seedp, 0, 0);
+        workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha, *seedp);
 #endif
     } else if (workload > 1){
         workload_gen = new MultiHotSpotGenerator(STEPS, zipfian_alpha, *seedp, workload);
@@ -662,6 +652,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
 //        alloc->MFence();
 //        ret = alloc->Read(to_access, buf, item_size);
 //    }
+
 
     long end = get_time();
     long throughput = ITERATION / ((double) (end - start) / 1000 / 1000 / 1000);

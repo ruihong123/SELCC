@@ -2,7 +2,7 @@
 #ifndef __DATABASE_TXN_TXN_CONTEXT_H__
 #define __DATABASE_TXN_TXN_CONTEXT_H__
 
-namespace Database {
+namespace DSMEngine {
 struct TxnContext {
   TxnContext()
       : txn_type_(0),

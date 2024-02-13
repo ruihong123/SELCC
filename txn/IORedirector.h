@@ -5,7 +5,7 @@
 #include <vector>
 #include "TxnParam.h"
 
-namespace Database {
+namespace DSMEngine {
 class IORedirector {
  public:
   IORedirector(const size_t &thread_count)

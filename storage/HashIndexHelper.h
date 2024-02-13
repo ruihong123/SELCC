@@ -9,7 +9,7 @@
 
 #define SLOT_NUM 2
 
-namespace Database {
+namespace DSMEngine {
 struct Items {
   void Init() {
     record_ptrs_count_ = 0;
@@ -163,10 +163,10 @@ class BucketHeader : public GAMObject{
     return false;
   }
 
-  virtual void Serialize(const GAddr& addr, GAlloc *gallocator) {
+  virtual void Serialize(const char*& addr) {
     gallocator->Write(addr, &head_, sizeof(GAddr));
   }
-  virtual void Deserialize(const GAddr& addr, GAlloc *gallocator) {
+  virtual void Deserialize(const char*& addr) {
     gallocator->Read(addr, &head_, sizeof(GAddr));
   }
   static size_t GetSerializeSize() {

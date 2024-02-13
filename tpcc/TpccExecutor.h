@@ -5,7 +5,7 @@
 #include "TransactionExecutor.h"
 #include "TpccProcedure.h"
 
-namespace Database {
+namespace DSMEngine {
 namespace TpccBenchmark {
 class TpccExecutor : public TransactionExecutor {
  public:

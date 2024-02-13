@@ -14,8 +14,8 @@
 
 #include "DSMEngine/slice.h"
 #include "port/port_posix.h"
-#include "util/hash.h"
-#include "util/fastrange.h"
+#include "utils/hash.h"
+#include "utils/fastrange.h"
 #ifdef HAVE_AVX2
 #include <immintrin.h>
 #endif
