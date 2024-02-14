@@ -1,6 +1,9 @@
 #!/bin/bash
 set -o nounset
-
+bin=`dirname "$0"`
+bin=`cd "$bin"; pwd`
+SRC_HOME=$bin/..
+BIN_HOME=$bin/../release
 # With the specified arguments for benchmark setting,
 # this script_compute runs tpcc for varied distributed ratios
 
@@ -8,14 +11,26 @@ set -o nounset
 # hosts_file specify a list of host names and port numbers, with the host names in the first column
 #Compute_file="../tpcc/compute.txt"
 #Memory_file="../tpcc/memory.txt"
+conf_file_all=$bin/../connection_cloudlab.conf
 conf_file="../connection.conf"
+
+awk -v pos="$node" -F' ' '{
+        for (i=1; i<=NF; i++) {
+            if (i <= pos) {
+                printf("%s", $i)
+                if (i < pos) printf(" ")
+            }
+        }
+        print ""
+    }' "$conf_file_all" > "$conf_file"
+
 # specify your directory for log files
 output_dir="/users/Ruihong/gam/database/scripts/data"
 
 # working environment
 proj_dir="/users/Ruihong/MemoryEngine/"
 bin_dir="${proj_dir}/debug"
-script_dir="{proj_dir}/database/scripts"
+script_dir="${proj_dir}/database/scripts"
 ssh_opts="-o StrictHostKeyChecking=no"
 
 compute_line=$(sed -n '1p' $conf_file)
