@@ -28,7 +28,7 @@ conf_file="../connection.conf"
 output_dir="/users/Ruihong/gam/database/scripts/data"
 
 # working environment
-proj_dir="/users/Ruihong/MemoryEngine/"
+proj_dir="/users/Ruihong/MemoryEngine"
 bin_dir="${proj_dir}/debug"
 script_dir="${proj_dir}/database/scripts"
 ssh_opts="-o StrictHostKeyChecking=no"
