@@ -128,8 +128,8 @@ file(GLOB TPCC_DEPENDENCY
         "${PROJECT_SOURCE_DIR}/txn/*.cpp"
         "${PROJECT_SOURCE_DIR}/txn/*.h"
 )
-add_executable(TPCC ${TPCC_DEPENDENCY})
-target_link_libraries(TPCC DSMEngine)
+add_executable(tpcc ${TPCC_DEPENDENCY})
+target_link_libraries(tpcc DSMEngine)
 target_link_libraries(TestTrial DSMEngine)
 target_link_libraries(memory_server DSMEngine)
 target_link_libraries(memory_server_term DSMEngine)
