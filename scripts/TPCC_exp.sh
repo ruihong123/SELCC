@@ -120,7 +120,7 @@ vary_temp_locality () {
 
 auto_fill_params () {
   # so that users don't need to specify parameters for themselves
-  compute_ARGS="-p$port -sf32 -sf10 -c4 -t200000 -fc../tpcc/compute.txt -fm../tpcc/memory.txt"
+  compute_ARGS="-p$port -sf32 -sf10 -c4 -t200000 -f../connection.conf"
 }
 
 auto_fill_params
