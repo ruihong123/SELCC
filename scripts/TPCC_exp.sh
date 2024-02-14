@@ -25,7 +25,7 @@ conf_file="../connection.conf"
 #    }' "$conf_file_all" > "$conf_file"
 
 # specify your directory for log files
-output_dir="/users/Ruihong/gam/database/scripts/data"
+output_dir="/users/Ruihong/MemoryEngine/scripts/data"
 
 # working environment
 proj_dir="/users/Ruihong/MemoryEngine"
