@@ -41,9 +41,8 @@
 #include <vector>
 #include <list>
 #include <cstdint>
-//#include <boost/lockfree/spsc_queue.hpp>
-#define _mm_clflush(addr)\
-	asm volatile("clflush %0" : "+m" (*(volatile char *)(addr)))
+
+
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 //template <typename T>
 //  static inline T hton(T u) {
@@ -75,7 +74,7 @@
 #define FILTER_BLOCK  (2*1024*1024)
 namespace DSMEngine {
 class Cache;
-enum Chunk_type {Internal_and_Leaf, LockTable, Message, Version_edit, IndexChunk, FilterChunk, FlushBuffer, DataChunk};
+enum Chunk_type {Regular_Page, LockTable, Message, Version_edit, IndexChunk, FilterChunk, FlushBuffer, DataChunk};
 static const char * EnumStrings[] = { "Internal_and_Leaf", "LockTable", "Message", "Version_edit", "IndexChunk", "FilterChunk", "FlushBuffer", "DataChunk"};
 
 static char config_file_name[100] = "../connection.conf";

@@ -55,7 +55,7 @@ namespace DSMEngine {
         auto rdma_mg = RDMA_Manager::Get_Instance(nullptr);
         auto mr = (ibv_mr*) handle->value;
         if (!handle->keep_the_mr){
-            rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
+            rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Regular_Page);
             delete mr;
         }
         assert(handle->refs.load() == 0);
@@ -114,11 +114,11 @@ namespace DSMEngine {
 //  root_ptr_ptr = get_root_ptr_ptr();
         cached_root_page_mr = new ibv_mr{};
         // try to init tree and install root pointer
-        rdma_mg->Allocate_Local_RDMA_Slot(*cached_root_page_mr, Internal_and_Leaf);// local allocate
-        memset(cached_root_page_mr.load()->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
+        rdma_mg->Allocate_Local_RDMA_Slot(*cached_root_page_mr, Regular_Page);// local allocate
+        memset(cached_root_page_mr.load()->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
         if (DSMEngine::RDMA_Manager::node_id == 0){
             // only the first compute node create the root node for index
-            g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1); // remote allocation.
+            g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Regular_Page, 2 * round_robin_cur + 1); // remote allocation.
             printf("root pointer is %d, %lu\n", g_root_ptr.load().nodeID, g_root_ptr.load().offset);
             if(++round_robin_cur == rdma_mg->memory_nodes.size()){
                 round_robin_cur = 0;
@@ -127,7 +127,7 @@ namespace DSMEngine {
 
 //            root_page->front_version++;
 //            root_page->rear_version = root_page->front_version;
-            rdma_mg->RDMA_Write(g_root_ptr, cached_root_page_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            rdma_mg->RDMA_Write(g_root_ptr, cached_root_page_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
             // TODO: create a special region to store the root_ptr for every tree id.
             auto local_mr = rdma_mg->Get_local_CAS_mr(); // remote allocation.
             ibv_mr remote_mr{};
@@ -139,7 +139,7 @@ namespace DSMEngine {
             assert(*(uint64_t*)local_mr->addr == 0);
 
         }else{
-            memset(cached_root_page_mr.load()->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
+            memset(cached_root_page_mr.load()->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
 //        rdma_mg->Allocate_Local_RDMA_Slot()
             ibv_mr* dummy_mr;
             get_root_ptr_protected(dummy_mr);
@@ -274,10 +274,10 @@ namespace DSMEngine {
         ibv_mr* temp_mr = new ibv_mr{};
 
         // try to init tree and install root pointer
-        rdma_mg->Allocate_Local_RDMA_Slot(*temp_mr, Internal_and_Leaf);// local allocate
-        memset(temp_mr->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
+        rdma_mg->Allocate_Local_RDMA_Slot(*temp_mr, Regular_Page);// local allocate
+        memset(temp_mr->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
         //Read a larger enough data for the root node thorugh it may oversize the page but it is ok since we only read the data.
-        rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize,IBV_SEND_SIGNALED,1,Internal_and_Leaf);
+        rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
         //TODO: Since there could be other thread acessing the root page, we need to make sure that the root page is not
         // deleted until the other thread finish the access. The commented code below is problematic.
         //  We may need a shared pointer mechanism.
@@ -339,14 +339,14 @@ namespace DSMEngine {
         ibv_mr* page_buffer = new ibv_mr{};
 
         // try to init tree and install root pointer
-        rdma_mg->Allocate_Local_RDMA_Slot(*page_buffer, Internal_and_Leaf);// local allocate
-        memset(page_buffer->addr,0,rdma_mg->name_to_chunksize.at(Internal_and_Leaf));
+        rdma_mg->Allocate_Local_RDMA_Slot(*page_buffer, Regular_Page);// local allocate
+        memset(page_buffer->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
 //  auto page_buffer = rdma_mg->Get_local_read_mr();
 
         assert(left != GlobalAddress::Null());
         assert(right != GlobalAddress::Null());
         assert(level < 100);
-        auto new_root_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1);
+        auto new_root_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Regular_Page, 2 * round_robin_cur + 1);
         if(++round_robin_cur == rdma_mg->memory_nodes.size()){
             round_robin_cur = 0;
         }
@@ -361,7 +361,7 @@ namespace DSMEngine {
         cached_root_page_mr.store(page_buffer);
         tree_height.store(level);
 
-        rdma_mg->RDMA_Write(new_root_addr, page_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+        rdma_mg->RDMA_Write(new_root_addr, page_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
         ibv_mr remote_mr = *rdma_mg->global_index_table;
         // find the table enty according to the id
         remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*tree_id);
@@ -1601,7 +1601,7 @@ namespace DSMEngine {
                 // so that we can avoid install the page to cache mulitple times. But currently it is okay.
                 //  pattern_cnt++;
                 mr = new ibv_mr{};
-                rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
+                rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
 
 //        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
 //               page_addr, mr->addr, HashSlice(page_id), level);
@@ -1624,7 +1624,7 @@ namespace DSMEngine {
                 // THe bug could be resulted from the concurrent access by multiple threads.
                 // why the last_index is always greater than the records number?
                 // it can read the full page, because it has not inserted to the cache.
-                rdma_mg->RDMA_Read(page_addr, mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+                rdma_mg->RDMA_Read(page_addr, mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
 //        DEBUG_arg("cache miss and RDMA read %p", page_addr);
                 //
                 assert(page->hdr.this_page_g_ptr = page_addr);
@@ -1645,12 +1645,12 @@ namespace DSMEngine {
                         if (page_addr == g_root_ptr.load()){
                             g_root_ptr.store(GlobalAddress::Null());
                         }
-                        rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal_and_Leaf);
+                        rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Regular_Page);
                         //todo:
                         return false;
                     }else{
                         // No need for reread.
-                        rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Internal_and_Leaf);
+                        rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Regular_Page);
                         // return true and let the outside code figure out that the leaf node is the root node
 //            this->unlock_addr(lock_addr, cxt, coro_id, false);
                         return true;
@@ -2334,7 +2334,7 @@ re_read:
                 //TODO: acquire the lock when trying to insert the page to the cache.
                 page_mr = new ibv_mr{};
 //        printf("Allocate slot for page 2 %p\n", page_addr);
-                rdma_mg->Allocate_Local_RDMA_Slot(*page_mr, Internal_and_Leaf);
+                rdma_mg->Allocate_Local_RDMA_Slot(*page_mr, Regular_Page);
                 page_buffer = page_mr->addr;
                 page = (InternalPage<Key> *)page_buffer;
                 page->local_metadata_init();
@@ -2514,14 +2514,14 @@ re_read:
         auto cnt = page->hdr.last_index + 1;
 
         if (need_split) { // need split
-            sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1);
+            sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Regular_Page, 2 * round_robin_cur + 1);
             if(++round_robin_cur == rdma_mg->memory_nodes.size()){
                 round_robin_cur = 0;
             }
             ibv_mr* sibling_mr = new ibv_mr{};
 //          printf("Allocate slot for page 3 %p\n", sibling_addr);
 
-            rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal_and_Leaf);
+            rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Regular_Page);
 
             auto sibling = new(sibling_mr->addr) InternalPage<Key>(sibling_addr, page->hdr.level);
 
@@ -2564,7 +2564,7 @@ re_read:
             //the code below is just for debugging.
 //    sibling_addr.mark = 2;
 
-            rdma_mg->RDMA_Write(sibling_addr, sibling_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            rdma_mg->RDMA_Write(sibling_addr, sibling_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
             assert(sibling->records[sibling->hdr.last_index].ptr != GlobalAddress::Null());
             assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
             k = split_key;
@@ -2912,14 +2912,14 @@ re_read:
 //  GlobalAddress sibling_addr;
         if (need_split) { // need split
 //      printf("Node split\n");
-            sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Internal_and_Leaf, 2 * round_robin_cur + 1);
+            sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Regular_Page, 2 * round_robin_cur + 1);
             if(++round_robin_cur == rdma_mg->memory_nodes.size()){
                 round_robin_cur = 0;
             }
             //TODO: use a thread local sibling memory region to reduce the allocator contention.
             ibv_mr* sibling_mr = new ibv_mr{};
 //      printf("Allocate slot for page 3 %p\n", sibling_addr);
-            rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Internal_and_Leaf);
+            rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Regular_Page);
 //      memset(sibling_mr->addr, 0, kLeafPageSize);
             auto sibling = new(sibling_mr->addr) LeafPage<Key,Value>(sibling_addr, leaf_cardinality_,page->hdr.level);
             //TODO: add the sibling to the local cache.
@@ -2957,8 +2957,8 @@ re_read:
             page->hdr.sibling_ptr = sibling_addr;
 //            sibling->rear_version =  sibling->front_version;
 //    sibling->set_consistent();
-            rdma_mg->RDMA_Write(sibling_addr, sibling_mr,kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-            rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
+            rdma_mg->RDMA_Write(sibling_addr, sibling_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
+            rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Regular_Page);
             delete sibling_mr;
 
         }

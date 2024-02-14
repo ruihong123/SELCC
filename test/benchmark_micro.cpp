@@ -277,7 +277,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
       epicAssert(data[i] % BLOCK_SIZE == 0);
 #else
 //      if (TrueOrFalse(remote_ratio, seedp)) {
-            data[i] = ddsm->Allocate_Remote(Internal_and_Leaf);
+            data[i] = ddsm->Allocate_Remote(Regular_Page);
             assert(data[i].offset <= 64ull*1024ull*1024*1024);
 //      } else {
 //        data[i] = alloc->AlignedMalloc(BLOCK_SIZE);
@@ -343,7 +343,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
         epicAssert(data[i] % BLOCK_SIZE == 0);
 #else
 //        if (TrueOrFalse(remote_ratio, seedp)) {
-                data[i] = ddsm->Allocate_Remote(Internal_and_Leaf);
+                data[i] = ddsm->Allocate_Remote(Regular_Page);
                 assert(data[i].offset <= 64ull*1024ull*1024*1024);
 
 //        } else {

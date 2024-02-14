@@ -54,7 +54,7 @@ namespace DSMEngine {
         }
 //    printf("Deallocate mr for %lu\n", g_ptr.offset);
         if (!handle->keep_the_mr){
-            rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Internal_and_Leaf);
+            rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Regular_Page);
             delete mr;
         }
         assert(handle->refs.load() == 0);

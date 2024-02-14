@@ -7,6 +7,7 @@
 #include "Btr.h"
 namespace DSMEngine {
     template class LeafPage<uint64_t, GlobalAddress>;
+    template class LeafPage<uint64_t, uint64_t>;
     template class InternalPage<uint64_t>;
     template<class Key>
     bool InternalPage<Key>::internal_page_search(const Key &k, void *result_ptr, uint16_t current_ticket) {

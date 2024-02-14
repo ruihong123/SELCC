@@ -82,11 +82,29 @@ public:
       const size_t master_partition_id = 0;
         temp_sync_key = sync_key_xcompute_ + master_partition_id;
         size_t get_size = 0;
-      default_gallocator->memGet((char*)&temp_sync_key, sizeof(uint64_t), &get_size);
+        void* ret = default_gallocator->memGet((char*)&temp_sync_key, sizeof(uint64_t), &get_size);
         assert(get_size == sizeof(T));
+        memcpy(send, ret, sizeof(T));
     }
       sync_key_xcompute_ += partition_num;
   }
+
+    void MasterBroadcast(char* key, size_t key_size, char* buff, size_t size) {
+        size_t partition_id = config_->GetMyPartitionId();
+        size_t partition_num = config_->GetPartitionNum();
+
+        if (config_->IsMaster()) {
+            assert(partition_id == 0);
+            default_gallocator->memSet(key, key_size, (char*)buff, size);
+        }
+        else {
+            size_t get_size = 0;
+            void* ret = default_gallocator->memGet(key, key_size, &get_size);
+            assert(get_size == sizeof(size));
+            memcpy(buff, ret, size);
+        }
+        sync_key_xcompute_ += partition_num;
+    }
 
 private:
   ClusterConfig *config_;

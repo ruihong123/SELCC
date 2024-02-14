@@ -10,7 +10,8 @@
 
 //#include "table/table_builder_bams.h"
 //#include "table/table_builder_memoryside.h"
-
+#define _mm_clflush(addr) \
+asm volatile("clflush %0" : "+m" (*(volatile char *)(addr)))
 namespace DSMEngine {
 
 std::shared_ptr<RDMA_Manager> Memory_Node_Keeper::rdma_mg = std::shared_ptr<RDMA_Manager>();
@@ -137,7 +138,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
         }
     }
       ibv_mr* mr_data = rdma_mg->preregistered_region;
-      assert(mr_data->length == (uint64_t)pr_size*1024*1024*1024);
+      assert(mr_data->length == (uint64_t)pr_size*1024ull*1024*1024);
       memcpy(temp_send, mr_data, sizeof(ibv_mr));
 
       rdma_mg->global_lock_table = rdma_mg->create_lock_table();
@@ -240,7 +241,8 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
         rdma_mg->post_receive<RDMA_Request>(&recv_mr[buffer_position],
                                             compute_node_id,
                                             client_ip);
-        create_mr_any_handler(receive_msg_buf, client_ip, compute_node_id);
+          assert(false);
+//        create_mr_any_handler(receive_msg_buf, client_ip, compute_node_id);
       } else if (receive_msg_buf->command == create_qp_) {
         rdma_mg->post_receive<RDMA_Request>(&recv_mr[buffer_position],
                                             compute_node_id,
@@ -422,7 +424,7 @@ int Memory_Node_Keeper::server_sock_connect(const char* servername, int port) {
     std::unique_lock<std::shared_mutex> lck(rdma_mg->local_mem_mutex);
     assert(request->content.mem_size = 1024*1024*1024); // Preallocation requrie memory is 1GB
       if (!rdma_mg->Local_Memory_Register(&buff, &mr, request->content.mem_size,
-                                          Internal_and_Leaf)) {
+                                          Regular_Page)) {
         fprintf(stderr, "memory registering failed by size of 0x%x\n",
                 static_cast<unsigned>(request->content.mem_size));
           assert(false);
@@ -440,39 +442,39 @@ int Memory_Node_Keeper::server_sock_connect(const char* servername, int port) {
   }
 
 
-    void Memory_Node_Keeper::create_mr_any_handler(RDMA_Request* request,
-                                                   std::string& client_ip,
-                                                   uint8_t target_node_id) {
-        DEBUG_PRINT("Create new mr\n");
-//  std::cout << "create memory region command receive for" << client_ip
-//  << std::endl;
-        //TODO: consider the edianess of the RDMA request and reply.
-        ibv_mr send_mr;
-        rdma_mg->Allocate_Local_RDMA_Slot(send_mr, Message);
-        RDMA_Reply* send_pointer = (RDMA_Reply*)send_mr.addr;
-
-        ibv_mr* mr;
-        char* buff;
-        {
-            std::unique_lock<std::shared_mutex> lck(rdma_mg->local_mem_mutex);
-            assert(request->content.mem_size = 1024*1024*1024); // Preallocation requrie memory is 1GB
-            if (!rdma_mg->Local_Memory_Register(&buff, &mr, request->content.mem_size,
-                                                Internal_and_Leaf)) {
-                fprintf(stderr, "memory registering failed by size of 0x%x\n",
-                        static_cast<unsigned>(request->content.mem_size));
-                assert(false);
-
-            }
-        }
-
-        send_pointer->content.mr = *mr;
-        send_pointer->received = true;
-
-        rdma_mg->RDMA_Write(request->buffer, request->rkey, &send_mr,
-                            sizeof(RDMA_Reply), client_ip, IBV_SEND_SIGNALED, 1, target_node_id);
-        rdma_mg->Deallocate_Local_RDMA_Slot(send_mr.addr, Message);
-        delete request;
-    }
+//    void Memory_Node_Keeper::create_mr_any_handler(RDMA_Request* request,
+//                                                   std::string& client_ip,
+//                                                   uint8_t target_node_id) {
+//        DEBUG_PRINT("Create new mr\n");
+////  std::cout << "create memory region command receive for" << client_ip
+////  << std::endl;
+//        //TODO: consider the edianess of the RDMA request and reply.
+//        ibv_mr send_mr;
+//        rdma_mg->Allocate_Local_RDMA_Slot(send_mr, Message);
+//        RDMA_Reply* send_pointer = (RDMA_Reply*)send_mr.addr;
+//
+//        ibv_mr* mr;
+//        char* buff;
+//        {
+//            std::unique_lock<std::shared_mutex> lck(rdma_mg->local_mem_mutex);
+//            assert(request->content.mem_size = 1024*1024*1024); // Preallocation requrie memory is 1GB
+//            if (!rdma_mg->Local_Memory_Register(&buff, &mr, request->content.mem_size,
+//                                                Regular_Page)) {
+//                fprintf(stderr, "memory registering failed by size of 0x%x\n",
+//                        static_cast<unsigned>(request->content.mem_size));
+//                assert(false);
+//
+//            }
+//        }
+//
+//        send_pointer->content.mr = *mr;
+//        send_pointer->received = true;
+//
+//        rdma_mg->RDMA_Write(request->buffer, request->rkey, &send_mr,
+//                            sizeof(RDMA_Reply), client_ip, IBV_SEND_SIGNALED, 1, target_node_id);
+//        rdma_mg->Deallocate_Local_RDMA_Slot(send_mr.addr, Message);
+//        delete request;
+//    }
   // the client ip can by any string differnt from read_local write_local_flush
   // and write_local_compact
   void Memory_Node_Keeper::create_qp_handler(RDMA_Request* request,

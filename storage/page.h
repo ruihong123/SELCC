@@ -273,7 +273,7 @@ namespace DSMEngine{
                     temp_mr.length = temp_mr.length - RDMA_OFFSET;
 //                printf("Internal page refresh\n");
                     invalidation_reread:
-                    rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-RDMA_OFFSET, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+                    rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-RDMA_OFFSET, IBV_SEND_SIGNALED, 1, Regular_Page);
                     assert(hdr.level < 100);
                     // If the global lock is in use, then this read page should be in a inconsistent state.
                     if (global_lock != 0){
@@ -306,7 +306,7 @@ namespace DSMEngine{
                 temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
                 temp_mr.length = temp_mr.length - RDMA_OFFSET;
             invalidation_reread:
-                rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-RDMA_OFFSET, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+                rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-RDMA_OFFSET, IBV_SEND_SIGNALED, 1, Regular_Page);
                 // If the global lock is in use, then this read page should be in a inconsistent state.
                 if (global_lock != 1){
                     // with a lock the remote side can not be inconsistent.
@@ -347,8 +347,7 @@ namespace DSMEngine{
 //                      << "]" << std::endl;
         }
         bool internal_page_search(const Key &k, void *result_ptr, uint16_t current_ticket);
-        bool
-        internal_page_store(GlobalAddress page_addr, const Key &k, GlobalAddress value, int level, CoroContext *cxt,
+        bool internal_page_store(GlobalAddress page_addr, const Key &k, GlobalAddress value, int level, CoroContext *cxt,
                             int coro_id);
     };
 #ifdef CACHECOHERENCEPROTOCOL

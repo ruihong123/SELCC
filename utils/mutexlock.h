@@ -4,7 +4,6 @@
 
 #ifndef STORAGE_DSMEngine_UTIL_MUTEXLOCK_H_
 #define STORAGE_DSMEngine_UTIL_MUTEXLOCK_H_
-
 #include <assert.h>
 #include <atomic>
 #include <functional>
@@ -60,7 +59,7 @@ class SpinMutex {
         // success
         break;
       }
-      port::AsmVolatilePause();
+        port::AsmVolatilePause();
       if (tries > 10000) {
         //        printf("I tried so many time I got yield\n");
         std::this_thread::yield();

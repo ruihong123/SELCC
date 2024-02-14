@@ -604,7 +604,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                         mr = (ibv_mr*)value;
                     }else{
                         mr = new ibv_mr{};
-                        rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
+                        rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
 
 //        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
 //               page_addr, mr->addr, HashSlice(page_id), level);
@@ -706,7 +706,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 #endif
                 // This means the page was not in the cache before
                 mr = new ibv_mr{};
-                rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
+                rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
                 assert(remote_lock_status == 0);
 
 //        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
@@ -798,7 +798,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 #endif
                 // This means the page was not in the cache before
                 mr = new ibv_mr{};
-                rdma_mg->Allocate_Local_RDMA_Slot(*mr, Internal_and_Leaf);
+                rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
                 assert(remote_lock_status == 0);
 
 //        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",

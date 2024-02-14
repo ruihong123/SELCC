@@ -16,29 +16,29 @@ class TpccInitiator : public BenchmarkInitiator {
   }
 
 protected:
-  virtual void RegisterTables(const GAddr& storage_addr, 
+  virtual void RegisterTables(char* const storage_addr,
       const std::vector<RecordSchema*>& schemas) {
     StorageManager storage_manager;
     storage_manager.RegisterTables(schemas, default_gallocator);
-    storage_manager.Serialize(storage_addr, default_gallocator);
+    storage_manager.Serialize(storage_addr);
   }
 
   virtual void RegisterSchemas(std::vector<RecordSchema*>& schemas) {
     schemas.resize(kTableCount, nullptr);
-    InitItemSchema(schemas[ITEM_TABLE_ID], default_gallocator);
-    InitWarehouseSchema(schemas[WAREHOUSE_TABLE_ID], default_gallocator);
-    InitDistrictSchema(schemas[DISTRICT_TABLE_ID], default_gallocator);
-    InitCustomerSchema(schemas[CUSTOMER_TABLE_ID], default_gallocator);
-    InitOrderSchema(schemas[ORDER_TABLE_ID], default_gallocator);
-    InitDistrictNewOrderSchema(schemas[DISTRICT_NEW_ORDER_TABLE_ID], default_gallocator);
-    InitNewOrderSchema(schemas[NEW_ORDER_TABLE_ID], default_gallocator);
-    InitOrderLineSchema(schemas[ORDER_LINE_TABLE_ID], default_gallocator);
-    InitHistorySchema(schemas[HISTORY_TABLE_ID], default_gallocator);
-    InitStockSchema(schemas[STOCK_TABLE_ID], default_gallocator);
+    InitItemSchema(schemas[ITEM_TABLE_ID]);
+    InitWarehouseSchema(schemas[WAREHOUSE_TABLE_ID]);
+    InitDistrictSchema(schemas[DISTRICT_TABLE_ID]);
+    InitCustomerSchema(schemas[CUSTOMER_TABLE_ID]);
+    InitOrderSchema(schemas[ORDER_TABLE_ID]);
+    InitDistrictNewOrderSchema(schemas[DISTRICT_NEW_ORDER_TABLE_ID]);
+    InitNewOrderSchema(schemas[NEW_ORDER_TABLE_ID]);
+    InitOrderLineSchema(schemas[ORDER_LINE_TABLE_ID]);
+    InitHistorySchema(schemas[HISTORY_TABLE_ID]);
+    InitStockSchema(schemas[STOCK_TABLE_ID]);
   }
 
  public:
-  static void InitItemSchema(RecordSchema *&schema, GAlloc* gallocator) {
+  static void InitItemSchema(RecordSchema *&schema) {
     std::vector<ColumnInfo*> columns;
     columns.push_back(new ColumnInfo("i_id", ValueType::INT));
     columns.push_back(new ColumnInfo("i_im_id", ValueType::INT));
@@ -56,7 +56,7 @@ protected:
     schema->SetPartitionColumns(col_ids, 1);
   }
 
-  static void InitWarehouseSchema(RecordSchema *&schema, GAlloc* gallocator) {
+  static void InitWarehouseSchema(RecordSchema *&schema) {
     std::vector<ColumnInfo*> columns;
     columns.push_back(new ColumnInfo("w_id", ValueType::INT));
     columns.push_back(
@@ -84,7 +84,7 @@ protected:
     schema->SetPartitionColumns(col_ids, 1);
   }
 
-  static void InitDistrictSchema(RecordSchema *&schema, GAlloc* gallocator) {
+  static void InitDistrictSchema(RecordSchema *&schema) {
     std::vector<ColumnInfo*> columns;
     columns.push_back(new ColumnInfo("d_id", ValueType::INT));
     columns.push_back(new ColumnInfo("d_w_id", ValueType::INT));
@@ -115,7 +115,7 @@ protected:
     schema->SetPartitionColumns(par_col_ids, 1);
   }
 
-  static void InitCustomerSchema(RecordSchema *&schema, GAlloc* gallocator) {
+  static void InitCustomerSchema(RecordSchema *&schema) {
     std::vector<ColumnInfo*> columns;
     columns.push_back(new ColumnInfo("c_id", ValueType::INT));
     columns.push_back(new ColumnInfo("c_d_id", ValueType::INT));
@@ -161,7 +161,7 @@ protected:
     schema->SetPartitionColumns(par_col_ids, 1);
   }
 
-  static void InitOrderSchema(RecordSchema *&schema, GAlloc* gallocator) {
+  static void InitOrderSchema(RecordSchema *&schema) {
     std::vector<ColumnInfo*> columns;
     columns.push_back(new ColumnInfo("o_id", ValueType::INT));
     columns.push_back(new ColumnInfo("o_c_id", ValueType::INT));
@@ -181,7 +181,7 @@ protected:
     schema->SetPartitionColumns(par_col_ids, 1);
   }
 
-  static void InitDistrictNewOrderSchema(RecordSchema *&schema, GAlloc* gallocator) {
+  static void InitDistrictNewOrderSchema(RecordSchema *&schema) {
     std::vector<ColumnInfo*> columns;
     columns.push_back(new ColumnInfo("d_id", ValueType::INT));
     columns.push_back(new ColumnInfo("w_id", ValueType::INT));
@@ -196,7 +196,7 @@ protected:
     schema->SetPartitionColumns(par_col_ids, 1);
   }
 
-  static void InitNewOrderSchema(RecordSchema *&schema, GAlloc* gallocator) {
+  static void InitNewOrderSchema(RecordSchema *&schema) {
     std::vector<ColumnInfo*> columns;
     columns.push_back(new ColumnInfo("o_id", ValueType::INT));
     columns.push_back(new ColumnInfo("d_id", ValueType::INT));
@@ -211,7 +211,7 @@ protected:
     schema->SetPartitionColumns(par_col_ids, 1);
   }
 
-  static void InitOrderLineSchema(RecordSchema *&schema, GAlloc* gallocator) {
+  static void InitOrderLineSchema(RecordSchema *&schema) {
     std::vector<ColumnInfo*> columns;
     columns.push_back(new ColumnInfo("ol_o_id", ValueType::INT));
     columns.push_back(new ColumnInfo("ol_d_id", ValueType::INT));
@@ -237,7 +237,7 @@ protected:
     schema->SetPartitionColumns(par_col_ids, 3);
   }
 
-  static void InitHistorySchema(RecordSchema *&schema, GAlloc* gallocator) {
+  static void InitHistorySchema(RecordSchema *&schema) {
     std::vector<ColumnInfo*> columns;
     columns.push_back(new ColumnInfo("h_c_id", ValueType::INT));
     columns.push_back(new ColumnInfo("h_c_d_id", ValueType::INT));
@@ -258,7 +258,7 @@ protected:
     schema->SetPartitionColumns(par_col_ids, 2);
   }
 
-  static void InitStockSchema(RecordSchema *&schema, GAlloc* gallocator) {
+  static void InitStockSchema(RecordSchema *&schema) {
     std::vector<ColumnInfo*> columns;
     columns.push_back(new ColumnInfo("s_i_id", ValueType::INT));
     columns.push_back(new ColumnInfo("s_w_id", ValueType::INT));

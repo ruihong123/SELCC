@@ -30,7 +30,7 @@ public:
   Table() {
     schema_ptr_ = nullptr;
     primary_index_ = nullptr;
-    secondary_indexes_ = nullptr;
+//    secondary_indexes_ = nullptr;
     opened_block_ == GlobalAddress::Null();
   }
   ~Table() {
@@ -45,7 +45,7 @@ public:
     table_id_ = table_id;
     schema_ptr_ = schema_ptr;
     secondary_count_ = 0;
-    secondary_indexes_ = nullptr;
+//    secondary_indexes_ = nullptr;
     // the index init shall be deprecated, since we can init the index in the constructor. If the index does not need init
     // we can tell that by the number of constructor arguments.
       DSMEngine::RecordSchema* index_schema_ptr = GetPrimaryIndexSchema();
@@ -147,7 +147,7 @@ public:
         void* page_buffer;
         GlobalAddress g_addr = GetOpenedBlock();
         if ( g_addr == GlobalAddress::Null()){
-            g_addr = gallocator->Allocate_Remote(Internal_and_Leaf);
+            g_addr = gallocator->Allocate_Remote(Regular_Page);
             SetOpenedBlock(g_addr);
         }
         gallocator->PrePage_Write(page_buffer, g_addr, handle);
@@ -159,7 +159,7 @@ public:
         assert(ret);
         // always open a new page when current page is full.
         if(cnt == page->hdr.kDataCardinality){
-            SetOpenedBlock(gallocator->Allocate_Remote(Internal_and_Leaf));
+            SetOpenedBlock(gallocator->Allocate_Remote(Regular_Page));
         }
   }
 
@@ -170,10 +170,9 @@ public:
   RecordSchema *schema_ptr_;
 //  HashIndex *primary_index_;
   Btr<IndexKey, uint64_t>* primary_index_;
-  HashIndex **secondary_indexes_; // Currently disabled
+//  HashIndex **secondary_indexes_; // Currently disabled
   static thread_local GlobalAddress opened_block_;
 };
-thread_local GlobalAddress Table::opened_block_ = GlobalAddress::Null();
 
 }
 #endif

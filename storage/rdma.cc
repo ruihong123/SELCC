@@ -24,6 +24,8 @@ std::atomic<uint64_t> NextStepcounter = 0;
 std::atomic<uint64_t> WholeopTotal = 0;
 std::atomic<uint64_t> Wholeopcounter = 0;
 #endif
+#define _mm_clflush(addr) \
+asm volatile("clflush %0" : "+m" (*(volatile char *)(addr)))
 namespace DSMEngine {
 uint16_t RDMA_Manager::node_id = 0;
 #ifdef PROCESSANALYSIS
@@ -127,7 +129,7 @@ void General_Destroy(void* ptr){
   Mempool_initialize(Message,
                      std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)), RECEIVE_OUTSTANDING_SIZE * std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)));
   Mempool_initialize(Version_edit, 1024 * 1024, 32*1024*1024);
-  Mempool_initialize(Internal_and_Leaf, kInternalPageSize, 0);
+  Mempool_initialize(Regular_Page, kInternalPageSize, 0);
         printf("atomic uint8_t, uint16_t, uint32_t and uint64_t are, %lu %lu %lu %lu\n ", sizeof(std::atomic<uint8_t>), sizeof(std::atomic<uint16_t>), sizeof(std::atomic<uint32_t>), sizeof(std::atomic<uint64_t>));
 //    if(node_id%2 == 0){
 //        Invalidation_bg_threads.SetBackgroundThreads(NUM_QP_ACCROSS_COMPUTE);
@@ -604,7 +606,7 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
   }else{
       //If this node is a compute node, allocate the memory on demanding.
       printf("Note: Allocate memory from OS, not allocate from the preallocated pool.\n");
-      if (node_id%2 == 1 && pool_name == Internal_and_Leaf){
+      if (node_id%2 == 1 && pool_name == Regular_Page){
           printf( "Allocate Registered Memory outside the preallocated pool is wrong, the base pointer has been changed\n");
           assert(false);
           exit(0);
@@ -1380,11 +1382,11 @@ ibv_mr* RDMA_Manager::Get_local_read_mr() {
   ibv_mr* ret;
   ret = (ibv_mr*)read_buffer->Get();
   if (ret == nullptr){
-    char* buffer = new char[name_to_chunksize.at(Internal_and_Leaf)];
+    char* buffer = new char[name_to_chunksize.at(Regular_Page)];
     auto mr_flags =
         IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
     //  auto start = std::chrono::high_resolution_clock::now();
-    ret = ibv_reg_mr(res->pd, buffer, name_to_chunksize.at(Internal_and_Leaf), mr_flags);
+    ret = ibv_reg_mr(res->pd, buffer, name_to_chunksize.at(Regular_Page), mr_flags);
     read_buffer->Reset(ret);
   }
     assert(ret + 0);
@@ -2066,7 +2068,7 @@ End of socket operations
         sr.opcode = IBV_WR_RDMA_READ;
         if (send_flag != 0) sr.send_flags = send_flag;
         switch (pool_name) {
-            case Internal_and_Leaf:{
+            case Regular_Page:{
                 sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
                 sr.wr.rdma.rkey = rkey_map_data[remote_ptr.nodeID];
                 break;
@@ -2280,7 +2282,7 @@ End of socket operations
         sr.opcode = IBV_WR_RDMA_WRITE;
         if (send_flag != 0) sr.send_flags = send_flag;
         switch (pool_name) {
-            case Internal_and_Leaf:{
+            case Regular_Page:{
                 sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
                 sr.wr.rdma.rkey = rkey_map_data[remote_ptr.nodeID];
                 break;
@@ -2634,7 +2636,7 @@ int RDMA_Manager::RDMA_CAS(GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t 
     sr.opcode = IBV_WR_ATOMIC_CMP_AND_SWP;
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
-        case Internal_and_Leaf:{
+        case Regular_Page:{
             sr.wr.atomic.rkey = rkey_map_data[remote_ptr.nodeID];
             sr.wr.atomic.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
             sr.wr.atomic.compare_add = compare; /* expected value in remote address */
@@ -2736,7 +2738,7 @@ int RDMA_Manager::RDMA_FAA(GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t 
     sr.opcode = IBV_WR_ATOMIC_FETCH_AND_ADD;
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
-        case Internal_and_Leaf:{
+        case Regular_Page:{
             sr.wr.atomic.rkey = rkey_map_data[remote_ptr.nodeID];
             sr.wr.atomic.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
             sr.wr.atomic.compare_add = add; /* expected value in remote address */
@@ -2833,7 +2835,7 @@ void RDMA_Manager::Prepare_WR_CAS(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress r
     sr.opcode = IBV_WR_ATOMIC_CMP_AND_SWP;
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
-        case Internal_and_Leaf:{
+        case Regular_Page:{
             sr.wr.atomic.rkey = rkey_map_data[remote_ptr.nodeID];
             sr.wr.atomic.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
             sr.wr.atomic.compare_add = compare; /* expected value in remote address */
@@ -2869,7 +2871,7 @@ RDMA_Manager::Prepare_WR_FAA(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress remote
     sr.opcode = IBV_WR_ATOMIC_FETCH_AND_ADD;
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
-        case Internal_and_Leaf:{
+        case Regular_Page:{
             sr.wr.atomic.rkey = rkey_map_data[remote_ptr.nodeID];
             sr.wr.atomic.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
             sr.wr.atomic.compare_add = add; /* expected value in remote address */
@@ -2905,7 +2907,7 @@ void RDMA_Manager::Prepare_WR_Read(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress 
     sr.opcode = IBV_WR_RDMA_READ;
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
-        case Internal_and_Leaf:{
+        case Regular_Page:{
             sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
             sr.wr.rdma.rkey = rkey_map_data[remote_ptr.nodeID];
             break;
@@ -2938,7 +2940,7 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
     sr.opcode = IBV_WR_RDMA_WRITE;
     if (send_flag != 0) sr.send_flags = send_flag;
     switch (pool_name) {
-        case Internal_and_Leaf:{
+        case Regular_Page:{
             sr.wr.rdma.remote_addr = reinterpret_cast<uint64_t>(remote_ptr.offset + base_addr_map_data[remote_ptr.nodeID]);
             sr.wr.rdma.rkey = rkey_map_data[remote_ptr.nodeID];
             break;
@@ -3207,7 +3209,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             // important!!! we should never use async if we have both read lock and write lock.
             // send flag 0 means there is no flag
-            RDMA_CAS(remote_lock_add, cas_buf,  compare, swap, 0,0,Internal_and_Leaf);
+            RDMA_CAS(remote_lock_add, cas_buf, compare, swap, 0, 0, Regular_Page);
             printf("Global page unlock page_addr %p, async %d\n", remote_lock_add, async);
         } else {
 
@@ -3215,7 +3217,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             *(uint64_t*)cas_buf->addr = 0;
 
 //      std::cout << "Unlock the remote lock" << lock_addr << std::endl;
-            RDMA_CAS(remote_lock_add, cas_buf,  compare, swap, IBV_SEND_SIGNALED,1,Internal_and_Leaf);
+            RDMA_CAS(remote_lock_add, cas_buf, compare, swap, IBV_SEND_SIGNALED, 1, Regular_Page);
             if(*(uint64_t*)cas_buf->addr != compare){
                 // THere is concurrent read lock trying on this lock, but it will released later. If if keep failing
                 // then we can add a stavation bit.
@@ -3430,8 +3432,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //Only the second RDMA issue a completion,
         // TODO: We may add a fence for the first request to avoid corruption of the async unlock.
         // The async write back and unlock can result in corrupted data during the buffer recycle.
-        Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, add, 0, Internal_and_Leaf);
-        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+        Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, add, 0, Regular_Page);
+        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Regular_Page);
         sr[0].next = &sr[1];
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
@@ -3448,7 +3450,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             //TODO: check the starvation bit to decide whether there is an immediate retry. If there is a starvation
             // unlock the lock this time util see a write lock.
 
-            RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page);
 
             target_compute_node_id = ((return_value >> 56) - 1)*2;
             goto retry;
@@ -3472,8 +3474,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //Only the second RDMA issue a completion,
         // TODO: We may add a fence for the first request to avoid corruption of the async unlock.
         // The async write back and unlock can result in corrupted data during the buffer recycle.
-        Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, add, 0, Internal_and_Leaf);
-        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+        Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, add, 0, Regular_Page);
+        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Regular_Page);
         sr[0].next = &sr[1];
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
@@ -3499,7 +3501,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             //TODO: check the starvation bit to decide whether there is an immediate retry. If there is a starvation
             // unlock the lock this time util see a write lock.
 
-            RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page);
 
             target_compute_node_id = ((return_value >> 56) - 1)*2;
             goto retry;
@@ -3537,7 +3539,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
         //Only the second RDMA issue a completion
-        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, IBV_SEND_SIGNALED, Internal_and_Leaf);
+        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, IBV_SEND_SIGNALED, Regular_Page);
 //        rdma_mg->Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
 //        sr[0].next = &sr[1];
 //        *(uint64_t *)cas_buffer->addr = 0;
@@ -3615,9 +3617,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 async_counter[lock_addr.nodeID]->Reset(counter);
             }
             if ( UNLIKELY((*counter % (SEND_OUTSTANDING_SIZE/2 - 1)) == 1)){
-                RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+                RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page);
             }else{
-                RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Internal_and_Leaf);
+                RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Regular_Page);
 
             }
             *counter = *counter + 1;
@@ -3626,7 +3628,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             auto statistic_start = std::chrono::high_resolution_clock::now();
 #endif
-            RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+            RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page);
 #ifdef GETANALYSIS
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - statistic_start);
@@ -3744,8 +3746,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
         //Only the second RDMA issue a completion
-        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Internal_and_Leaf);
-        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Regular_Page);
+        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Regular_Page);
         sr[0].next = &sr[1];
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
@@ -3828,8 +3830,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
         //Only the second RDMA issue a completion
-        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Internal_and_Leaf);
-        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Regular_Page);
+        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Regular_Page);
         sr[0].next = &sr[1];
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
@@ -3960,7 +3962,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
         //Only the second RDMA issue a completion
-        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, IBV_SEND_SIGNALED, Internal_and_Leaf);
+        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, IBV_SEND_SIGNALED, Regular_Page);
 //        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
@@ -4032,7 +4034,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
         //Only the second RDMA issue a completion
-        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, IBV_SEND_SIGNALED, Internal_and_Leaf);
+        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, IBV_SEND_SIGNALED, Regular_Page);
 //        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
@@ -4079,8 +4081,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
         //Only the second RDMA issue a completion
-        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Internal_and_Leaf);
-        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Regular_Page);
+        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Regular_Page);
         sr[0].next = &sr[1];
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
@@ -4114,7 +4116,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // another thread before the unlock. It is possible this cache buffer is reused by other cache entry.
         if (async){
 //            assert(false);
-            Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Internal_and_Leaf);
+            Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Regular_Page);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
             *(uint64_t*) local_CAS_mr->addr = 0;
             //TODO: Can we make the RDMA unlock based on RDMA FAA? In this case, we can use async
@@ -4131,7 +4133,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
             if ( UNLIKELY((*counter % (SEND_OUTSTANDING_SIZE/2 - 1)) == 1)){
-                Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Internal_and_Leaf);
+                Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Regular_Page);
                 sr[0].next = &sr[1];
 
                 *(uint64_t *)local_CAS_mr->addr = 0;
@@ -4140,7 +4142,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
 //                printf("Issue sync write unlock\n");
             }else{
-                Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, 0, Internal_and_Leaf);
+                Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, 0, Regular_Page);
                 sr[0].next = &sr[1];
 
                 *(uint64_t *)local_CAS_mr->addr = 0;
@@ -4170,7 +4172,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             //TODO: check whether the page's global lock is still write lock
             //  0909/2023: the code below seems sometime will get stuck.
-            Prepare_WR_Write(sr[0], sge[0],  post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Internal_and_Leaf);
+            Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Regular_Page);
 
             *(uint64_t *)local_CAS_mr->addr = 0;
             //TODO: THe RDMA write unlock can not be guaranteed to be finished after the page write.
@@ -4184,7 +4186,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
             volatile uint64_t substract = (~compare) + 1;
             //TODO: USE rdma faa to release the write lock to avoid continuous spurious unlock resulting from the concurrent read lock request.
-            Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Internal_and_Leaf);
+            Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Regular_Page);
 
 //            Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare,swap, IBV_SEND_SIGNALED, Internal_and_Leaf);
             sr[0].next = &sr[1];
@@ -4298,14 +4300,14 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
         if (async){
             assert(false);
-            Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
+            Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Regular_Page);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
             *(uint64_t*) local_CAS_mr->addr = 0;
             //TODO 1: Make the unlocking based on RDMA CAS.
             //TODO 2: implement a retry mechanism based on RDMA CAS. THe write unlock can be failed because the RDMA FAA test and reset the lock words.
             uint64_t swap = 0;
             uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
-            Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare,swap, 0, Internal_and_Leaf);
+            Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare, swap, 0, Regular_Page);
             sr[0].next = &sr[1];
 
 
@@ -4323,7 +4325,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 retry:
 
             //TODO: check whether the page's global lock is still write lock
-            Prepare_WR_Write(sr[0], sge[0],  page_addr, page_buffer, page_size, 0, Internal_and_Leaf);
+            Prepare_WR_Write(sr[0], sge[0], page_addr, page_buffer, page_size, 0, Regular_Page);
             *(uint64_t *)local_CAS_mr->addr = 0;
             //TODO: THe RDMA write unlock can not be guaranteed to be finished after the page write.
             // The RDMA CAS be started strictly after the RDMA write at the remote NIC according to
@@ -4334,7 +4336,7 @@ retry:
             //We can apply async unlock here to reduce the latency.
             uint64_t swap = 0;
             uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
-            Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare,swap, IBV_SEND_SIGNALED, Internal_and_Leaf);
+            Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare, swap, IBV_SEND_SIGNALED, Regular_Page);
             sr[0].next = &sr[1];
 
 
@@ -5360,7 +5362,7 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
     // begginning.
     std::unique_lock<std::shared_mutex> mem_write_lock(remote_mem_mutex);
     if (Remote_Leaf_Node_Bitmap.at(target_node_id)->empty()) {
-        Remote_Memory_Register(1 * 1024 * 1024 * 1024ull, target_node_id, Internal_and_Leaf);
+        Remote_Memory_Register(1 * 1024 * 1024 * 1024ull, target_node_id, Regular_Page);
       //      fs_meta_save();
     }
     mem_write_lock.unlock();
@@ -5511,7 +5513,7 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
                                                          1024*1024*1024:name_to_allocated_size.at(pool_name), pool_name);
             if (node_id%2 == 0)
                 printf("Memory used up, allocate new one, memory pool is %s, total memory is %lu\n",
-                       EnumStrings[pool_name], Calculate_size_of_pool(Internal_and_Leaf)+
+                       EnumStrings[pool_name], Calculate_size_of_pool(Regular_Page) +
                                                Calculate_size_of_pool(Message));
             block_index = name_to_mem_pool.at(pool_name)
                     .at(mr_to_allocate->addr)

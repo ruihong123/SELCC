@@ -31,9 +31,12 @@ int main(int argc, char* argv[]) {
     // the RDMA Manager have a synchronization accross the nodes.
 
   // initialize benchmark data
-  GlobalAddress storage_addr = initiator.InitStorage();
-  synchronizer.MasterBroadcast<GlobalAddress>(&storage_addr);
-  std::cout << "storage_addr=" << storage_addr << std::endl;
+  char* storage_addr = initiator.InitStorage();
+  char storage_key[16] = "Storage Key";
+//  default_gallocator->memSet(storage_key, 16, storage_addr, StorageManager::GetSerializeSize());
+    synchronizer.MasterBroadcast(storage_key, 16, storage_addr, StorageManager::GetSerializeSize());
+
+    std::cout << "storage_addr=" << storage_addr << std::endl;
   StorageManager storage_manager;
   storage_manager.Deserialize(storage_addr);
 

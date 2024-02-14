@@ -1,7 +1,7 @@
 #ifndef __DATABASE_TPCC_KEY_GENERATOR_H__
 #define __DATABASE_TPCC_KEY_GENERATOR_H__
 
-#include "gallocator.h"
+//#include "gallocator.h"
 #include "Meta.h"
 #include "TpccConstants.h"
 #include "TpccRecords.h"

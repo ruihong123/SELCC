@@ -26,7 +26,7 @@ public:
   }
 
   void RegisterTables(const std::vector<RecordSchema*>& schemas, 
-      GAlloc* gallocator) {
+      DDSM* gallocator) {
     table_count_ = schemas.size();
     assert(table_count_ < kMaxTableNum);
     tables_ = new Table*[table_count_];
@@ -41,24 +41,24 @@ public:
     return table_count_;
   }
 
-  virtual void Serialize(const char*& addr) {
-    gallocator->Write(addr, &table_count_, sizeof(size_t));
-    GAddr cur_addr = GADD(addr, sizeof(size_t));
+  virtual void Serialize(char* const& addr) {
+    memcpy((void *) addr, &table_count_, sizeof(size_t));
+    const char* cur_addr = (addr + sizeof(size_t));
     for (size_t i = 0; i < table_count_; ++i) {
-      tables_[i]->Serialize(cur_addr, gallocator);
-      cur_addr = GADD(cur_addr, Table::GetSerializeSize());
+      tables_[i]->Serialize(cur_addr);
+      cur_addr = cur_addr + Table::GetSerializeSize();
     }
   }
     
-  virtual void Deserialize(const char*& addr) {
-    gallocator->Read(addr, &table_count_, sizeof(size_t));
-    GAddr cur_addr = GADD(addr, sizeof(size_t));
+  virtual void Deserialize( char* const& addr) {
+      memcpy(&table_count_, addr, sizeof(size_t));
+    const char* cur_addr = addr+ sizeof(size_t);
     tables_ = new Table*[table_count_];
     for (size_t i = 0; i < table_count_; ++i) {
       Table* table = new Table();
-      table->Deserialize(cur_addr, gallocator);
+      table->Deserialize(cur_addr);
       tables_[i] = table;
-      cur_addr = GADD(cur_addr, Table::GetSerializeSize());
+      cur_addr = cur_addr + Table::GetSerializeSize();
     }
   }
 

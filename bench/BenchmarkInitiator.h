@@ -28,7 +28,7 @@ class BenchmarkInitiator {
               conn_port, /* tcp_port */
               1,	 /* ib_port */ //physical
               1, /* gid_idx */
-              4*10*1024*1024, /*initial local buffer size*/
+              4*10*1024*1024, /*initial local buffer size*/ // depracated.
               RDMA_Manager::node_id,
               cache_ptr
       };
@@ -44,8 +44,8 @@ class BenchmarkInitiator {
     }
   }
 
-  GlobalAddress InitStorage() {
-      GlobalAddress storage_addr = GlobalAddress::Null();
+  char* InitStorage() {
+      char* storage_addr = nullptr;
     int my_partition_id = config_->GetMyPartitionId();
     int partition_num = config_->GetPartitionNum();
     if (config_->IsMaster()) {
@@ -53,15 +53,14 @@ class BenchmarkInitiator {
       std::vector<RecordSchema*> schemas;
       this->RegisterSchemas(schemas);
       // TODO: utilize memcached to sync the storage metadata
-//      storage_addr = default_gallocator->AlignedMalloc(
-//          StorageManager::GetSerializeSize());
+      storage_addr = static_cast<char *>(malloc(StorageManager::GetSerializeSize()));
       this->RegisterTables(storage_addr, schemas);
     } 
     return storage_addr;
   }
   
  protected:
-  virtual void RegisterTables(const GAddr& storage_addr, 
+  virtual void RegisterTables(const char* storage_addr,
       const std::vector<RecordSchema*>& schemas) {}
 
   virtual void RegisterSchemas(std::vector<RecordSchema*>& schemas) {}

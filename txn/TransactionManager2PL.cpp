@@ -9,7 +9,7 @@ namespace DSMEngine {
         void* page_buffer;
         GlobalAddress g_addr = table->GetOpenedBlock();
         if ( g_addr == GlobalAddress::Null()){
-            g_addr = default_gallocator->Allocate_Remote(Internal_and_Leaf);
+            g_addr = default_gallocator->Allocate_Remote(Regular_Page);
             table->SetOpenedBlock(g_addr);
         }
         if (locked_handles_.find(g_addr) == locked_handles_.end()){
@@ -35,7 +35,7 @@ namespace DSMEngine {
         assert(ret);
         // always open a new page when current page is full.
         if(cnt == page->hdr.kDataCardinality){
-            table->SetOpenedBlock(default_gallocator->Allocate_Remote(Internal_and_Leaf));
+            table->SetOpenedBlock(default_gallocator->Allocate_Remote(Regular_Page));
         }
     }
     //The hierachy lock shall be acquired outside of this function.

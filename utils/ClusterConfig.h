@@ -7,7 +7,6 @@
 #include "BenchmarkArguments.h"
 
 namespace DSMEngine {
-    extern
 struct ServerInfo {
   ServerInfo(const std::string& addr, const int port)
       : addr_(addr),

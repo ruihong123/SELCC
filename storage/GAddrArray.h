@@ -123,6 +123,6 @@
 //
 //  const static int N = 1024;
 //};
-}
+//}
 
 #endif
