@@ -25,8 +25,8 @@ read -r -a memory_nodes <<< "$memory_line"
 compute_num=${#compute_nodes[@]}
 memory_num=${#memory_nodes[@]}
 
-compute_nodes=(`echo ${compute_list}`)
-memory_nodes=(`echo ${memory_list}`)
+#compute_nodes=(`echo ${compute_list}`)
+#memory_nodes=(`echo ${memory_list}`)
 master_host=${compute_nodes[0]}
 cache_mem_size=8 # 8 gb Local memory size (Currently not working)
 remote_mem_size=48 # 8 gb Remote memory size pernode is enough
