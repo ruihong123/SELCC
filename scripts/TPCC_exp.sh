@@ -80,8 +80,8 @@ launch () {
   for ((i=0;i<${#memory_nodes[@]};i++)); do
       memory=${memory_nodes[$i]}
       script_memory="cd ${bin_dir} && ./memory_server_tpcc $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size > ${output_file} 2>&1"
-      echo "start worker: ssh ${ssh_opts} ${memory} "$script_memory " &"
-      ssh ${ssh_opts} ${memory} "echo 'echo '/proj/purduedb-PG0/logs/core$memory' | sudo tee /proc/sys/kernel/core_pattern"
+      echo "start worker: ssh ${ssh_opts} ${memory} '$script_memory' &"
+      ssh ${ssh_opts} ${memory} "echo '/proj/purduedb-PG0/logs/core$memory' | sudo tee /proc/sys/kernel/core_pattern"
       ssh ${ssh_opts} ${memory} "ulimit -S -c unlimited && $script_memory" &
       sleep 1
   done
