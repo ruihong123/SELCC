@@ -14,15 +14,15 @@ BIN_HOME=$bin/../release
 conf_file_all=$bin/../connection_cloudlab.conf
 conf_file="../connection.conf"
 
-awk -v pos="$node" -F' ' '{
-        for (i=1; i<=NF; i++) {
-            if (i <= pos) {
-                printf("%s", $i)
-                if (i < pos) printf(" ")
-            }
-        }
-        print ""
-    }' "$conf_file_all" > "$conf_file"
+#awk -v pos="$node" -F' ' '{
+#        for (i=1; i<=NF; i++) {
+#            if (i <= pos) {
+#                printf("%s", $i)
+#                if (i < pos) printf(" ")
+#            }
+#        }
+#        print ""
+#    }' "$conf_file_all" > "$conf_file"
 
 # specify your directory for log files
 output_dir="/users/Ruihong/gam/database/scripts/data"
