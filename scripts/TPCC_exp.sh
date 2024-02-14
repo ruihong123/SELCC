@@ -63,7 +63,7 @@ launch () {
   echo "start tpcc for dist_ratio ${dist_ratio}"
   output_file="${output_dir}/${dist_ratio}_tpcc.log"
   memory_file="${output_dir}/Memory.log"
-  script_compute="cd ${bin_dir} && ./TPCC ${compute_ARGS} -d${dist_ratio} > ${output_file} 2>&1"
+  script_compute="cd ${bin_dir} && ./tpcc ${compute_ARGS} -d${dist_ratio} > ${output_file} 2>&1"
   echo "start master: ssh ${ssh_opts} ${master_host} '$script_compute -sn$master_host  -nid0' &"
   ssh ${ssh_opts} ${master_host} "echo '/proj/purduedb-PG0/logs/core$master_host' | sudo tee /proc/sys/kernel/core_pattern"
 
