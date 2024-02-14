@@ -74,11 +74,13 @@ private:
           computes_info_.push_back(ServerInfo(name.substr(0, pos), conn_port));
           name.erase(0, pos + space_delimiter.length());
       }
+      computes_info_.push_back(ServerInfo(name.substr(0, pos), conn_port));
       std::getline(readfile,name);
       while ((pos = name.find(space_delimiter)) != std::string::npos) {
           memories_info_.push_back(ServerInfo(name.substr(0, pos), conn_port));
           name.erase(0, pos + space_delimiter.length());
       }
+      memories_info_.push_back(ServerInfo(name.substr(0, pos), conn_port));
     readfile.close();
   }
 private:
