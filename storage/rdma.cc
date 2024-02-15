@@ -5,6 +5,7 @@
 #include "storage/page.h"
 #include "HugePageAlloc.h"
 #include "DSMEngine/cache.h"
+#include "utils/TimeMeasurer.h"
 //#include "port/port_posix.h"
 //#include "DSMEngine/env.h"
 #ifdef RDMAPROCESSANALYSIS
@@ -73,6 +74,23 @@ void Destroy_mr(void* ptr) {
 template<typename T>
 void General_Destroy(void* ptr){
   delete (T) ptr;
+}
+
+void spin_wait_ns(int64_t time){
+    TimeMeasurer timer;
+    timer.StartTimer();
+    timer.EndTimer();
+    while(timer.GetElapsedNanoSeconds() < time){
+        asm volatile("pause\n": : :"memory");
+    }
+}
+void spin_wait_us(int64_t time){
+    TimeMeasurer timer;
+    timer.StartTimer();
+    timer.EndTimer();
+    while(timer.GetElapsedMicroSeconds() < time){
+        asm volatile("pause\n": : :"memory");
+    }
 }
 /******************************************************************************
 * Function: RDMA_Manager
@@ -1621,7 +1639,7 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
             qp_init_attr.cap.max_recv_wr = RECEIVE_OUTSTANDING_SIZE;
             qp_init_attr.cap.max_send_sge = 2;
             qp_init_attr.cap.max_recv_sge = 2;
-            //  qp_init_attr.cap.max_inline_data = -1;
+            qp_init_attr.cap.max_inline_data = 256;
             ibv_qp* qp = ibv_create_qp(res->pd, &qp_init_attr);
             (*qp_arr)[i] = qp;
             if (!qp) {
@@ -4706,7 +4724,7 @@ int RDMA_Manager::post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int nu
     sr.sg_list = &sge;
     sr.num_sge = 1;
     sr.opcode = static_cast<ibv_wr_opcode>(IBV_WR_SEND);
-    sr.send_flags = IBV_SEND_SIGNALED;
+    sr.send_flags = IBV_SEND_INLINE;
 //    std::shared_lock<std::shared_mutex> l(qp_cq_map_mutex);
     /* post the Send Request to the RQ */
     ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
@@ -5112,10 +5130,10 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
     ibv_wc wc[2] = {};
 
 
-    if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
-        fprintf(stderr, "failed to poll send for remote memory register\n");
-        return false;
-    }
+//    if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
+//        fprintf(stderr, "failed to poll send for remote memory register\n");
+//        return false;
+//    }
 //  asm volatile ("sfence\n" : : );
 //  asm volatile ("lfence\n" : : );
 //  asm volatile ("mfence\n" : : );
@@ -5146,10 +5164,10 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
         ibv_wc wc[2] = {};
 
 
-        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
-            fprintf(stderr, "failed to poll send for remote memory register\n");
-            return false;
-        }
+//        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
+//            fprintf(stderr, "failed to poll send for remote memory register\n");
+//            return false;
+//        }
 //  asm volatile ("sfence\n" : : );
 //  asm volatile ("lfence\n" : : );
 //  asm volatile ("mfence\n" : : );
@@ -5195,11 +5213,11 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
         post_send_xcompute(send_mr, target_memory_node_id, 0);
         ibv_wc wc[2] = {};
 
-        if (poll_completion_xcompute(wc, 1, std::string("main"),
-                            true, target_memory_node_id, 0)){
-//    assert(try_poll_completions(wc, 1, std::string("main"),true) == 0);
-            fprintf(stderr, "failed to poll send for remote memory register\n");
-        }
+//        if (poll_completion_xcompute(wc, 1, std::string("main"),
+//                            true, target_memory_node_id, 0)){
+////    assert(try_poll_completions(wc, 1, std::string("main"),true) == 0);
+//            fprintf(stderr, "failed to poll send for remote memory register\n");
+//        }
         asm volatile ("sfence\n" : : );
         asm volatile ("lfence\n" : : );
         asm volatile ("mfence\n" : : );

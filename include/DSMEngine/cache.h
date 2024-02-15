@@ -170,6 +170,7 @@ class DSMEngine_EXPORT Cache {
   struct Rep;
   Rep* rep_;
 };
+
     struct LRUHandle : Cache::Handle {
 
 
