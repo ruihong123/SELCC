@@ -4724,7 +4724,7 @@ int RDMA_Manager::post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int nu
     sr.sg_list = &sge;
     sr.num_sge = 1;
     sr.opcode = static_cast<ibv_wr_opcode>(IBV_WR_SEND);
-    sr.send_flags = IBV_SEND_INLINE;
+    sr.send_flags = IBV_SEND_SIGNALED|IBV_SEND_INLINE;
 //    std::shared_lock<std::shared_mutex> l(qp_cq_map_mutex);
     /* post the Send Request to the RQ */
     ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
@@ -5130,10 +5130,10 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
     ibv_wc wc[2] = {};
 
 
-//    if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
-//        fprintf(stderr, "failed to poll send for remote memory register\n");
-//        return false;
-//    }
+    if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
+        fprintf(stderr, "failed to poll send for remote memory register\n");
+        return false;
+    }
 //  asm volatile ("sfence\n" : : );
 //  asm volatile ("lfence\n" : : );
 //  asm volatile ("mfence\n" : : );
@@ -5164,10 +5164,10 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
         ibv_wc wc[2] = {};
 
 
-//        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
-//            fprintf(stderr, "failed to poll send for remote memory register\n");
-//            return false;
-//        }
+        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
+            fprintf(stderr, "failed to poll send for remote memory register\n");
+            return false;
+        }
 //  asm volatile ("sfence\n" : : );
 //  asm volatile ("lfence\n" : : );
 //  asm volatile ("mfence\n" : : );
@@ -5213,11 +5213,11 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
         post_send_xcompute(send_mr, target_memory_node_id, 0);
         ibv_wc wc[2] = {};
 
-//        if (poll_completion_xcompute(wc, 1, std::string("main"),
-//                            true, target_memory_node_id, 0)){
-////    assert(try_poll_completions(wc, 1, std::string("main"),true) == 0);
-//            fprintf(stderr, "failed to poll send for remote memory register\n");
-//        }
+        if (poll_completion_xcompute(wc, 1, std::string("main"),
+                            true, target_memory_node_id, 0)){
+//    assert(try_poll_completions(wc, 1, std::string("main"),true) == 0);
+            fprintf(stderr, "failed to poll send for remote memory register\n");
+        }
         asm volatile ("sfence\n" : : );
         asm volatile ("lfence\n" : : );
         asm volatile ("mfence\n" : : );
