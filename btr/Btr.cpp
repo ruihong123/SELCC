@@ -2046,7 +2046,7 @@ namespace DSMEngine {
 ////                    handle->remote_lock_status.store(0);
 //        }
         assert(handle);
-        handle->reader_post_access(lock_addr);
+        handle->reader_post_access(page_addr, kLeafPageSize, lock_addr, mr);
         page_cache->Release(handle);
         return true;
     returnfalse:
@@ -2055,7 +2055,7 @@ namespace DSMEngine {
 ////                    handle->remote_lock_status.store(0);
 //        }
         assert(handle);
-        handle->reader_post_access(lock_addr);
+        handle->reader_post_access(page_addr, kLeafPageSize, lock_addr, mr);
         page_cache->Release(handle);
         return false;
 

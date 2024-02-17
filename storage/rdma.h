@@ -25,13 +25,10 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include "utils/thread_local.h"
-//#include "page.h"
-//#include "HugePageAlloc.h"
 #include "Common.h"
 #include "port/port_posix.h"
 #include "utils/mutexlock.h"
 #include "utils/ThreadPool.h"
-//#include "DSMEngine/cache.h"
 #include <atomic>
 #include <chrono>
 #include <iostream>
@@ -41,6 +38,7 @@
 #include <vector>
 #include <list>
 #include <cstdint>
+#include "utils/TimeMeasurer.h"
 
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -155,8 +153,9 @@ enum RDMA_Command_Type {
   page_invalidation,
   put_qp_info,
   get_qp_info,
-  release_write_lock,
-  release_read_lock,
+  writer_invalidate_modified,
+  reader_invalidate_modified,
+  writer_invalidate_shared,
   heart_beat
 
 
@@ -356,7 +355,22 @@ struct IBV_Deleter {
     }
   }
 };
-
+    static void spin_wait_ns(int64_t time){
+        TimeMeasurer timer;
+        timer.StartTimer();
+        timer.EndTimer();
+        while(timer.GetElapsedNanoSeconds() < time){
+            asm volatile("pause\n": : :"memory");
+        }
+    }
+    static void spin_wait_us(int64_t time){
+        TimeMeasurer timer;
+        timer.StartTimer();
+        timer.EndTimer();
+        while(timer.GetElapsedMicroSeconds() < time){
+            asm volatile("pause\n": : :"memory");
+        }
+    }
 
 class Memory_Node_Keeper;
 class RDMA_Manager {
@@ -389,8 +403,9 @@ class RDMA_Manager {
     void invalidation_message_handling_worker(uint16_t target_node_id, int qp_num, ibv_mr *recv_mr);
 
     //FUnction for invalidation message handling
-  void Release_read_lock(RDMA_Request* receive_msg_buf);
-  void Release_write_lock(RDMA_Request* receive_msg_buf);
+  void Writer_Inv_Shared_handler(RDMA_Request* receive_msg_buf);
+    void Reader_Inv_Modified_handler(RDMA_Request* receive_msg_buf);
+    void Writer_Inv_Modified_handler(RDMA_Request* receive_msg_buf);
     static void Write_Invalidation_Message_Handler(void* thread_args);
     static void Read_Invalidation_Message_Handler(void* thread_args);
 
@@ -444,8 +459,9 @@ class RDMA_Manager {
   ibv_mr * Preregister_Memory(size_t gb_number); //Pre register the memroy do not allocate bit map
   // Remote Memory registering will call RDMA send and receive to the remote memory it also push the new SST bit map to the Remote_Leaf_Node_Bitmap
   bool Remote_Memory_Register(size_t size, uint16_t target_node_id, Chunk_type pool_name);
-  bool Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint16_t target_node_id);
-  bool Shared_lock_invalidate_RPC(GlobalAddress g_ptr, uint16_t target_node_id);
+  bool Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id);
+    bool Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id);
+  bool Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id);
   bool Send_heart_beat();
     bool Send_heart_beat_xcompute(uint16_t target_memory_node_id);
   int Remote_Memory_Deregister();
@@ -517,6 +533,8 @@ class RDMA_Manager {
                                                 ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt= nullptr, int coro_id = 0);
     // THis function acctually does not flush global lock words, otherwise the RDMA write will interfere with RDMA FAA making the CAS failed always
     void global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
+                                       GlobalAddress remote_lock_addr, bool async = false);
+    void global_write_page_and_WdowntoR(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
                                        GlobalAddress remote_lock_addr, bool async = false);
     void global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                        GlobalAddress remote_lock_addr, CoroContext *cxt = nullptr, int coro_id = 0, bool async = false);

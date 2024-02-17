@@ -34,7 +34,8 @@ namespace DSMEngine {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
-        handle->reader_post_access(lock_addr);
+        ibv_mr *local_mr = (ibv_mr *) handle->value;
+        handle->reader_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
         page_cache->Release(handle);
         handle = nullptr;
     }

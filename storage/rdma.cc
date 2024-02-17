@@ -5,7 +5,6 @@
 #include "storage/page.h"
 #include "HugePageAlloc.h"
 #include "DSMEngine/cache.h"
-#include "utils/TimeMeasurer.h"
 //#include "port/port_posix.h"
 //#include "DSMEngine/env.h"
 #ifdef RDMAPROCESSANALYSIS
@@ -76,22 +75,7 @@ void General_Destroy(void* ptr){
   delete (T) ptr;
 }
 
-void spin_wait_ns(int64_t time){
-    TimeMeasurer timer;
-    timer.StartTimer();
-    timer.EndTimer();
-    while(timer.GetElapsedNanoSeconds() < time){
-        asm volatile("pause\n": : :"memory");
-    }
-}
-void spin_wait_us(int64_t time){
-    TimeMeasurer timer;
-    timer.StartTimer();
-    timer.EndTimer();
-    while(timer.GetElapsedMicroSeconds() < time){
-        asm volatile("pause\n": : :"memory");
-    }
-}
+
 /******************************************************************************
 * Function: RDMA_Manager
 
@@ -1157,7 +1141,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(volatile uint16_t target_n
 
                 // copy the pointer of receive buf to a new place because
                 // it is the same with send buff pointer.
-                if (receive_msg_buf->command == release_write_lock) {
+                if (receive_msg_buf->command == writer_invalidate_modified) {
                     post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
 //                printf("release_write_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
 
@@ -1168,15 +1152,20 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(volatile uint16_t target_n
 
 //                    BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
 //                    Invalidation_bg_threads.Schedule(&RDMA_Manager::Write_Invalidation_Message_Handler, thread_pool_args, i);
-                Release_write_lock(receive_msg_buf);
+                    Writer_Inv_Modified_handler(receive_msg_buf);
 
-                } else if (receive_msg_buf->command == release_read_lock) {
+                } else if (receive_msg_buf->command == writer_invalidate_shared) {
                     post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
 //                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
 //                    BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
 //                    Invalidation_bg_threads.Schedule(&RDMA_Manager::Read_Invalidation_Message_Handler, thread_pool_args, i);
-                Release_read_lock(receive_msg_buf);
-
+                    Writer_Inv_Shared_handler(receive_msg_buf);
+                } else if (receive_msg_buf->command == reader_invalidate_modified) {
+                    post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
+//                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
+//                    BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
+//                    Invalidation_bg_threads.Schedule(&RDMA_Manager::Read_Invalidation_Message_Handler, thread_pool_args, i);
+                    Reader_Inv_Modified_handler(receive_msg_buf);
                 } else if (receive_msg_buf->command == heart_beat) {
                     printf("heart_beat\n");
                     post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
@@ -3428,7 +3417,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                     cache_invalidation[RDMA_Manager::thread_id]++;
                 }
 #endif
-                Exclusive_lock_invalidate_RPC(page_addr, target_compute_node_id);
+                //TODO: change the function below to Reader_Invalidate_Modified_RPC.
+                Writer_Invalidate_Modified_RPC(page_addr, target_compute_node_id);
 
             }else{
                 // THis could happen if we enable async write unlock. one thread unlock and another thread acqurie the lock.
@@ -3551,7 +3541,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         if (retry_cnt % 4 ==  2) {
 //            assert(compare%2 == 0);
             for (auto iter: read_invalidation_targets) {
-                Shared_lock_invalidate_RPC(page_addr, iter);
+                Writer_Invalidate_Shared_RPC(page_addr, iter);
             }
         }
         struct ibv_send_wr sr[2];
@@ -3601,7 +3591,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
     //TODO: Implement a sync read unlock function.
     void RDMA_Manager::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
                                       bool async) {
-        // TODO: an alternative and better design for read unlock is to use RDMA FAA.
+        //TODO: Change (RDMA_Manager::node_id/2 +1) to (RDMA_Manager::node_id/2)
         uint64_t add = (1ull << (RDMA_Manager::node_id/2 +1));
         uint64_t substract = (~add) + 1;
         uint64_t retry_cnt = 0;
@@ -3724,7 +3714,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                             cache_invalidation[RDMA_Manager::thread_id]++;
                         }
 #endif
-                        Shared_lock_invalidate_RPC(page_addr, iter);
+                        Writer_Invalidate_Shared_RPC(page_addr, iter);
                     }else{
                         // This rare case is because the cache mutex will be released before the read/write lock release.
                         // If there is another request comes in immediately for the same page before the lock release, this print
@@ -3742,7 +3732,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                         cache_invalidation[RDMA_Manager::thread_id]++;
                     }
 #endif
-                    Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
+                    Writer_Invalidate_Modified_RPC(page_addr, write_invalidation_target);
 
                 }else{
                     //It is okay to have a write invalidation target is itself, if we enable the async write unlock.
@@ -3940,7 +3930,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                             cache_invalidation[RDMA_Manager::thread_id]++;
                         }
 #endif
-                        Shared_lock_invalidate_RPC(page_addr, iter);
+                        Writer_Invalidate_Shared_RPC(page_addr, iter);
                     }else{
                         // This rare case is because the cache mutex will be released before the read/write lock release.
                         // If there is another request comes in immediately for the same page before the lock release, this print
@@ -3958,7 +3948,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                         cache_invalidation[RDMA_Manager::thread_id]++;
                     }
 #endif
-                    Exclusive_lock_invalidate_RPC(page_addr, write_invalidation_target);
+                    Writer_Invalidate_Modified_RPC(page_addr, write_invalidation_target);
 
                 }else{
                     //It is okay to have a write invalidation target is itself, if we enable the async write unlock.
@@ -4225,90 +4215,121 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        printf("Release write lock for %lu\n",page_addr);
 //        assert(page_addr == (((LeafPage<int COMMA int>*)(page_buffer->addr))->hdr.this_page_g_ptr));
     }
-//    void RDMA_Manager::global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
-//                                                     GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
-//
-//        //TODO: If we want to use async unlock, we need to enlarge the max outstand work request that the queue pair support.
-//        struct ibv_send_wr sr[2];
-//        struct ibv_sge sge[2];
-//        GlobalAddress post_gl_page_addr{};
-//        post_gl_page_addr.nodeID = page_addr.nodeID;
+
+    void RDMA_Manager::global_write_page_and_WdowntoR(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
+                                                     GlobalAddress remote_lock_addr, bool async) {
+
+        //TODO: If we want to use async unlock, we need to enlarge the max outstand work request that the queue pair support.
+        struct ibv_send_wr sr[2];
+        struct ibv_sge sge[2];
+        GlobalAddress post_gl_page_addr{};
+        post_gl_page_addr.nodeID = page_addr.nodeID;
 //        assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
-//        //The header should be the same offset in Leaf or INternal nodes
-//        assert(STRUCT_OFFSET(LeafPage<int COMMA int>, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
-//        assert(STRUCT_OFFSET(InternalPage<int>, hdr) == STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
-//        post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
-//        ibv_mr post_gl_page_local_mr = *page_buffer;
-//        post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
-//        page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
-//        assert(remote_lock_addr <= post_gl_page_addr - 8);
-//
-//        if (async){
+        //The header should be the same offset in Leaf or INternal nodes
+        assert(STRUCT_OFFSET(LeafPage<int COMMA int>, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
+        assert(STRUCT_OFFSET(InternalPage<int>, hdr) == STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
+        post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
+        ibv_mr post_gl_page_local_mr = *page_buffer;
+        post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
+        page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
+        assert(remote_lock_addr <= post_gl_page_addr - 8);
+        // Page write back shall never utilize async unlock. because we can not guarantee, whether the page will be overwritten by
+        // another thread before the unlock. It is possible this cache buffer is reused by other cache entry.
+        if (async){
 //            assert(false);
-//            Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Internal_and_Leaf);
-//            ibv_mr* local_CAS_mr = Get_local_CAS_mr();
-//            *(uint64_t*) local_CAS_mr->addr = 0;
-//            //TODO: Can we make the RDMA unlock based on RDMA FAA? In this case, we can use async
-//            // lock releasing to reduce the RDMA ROUND trips in the protocol
-//            uint64_t swap = 0;
-//            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
-//            Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare,swap, 0, Internal_and_Leaf);
-//            sr[0].next = &sr[1];
-//
-//
-//            *(uint64_t *)local_CAS_mr->addr = 0;
-//            assert(page_addr.nodeID == remote_lock_addr.nodeID);
-//            Batch_Submit_WRs(sr, 0, page_addr.nodeID);
-//            //TODO: it could be spuriously failed because of the FAA.so we can not have async
-//        }else{
-//
-////#ifndef NDEBUG
-//            uint64_t retry_cnt = 0;
-////#endif
-//
-////        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
-//            ibv_mr* local_CAS_mr = Get_local_CAS_mr();
-//retry:
-////#ifndef NDEBUG
+            Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Regular_Page);
+            ibv_mr* local_CAS_mr = Get_local_CAS_mr();
+            *(uint64_t*) local_CAS_mr->addr = 0;
+            //TODO: Can we make the RDMA unlock based on RDMA FAA? In this case, we can use async
+            // lock releasing to reduce the RDMA ROUND trips in the protocol
+            volatile uint64_t add = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            volatile uint64_t substract = (~add) + 1;
+            add = (1ull << (RDMA_Manager::node_id/2 +1));
+            // The code below is to prevent a work request overflow in the send queue, since we enable
+            // async lock releasing.
+            uint32_t * counter = (uint32_t *)async_counter.at(page_addr.nodeID)->Get();
+            if (UNLIKELY(!counter)){
+                counter = new uint32_t(0);
+                async_counter[page_addr.nodeID]->Reset(counter);
+            }
+            // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
+            // contains one async lock acquiring.
+            if ( UNLIKELY((*counter % (SEND_OUTSTANDING_SIZE/2 - 1)) == 1)){
+                Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract +add, IBV_SEND_SIGNALED, Regular_Page);
+                sr[0].next = &sr[1];
+
+                *(uint64_t *)local_CAS_mr->addr = 0;
+                assert(page_addr.nodeID == remote_lock_addr.nodeID);
+                Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
+//                printf("Issue sync write unlock\n");
+            }else{
+                Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract + add, 0, Regular_Page);
+                sr[0].next = &sr[1];
+
+                *(uint64_t *)local_CAS_mr->addr = 0;
+                assert(page_addr.nodeID == remote_lock_addr.nodeID);
+                Batch_Submit_WRs(sr, 0, page_addr.nodeID);
+            }
+            *counter = *counter + 1;
+
+
+//            printf("Release write lock for %lu\n",page_addr);
+            //TODO: it could be spuriously failed because of the FAA.so we can not have async
+        }else{
+//            printf("This code path shall not be entered\n");
+
+//#ifndef NDEBUG
+            uint64_t retry_cnt = 0;
+//#endif
+
+//        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
+            ibv_mr* local_CAS_mr = Get_local_CAS_mr();
+            retry:
+//#ifndef NDEBUG
 //            if (retry_cnt++ >5000 && retry_cnt % 1000 == 0){
 //                printf("RDMA write lock unlock keep spinning but never release, the return value is %lu\n", (*(uint64_t*) local_CAS_mr->addr) );
 //            }
-////#endif
-//
-//            //TODO: check whether the page's global lock is still write lock
-//            //  0909/2023: the code below seems sometime will get stuck.
-//            Prepare_WR_Write(sr[0], sge[0],  post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Internal_and_Leaf);
-//
-//            *(uint64_t *)local_CAS_mr->addr = 0;
-//            //TODO: THe RDMA write unlock can not be guaranteed to be finished after the page write.
-//            // The RDMA CAS be started strictly after the RDMA write at the remote NIC according to
-//            // https://docs.nvidia.com/networking/display/MLNXOFEDv451010/Out-of-Order+%28OOO%29+Data+Placement+Experimental+Verbs
-//            // So it's better to make Unlock another RDMA CAS.
-////        rdma_mg->RDMA_CAS( remote_lock_addr, local_CAS_mr, 1,0, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
-////        assert(*(uint64_t *)local_CAS_mr->addr == 1);
-//            //We can apply async unlock here to reduce the latency.
+//#endif
+
+            //TODO: check whether the page's global lock is still write lock
+            //  0909/2023: the code below seems sometime will get stuck.
+            Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Regular_Page);
+
+            *(uint64_t *)local_CAS_mr->addr = 0;
+            //TODO: THe RDMA write unlock can not be guaranteed to be finished after the page write.
+            // The RDMA CAS be started strictly after the RDMA write at the remote NIC according to
+            // https://docs.nvidia.com/networking/display/MLNXOFEDv451010/Out-of-Order+%28OOO%29+Data+Placement+Experimental+Verbs
+            // So it's better to make Unlock another RDMA CAS.
+//        rdma_mg->RDMA_CAS( remote_lock_addr, local_CAS_mr, 1,0, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
+//        assert(*(uint64_t *)local_CAS_mr->addr == 1);
+            //We can apply async unlock here to reduce the latency.
 //            uint64_t swap = 0;
-//            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            volatile uint64_t substract = (~compare) + 1;
+            uint64_t add = (1ull << (RDMA_Manager::node_id/2 +1));
+            //TODO: USE rdma faa to release the write lock to avoid continuous spurious unlock resulting from the concurrent read lock request.
+            Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract + add, IBV_SEND_SIGNALED, Regular_Page);
+
 //            Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare,swap, IBV_SEND_SIGNALED, Internal_and_Leaf);
-//            sr[0].next = &sr[1];
-//
-//
-//
-//            assert(page_addr.nodeID == remote_lock_addr.nodeID);
-//            Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-////            printf("Write page from local mr %p   to remote memory %p  1, thread_id is %d\n", page_buffer->addr, page_addr, thread_id);
+            sr[0].next = &sr[1];
+
+
+
+            assert(page_addr.nodeID == remote_lock_addr.nodeID);
+            Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+            assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (compare >> 56));
 //            if((*(uint64_t*) local_CAS_mr->addr) != compare){
 ////                printf("RDMA write lock unlock happen with RDMA faa FOR rdma READ LOCK\n");
 //                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (compare >> 56));
 //
 //                goto retry;
 //            }
-//
-//        }
+
+        }
+//        printf("Release write lock for %lu\n",page_addr);
 //        assert(page_addr == (((LeafPage<int COMMA int>*)(page_buffer->addr))->hdr.this_page_g_ptr));
-//
-////        printf("Global write page page_addr %p, async %d\n", page_addr, async);
-//    }
+    }
     void RDMA_Manager::global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                                      GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async) {
 
@@ -5104,7 +5125,7 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
   return true;
 }
 
-bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint16_t target_node_id) {
+bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id) {
     qp_xcompute;
 //    printf(" send write invalidation message to other nodes %p\n", global_ptr);
 
@@ -5113,7 +5134,7 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
 //    ibv_mr* receive_mr = {};
 
     send_pointer = (RDMA_Request*)send_mr->addr;
-    send_pointer->command = release_write_lock;
+    send_pointer->command = writer_invalidate_modified;
     send_pointer->content.W_message.page_addr = global_ptr;
 //    send_pointer->buffer = receive_mr.addr;
 //    send_pointer->rkey = receive_mr.rkey;
@@ -5141,14 +5162,51 @@ bool RDMA_Manager::Exclusive_lock_invalidate_RPC(GlobalAddress global_ptr, uint1
     return true;
 }
 
-    bool RDMA_Manager::Shared_lock_invalidate_RPC(GlobalAddress g_ptr, uint16_t target_node_id) {
+    bool RDMA_Manager::Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id) {
+        qp_xcompute;
+//    printf(" send write invalidation message to other nodes %p\n", global_ptr);
+
+        RDMA_Request* send_pointer;
+        ibv_mr* send_mr = Get_local_send_message_mr();
+//    ibv_mr* receive_mr = {};
+
+        send_pointer = (RDMA_Request*)send_mr->addr;
+        send_pointer->command = reader_invalidate_modified;
+        send_pointer->content.W_message.page_addr = global_ptr;
+//    send_pointer->buffer = receive_mr.addr;
+//    send_pointer->rkey = receive_mr.rkey;
+
+//    RDMA_Reply* receive_pointer;
+//    receive_pointer = (RDMA_Reply*)receive_mr.addr;
+        //Clear the reply buffer for the polling.
+//    *receive_pointer = {};
+
+        //USE static ticket to minuimize the conflict.
+        int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+        //TODO: no need to be signaled, can make it without completion.
+        post_send_xcompute(send_mr, target_node_id, qp_id);
+        ibv_wc wc[2] = {};
+
+
+        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
+            fprintf(stderr, "failed to poll send for remote memory register\n");
+            return false;
+        }
+//  asm volatile ("sfence\n" : : );
+//  asm volatile ("lfence\n" : : );
+//  asm volatile ("mfence\n" : : );
+
+        return true;
+    }
+
+    bool RDMA_Manager::Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id) {
 //        printf(" send read invalidation message to other nodes %p\n", g_ptr);
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
 //    ibv_mr* receive_mr = {};
 
         send_pointer = (RDMA_Request*)send_mr->addr;
-        send_pointer->command = release_read_lock;
+        send_pointer->command = writer_invalidate_shared;
         send_pointer->content.W_message.page_addr = g_ptr;
 //    send_pointer->buffer = receive_mr.addr;
 //    send_pointer->rkey = receive_mr.rkey;
@@ -6008,7 +6066,8 @@ void RDMA_Manager::fs_deserilization(
         return rc;
     }
 
-    void RDMA_Manager::Release_read_lock(RDMA_Request* receive_msg_buf) {
+
+    void RDMA_Manager::Writer_Inv_Shared_handler(RDMA_Request* receive_msg_buf) {
         ibv_mr* cas_mr =  Get_local_CAS_mr();
         GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
 
@@ -6039,6 +6098,9 @@ void RDMA_Manager::fs_deserilization(
 //                        printf("Release read lock %lu\n", g_ptr);
                     }
                     handle->rw_mtx.unlock();
+                    handle->clear_states();
+                }else{
+                    handle->remote_lock_urged.store(1);
                 }
             }
             page_cache_->Release(handle);
@@ -6048,8 +6110,51 @@ void RDMA_Manager::fs_deserilization(
         delete receive_msg_buf;
 
     }
+    void RDMA_Manager::Reader_Inv_Modified_handler(RDMA_Request *receive_msg_buf) {
+        GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
+        Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
+        assert(page_cache_ != nullptr);
+        Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
+        if (handle){
+            auto* page_mr = (ibv_mr*)handle->value;
+            GlobalAddress lock_gptr = g_ptr;
+            Header_Index<uint64_t>* header = (Header_Index<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
+            if (header->p_type != P_Internal){
+                lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
+//                        printf("Leaf node page %p's global lock state is %lu\n", g_ptr, ((LeafPage*)(page_mr->addr))->global_lock);
 
-    void RDMA_Manager::Release_write_lock(RDMA_Request *receive_msg_buf) {
+            }else{
+//                // Only the leaf page have eager cache coherence protocol.
+//                if (header->p_type == P_Internal){
+//                    assert(false);
+//                }
+                lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, global_lock);
+            }
+            // double check locking
+            if (handle->remote_lock_status.load() == 2){
+//                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
+                if (handle->rw_mtx.try_lock()){
+                    if (handle->remote_lock_status.load() == 2){
+                        //TODO: implement an atomic lock downgradation.
+                        // Do not use async lock release here.
+                        global_write_page_and_WdowntoR(page_mr, receive_msg_buf->content.R_message.page_addr,
+                                                      page_mr->length, lock_gptr, false);
+                        handle->remote_lock_status.store(0);
+                        handle->clear_states();
+//                        printf("Release write lock %lu\n", g_ptr);
+                    }
+                    handle->rw_mtx.unlock();
+                }else{
+                    handle->remote_lock_urged.store(1);
+                }
+            }
+            page_cache_->Release(handle);
+        }else{
+//                    printf("Release write lock Handle not found\n");
+        }
+        delete receive_msg_buf;
+    }
+    void RDMA_Manager::Writer_Inv_Modified_handler(RDMA_Request *receive_msg_buf) {
         GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         assert(page_cache_ != nullptr);
@@ -6078,9 +6183,12 @@ void RDMA_Manager::fs_deserilization(
                         global_write_page_and_Wunlock(page_mr, receive_msg_buf->content.R_message.page_addr,
                                                       page_mr->length, lock_gptr, false);
                         handle->remote_lock_status.store(0);
+                        handle->clear_states();
 //                        printf("Release write lock %lu\n", g_ptr);
                     }
                     handle->rw_mtx.unlock();
+                }else{
+                    handle->remote_lock_urged.store(1);
                 }
             }
             page_cache_->Release(handle);
@@ -6092,12 +6200,12 @@ void RDMA_Manager::fs_deserilization(
 
     void RDMA_Manager::Write_Invalidation_Message_Handler(void* thread_args) {
         BGThreadMetadata* p = static_cast<BGThreadMetadata*>(thread_args);
-        ((RDMA_Manager*)p->rdma_mg)->Release_write_lock((RDMA_Request*)p->func_args);
+        ((RDMA_Manager *) p->rdma_mg)->Writer_Inv_Modified_handler((RDMA_Request *) p->func_args);
         delete static_cast<BGThreadMetadata*>(thread_args);
     }
     void RDMA_Manager::Read_Invalidation_Message_Handler(void* thread_args) {
         BGThreadMetadata* p = static_cast<BGThreadMetadata*>(thread_args);
-        ((RDMA_Manager*)p->rdma_mg)->Release_read_lock((RDMA_Request*)p->func_args);
+        ((RDMA_Manager *) p->rdma_mg)->Writer_Inv_Shared_handler((RDMA_Request *) p->func_args);
         delete static_cast<BGThreadMetadata*>(thread_args);
     }
 

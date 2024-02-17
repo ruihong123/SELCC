@@ -70,24 +70,45 @@ class DSMEngine_EXPORT Cache {
         void* value = nullptr;
         std::atomic<uint32_t> refs;     // References, including table_cache reference, if present.
         //TODO: the internal node may not need the rw_mtx below, maybe we can delete them.
-        std::atomic<bool> remote_lock_urge;
         std::atomic<int> remote_lock_status = 0; // 0 unlocked, 1 read locked, 2 write lock
         GlobalAddress gptr = GlobalAddress::Null();
-        std::atomic<int> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
+        // TODO: the variable below can be removed.
+        std::atomic<int> lock_pending_num = 0;
+        std::chrono::time_point<std::chrono::high_resolution_clock> timer_begin;
+        boost::shared_mutex rw_mtx;
+        std::atomic<uint16_t> read_lock_counter = 0;
+        std::atomic<uint16_t> write_lock_counter = 0;
+//        std::atomic<int> read_lock_holder_num = 0;
+//        std::atomic<int> lock_handover_count = 0;
+        std::atomic<bool> timer_on = false;
+        std::atomic<bool> timer_alarmed = false;
+        std::atomic<uint8_t > remote_lock_urged;
+        std::atomic<uint8_t> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
         bool keep_the_mr = false;
 //        std::shared_mutex rw_mtx;
-        boost::shared_mutex rw_mtx;
-        RDMA_Manager* rdma_mg = nullptr;
+        static RDMA_Manager* rdma_mg;
 #ifdef LOCAL_LOCK_DEBUG
         std::set<uint16_t> holder_ids;
         std::mutex holder_id_mtx;
 #endif
         void (*deleter)(Cache::Handle* handle);
         ~Handle(){}
+        void clear_states(){
+            lock_pending_num.store(0);
+//            read_lock_holder_num.store(0);
+//            lock_handover_count.store(0);
+            timer_on.store(false);
+            timer_alarmed.store(false);
+            read_lock_counter.store(0);
+            write_lock_counter.store(0);
+            remote_lock_urged.store(0);
+            strategy.store(1);
+        }
         void reader_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
-        void reader_post_access(GlobalAddress lock_addr);
+        void reader_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *mr);
         void updater_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
         void updater_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
+        void invalidate_current_entry(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *mr, ibv_mr* cas_mr);
         // Blind write, carefully used.
         void writer_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
         void writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
