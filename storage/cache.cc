@@ -724,8 +724,23 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                         spin_wait_us(10);
                     }
                 }else if (this->remote_lock_status == 2){
-                    rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
-                    remote_lock_status.store(0);
+                    if (remote_lock_urged == 2){
+                        //cache downgrade from Modified to Shared rather than release the lock.
+                        rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr);
+                        remote_lock_status.store(1);
+                    }else{
+                        printf("Lock starvation prevention code was executed\n");
+                        if (next_priority == 0){
+                            // lock release to a specific writer
+                            rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
+                            remote_lock_status.store(0);
+                        }else{
+                            assert(next_holder_id != RDMA_Manager::node_id);
+                            rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, next_holder_id, lock_addr);
+                        }
+
+                    }
+
                 }else{
                     //The lock has been released by other threads.
                 }

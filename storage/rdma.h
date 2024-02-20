@@ -534,6 +534,8 @@ class RDMA_Manager {
     // THis function acctually does not flush global lock words, otherwise the RDMA write will interfere with RDMA FAA making the CAS failed always
     void global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
                                        GlobalAddress remote_lock_addr, bool async = false);
+    void global_write_page_and_WHandover(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, uint8_t next_writer_id,
+                                       GlobalAddress remote_lock_addr, bool async = false);
     void global_write_page_and_WdowntoR(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
                                        GlobalAddress remote_lock_addr, bool async = false);
     void global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
