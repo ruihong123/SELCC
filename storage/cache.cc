@@ -706,10 +706,13 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 #endif
         if (remote_lock_urged.load() > 0) {
             uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
+            printf("Lock starvation prevention code was executed stage 1\n");
             if(lock_pending_num.load() > 0 && !timer_on){
                 timer_begin = std::chrono::high_resolution_clock::now();
             }
             if ( handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
+                printf("Lock starvation prevention code was executed stage 2\n");
+
                 // make sure only one thread release the global latch successfully by double check lock.
                 rw_mtx.unlock_shared();
                 rw_mtx.lock();
@@ -729,7 +732,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                         rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr);
                         remote_lock_status.store(1);
                     }else{
-                        printf("Lock starvation prevention code was executed\n");
+                        printf("Lock starvation prevention code was executed stage 3\n");
                         if (next_priority == 0){
                             // lock release to a specific writer
                             rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
