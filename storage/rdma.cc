@@ -5242,7 +5242,7 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
 
 bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id) {
     qp_xcompute;
-//    printf(" send write invalidation message to other nodes %p\n", global_ptr);
+    printf(" send write invalidation message to other nodes %p\n", global_ptr);
 
     RDMA_Request* send_pointer;
     ibv_mr* send_mr = Get_local_send_message_mr();
@@ -6272,6 +6272,8 @@ void RDMA_Manager::fs_deserilization(
         delete receive_msg_buf;
     }
     void RDMA_Manager::Writer_Inv_Modified_handler(RDMA_Request *receive_msg_buf) {
+        printf("Invalidation message received\n");
+
         GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         assert(page_cache_ != nullptr);
