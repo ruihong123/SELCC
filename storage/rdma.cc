@@ -6260,6 +6260,7 @@ void RDMA_Manager::fs_deserilization(
                     }
                     handle->rw_mtx.unlock();
                 }else{
+                    printf("Try lock failed, store the urge\n");
                     handle->remote_lock_urged.store(1);
                 }
             }
