@@ -6215,6 +6215,7 @@ void RDMA_Manager::fs_deserilization(
                     handle->rw_mtx.unlock();
                     handle->clear_states();
                 }else{
+                    printf("Try lock failed 3, store the urge\n");
                     handle->remote_lock_urged.store(1);
                 }
             }
@@ -6260,7 +6261,7 @@ void RDMA_Manager::fs_deserilization(
                     }
                     handle->rw_mtx.unlock();
                 }else{
-                    printf("Try lock failed, store the urge\n");
+                    printf("Try lock failed 1, store the urge\n");
                     handle->remote_lock_urged.store(1);
                 }
             }
@@ -6304,6 +6305,7 @@ void RDMA_Manager::fs_deserilization(
                     }
                     handle->rw_mtx.unlock();
                 }else{
+                    printf("Try lock failed 2, store the urge\n");
                     handle->remote_lock_urged.store(1);
                 }
             }
