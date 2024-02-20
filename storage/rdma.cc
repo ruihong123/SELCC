@@ -6301,7 +6301,7 @@ void RDMA_Manager::fs_deserilization(
                                                       page_mr->length, lock_gptr, false);
                         handle->remote_lock_status.store(0);
                         handle->clear_states();
-//                        printf("Release write lock %lu\n", g_ptr);
+                        printf("Release write lock %lu\n", g_ptr);
                     }
                     handle->rw_mtx.unlock();
                 }else{
