@@ -5315,7 +5315,7 @@ bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint
     }
 
     bool RDMA_Manager::Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id) {
-//        printf(" send read invalidation message to other nodes %p\n", g_ptr);
+        printf(" send read invalidation message to other nodes %p\n", g_ptr);
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
 //    ibv_mr* receive_mr = {};
