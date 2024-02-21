@@ -489,7 +489,7 @@ read_range="0 50 95 100"
 space_range="0"
 time_range="0"
 workload_range="1" # 0 uniform, 1 single zipfian, n >1 multispot zipfian.
-zipfian_alpha_range="10" #make sure workload = 1 if we want to test zipfian.
+zipfian_alpha_range="1" #make sure workload = 1 if we want to test zipfian.
 #
 op_range="1" # use 1
 #cache_th=0.5
