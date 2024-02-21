@@ -2716,6 +2716,7 @@ int RDMA_Manager::RDMA_CAS(GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t 
             std::cout << "RDMA CAS Failed" << std::endl;
             std::cout << "q id is" << qp_type << std::endl;
             fprintf(stdout, "QP number=0x%x\n", res->qp_map[remote_ptr.nodeID]->qp_num);
+            assert(false);
         }
         delete[] wc;
     }
@@ -5012,9 +5013,12 @@ int RDMA_Manager::poll_completion(ibv_wc* wc_p, int num_entries,
   if (poll_result < 0) {
     /* poll CQ failed */
     fprintf(stderr, "poll CQ failed\n");
+      assert(false);
     rc = 1;
   } else if (poll_result == 0) { /* the CQ is empty */
-    fprintf(stderr, "completion wasn't found in the CQ after timeout\n");
+      assert(false);
+
+      fprintf(stderr, "completion wasn't found in the CQ after timeout\n");
     rc = 1;
   } else {
     /* CQE found */
