@@ -2714,7 +2714,7 @@ int RDMA_Manager::RDMA_CAS(GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t 
         rc = poll_completion(wc, poll_num, qp_type, true, remote_ptr.nodeID);
         if (rc != 0) {
             std::cout << "RDMA CAS Failed" << std::endl;
-            std::cout << "q id is" << qp_type << std::endl;
+            std::cout << "remote node id is" << remote_ptr.nodeID << std::endl;
             fprintf(stdout, "QP number=0x%x\n", res->qp_map[remote_ptr.nodeID]->qp_num);
             assert(false);
         }
@@ -2815,8 +2815,9 @@ int RDMA_Manager::RDMA_FAA(GlobalAddress remote_ptr, ibv_mr *local_mr, uint64_t 
         rc = poll_completion(wc, poll_num, qp_type, true, remote_ptr.nodeID);
         if (rc != 0) {
             std::cout << "RDMA CAS Failed" << std::endl;
-            std::cout << "q id is" << qp_type << std::endl;
+            std::cout << "remote node id is" << remote_ptr.nodeID << std::endl;
             fprintf(stdout, "QP number=0x%x\n", res->qp_map[remote_ptr.nodeID]->qp_num);
+            assert(false);
         }
         delete[] wc;
     }
@@ -3033,8 +3034,9 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
             rc = poll_completion(wc, poll_num, qp_type, true, target_node_id);
             if (rc != 0) {
                 std::cout << "RDMA CAS Failed" << std::endl;
-                std::cout << "q id is" << qp_type << std::endl;
+                std::cout << "remote node id is" << target_node_id << std::endl;
                 fprintf(stdout, "QP number=0x%x\n", res->qp_map[target_node_id]->qp_num);
+
             }
             delete[] wc;
         }
@@ -3133,8 +3135,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         rc = poll_completion(wc, poll_num, qp_type, true, target_node_id);
         if (rc != 0) {
             std::cout << "RDMA CAS Failed" << std::endl;
-            std::cout << "q id is" << qp_type << std::endl;
+            std::cout << "remote node id is" << target_node_id << std::endl;
             fprintf(stdout, "QP number=0x%x\n", res->qp_map[target_node_id]->qp_num);
+            assert(false);
         }
         delete[] wc;
     }
@@ -3705,7 +3708,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 // The lock could be in starvation, restart with a lower retry_cnt.
                 retry_cnt = 0;
             }
-            printf("We need invalidation message\n");
+//            printf("We need invalidation message\n");
             if (invalidation_RPC_type == 1){
                 assert(!read_invalidation_targets.empty());
                 for (auto iter: read_invalidation_targets) {
