@@ -3704,7 +3704,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 // The lock could be in starvation, restart with a lower retry_cnt.
                 retry_cnt = 0;
             }
-
+            printf("We need invalidation message\n");
             if (invalidation_RPC_type == 1){
                 assert(!read_invalidation_targets.empty());
                 for (auto iter: read_invalidation_targets) {
