@@ -20,7 +20,7 @@
 // DO not enable the two at the same time otherwise there will be a bug.
 #define BUFFER_HANDOVER
 #define PARALLEL_DEGREE 16
-#define STARVATION_THRESHOLD 32
+#define STARVATION_THRESHOLD 8
 //#define EARLY_LOCK_RELEASE
 uint64_t cache_miss[MAX_APP_THREAD][8];
 uint64_t cache_hit_valid[MAX_APP_THREAD][8];
