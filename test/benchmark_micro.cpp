@@ -386,17 +386,17 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
         } else {
             if (workload == 0){
                 GlobalAddress n = data[GetRandom(0, STEPS, seedp)];
-                while (TOPAGE(n) == TOPAGE(access[i - 1])) {
-                    n = data[GetRandom(0, STEPS, seedp)];
-                }
+//                while (TOPAGE(n) == TOPAGE(access[i - 1])) {
+//                    n = data[GetRandom(0, STEPS, seedp)];
+//                }
                 next = GADD(n, GetRandom(0, items_per_block, seedp) * item_size);
             } else if (workload > 0){
                 uint64_t pos = workload_gen->getValue();
                 GlobalAddress n = data[pos];
-                while (TOPAGE(n) == TOPAGE(access[i - 1])) {
-                    pos = workload_gen->getValue();
-                    n = data[pos];
-                }
+//                while (TOPAGE(n) == TOPAGE(access[i - 1])) {
+//                    pos = workload_gen->getValue();
+//                    n = data[pos];
+//                }
                 next = GADD(n, GetRandom(0, items_per_block, seedp) * item_size);
             }
 
