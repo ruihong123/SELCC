@@ -3663,8 +3663,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
     void RDMA_Manager::global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
                                                                GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
                                                                int coro_id) {
-        printf("wlock and read page\n");
-
         uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
@@ -5249,8 +5247,7 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
 }
 
 bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id) {
-    qp_xcompute;
-    printf(" send write invalidation message to other nodes %p\n", global_ptr);
+//    printf(" send write invalidation message to other nodes %p\n", global_ptr);
 
     RDMA_Request* send_pointer;
     ibv_mr* send_mr = Get_local_send_message_mr();
@@ -5323,7 +5320,6 @@ bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint
     }
 
     bool RDMA_Manager::Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id) {
-        printf(" send read invalidation message to other nodes %p\n", g_ptr);
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
 //    ibv_mr* receive_mr = {};
@@ -6223,7 +6219,7 @@ void RDMA_Manager::fs_deserilization(
                     handle->rw_mtx.unlock();
                     handle->clear_states();
                 }else{
-                    printf("Try lock failed 3, store the urge\n");
+//                    printf("Try lock failed 3, store the urge\n");
                     handle->remote_lock_urged.store(1);
                 }
             }
@@ -6269,7 +6265,7 @@ void RDMA_Manager::fs_deserilization(
                     }
                     handle->rw_mtx.unlock();
                 }else{
-                    printf("Try lock failed 1, store the urge\n");
+//                    printf("Try lock failed 1, store the urge\n");
                     handle->remote_lock_urged.store(1);
                 }
             }
@@ -6280,8 +6276,6 @@ void RDMA_Manager::fs_deserilization(
         delete receive_msg_buf;
     }
     void RDMA_Manager::Writer_Inv_Modified_handler(RDMA_Request *receive_msg_buf) {
-        printf("Invalidation message received\n");
-
         GlobalAddress g_ptr = receive_msg_buf->content.R_message.page_addr;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         assert(page_cache_ != nullptr);
@@ -6311,11 +6305,11 @@ void RDMA_Manager::fs_deserilization(
                                                       page_mr->length, lock_gptr, false);
                         handle->remote_lock_status.store(0);
                         handle->clear_states();
-                        printf("Release write lock %lu\n", g_ptr);
+//                        printf("Release write lock %lu\n", g_ptr);
                     }
                     handle->rw_mtx.unlock();
                 }else{
-                    printf("Try lock failed 2, store the urge\n");
+//                    printf("Try lock failed 2, store the urge\n");
                     handle->remote_lock_urged.store(1);
                 }
             }
