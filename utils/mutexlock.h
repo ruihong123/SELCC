@@ -91,6 +91,19 @@ public:
             std::this_thread::yield();
         }
     }
+    bool try_lock() {
+        auto currently_locked = write_now.load(std::memory_order_relaxed);
+        auto currently_readers = readers_count.load(std::memory_order_relaxed);
+        if (!currently_locked && currently_readers == 0){
+            return write_now.compare_exchange_weak(currently_locked, true,
+                                          std::memory_order_acquire,
+                                          std::memory_order_relaxed);
+        }else{
+            return false;
+        }
+
+    }
+
     void unlock() {
         write_now.store(false, std::memory_order_release);
     }

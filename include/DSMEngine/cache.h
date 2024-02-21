@@ -75,7 +75,7 @@ class DSMEngine_EXPORT Cache {
         // TODO: the variable below can be removed.
         std::atomic<int> lock_pending_num = 0;
         std::chrono::time_point<std::chrono::high_resolution_clock> timer_begin;
-        std::shared_mutex rw_mtx;
+        RWSpinLock rw_mtx; // low overhead rw spin lock and write have higher priority than read.
         std::atomic<uint16_t> read_lock_counter = 0;
         std::atomic<uint16_t> write_lock_counter = 0;
 //        std::atomic<int> read_lock_holder_num = 0;
