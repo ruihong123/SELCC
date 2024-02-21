@@ -83,11 +83,13 @@ class RWSpinLock{
 public:
     void lock() {
         while (write_now.exchange(true, std::memory_order_acquire)){
+            port::AsmVolatilePause();
             std::this_thread::yield();
         }
 
         // wait for readers to exit
         while (readers_count != 0 ){
+            port::AsmVolatilePause();
             std::this_thread::yield();
         }
     }
@@ -112,6 +114,7 @@ public:
         // unique_lock have priority
         while(true) {
             while (write_now) {     // wait for unlock
+                port::AsmVolatilePause();
                 std::this_thread::yield();
             }
 
