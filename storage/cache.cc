@@ -871,7 +871,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             if ( handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
                 // make sure only one thread release the global latch successfully by double check lock.
                 if (this->remote_lock_status == 2){
-//                    printf("Lock starvation prevention code was executed stage 2\n");
+                    printf("Lock starvation prevention code was executed stage 2\n");
                     //TODO: Decide whether to down grade the lock to read lock. by urge type?
                     rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
                     remote_lock_status.store(0);
