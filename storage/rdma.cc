@@ -32,6 +32,7 @@ uint16_t RDMA_Manager::node_id = 0;
 std::atomic<uint64_t> RDMA_Manager::RDMAReadTimeElapseSum = 0;
 std::atomic<uint64_t> RDMA_Manager::ReadCount = 0;
 #endif
+#define INVALIDATION_INTERVAL 5
 //TODO: This should be moved to some other classes which is strongly related to btree or storage engine.
 thread_local GlobalAddress path_stack[define::kMaxCoro][define::kMaxLevelOfTree];
 
@@ -3380,6 +3381,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t conflict_tag = 0;
         *(uint64_t *)cas_buffer->addr = 0;
         uint8_t target_compute_node_id = 0;
+        int starvation_level = 0;
 #ifdef INVALIDATION_STATISTICS
         bool invalidation_counted = false;
 #endif
@@ -3387,31 +3389,26 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
 //        printf("global read lock at %p \n", page_addr);
         retry:
-        retry_cnt++;
-        if (retry_cnt % 4 ==  2) {
+//        retry_cnt++;
+        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1) {
 //            assert(compare%2 == 0);
             if(retry_cnt < 20){
+//                port::AsmVolatilePause();
                 //do nothing
             }else if (retry_cnt <40){
-                if (retry_cnt == 22){
-                    printf("Invalidate RPC in Read lock timeout 21, wait 100 us\n");
-                }
-                usleep(100);
+                starvation_level = 1;
+
             }else if (retry_cnt <80){
-                if (retry_cnt == 42){
-                    printf("Invalidate RPC in Read lock timeout 41, wait 500 us\n");
-                }
-                usleep(500);
+                starvation_level = 2;
             }
             else if (retry_cnt <160){
-                if (retry_cnt == 82) {
-                    printf("Invalidate RPC in Read lock timeout 81, wait 2 ms\n");
-                }
-                usleep(2000);
+                starvation_level = 3;
             }else if (retry_cnt <200){
-                sleep(1);
-                // The lock could be in starvation, restart with a lower retry_cnt.
-                retry_cnt = 0;
+                starvation_level = 4;
+            } else if (retry_cnt <1000){
+                starvation_level = 5;
+            } else{
+                starvation_level = 255 > 5+ retry_cnt/1000? 5+ retry_cnt/1000: 255;
             }
 //            assert(target_compute_node_id != (RDMA_Manager::node_id));
             if (target_compute_node_id != (RDMA_Manager::node_id)){
@@ -3431,14 +3428,22 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }
 
         }
-        if (retry_cnt > 210) {
-            std::cout << "Deadlock " << lock_addr << std::endl;
+        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL == 0){
+            if (retry_cnt < 32){
+                spin_wait_us(8);
+            }else {
+                usleep(8);
+            }
 
-            std::cout << GetMemoryNodeNum() << ", "
-                      << " locked by node  " << (conflict_tag) << std::endl;
-            assert(false);
-            exit(0);
         }
+//        if (retry_cnt > 210) {
+//            std::cout << "Deadlock " << lock_addr << std::endl;
+//
+//            std::cout << GetMemoryNodeNum() << ", "
+//                      << " locked by node  " << (conflict_tag) << std::endl;
+//            assert(false);
+//            exit(0);
+//        }
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
         //Only the second RDMA issue a completion,
@@ -3669,42 +3674,38 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         *(uint64_t *)cas_buffer->addr = 0;
         std::vector<uint16_t> read_invalidation_targets;
         uint16_t write_invalidation_target = 0-1;
+        int starvation_level = 0;
         int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
 #ifdef INVALIDATION_STATISTICS
         bool invalidation_counted = false;
 #endif
     retry:
-        retry_cnt++;
+//        retry_cnt++;
         uint64_t compare = 0;
         // We need a + 1 for the id, because id 0 conflict with the unlock bit
         uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
         //TODO: send an RPC to the destination every 4 retries.
         // Check whether the invalidation is write type or read type. If it is a read type
         // we need to broadcast the message to multiple destination.
-        if (retry_cnt % 4 ==  2) {
+        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1) {
 //            assert(compare%2 == 0);
             if(retry_cnt < 20){
+//                port::AsmVolatilePause();
                 //do nothing
             }else if (retry_cnt <40){
-                if (retry_cnt == 22){
-                    printf("Invalidate RPC in write lock timeout 21, wait 100 us\n");
-                }
-                usleep(100);
+                starvation_level = 1;
+
             }else if (retry_cnt <80){
-                if (retry_cnt == 42){
-                    printf("Invalidate RPC in write lock timeout 41, wait 500 us\n");
-                }
-                usleep(500);
+                starvation_level = 2;
             }
             else if (retry_cnt <160){
-                if (retry_cnt == 82) {
-                    printf("Invalidate RPC in write lock timeout 81, wait 2 ms\n");
-                }
-                usleep(2000);
+                starvation_level = 3;
             }else if (retry_cnt <200){
-                sleep(1);
-                // The lock could be in starvation, restart with a lower retry_cnt.
-                retry_cnt = 0;
+                starvation_level = 4;
+            } else if (retry_cnt <1000){
+                starvation_level = 5;
+            } else{
+                starvation_level = 255 > 5+ retry_cnt/1000? 5+ retry_cnt/1000: 255;
             }
 //            printf("We need invalidation message\n");
             if (invalidation_RPC_type == 1){
@@ -3745,15 +3746,22 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             // the compared value is the real id /2 + 1.
         }
-        if (retry_cnt > 210) {
-            std::cout << "write lock timeout" << lock_addr << std::endl;
-
-            std::cout << GetMemoryNodeNum() << ", "
-                      << " locked by node  " << (conflict_tag) << std::endl;
-            printf("CAS buffer value is %lu, compare is %lu, swap is %lu\n", (*(uint64_t*) cas_buffer->addr), compare, swap);
-            assert(false);
-            exit(0);
+        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL == 0){
+            if (retry_cnt < 32){
+                spin_wait_us(8);
+            }else {
+                usleep(8);
+            }
         }
+//        if (retry_cnt > 210) {
+//            std::cout << "write lock timeout" << lock_addr << std::endl;
+//
+//            std::cout << GetMemoryNodeNum() << ", "
+//                      << " locked by node  " << (conflict_tag) << std::endl;
+//            printf("CAS buffer value is %lu, compare is %lu, swap is %lu\n", (*(uint64_t*) cas_buffer->addr), compare, swap);
+//            assert(false);
+//            exit(0);
+//        }
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
         //Only the second RDMA issue a completion
@@ -3883,6 +3891,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         *(uint64_t *)cas_buffer->addr = 0;
         std::vector<uint16_t> read_invalidation_targets;
         uint16_t write_invalidation_target = 0-1;
+        int starvation_level = 0;
         int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
 #ifdef INVALIDATION_STATISTICS
         bool invalidation_counted = false;
@@ -3896,33 +3905,27 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //TODO: send an RPC to the destination every 4 retries.
         // Check whether the invalidation is write type or read type. If it is a read type
         // we need to broadcast the message to multiple destination.
-        if (retry_cnt % 4 ==  2) {
+        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1) {
 //            assert(compare%2 == 0);
             if(retry_cnt < 20){
+//                port::AsmVolatilePause();
                 //do nothing
             }else if (retry_cnt <40){
-                if (retry_cnt == 21){
-                    printf("Invalidate RPC in write lock timeout 21, wait 100 us\n");
-                }
-                usleep(100);
+                starvation_level = 1;
+
             }else if (retry_cnt <80){
-                if (retry_cnt == 41){
-                    printf("Invalidate RPC in write lock timeout 41, wait 500 us\n");
-                }
-                usleep(500);
+                starvation_level = 2;
             }
             else if (retry_cnt <160){
-                if (retry_cnt == 81) {
-                    printf("Invalidate RPC in write lock timeout 81, wait 2 ms\n");
-                }
-                usleep(2000);
+                starvation_level = 3;
             }else if (retry_cnt <200){
-                sleep(1);
-                // The lock could be in starvation, restart with a lower retry_cnt.
-                retry_cnt = 0;
+                starvation_level = 4;
+            } else if (retry_cnt <1000){
+                starvation_level = 5;
+            } else{
+                starvation_level = 255 > 5+ retry_cnt/1000? 5+ retry_cnt/1000: 255;
             }
-
-
+//            printf("We need invalidation message\n");
             if (invalidation_RPC_type == 1){
                 assert(!read_invalidation_targets.empty());
                 for (auto iter: read_invalidation_targets) {
@@ -3938,7 +3941,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                         // This rare case is because the cache mutex will be released before the read/write lock release.
                         // If there is another request comes in immediately for the same page before the lock release, this print
                         // below will happen.
-                        printf(" read invalidation target is itself, this is rare case,, page_addr is %p\n", page_addr);
+                        printf(" read invalidation target is itself, this is rare case,, page_addr is %p, retry_cnt is %lu\n", page_addr, retry_cnt);
                     }
                 }
             }else if (invalidation_RPC_type == 2){
@@ -3955,21 +3958,28 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
                 }else{
                     //It is okay to have a write invalidation target is itself, if we enable the async write unlock.
-                    printf(" Write invalidation target is itself, this is rare case,, page_addr is %p\n", page_addr);
+                    printf(" Write invalidation target is itself, this is rare case,, page_addr is %p, retry_cnt is %lu\n", page_addr, retry_cnt);
                 }
             }
 
             // the compared value is the real id /2 + 1.
         }
-        if (retry_cnt > 210) {
-            std::cout << "write lock timeout" << lock_addr << std::endl;
-
-            std::cout << GetMemoryNodeNum() << ", "
-                      << " locked by node  " << (conflict_tag) << std::endl;
-            printf("CAS buffer value is %lu, compare is %lu, swap is %lu\n", (*(uint64_t*) cas_buffer->addr), compare, swap);
-            assert(false);
-            exit(0);
+        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL == 0){
+            if (retry_cnt < 32){
+                spin_wait_us(8);
+            }else {
+                usleep(8);
+            }
         }
+//        if (retry_cnt > 210) {
+//            std::cout << "write lock timeout" << lock_addr << std::endl;
+//
+//            std::cout << GetMemoryNodeNum() << ", "
+//                      << " locked by node  " << (conflict_tag) << std::endl;
+//            printf("CAS buffer value is %lu, compare is %lu, swap is %lu\n", (*(uint64_t*) cas_buffer->addr), compare, swap);
+//            assert(false);
+//            exit(0);
+//        }
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
         //Only the second RDMA issue a completion
