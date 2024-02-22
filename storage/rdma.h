@@ -360,6 +360,8 @@ struct IBV_Deleter {
         timer.StartTimer();
         timer.EndTimer();
         while(timer.GetElapsedNanoSeconds() < time){
+            timer.EndTimer();
+
             asm volatile("pause\n": : :"memory");
         }
     }
@@ -368,6 +370,8 @@ struct IBV_Deleter {
         timer.StartTimer();
         timer.EndTimer();
         while(timer.GetElapsedMicroSeconds() < time){
+            timer.EndTimer();
+
             asm volatile("pause\n": : :"memory");
         }
     }
