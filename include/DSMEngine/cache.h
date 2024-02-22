@@ -84,7 +84,7 @@ class DSMEngine_EXPORT Cache {
         std::atomic<bool> timer_alarmed = false;
         std::atomic<uint8_t > remote_lock_urged = 0; //1 writer invalidation urge, 2 reader invalidation urge.
         std::atomic<uint8_t > next_holder_id = 0;
-        std::atomic<uint8_t > next_priority = 0;
+        std::atomic<uint8_t > starvation_priority = 0;
 //        std::atomic<uint8_t > remote_xlock_next = 0;
         std::atomic<uint8_t> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
         bool keep_the_mr = false;
@@ -106,7 +106,7 @@ class DSMEngine_EXPORT Cache {
             write_lock_counter.store(0);
             remote_lock_urged.store(0);
             next_holder_id.store(0);
-            next_priority.store(0);
+            starvation_priority.store(0);
 //            remote_xlock_next.store(0);
             strategy.store(1);
         }
