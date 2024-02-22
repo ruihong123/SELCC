@@ -355,26 +355,26 @@ struct IBV_Deleter {
     }
   }
 };
-    static void spin_wait_ns(int64_t time){
-        TimeMeasurer timer;
-        timer.StartTimer();
+static void spin_wait_ns(int64_t time){
+    TimeMeasurer timer;
+    timer.StartTimer();
+    timer.EndTimer();
+    while(timer.GetElapsedNanoSeconds() < time){
         timer.EndTimer();
-        while(timer.GetElapsedNanoSeconds() < time){
-            timer.EndTimer();
 
-            asm volatile("pause\n": : :"memory");
-        }
+        asm volatile("pause\n": : :"memory");
     }
-    static void spin_wait_us(int64_t time){
-        TimeMeasurer timer;
-        timer.StartTimer();
+}
+static void spin_wait_us(int64_t time){
+    TimeMeasurer timer;
+    timer.StartTimer();
+    timer.EndTimer();
+    while(timer.GetElapsedMicroSeconds() < time){
         timer.EndTimer();
-        while(timer.GetElapsedMicroSeconds() < time){
-            timer.EndTimer();
 
-            asm volatile("pause\n": : :"memory");
-        }
+        asm volatile("pause\n": : :"memory");
     }
+}
 
 class Memory_Node_Keeper;
 class RDMA_Manager {

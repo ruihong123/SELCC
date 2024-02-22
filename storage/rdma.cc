@@ -3393,18 +3393,18 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             if(retry_cnt < 20){
                 //do nothing
             }else if (retry_cnt <40){
-                if (retry_cnt == 21){
+                if (retry_cnt == 22){
                     printf("Invalidate RPC in Read lock timeout 21, wait 100 us\n");
                 }
                 usleep(100);
             }else if (retry_cnt <80){
-                if (retry_cnt == 41){
+                if (retry_cnt == 42){
                     printf("Invalidate RPC in Read lock timeout 41, wait 500 us\n");
                 }
                 usleep(500);
             }
             else if (retry_cnt <160){
-                if (retry_cnt == 81) {
+                if (retry_cnt == 82) {
                     printf("Invalidate RPC in Read lock timeout 81, wait 2 ms\n");
                 }
                 usleep(2000);
@@ -3686,18 +3686,18 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             if(retry_cnt < 20){
                 //do nothing
             }else if (retry_cnt <40){
-                if (retry_cnt == 21){
+                if (retry_cnt == 22){
                     printf("Invalidate RPC in write lock timeout 21, wait 100 us\n");
                 }
                 usleep(100);
             }else if (retry_cnt <80){
-                if (retry_cnt == 41){
+                if (retry_cnt == 42){
                     printf("Invalidate RPC in write lock timeout 41, wait 500 us\n");
                 }
                 usleep(500);
             }
             else if (retry_cnt <160){
-                if (retry_cnt == 81) {
+                if (retry_cnt == 82) {
                     printf("Invalidate RPC in write lock timeout 81, wait 2 ms\n");
                 }
                 usleep(2000);

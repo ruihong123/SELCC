@@ -725,7 +725,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                     // In this case, that thread can immediately issue  a global read lacth request. Then the remote writer is still starved.
                     // Since this scenario will happen rarely, then we think this method can relieve the latch starvation to some extense.
 //                    if (remote_lock_urged.load() > 1){
-                        spin_wait_us(10* (1 + starvation_priority.load()));
+                        spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
 //                    }
                 }else if (this->remote_lock_status == 2){
                     if (remote_lock_urged == 2){
@@ -744,7 +744,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                             assert(next_holder_id != RDMA_Manager::node_id);
                             rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, next_holder_id, lock_addr);
                             remote_lock_status.store(0);
-                            spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
+//                            spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
                         }
 
                     }
@@ -873,17 +873,27 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             if(lock_pending_num.load() > 0 && !timer_on){
                 timer_begin = std::chrono::high_resolution_clock::now();
             }
+            assert(remote_lock_status == 2);
             if ( handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
-                // make sure only one thread release the global latch successfully by double check lock.
-                if (this->remote_lock_status == 2){
-//                    printf("Lock starvation prevention code was executed stage 2\n");
-                    //TODO: Decide whether to down grade the lock to read lock. by urge type?
-                    rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
-                    remote_lock_status.store(0);
-                    spin_wait_us(STARV_SPIN_BASE* (1+starvation_priority.load()));
-
+                if (remote_lock_urged == 2){
+                    //cache downgrade from Modified to Shared rather than release the lock.
+                    rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr);
+                    remote_lock_status.store(1);
                 }else{
-                    assert(false);
+//                        printf("Lock starvation prevention code was executed stage 3\n");
+                    if (starvation_priority == 0){
+                        // lock release to a specific writer
+                        rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
+                        remote_lock_status.store(0);
+                        spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
+
+                    }else{
+                        assert(next_holder_id != RDMA_Manager::node_id);
+                        rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, next_holder_id, lock_addr);
+                        remote_lock_status.store(0);
+//                        spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
+                    }
+
                 }
                 clear_states();
             }
@@ -1015,14 +1025,27 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             if(lock_pending_num.load() > 0 && !timer_on){
                 timer_begin = std::chrono::high_resolution_clock::now();
             }
+            assert(remote_lock_status == 2);
             if ( handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
-                // make sure only one thread release the global latch successfully by double check lock.
-                if (this->remote_lock_status == 2){
-                    rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
-                    remote_lock_status.store(0);
-                    spin_wait_us(STARV_SPIN_BASE* remote_lock_urged.load());
+                if (remote_lock_urged == 2){
+                    //cache downgrade from Modified to Shared rather than release the lock.
+                    rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr);
+                    remote_lock_status.store(1);
                 }else{
-                    assert(false);
+//                        printf("Lock starvation prevention code was executed stage 3\n");
+                    if (starvation_priority == 0){
+                        // lock release to a specific writer
+                        rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
+                        remote_lock_status.store(0);
+                        spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
+
+                    }else{
+                        assert(next_holder_id != RDMA_Manager::node_id);
+                        rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, next_holder_id, lock_addr);
+                        remote_lock_status.store(0);
+//                        spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
+                    }
+
                 }
                 clear_states();
             }
