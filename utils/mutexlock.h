@@ -97,7 +97,7 @@ public:
         auto currently_locked = write_now.load(std::memory_order_relaxed);
         auto currently_readers = readers_count.load(std::memory_order_relaxed);
         if (!currently_locked && currently_readers == 0){
-            return write_now.compare_exchange_weak(currently_locked, true,
+            return write_now.compare_exchange_strong(currently_locked, true,
                                           std::memory_order_acquire,
                                           std::memory_order_relaxed);
         }else{

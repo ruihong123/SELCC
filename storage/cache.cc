@@ -20,7 +20,7 @@
 // DO not enable the two at the same time otherwise there will be a bug.
 #define BUFFER_HANDOVER
 #define PARALLEL_DEGREE 16
-#define STARVATION_THRESHOLD 8
+#define STARVATION_THRESHOLD 16
 #define STARV_SPIN_BASE 8
 //#define EARLY_LOCK_RELEASE
 uint64_t cache_miss[MAX_APP_THREAD][8];
@@ -872,6 +872,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
             if(lock_pending_num.load() > 0 && !timer_on){
                 timer_begin = std::chrono::high_resolution_clock::now();
+                timer_on.store(true);
             }
             assert(remote_lock_status == 2);
             if ( handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){

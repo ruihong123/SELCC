@@ -3705,7 +3705,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             } else if (retry_cnt <1000){
                 starvation_level = 5;
             } else{
-                starvation_level = 255 > 5+ retry_cnt/1000? 5+ retry_cnt/1000: 255;
+                starvation_level = 255 > 5+ retry_cnt/1000? (5+ retry_cnt/1000): 255;
             }
 //            printf("We need invalidation message\n");
             if (invalidation_RPC_type == 1){
@@ -3750,7 +3750,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             if (retry_cnt < 32){
                 spin_wait_us(8);
             }else {
-                usleep(8);
+                usleep(32);
             }
         }
 //        if (retry_cnt > 210) {
