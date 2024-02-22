@@ -3891,6 +3891,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         *(uint64_t *)cas_buffer->addr = 0;
         std::vector<uint16_t> read_invalidation_targets;
         uint16_t write_invalidation_target = 0-1;
+        uint64_t last_CAS_return = 0;
         int starvation_level = 0;
         int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
 #ifdef INVALIDATION_STATISTICS
@@ -3996,6 +3997,13 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        assert(page_addr == page->hdr.this_page_g_ptr);
 #endif
         if ((*(uint64_t*) cas_buffer->addr) != compare){
+            //TODO: The return may shows that this lock permission has already handover by the previous latch holde,
+            // in this case we can jump out of the loop and just use the read buffer.
+            if (last_CAS_return != (*(uint64_t*) cas_buffer->addr)){
+                // someone else have acquire the latch, immediately issue a invalidation in the next loop.
+                retry_cnt = retry_cnt/INVALIDATION_INTERVAL;
+            }
+            last_CAS_return = (*(uint64_t*) cas_buffer->addr);
 //            assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
 
             // clear the invalidation targets
