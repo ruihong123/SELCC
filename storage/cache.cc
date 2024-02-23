@@ -717,6 +717,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 // make sure only one thread release the global latch successfully by double check lock.
                 rw_mtx.unlock_shared();
                 rw_mtx.lock();
+                state_mtx.lock();
                 if (this->remote_lock_status == 1){
                     rdma_mg->global_RUnlock(lock_addr, cas_mr);
                     remote_lock_status.store(0);
@@ -752,8 +753,10 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 }else{
                     //The lock has been released by other threads.
                 }
+
                 rw_mtx.unlock();
                 clear_states();
+                state_mtx.unlock();
                 return;
             }
         }
@@ -876,6 +879,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             }
             assert(remote_lock_status == 2);
             if ( handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
+                state_mtx.lock();
+
                 if (remote_lock_urged == 2){
                     //cache downgrade from Modified to Shared rather than release the lock.
                     rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr);
@@ -897,6 +902,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
                 }
                 clear_states();
+                state_mtx.unlock();
+
             }
         }
         rw_mtx.unlock();
@@ -1028,6 +1035,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             }
             assert(remote_lock_status == 2);
             if ( handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
+                state_mtx.lock();
                 if (remote_lock_urged == 2){
                     //cache downgrade from Modified to Shared rather than release the lock.
                     rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr);
@@ -1041,14 +1049,21 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                         spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
 
                     }else{
+#ifdef GLOBAL_HANDOVER
                         assert(next_holder_id != RDMA_Manager::node_id);
                         rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, next_holder_id, lock_addr);
                         remote_lock_status.store(0);
 //                        spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
+#else
+                        rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
+                        remote_lock_status.store(0);
+                        spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
+#endif
                     }
 
                 }
                 clear_states();
+                state_mtx.unlock();
             }
         }
         rw_mtx.unlock();

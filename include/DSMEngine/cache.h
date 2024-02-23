@@ -62,6 +62,7 @@ class DSMEngine_EXPORT Cache;
 // of Cache uses a least-recently-used eviction policy.
 DSMEngine_EXPORT Cache* NewLRUCache(size_t capacity);
 
+constexpr uint8_t Invalid_Node_ID = 255;
 class DSMEngine_EXPORT Cache {
  public:
   Cache() = default;
@@ -76,6 +77,7 @@ class DSMEngine_EXPORT Cache {
         std::atomic<int> lock_pending_num = 0;
         std::chrono::time_point<std::chrono::high_resolution_clock> timer_begin;
         RWSpinLock rw_mtx; // low overhead rw spin lock and write have higher priority than read.
+        SpinMutex state_mtx; // clear state mutex
         std::atomic<uint16_t> read_lock_counter = 0;
         std::atomic<uint16_t> write_lock_counter = 0;
 //        std::atomic<int> read_lock_holder_num = 0;
@@ -97,6 +99,7 @@ class DSMEngine_EXPORT Cache {
         void (*deleter)(Cache::Handle* handle);
         ~Handle(){}
         void clear_states(){
+//            state_mtx.lock();
             lock_pending_num.store(0);
 //            read_lock_holder_num.store(0);
 //            lock_handover_count.store(0);
@@ -105,10 +108,11 @@ class DSMEngine_EXPORT Cache {
             read_lock_counter.store(0);
             write_lock_counter.store(0);
             remote_lock_urged.store(0);
-            next_holder_id.store(0);
+            next_holder_id.store(Invalid_Node_ID);
             starvation_priority.store(0);
 //            remote_xlock_next.store(0);
             strategy.store(1);
+//            state_mtx.unlock();
         }
         void reader_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
         void reader_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *mr);

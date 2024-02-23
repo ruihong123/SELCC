@@ -169,12 +169,13 @@ struct sst_gc {
   size_t buffer_size;
 //  file_type type;
 };
-struct RUnlock_message{
+struct Invalid_Message{
     GlobalAddress page_addr;
+    uint8_t starvation_level;
 };
-struct WUnlock_message{
-    GlobalAddress page_addr;
-};
+//struct WUnlock_message{
+//    GlobalAddress page_addr;
+//};
 //TODO (ruihong): add the reply message address to avoid request&response conflict for the same queue pair.
 // In other word, the threads will not need to figure out whether this message is a reply or response,
 // when receive a message from the main queue pair.
@@ -190,8 +191,7 @@ union RDMA_Request_Content {
   size_t unpinned_version_id;
   New_Root root_broadcast;
   uint32_t target_id_pair;
-  RUnlock_message R_message;
-  WUnlock_message W_message;
+  Invalid_Message inv_message;
 };
 union RDMA_Reply_Content {
   ibv_mr mr;
@@ -409,7 +409,7 @@ class RDMA_Manager {
     //FUnction for invalidation message handling
   void Writer_Inv_Shared_handler(RDMA_Request* receive_msg_buf);
     void Reader_Inv_Modified_handler(RDMA_Request* receive_msg_buf);
-    void Writer_Inv_Modified_handler(RDMA_Request* receive_msg_buf);
+    void Writer_Inv_Modified_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     static void Write_Invalidation_Message_Handler(void* thread_args);
     static void Read_Invalidation_Message_Handler(void* thread_args);
 
@@ -463,9 +463,9 @@ class RDMA_Manager {
   ibv_mr * Preregister_Memory(size_t gb_number); //Pre register the memroy do not allocate bit map
   // Remote Memory registering will call RDMA send and receive to the remote memory it also push the new SST bit map to the Remote_Leaf_Node_Bitmap
   bool Remote_Memory_Register(size_t size, uint16_t target_node_id, Chunk_type pool_name);
-  bool Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id);
-    bool Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id);
-  bool Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id);
+  bool Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level);
+    bool Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level);
+  bool Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level);
   bool Send_heart_beat();
     bool Send_heart_beat_xcompute(uint16_t target_memory_node_id);
   int Remote_Memory_Deregister();
