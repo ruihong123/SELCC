@@ -2,7 +2,7 @@
 bin=`dirname "$0"`
 bin=`cd "$bin"; pwd`
 SRC_HOME=$bin/..
-BIN_HOME=$bin/../release
+BIN_HOME=$bin/../debug
 conf_file_all=$bin/../connection_cloudlab.conf
 conf_file=$bin/../connection.conf
 
@@ -480,7 +480,7 @@ run_node_test() {
 # node test
 echo "**************************run node test****************************"
 result_file=$bin/results/node
-node_range="1 2 4 8"
+node_range="8"
 thread_range="16"
 remote_range="100"
 shared_range="100"
