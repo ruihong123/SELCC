@@ -3393,24 +3393,24 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        retry_cnt++;
         if (retry_cnt++ % INVALIDATION_INTERVAL ==  1) {
 //            assert(compare%2 == 0);
-            if(retry_cnt < 20){
-//                port::AsmVolatilePause();
-                //do nothing
-            }else if (retry_cnt <40){
-                starvation_level = 1;
-
-            }else if (retry_cnt <80){
-                starvation_level = 2;
-            }
-            else if (retry_cnt <160){
-                starvation_level = 3;
-            }else if (retry_cnt <200){
-                starvation_level = 4;
-            } else if (retry_cnt <1000){
-                starvation_level = 5;
-            } else{
-                starvation_level = 255 > 5+ retry_cnt/1000? 5+ retry_cnt/1000: 255;
-            }
+//            if(retry_cnt < 20){
+////                port::AsmVolatilePause();
+//                //do nothing
+//            }else if (retry_cnt <40){
+//                starvation_level = 1;
+//
+//            }else if (retry_cnt <80){
+//                starvation_level = 2;
+//            }
+//            else if (retry_cnt <160){
+//                starvation_level = 3;
+//            }else if (retry_cnt <200){
+//                starvation_level = 4;
+//            } else if (retry_cnt <1000){
+//                starvation_level = 5;
+//            } else{
+//                starvation_level = 255 > 5+ retry_cnt/1000? 5+ retry_cnt/1000: 255;
+//            }
 //            assert(target_compute_node_id != (RDMA_Manager::node_id));
             if (target_compute_node_id != (RDMA_Manager::node_id)){
 #ifdef INVALIDATION_STATISTICS
@@ -3698,24 +3698,24 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // we need to broadcast the message to multiple destination.
         if (retry_cnt++ % INVALIDATION_INTERVAL ==  1) {
 //            assert(compare%2 == 0);
-            if(retry_cnt < 20){
-//                port::AsmVolatilePause();
-                //do nothing
-            }else if (retry_cnt <40){
-                starvation_level = 1;
-
-            }else if (retry_cnt <80){
-                starvation_level = 2;
-            }
-            else if (retry_cnt <160){
-                starvation_level = 3;
-            }else if (retry_cnt <200){
-                starvation_level = 4;
-            } else if (retry_cnt <1000){
-                starvation_level = 5;
-            } else{
-                starvation_level = 255 > 5+ retry_cnt/1000? (5+ retry_cnt/1000): 255;
-            }
+//            if(retry_cnt < 20){
+////                port::AsmVolatilePause();
+//                //do nothing
+//            }else if (retry_cnt <40){
+//                starvation_level = 1;
+//
+//            }else if (retry_cnt <80){
+//                starvation_level = 2;
+//            }
+//            else if (retry_cnt <160){
+//                starvation_level = 3;
+//            }else if (retry_cnt <200){
+//                starvation_level = 4;
+//            } else if (retry_cnt <1000){
+//                starvation_level = 5;
+//            } else{
+//                starvation_level = 255 > 5+ retry_cnt/1000? (5+ retry_cnt/1000): 255;
+//            }
 //            printf("We need invalidation message\n");
             if (invalidation_RPC_type == 1){
                 assert(!read_invalidation_targets.empty());
@@ -6245,7 +6245,7 @@ void RDMA_Manager::fs_deserilization(
         assert(STRUCT_OFFSET(Header_Index<uint64_t>, level) == STRUCT_OFFSET(Header_Index<char>, level));
         printf("try to release lock on %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
         if (handle) {
-            printf("Release read lock Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
+            printf("writer invalid Shared lock Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
             ibv_mr *page_mr = (ibv_mr *) handle->value;
             GlobalAddress lock_gptr = g_ptr;
             Header_Index<uint64_t> *header = (Header_Index<uint64_t> *) ((char *) ((ibv_mr *) handle->value)->addr +
@@ -6300,6 +6300,7 @@ void RDMA_Manager::fs_deserilization(
         assert(page_cache_ != nullptr);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         if (handle){
+            printf("Reader invalid modified Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
             auto* page_mr = (ibv_mr*)handle->value;
             GlobalAddress lock_gptr = g_ptr;
             Header_Index<uint64_t>* header = (Header_Index<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
@@ -6356,6 +6357,7 @@ void RDMA_Manager::fs_deserilization(
         assert(page_cache_ != nullptr);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         if (handle){
+            printf("writer invalid modified Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
             auto* page_mr = (ibv_mr*)handle->value;
             GlobalAddress lock_gptr = g_ptr;
             Header_Index<uint64_t>* header = (Header_Index<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));

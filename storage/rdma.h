@@ -407,7 +407,7 @@ class RDMA_Manager {
     void invalidation_message_handling_worker(uint16_t target_node_id, int qp_num, ibv_mr *recv_mr);
 
     //FUnction for invalidation message handling
-  void Writer_Inv_Shared_handler(RDMA_Request* receive_msg_buf);
+    void Writer_Inv_Shared_handler(RDMA_Request* receive_msg_buf);
     void Reader_Inv_Modified_handler(RDMA_Request* receive_msg_buf);
     void Writer_Inv_Modified_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     static void Write_Invalidation_Message_Handler(void* thread_args);
