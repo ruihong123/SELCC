@@ -6236,6 +6236,7 @@ void RDMA_Manager::fs_deserilization(
 
 
     void RDMA_Manager::Writer_Inv_Shared_handler(RDMA_Request* receive_msg_buf) {
+        printf("Writer_Inv_Shared_handler\n");
         ibv_mr* cas_mr =  Get_local_CAS_mr();
         GlobalAddress g_ptr = receive_msg_buf->content.inv_message.page_addr;
         uint8_t starv_level = receive_msg_buf->content.inv_message.starvation_level;
@@ -6294,6 +6295,7 @@ void RDMA_Manager::fs_deserilization(
 
     }
     void RDMA_Manager::Reader_Inv_Modified_handler(RDMA_Request *receive_msg_buf) {
+        printf("Reader_Inv_Modified_handler\n");
         GlobalAddress g_ptr = receive_msg_buf->content.inv_message.page_addr;
         uint8_t starv_level = receive_msg_buf->content.inv_message.starvation_level;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
@@ -6351,6 +6353,7 @@ void RDMA_Manager::fs_deserilization(
         delete receive_msg_buf;
     }
     void RDMA_Manager::Writer_Inv_Modified_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
+        printf("Writer_Inv_Modified_handler\n");
         GlobalAddress g_ptr = receive_msg_buf->content.inv_message.page_addr;
         uint8_t starv_level = receive_msg_buf->content.inv_message.starvation_level;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
