@@ -3608,7 +3608,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
     //TODO: Implement a sync read unlock function.
     void RDMA_Manager::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
                                       bool async) {
-        printf("realse global reader lock nodeid: %u\n", node_id);
+        printf("realse global reader lock on address: %u, %llu, this nodeid: %u\n", lock_addr.nodeID, lock_addr.offset-8, node_id);
         //TODO: Change (RDMA_Manager::node_id/2 +1) to (RDMA_Manager::node_id/2)
         uint64_t add = (1ull << (RDMA_Manager::node_id/2 +1));
         uint64_t substract = (~add) + 1;
