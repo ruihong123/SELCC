@@ -735,16 +735,22 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                         remote_lock_status.store(1);
                     }else{
 //                        printf("Lock starvation prevention code was executed stage 3\n");
-                        if (starvation_priority == 0){
+                        if (starvation_priority == 0 || next_holder_id == Invalid_Node_ID){
                             // lock release to a specific writer
                             rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
                             remote_lock_status.store(0);
                             spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
 
                         }else{
+#ifdef GLOBAL_HANDOVER
                             assert(next_holder_id != RDMA_Manager::node_id);
                             rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, next_holder_id, lock_addr);
                             remote_lock_status.store(0);
+#else
+                            rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
+                            remote_lock_status.store(0);
+                            spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
+#endif
 //                            spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
                         }
 
@@ -887,17 +893,23 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                     remote_lock_status.store(1);
                 }else{
 //                        printf("Lock starvation prevention code was executed stage 3\n");
-                    if (starvation_priority == 0){
+                    if (starvation_priority == 0 || next_holder_id == Invalid_Node_ID){
                         // lock release to a specific writer
                         rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
                         remote_lock_status.store(0);
                         spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
 
                     }else{
+#ifdef GLOBAL_HANDOVER
                         assert(next_holder_id != RDMA_Manager::node_id);
                         rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, next_holder_id, lock_addr);
                         remote_lock_status.store(0);
 //                        spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
+#else
+                        rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
+                        remote_lock_status.store(0);
+                        spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
+#endif
                     }
 
                 }
@@ -1042,7 +1054,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                     remote_lock_status.store(1);
                 }else{
 //                        printf("Lock starvation prevention code was executed stage 3\n");
-                    if (starvation_priority == 0){
+                    if (starvation_priority == 0 || next_holder_id == Invalid_Node_ID){
                         // lock release to a specific writer
                         rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
                         remote_lock_status.store(0);
