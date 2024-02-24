@@ -3732,7 +3732,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                         // This rare case is because under async read release, the cache mutex will be released before the read/write lock release.
                         // If there is another request comes in immediately for the same page before the lock release, this print
                         // below will happen.
-                        printf(" read invalidation target is itself, this is rare case,, page_addr is %p, retry_cnt is %lu\n", page_addr, retry_cnt);
+                        printf("read invalidation target is itself, this is rare case,, page_addr is %p, retry_cnt is %lu\n", page_addr, retry_cnt);
                         assert(false);
                     }
                 }
@@ -3881,7 +3881,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
         if (cq_data_default.at(page_addr.nodeID)->Get()!= nullptr){
             assert(try_poll_completions(wc,1, str, true, page_addr.nodeID)==0);
-
 
         }
         delete [] wc;
@@ -6264,7 +6263,7 @@ void RDMA_Manager::fs_deserilization(
                     if ( handle->remote_lock_status.load() == 1){
                         global_RUnlock(lock_gptr, cas_mr);
                         handle->remote_lock_status.store(0);
-//                        printf("Release read lock %lu\n", g_ptr);
+                        printf("Release read lock %lu\n", g_ptr);
                     }
                     handle->rw_mtx.unlock();
                     handle->clear_states();
