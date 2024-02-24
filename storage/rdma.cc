@@ -3670,7 +3670,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
 
 
-//        printf("Release lock for %lu", lock_addr.offset-8);
+        printf("Release lock for %lu", lock_addr.offset-8);
     }
 #endif
     void RDMA_Manager::global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
@@ -6243,7 +6243,9 @@ void RDMA_Manager::fs_deserilization(
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         //The template will not impact the offset of level in the header so we can random give the tempalate a Type to access the leve in ther header.
         assert(STRUCT_OFFSET(Header_Index<uint64_t>, level) == STRUCT_OFFSET(Header_Index<char>, level));
+        printf("try to release lock on %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
         if (handle) {
+            printf("Release read lock Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
             ibv_mr *page_mr = (ibv_mr *) handle->value;
             GlobalAddress lock_gptr = g_ptr;
             Header_Index<uint64_t> *header = (Header_Index<uint64_t> *) ((char *) ((ibv_mr *) handle->value)->addr +
@@ -6263,7 +6265,7 @@ void RDMA_Manager::fs_deserilization(
                     if ( handle->remote_lock_status.load() == 1){
                         global_RUnlock(lock_gptr, cas_mr);
                         handle->remote_lock_status.store(0);
-                        printf("Release read lock %lu\n", g_ptr);
+//                        printf("Release read lock %lu\n", g_ptr);
                     }
                     handle->rw_mtx.unlock();
                     handle->clear_states();
