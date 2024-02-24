@@ -3608,7 +3608,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
     //TODO: Implement a sync read unlock function.
     void RDMA_Manager::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
                                       bool async) {
-        printf("realse global reader lock on address: %u, %lu, this nodeid: %u\n", lock_addr.nodeID, lock_addr.offset-8, node_id);
+//        printf("realse global reader lock on address: %u, %lu, this nodeid: %u\n", lock_addr.nodeID, lock_addr.offset-8, node_id);
         //TODO: Change (RDMA_Manager::node_id/2 +1) to (RDMA_Manager::node_id/2)
         uint64_t add = (1ull << (RDMA_Manager::node_id/2 +1));
         uint64_t substract = (~add) + 1;
@@ -3671,7 +3671,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
 
 
-        printf("Release read lock for %lu\n", lock_addr.offset-8);
+//        printf("Release read lock for %lu\n", lock_addr.offset-8);
     }
 #endif
     void RDMA_Manager::global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
@@ -4490,7 +4490,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            }
 
         }
-        printf("Atomic lock downgrade %lu\n",page_addr);
+//        printf("Atomic lock downgrade %lu\n",page_addr);
 //        assert(page_addr == (((LeafPage<int COMMA int>*)(page_buffer->addr))->hdr.this_page_g_ptr));
     }
     void RDMA_Manager::global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
@@ -6246,7 +6246,7 @@ void RDMA_Manager::fs_deserilization(
         assert(STRUCT_OFFSET(Header_Index<uint64_t>, level) == STRUCT_OFFSET(Header_Index<char>, level));
 //        printf("Writer_Inv_Shared_handler on %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
         if (handle) {
-            printf("writer invalid Shared lock Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
+//            printf("writer invalid Shared lock Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
             ibv_mr *page_mr = (ibv_mr *) handle->value;
             GlobalAddress lock_gptr = g_ptr;
             Header_Index<uint64_t> *header = (Header_Index<uint64_t> *) ((char *) ((ibv_mr *) handle->value)->addr +
@@ -6266,7 +6266,7 @@ void RDMA_Manager::fs_deserilization(
                     if ( handle->remote_lock_status.load() == 1){
                         global_RUnlock(lock_gptr, cas_mr);
                         handle->remote_lock_status.store(0);
-                        printf("Writer invalid shared worked directly %lu\n", g_ptr);
+//                        printf("Writer invalid shared worked directly %lu\n", g_ptr);
                     }
                     handle->rw_mtx.unlock();
                     handle->clear_states();
@@ -6287,12 +6287,12 @@ void RDMA_Manager::fs_deserilization(
 
                 }
             }
-            else{
-                printf("Writer_Inv_Shared_handler Handle already invlaidated\n");
-            }
+//            else{
+//                printf("Writer_Inv_Shared_handler Handle already invlaidated\n");
+//            }
             page_cache_->Release(handle);
         }else {
-                    printf("Writer_Inv_Shared_handler Handle not found\n");
+//                    printf("Writer_Inv_Shared_handler Handle not found\n");
         }
         delete receive_msg_buf;
 
@@ -6305,7 +6305,7 @@ void RDMA_Manager::fs_deserilization(
         assert(page_cache_ != nullptr);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         if (handle){
-            printf("Reader invalid modified Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
+//            printf("Reader invalid modified Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
             auto* page_mr = (ibv_mr*)handle->value;
             GlobalAddress lock_gptr = g_ptr;
             Header_Index<uint64_t>* header = (Header_Index<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
@@ -6363,7 +6363,7 @@ void RDMA_Manager::fs_deserilization(
         assert(page_cache_ != nullptr);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         if (handle){
-            printf("writer invalid modified Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
+//            printf("writer invalid modified Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
             auto* page_mr = (ibv_mr*)handle->value;
             GlobalAddress lock_gptr = g_ptr;
             Header_Index<uint64_t>* header = (Header_Index<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
