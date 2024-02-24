@@ -6244,7 +6244,7 @@ void RDMA_Manager::fs_deserilization(
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         //The template will not impact the offset of level in the header so we can random give the tempalate a Type to access the leve in ther header.
         assert(STRUCT_OFFSET(Header_Index<uint64_t>, level) == STRUCT_OFFSET(Header_Index<char>, level));
-        printf("Writer_Inv_Shared_handler on %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
+//        printf("Writer_Inv_Shared_handler on %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
         if (handle) {
             printf("writer invalid Shared lock Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
             ibv_mr *page_mr = (ibv_mr *) handle->value;
@@ -6298,7 +6298,7 @@ void RDMA_Manager::fs_deserilization(
 
     }
     void RDMA_Manager::Reader_Inv_Modified_handler(RDMA_Request *receive_msg_buf) {
-        printf("Reader_Inv_Modified_handler\n");
+//        printf("Reader_Inv_Modified_handler\n");
         GlobalAddress g_ptr = receive_msg_buf->content.inv_message.page_addr;
         uint8_t starv_level = receive_msg_buf->content.inv_message.starvation_level;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
@@ -6356,7 +6356,7 @@ void RDMA_Manager::fs_deserilization(
         delete receive_msg_buf;
     }
     void RDMA_Manager::Writer_Inv_Modified_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
-        printf("Writer_Inv_Modified_handler\n");
+//        printf("Writer_Inv_Modified_handler\n");
         GlobalAddress g_ptr = receive_msg_buf->content.inv_message.page_addr;
         uint8_t starv_level = receive_msg_buf->content.inv_message.starvation_level;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
