@@ -1182,13 +1182,13 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(volatile uint16_t target_n
 //                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
 //                    BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
 //                    Invalidation_bg_threads.Schedule(&RDMA_Manager::Read_Invalidation_Message_Handler, thread_pool_args, i);
-                    Writer_Inv_Shared_handler(receive_msg_buf, 0);
+                    Writer_Inv_Shared_handler(receive_msg_buf, target_node_id);
                 } else if (receive_msg_buf->command == reader_invalidate_modified) {
                     post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
 //                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
 //                    BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
 //                    Invalidation_bg_threads.Schedule(&RDMA_Manager::Read_Invalidation_Message_Handler, thread_pool_args, i);
-                    Reader_Inv_Modified_handler(receive_msg_buf, 0);
+                    Reader_Inv_Modified_handler(receive_msg_buf, target_node_id);
                 } else if (receive_msg_buf->command == heart_beat) {
                     printf("heart_beat\n");
                     post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
