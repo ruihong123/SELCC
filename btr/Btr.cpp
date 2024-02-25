@@ -303,9 +303,6 @@ namespace DSMEngine {
         send_pointer->content.root_broadcast.new_ptr = new_root_addr;
         send_pointer->content.root_broadcast.level = root_level;
 
-//  if (root_level >= 5) {
-//        enable_cache = true;
-//  }
         //TODO: When we seperate the compute from the memory, how can we broad cast the new root
         // or can we wait until the compute node detect an inconsistent.
 

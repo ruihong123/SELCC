@@ -75,7 +75,9 @@ template<typename T>
 void General_Destroy(void* ptr){
   delete (T) ptr;
 }
-
+static uint64_t  round_to_cacheline(uint64_t size) {
+  return ((size + 63) / 64) * 64;
+}
 
 /******************************************************************************
 * Function: RDMA_Manager
@@ -129,8 +131,9 @@ void General_Destroy(void* ptr){
 //  local_write_flush_qp_info->Reset(new QP_Info_Map());
 //  local_write_compact_qp_info->Reset(new QP_Info_Map());
   //Initialize a message memory pool
+  uint64_t message_size = round_to_cacheline(std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)));
   Mempool_initialize(Message,
-                     std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)), RECEIVE_OUTSTANDING_SIZE * std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)));
+                     message_size, RECEIVE_OUTSTANDING_SIZE * message_size);
   Mempool_initialize(Version_edit, 1024 * 1024, 32*1024*1024);
   Mempool_initialize(Regular_Page, kInternalPageSize, 0);
         printf("atomic uint8_t, uint16_t, uint32_t and uint64_t are, %lu %lu %lu %lu\n ", sizeof(std::atomic<uint8_t>), sizeof(std::atomic<uint16_t>), sizeof(std::atomic<uint32_t>), sizeof(std::atomic<uint64_t>));
@@ -305,6 +308,25 @@ bool RDMA_Manager::poll_reply_buffer(RDMA_Reply* rdma_reply) {
   }
   return true;
 }
+    bool RDMA_Manager::poll_reply_buffer(volatile RDMA_ReplyXCompute* rdma_reply) {
+        volatile uint8_t * check_byte = &(rdma_reply->reply_type);
+//  size_t counter = 0;
+        while(!*check_byte){
+            _mm_clflush(check_byte);
+            asm volatile ("sfence\n" : : );
+            asm volatile ("lfence\n" : : );
+            asm volatile ("mfence\n" : : );
+            std::fprintf(stderr, "Polling reply buffer\r");
+            std::fflush(stderr);
+//    counter++;
+//    if (counter == 1000000){
+//      printf("Polling not get a result\n");
+//      return false;
+//    }
+
+        }
+        return true;
+    }
 /******************************************************************************
 * Function: sock_connect
 *
@@ -1160,13 +1182,13 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(volatile uint16_t target_n
 //                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
 //                    BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
 //                    Invalidation_bg_threads.Schedule(&RDMA_Manager::Read_Invalidation_Message_Handler, thread_pool_args, i);
-                    Writer_Inv_Shared_handler(receive_msg_buf);
+                    Writer_Inv_Shared_handler(receive_msg_buf, 0);
                 } else if (receive_msg_buf->command == reader_invalidate_modified) {
                     post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
 //                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
 //                    BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
 //                    Invalidation_bg_threads.Schedule(&RDMA_Manager::Read_Invalidation_Message_Handler, thread_pool_args, i);
-                    Reader_Inv_Modified_handler(receive_msg_buf);
+                    Reader_Inv_Modified_handler(receive_msg_buf, 0);
                 } else if (receive_msg_buf->command == heart_beat) {
                     printf("heart_beat\n");
                     post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
@@ -1624,9 +1646,9 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
             qp_init_attr.sq_sig_all = 0;
             qp_init_attr.send_cq = cq1;
             qp_init_attr.recv_cq = cq2;
-
-            qp_init_attr.cap.max_send_wr = 32; // THis should be larger that he maixum core number for the machine.
-            qp_init_attr.cap.max_recv_wr = RECEIVE_OUTSTANDING_SIZE;
+            // TODO: we need to maintain a atomic pending request counter to avoid the pend wr exceed max_send_wr.
+            qp_init_attr.cap.max_send_wr = 32 + NUM_QP_ACCROSS_COMPUTE; // THis should be larger that he maixum core number for the machine.
+            qp_init_attr.cap.max_recv_wr = RECEIVE_OUTSTANDING_SIZE; // this can be down graded if we have the invalidation message with reply
             qp_init_attr.cap.max_send_sge = 2;
             qp_init_attr.cap.max_recv_sge = 2;
             qp_init_attr.cap.max_inline_data = 256;
@@ -2533,7 +2555,55 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
     //  duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start); printf("RDMA Write post send and poll size: %zu elapse: %ld\n", msg_size, duration.count());
     return rc;
 }
+    int RDMA_Manager::RDMA_Write_xcompute(ibv_mr *local_mr, void* addr, uint32_t rkey, size_t msg_size, uint16_t target_node_id, int num_of_qp) {
+        struct ibv_send_wr sr;
+        struct ibv_sge sge;
+        struct ibv_send_wr* bad_wr = NULL;
+        int rc;
+        /* prepare the scatter/gather entry */
+        memset(&sge, 0, sizeof(sge));
+        sge.addr = (uintptr_t)local_mr->addr;
+        sge.length = msg_size;
+        sge.lkey = local_mr->lkey;
+        /* prepare the send work request */
+        memset(&sr, 0, sizeof(sr));
+        sr.next = NULL;
+        sr.wr_id = 0;
+        sr.sg_list = &sge;
+        sr.num_sge = 1;
+        sr.opcode = IBV_WR_RDMA_WRITE;
+        sr.send_flags = IBV_SEND_INLINE;// todo: increase the max pending request and then we don't need the signal.
+//        if (send_flag != 0) sr.send_flags = send_flag;
+        sr.wr.rdma.remote_addr = (uint64_t)addr;
+        sr.wr.rdma.rkey = rkey;
+        //  }
+        //  else {
+        //    /* prepare the scatter/gather entry */
+        //    memset(&sge, 0, sizeof(sge));
+        //    sge.addr = (uintptr_t)res->receive_buf;
+        //    sge.length = sizeof(T);
+        //    sge.lkey = res->mr_receive->lkey;
+        //  }
 
+        /* prepare the send work request */
+        memset(&sr, 0, sizeof(sr));
+        sr.next = NULL;
+        sr.wr_id = 0;
+        sr.sg_list = &sge;
+        sr.num_sge = 1;
+        sr.opcode = static_cast<ibv_wr_opcode>(IBV_WR_SEND);
+        sr.send_flags = IBV_SEND_INLINE;
+//    std::shared_lock<std::shared_mutex> l(qp_cq_map_mutex);
+        /* post the Send Request to the RQ */
+        ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
+//    l.unlock();
+        rc = ibv_post_send(qp, &sr, &bad_wr);
+        if (rc) {
+            assert(false);
+            fprintf(stderr, "failed to post SR, return is %d\n", rc);
+        }
+        return rc;
+    }
 int RDMA_Manager::RDMA_Write_Imme(void* addr, uint32_t rkey, ibv_mr* local_mr,
                                   size_t msg_size, std::string qp_type,
                                   size_t send_flag, int poll_num,
@@ -5291,26 +5361,26 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
   return true;
 }
 
-bool
-RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level) {
+bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level) {
 //    printf(" send write invalidation message to other nodes %p\n", global_ptr);
-
     RDMA_Request* send_pointer;
     ibv_mr* send_mr = Get_local_send_message_mr();
+    ibv_mr* recv_mr = Get_local_receive_message_mr();
 //    ibv_mr* receive_mr = {};
 
     send_pointer = (RDMA_Request*)send_mr->addr;
     send_pointer->command = writer_invalidate_modified;
     send_pointer->content.inv_message.page_addr = global_ptr;
     send_pointer->content.inv_message.starvation_level = starv_level;
-
+    send_pointer->buffer = recv_mr->addr;
+    send_pointer->rkey = recv_mr->rkey;
 //    send_pointer->buffer = receive_mr.addr;
 //    send_pointer->rkey = receive_mr.rkey;
 
-//    RDMA_Reply* receive_pointer;
-//    receive_pointer = (RDMA_Reply*)receive_mr.addr;
+    RDMA_ReplyXCompute* receive_pointer;
+    receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
     //Clear the reply buffer for the polling.
-//    *receive_pointer = {};
+    *receive_pointer = {};
 
     //USE static ticket to minuimize the conflict.
     int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
@@ -5326,6 +5396,10 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
 //  asm volatile ("sfence\n" : : );
 //  asm volatile ("lfence\n" : : );
 //  asm volatile ("mfence\n" : : );
+    asm volatile ("sfence\n" : : );
+    asm volatile ("lfence\n" : : );
+    asm volatile ("mfence\n" : : );
+    poll_reply_buffer(receive_pointer); // poll the receive for 2 entires
 
     return true;
 }
@@ -5336,19 +5410,24 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
 
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
+        ibv_mr* recv_mr = Get_local_receive_message_mr();
+
 //    ibv_mr* receive_mr = {};
 
         send_pointer = (RDMA_Request*)send_mr->addr;
         send_pointer->command = reader_invalidate_modified;
         send_pointer->content.inv_message.page_addr = global_ptr;
         send_pointer->content.inv_message.starvation_level = starv_level;
+        send_pointer->buffer = recv_mr->addr;
+        send_pointer->rkey = recv_mr->rkey;
+//        RDMA_ReplyXCompute* receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
 //    send_pointer->buffer = receive_mr.addr;
 //    send_pointer->rkey = receive_mr.rkey;
 
-//    RDMA_Reply* receive_pointer;
-//    receive_pointer = (RDMA_Reply*)receive_mr.addr;
+    RDMA_ReplyXCompute* receive_pointer;
+    receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
         //Clear the reply buffer for the polling.
-//    *receive_pointer = {};
+    *receive_pointer = {};
 
         //USE static ticket to minuimize the conflict.
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
@@ -5361,9 +5440,12 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
             fprintf(stderr, "failed to poll send for remote memory register\n");
             return false;
         }
-//  asm volatile ("sfence\n" : : );
-//  asm volatile ("lfence\n" : : );
-//  asm volatile ("mfence\n" : : );
+
+
+        asm volatile ("sfence\n" : : );
+        asm volatile ("lfence\n" : : );
+        asm volatile ("mfence\n" : : );
+        poll_reply_buffer(receive_pointer); // poll the receive for 2 entires
 
         return true;
     }
@@ -5371,19 +5453,21 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
     bool RDMA_Manager::Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level) {
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
-//    ibv_mr* receive_mr = {};
-
+        ibv_mr* recv_mr = Get_local_receive_message_mr();
         send_pointer = (RDMA_Request*)send_mr->addr;
         send_pointer->command = writer_invalidate_shared;
         send_pointer->content.inv_message.page_addr = g_ptr;
         send_pointer->content.inv_message.starvation_level = starv_level;
+        send_pointer->buffer = recv_mr->addr;
+        send_pointer->rkey = recv_mr->rkey;
+//        RDMA_ReplyXCompute* receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
 //    send_pointer->buffer = receive_mr.addr;
 //    send_pointer->rkey = receive_mr.rkey;
 
-//    RDMA_Reply* receive_pointer;
-//    receive_pointer = (RDMA_Reply*)receive_mr.addr;
+    RDMA_ReplyXCompute* receive_pointer;
+    receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
         //Clear the reply buffer for the polling.
-//    *receive_pointer = {};
+    *receive_pointer = {};
 
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
 
@@ -5395,9 +5479,10 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
             fprintf(stderr, "failed to poll send for remote memory register\n");
             return false;
         }
-//  asm volatile ("sfence\n" : : );
-//  asm volatile ("lfence\n" : : );
-//  asm volatile ("mfence\n" : : );
+        asm volatile ("sfence\n" : : );
+        asm volatile ("lfence\n" : : );
+        asm volatile ("mfence\n" : : );
+        poll_reply_buffer(receive_pointer); // poll the receive for 2 entires
 
         return true;
     }
@@ -6236,7 +6321,7 @@ void RDMA_Manager::fs_deserilization(
     }
 
 
-    void RDMA_Manager::Writer_Inv_Shared_handler(RDMA_Request* receive_msg_buf) {
+    void RDMA_Manager::Writer_Inv_Shared_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
         ibv_mr* cas_mr =  Get_local_CAS_mr();
         GlobalAddress g_ptr = receive_msg_buf->content.inv_message.page_addr;
         uint8_t starv_level = receive_msg_buf->content.inv_message.starvation_level;
@@ -6244,7 +6329,7 @@ void RDMA_Manager::fs_deserilization(
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         //The template will not impact the offset of level in the header so we can random give the tempalate a Type to access the leve in ther header.
         assert(STRUCT_OFFSET(Header_Index<uint64_t>, level) == STRUCT_OFFSET(Header_Index<char>, level));
-//        printf("Writer_Inv_Shared_handler on %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
+        uint8_t reply_type = 0;
         if (handle) {
 //            printf("writer invalid Shared lock Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
             ibv_mr *page_mr = (ibv_mr *) handle->value;
@@ -6270,6 +6355,7 @@ void RDMA_Manager::fs_deserilization(
                     }
                     handle->rw_mtx.unlock();
                     handle->clear_states();
+                    reply_type = 1;
                 }else{
                     handle->state_mtx.lock();
                     if (handle->remote_lock_status.load() == 1){
@@ -6278,6 +6364,7 @@ void RDMA_Manager::fs_deserilization(
                             handle->next_holder_id = Invalid_Node_ID;
                         }
                         handle->remote_lock_urged.store(1);
+                        reply_type = 3;
                     }
                     handle->state_mtx.unlock();
 
@@ -6294,16 +6381,24 @@ void RDMA_Manager::fs_deserilization(
         }else {
 //                    printf("Writer_Inv_Shared_handler Handle not found\n");
         }
+        if (reply_type == 0){
+            reply_type = 2;
+        }
+        ibv_mr* local_mr = Get_local_send_message_mr();
+        ((RDMA_ReplyXCompute* )local_mr->addr)->reply_type = reply_type;
+        int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+        RDMA_Write_xcompute(local_mr,  receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(RDMA_ReplyXCompute),target_node_id,qp_id);
         delete receive_msg_buf;
 
     }
-    void RDMA_Manager::Reader_Inv_Modified_handler(RDMA_Request *receive_msg_buf) {
+    void RDMA_Manager::Reader_Inv_Modified_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
 //        printf("Reader_Inv_Modified_handler\n");
         GlobalAddress g_ptr = receive_msg_buf->content.inv_message.page_addr;
         uint8_t starv_level = receive_msg_buf->content.inv_message.starvation_level;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         assert(page_cache_ != nullptr);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
+        uint8_t reply_type = 0;
         if (handle){
 //            printf("Reader invalid modified Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
             auto* page_mr = (ibv_mr*)handle->value;
@@ -6331,6 +6426,7 @@ void RDMA_Manager::fs_deserilization(
                                                       page_mr->length, lock_gptr, false);
                         handle->remote_lock_status.store(1);
                         handle->clear_states();
+                        reply_type = 1;
 //                        printf("Release write lock %lu\n", g_ptr);
                     }
                     handle->rw_mtx.unlock();
@@ -6344,6 +6440,7 @@ void RDMA_Manager::fs_deserilization(
                             handle->next_holder_id = Invalid_Node_ID;
                         }
                         handle->remote_lock_urged.store(2);
+                        reply_type = 3;
                     }
                     handle->state_mtx.unlock();
 
@@ -6353,6 +6450,13 @@ void RDMA_Manager::fs_deserilization(
         }else{
 //                    printf("Release write lock Handle not found\n");
         }
+        if (reply_type == 0){
+            reply_type = 2;
+        }
+        ibv_mr* local_mr = Get_local_send_message_mr();
+        ((RDMA_ReplyXCompute* )local_mr->addr)->reply_type = reply_type;
+        int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+        RDMA_Write_xcompute(local_mr,  receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(RDMA_ReplyXCompute), target_node_id, qp_id);
         delete receive_msg_buf;
     }
     void RDMA_Manager::Writer_Inv_Modified_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
@@ -6362,6 +6466,7 @@ void RDMA_Manager::fs_deserilization(
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         assert(page_cache_ != nullptr);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
+        uint8_t reply_type = 0;
         if (handle){
 //            printf("writer invalid modified Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
             auto* page_mr = (ibv_mr*)handle->value;
@@ -6388,6 +6493,7 @@ void RDMA_Manager::fs_deserilization(
                                                       page_mr->length, lock_gptr, false);
                         handle->remote_lock_status.store(0);
                         handle->clear_states();
+                        reply_type = 1;
 //                        printf("Release write lock %lu\n", g_ptr);
                     }
                     handle->rw_mtx.unlock();
@@ -6400,16 +6506,22 @@ void RDMA_Manager::fs_deserilization(
                             handle->next_holder_id.store(target_node_id);
                         }
                         handle->remote_lock_urged.store(1);
+                        reply_type = 3;
                     }
                     handle->state_mtx.unlock();
-
-
                 }
             }
             page_cache_->Release(handle);
         }else{
 //                    printf("Release write lock Handle not found\n");
         }
+        if (reply_type == 0){
+            reply_type = 2;
+        }
+        ibv_mr* local_mr = Get_local_send_message_mr();
+        ((RDMA_ReplyXCompute* )local_mr->addr)->reply_type = reply_type;
+        int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+        RDMA_Write_xcompute(local_mr,  receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(RDMA_ReplyXCompute), target_node_id, qp_id);
         delete receive_msg_buf;
     }
 
@@ -6420,7 +6532,7 @@ void RDMA_Manager::fs_deserilization(
     }
     void RDMA_Manager::Read_Invalidation_Message_Handler(void* thread_args) {
         BGThreadMetadata* p = static_cast<BGThreadMetadata*>(thread_args);
-        ((RDMA_Manager *) p->rdma_mg)->Writer_Inv_Shared_handler((RDMA_Request *) p->func_args);
+        ((RDMA_Manager *) p->rdma_mg)->Writer_Inv_Shared_handler((RDMA_Request *) p->func_args, 0);
         delete static_cast<BGThreadMetadata*>(thread_args);
     }
 

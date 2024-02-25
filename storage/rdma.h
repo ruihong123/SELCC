@@ -209,6 +209,11 @@ struct RDMA_Request {
   uint32_t imm_num; // 0 for Compaction threads signal, 1 for Flushing threads signal.
 //  Options opt;
 } __attribute__((packed));
+struct RDMA_ReplyXCompute {
+    uint8_t reply_type; // 0 not received, 1 message processed at the scene, 2 the target handle is not found or found invalidated, 3 message was pushed in the handle.
+    uint8_t to_fill_blank1;
+    uint16_t to_fill_blank2;
+} __attribute__((packed));
 
 struct RDMA_Reply {
 //  RDMA_Command_Type command;
@@ -407,8 +412,8 @@ class RDMA_Manager {
     void invalidation_message_handling_worker(uint16_t target_node_id, int qp_num, ibv_mr *recv_mr);
 
     //FUnction for invalidation message handling
-    void Writer_Inv_Shared_handler(RDMA_Request* receive_msg_buf);
-    void Reader_Inv_Modified_handler(RDMA_Request* receive_msg_buf);
+    void Writer_Inv_Shared_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
+    void Reader_Inv_Modified_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     void Writer_Inv_Modified_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     static void Write_Invalidation_Message_Handler(void* thread_args);
     static void Read_Invalidation_Message_Handler(void* thread_args);
@@ -417,11 +422,11 @@ class RDMA_Manager {
                                   std::array<ibv_cq *, NUM_QP_ACCROSS_COMPUTE * 2> *cq_arr,
                                   std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUTE> *qp_arr);
     Registered_qp_config_xcompute Get_qp_info_from_RemoteM(uint16_t target_compute_node_id);
-  //Computes node sync compute sides (block function)
-  void sync_with_computes_Cside();
+    //Computes node sync compute sides (block function)
+    void sync_with_computes_Cside();
     void sync_with_computes_Mside();
-  // For the non-cached page only.
-  ibv_mr* Get_local_read_mr();
+    // For the non-cached page only.
+    ibv_mr* Get_local_read_mr();
     ibv_mr* Get_local_send_message_mr();
     ibv_mr* Get_local_receive_message_mr();
     ibv_mr* Get_local_CAS_mr();
@@ -484,6 +489,7 @@ class RDMA_Manager {
   int RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr, size_t msg_size,
                  std::string qp_type, size_t send_flag, int poll_num,
                  uint16_t target_node_id);
+  int RDMA_Write_xcompute(ibv_mr *local_mr, void* addr, uint32_t rkey, size_t msg_size, uint16_t target_node_id, int num_of_qp);
     int RDMA_Write_Batch(void* addr, uint32_t rkey, ibv_mr* local_mr, size_t msg_size,
                    std::string qp_type, size_t send_flag, int poll_num,
                    uint16_t target_node_id);
@@ -595,6 +601,7 @@ class RDMA_Manager {
       std::map<void*, In_Use_Array*>& remote_mem_bitmap, ibv_mr* local_mr);
   //  void mem_pool_serialization
   bool poll_reply_buffer(RDMA_Reply* rdma_reply);
+  static bool poll_reply_buffer(volatile RDMA_ReplyXCompute * rdma_reply);
   // TODO: Make all the variable more smart pointers.
 //#ifndef NDEBUG
     static thread_local int thread_id;
