@@ -3393,24 +3393,24 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        retry_cnt++;
         if (retry_cnt++ % INVALIDATION_INTERVAL ==  1) {
 //            assert(compare%2 == 0);
-//            if(retry_cnt < 20){
-////                port::AsmVolatilePause();
-//                //do nothing
-//            }else if (retry_cnt <40){
-//                starvation_level = 1;
-//
-//            }else if (retry_cnt <80){
-//                starvation_level = 2;
-//            }
-//            else if (retry_cnt <160){
-//                starvation_level = 3;
-//            }else if (retry_cnt <200){
-//                starvation_level = 4;
-//            } else if (retry_cnt <1000){
-//                starvation_level = 5;
-//            } else{
-//                starvation_level = 255 > 5+ retry_cnt/1000? 5+ retry_cnt/1000: 255;
-//            }
+            if(retry_cnt < 20){
+//                port::AsmVolatilePause();
+                //do nothing
+            }else if (retry_cnt <40){
+                starvation_level = 1;
+
+            }else if (retry_cnt <80){
+                starvation_level = 2;
+            }
+            else if (retry_cnt <160){
+                starvation_level = 3;
+            }else if (retry_cnt <200){
+                starvation_level = 4;
+            } else if (retry_cnt <1000){
+                starvation_level = 5;
+            } else{
+                starvation_level = 255 > 5+ retry_cnt/1000? 5+ retry_cnt/1000: 255;
+            }
 //            assert(target_compute_node_id != (RDMA_Manager::node_id));
             if (target_compute_node_id != (RDMA_Manager::node_id)){
 #ifdef INVALIDATION_STATISTICS
@@ -3699,24 +3699,24 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // we need to broadcast the message to multiple destination.
         if (retry_cnt++ % INVALIDATION_INTERVAL ==  1) {
 //            assert(compare%2 == 0);
-//            if(retry_cnt < 20){
-////                port::AsmVolatilePause();
-//                //do nothing
-//            }else if (retry_cnt <40){
-//                starvation_level = 1;
-//
-//            }else if (retry_cnt <80){
-//                starvation_level = 2;
-//            }
-//            else if (retry_cnt <160){
-//                starvation_level = 3;
-//            }else if (retry_cnt <200){
-//                starvation_level = 4;
-//            } else if (retry_cnt <1000){
-//                starvation_level = 5;
-//            } else{
-//                starvation_level = 255 > 5+ retry_cnt/1000? (5+ retry_cnt/1000): 255;
-//            }
+            if(retry_cnt < 20){
+//                port::AsmVolatilePause();
+                //do nothing
+            }else if (retry_cnt <40){
+                starvation_level = 1;
+
+            }else if (retry_cnt <80){
+                starvation_level = 2;
+            }
+            else if (retry_cnt <160){
+                starvation_level = 3;
+            }else if (retry_cnt <200){
+                starvation_level = 4;
+            } else if (retry_cnt <1000){
+                starvation_level = 5;
+            } else{
+                starvation_level = 255 > 5+ retry_cnt/1000? (5+ retry_cnt/1000): 255;
+            }
 //            printf("We need invalidation message\n");
             if (invalidation_RPC_type == 1){
                 assert(!read_invalidation_targets.empty());
