@@ -2576,23 +2576,6 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
 //        if (send_flag != 0) sr.send_flags = send_flag;
         sr.wr.rdma.remote_addr = (uint64_t)addr;
         sr.wr.rdma.rkey = rkey;
-        //  }
-        //  else {
-        //    /* prepare the scatter/gather entry */
-        //    memset(&sge, 0, sizeof(sge));
-        //    sge.addr = (uintptr_t)res->receive_buf;
-        //    sge.length = sizeof(T);
-        //    sge.lkey = res->mr_receive->lkey;
-        //  }
-
-        /* prepare the send work request */
-        memset(&sr, 0, sizeof(sr));
-        sr.next = NULL;
-        sr.wr_id = 0;
-        sr.sg_list = &sge;
-        sr.num_sge = 1;
-        sr.opcode = static_cast<ibv_wr_opcode>(IBV_WR_SEND);
-        sr.send_flags = IBV_SEND_INLINE;
 //    std::shared_lock<std::shared_mutex> l(qp_cq_map_mutex);
         /* post the Send Request to the RQ */
         ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
