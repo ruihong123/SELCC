@@ -1077,6 +1077,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
     auto* cq_arr = new  std::array<ibv_cq*, NUM_QP_ACCROSS_COMPUTE*2>();
     auto* qp_arr = new  std::array<ibv_qp*, NUM_QP_ACCROSS_COMPUTE>();
     auto* temp_counter = new std::array<std::atomic<uint16_t>, NUM_QP_ACCROSS_COMPUTE>();
+    auto* temp_mtx_arr = new std::array<SpinMutex, NUM_QP_ACCROSS_COMPUTE>();
     for (int i = 0; i < NUM_QP_ACCROSS_COMPUTE; ++i) {
         (*temp_counter)[i].store(0);
     }
@@ -1097,6 +1098,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
     cq_xcompute.insert({target_node_id, cq_arr});
     qp_xcompute.insert({target_node_id, qp_arr});
     qp_xcompute_os_c.insert({target_node_id, temp_counter});
+    qp_xcompute_mtx.insert({target_node_id, temp_mtx_arr});
     // we need lock for post_receive_xcompute because qp_xcompute is not thread safe.
     printf("Prepare receive mr for %hu", target_node_id);
     ibv_mr recv_mr[NUM_QP_ACCROSS_COMPUTE][RECEIVE_OUTSTANDING_SIZE] = {};
@@ -2588,7 +2590,7 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
 
         }
         else{
-            std::mutex mtx;
+            SpinMutex& mtx = (*qp_xcompute_mtx.at(target_node_id))[num_of_qp];
             mtx.lock();
             auto new_ticket = (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].fetch_add(1);
             if (new_ticket >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1){
@@ -5001,7 +5003,7 @@ int RDMA_Manager::post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int nu
 
     }
     else{
-        std::mutex mtx;
+        SpinMutex& mtx = (*qp_xcompute_mtx.at(target_node_id))[num_of_qp];
         mtx.lock();
         auto ticket = (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].fetch_add(1);
         if (ticket >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1){
