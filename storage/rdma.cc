@@ -316,7 +316,7 @@ bool RDMA_Manager::poll_reply_buffer(RDMA_Reply* rdma_reply) {
             asm volatile ("sfence\n" : : );
             asm volatile ("lfence\n" : : );
             asm volatile ("mfence\n" : : );
-            std::fprintf(stderr, "Polling reply buffer\r");
+            std::fprintf(stderr, "Polling RDMA_ReplyXCompute buffer\r");
             std::fflush(stderr);
 //    counter++;
 //    if (counter == 1000000){
@@ -1647,7 +1647,7 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
             qp_init_attr.send_cq = cq1;
             qp_init_attr.recv_cq = cq2;
             // TODO: we need to maintain a atomic pending request counter to avoid the pend wr exceed max_send_wr.
-            qp_init_attr.cap.max_send_wr = 32 + NUM_QP_ACCROSS_COMPUTE; // THis should be larger that he maixum core number for the machine.
+            qp_init_attr.cap.max_send_wr = 64 + NUM_QP_ACCROSS_COMPUTE; // THis should be larger that he maixum core number for the machine.
             qp_init_attr.cap.max_recv_wr = RECEIVE_OUTSTANDING_SIZE; // this can be down graded if we have the invalidation message with reply
             qp_init_attr.cap.max_send_sge = 2;
             qp_init_attr.cap.max_recv_sge = 2;
