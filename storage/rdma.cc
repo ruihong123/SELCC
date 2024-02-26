@@ -6533,6 +6533,8 @@ void RDMA_Manager::fs_deserilization(
                         handle->remote_lock_status.store(0);
                         handle->clear_states();
                         reply_type = 1;
+                        //todo: (1) implement a lock handover mechanism. if starvation level larger than 1.
+                        // (2) check whether there is lock urge, if so check whether the starvation_priority is larger than this.
 //                        printf("Release write lock %lu\n", g_ptr);
                     }
                     handle->rw_mtx.unlock();
