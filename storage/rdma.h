@@ -643,6 +643,7 @@ class RDMA_Manager {
   std::map<uint16_t, ThreadLocalPtr*> cq_local_write_compact;
   std::map<uint16_t, ThreadLocalPtr*> local_write_compact_qp_info;
     std::map<uint16_t, std::array<ibv_qp*, NUM_QP_ACCROSS_COMPUTE>*> qp_xcompute;
+    std::map<uint16_t, std::array<std::atomic<uint16_t>, NUM_QP_ACCROSS_COMPUTE>*> qp_xcompute_os_c;
     std::map<uint16_t, std::array<ibv_cq*, NUM_QP_ACCROSS_COMPUTE*2>*> cq_xcompute;
 //    std::map<uint16_t, Registered_qp_config_xcompute*> qp_xcompute_info;
   std::map<uint16_t, ThreadLocalPtr*> qp_data_default;

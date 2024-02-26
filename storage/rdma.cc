@@ -1073,9 +1073,13 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
   compute_message_handling_thread(qp_type, target_node_id);
   return false;
 }
-void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(volatile uint16_t target_node_id) {
+void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
     auto* cq_arr = new  std::array<ibv_cq*, NUM_QP_ACCROSS_COMPUTE*2>();
     auto* qp_arr = new  std::array<ibv_qp*, NUM_QP_ACCROSS_COMPUTE>();
+    auto* temp_counter = new std::array<std::atomic<uint16_t>, NUM_QP_ACCROSS_COMPUTE>();
+    for (int i = 0; i < NUM_QP_ACCROSS_COMPUTE; ++i) {
+        (*temp_counter)[i].store(0);
+    }
     create_qp_xcompute(target_node_id, cq_arr, qp_arr);
     Put_qp_info_into_RemoteM(target_node_id, cq_arr, qp_arr);
 
@@ -1092,6 +1096,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(volatile uint16_t target_n
     std::unique_lock<std::shared_mutex> l(qp_cq_map_mutex);
     cq_xcompute.insert({target_node_id, cq_arr});
     qp_xcompute.insert({target_node_id, qp_arr});
+    qp_xcompute_os_c.insert({target_node_id, temp_counter});
     // we need lock for post_receive_xcompute because qp_xcompute is not thread safe.
     printf("Prepare receive mr for %hu", target_node_id);
     ibv_mr recv_mr[NUM_QP_ACCROSS_COMPUTE][RECEIVE_OUTSTANDING_SIZE] = {};
@@ -1647,7 +1652,7 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
             qp_init_attr.send_cq = cq1;
             qp_init_attr.recv_cq = cq2;
             // TODO: we need to maintain a atomic pending request counter to avoid the pend wr exceed max_send_wr.
-            qp_init_attr.cap.max_send_wr = 64 + NUM_QP_ACCROSS_COMPUTE; // THis should be larger that he maixum core number for the machine.
+            qp_init_attr.cap.max_send_wr = SEND_OUTSTANDING_SIZE_XCOMPUTE; // THis should be larger that he maixum core number for the machine.
             qp_init_attr.cap.max_recv_wr = RECEIVE_OUTSTANDING_SIZE; // this can be down graded if we have the invalidation message with reply
             qp_init_attr.cap.max_send_sge = 2;
             qp_init_attr.cap.max_recv_sge = 2;
@@ -2559,7 +2564,9 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
         struct ibv_send_wr sr;
         struct ibv_sge sge;
         struct ibv_send_wr* bad_wr = NULL;
-        int rc;
+        int rc = 0;
+        auto ticket = (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].fetch_add(1);
+        bool need_signal =  ticket >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1;
         /* prepare the scatter/gather entry */
         memset(&sge, 0, sizeof(sge));
         sge.addr = (uintptr_t)local_mr->addr;
@@ -2572,18 +2579,42 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
         sr.sg_list = &sge;
         sr.num_sge = 1;
         sr.opcode = IBV_WR_RDMA_WRITE;
-        sr.send_flags = IBV_SEND_INLINE;// todo: increase the max pending request and then we don't need the signal.
-//        if (send_flag != 0) sr.send_flags = send_flag;
         sr.wr.rdma.remote_addr = (uint64_t)addr;
         sr.wr.rdma.rkey = rkey;
-//    std::shared_lock<std::shared_mutex> l(qp_cq_map_mutex);
-        /* post the Send Request to the RQ */
-        ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
-//    l.unlock();
-        rc = ibv_post_send(qp, &sr, &bad_wr);
+        if (!need_signal){
+            sr.send_flags = IBV_SEND_INLINE;
+            ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
+            rc = ibv_post_send(qp, &sr, &bad_wr);
+
+        }
+        else{
+            std::mutex mtx;
+            mtx.lock();
+            auto new_ticket = (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].fetch_add(1);
+            if (new_ticket >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1){
+                sr.send_flags = IBV_SEND_SIGNALED|IBV_SEND_INLINE;
+                ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
+
+                rc = ibv_post_send(qp, &sr, &bad_wr);
+                ibv_wc wc[2] = {};
+
+                if (poll_completion_xcompute(wc, 1, std::string("main"),
+                                             true, target_node_id, num_of_qp)){
+                    fprintf(stderr, "failed to poll send for remote memory register\n");
+                    assert(false);
+                }
+                (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].store(0);
+                mtx.unlock();
+            }else{
+                mtx.unlock();
+                sr.send_flags = IBV_SEND_INLINE;
+                ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
+                rc = ibv_post_send(qp, &sr, &bad_wr);
+            }
+        }
         if (rc) {
             assert(false);
-            fprintf(stderr, "failed to post SR, return is %d\n", rc);
+            fprintf(stderr, "failed to post SR, return is %d， errno is %d\n", rc, errno);
         }
         return rc;
     }
@@ -4935,7 +4966,9 @@ int RDMA_Manager::post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int nu
     struct ibv_send_wr sr;
     struct ibv_sge sge;
     struct ibv_send_wr* bad_wr = NULL;
-    int rc;
+    int rc = 0;
+    auto ticket = (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].fetch_add(1);
+    bool need_signal =  ticket >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1;
     //  if (!rdma_config.server_name) {
     //    /* prepare the scatter/gather entry */
 
@@ -4961,12 +4994,40 @@ int RDMA_Manager::post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int nu
     sr.sg_list = &sge;
     sr.num_sge = 1;
     sr.opcode = static_cast<ibv_wr_opcode>(IBV_WR_SEND);
-    sr.send_flags = IBV_SEND_SIGNALED|IBV_SEND_INLINE;
+    if (!need_signal){
+        sr.send_flags = IBV_SEND_INLINE;
+        ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
+        rc = ibv_post_send(qp, &sr, &bad_wr);
+
+    }
+    else{
+        std::mutex mtx;
+        mtx.lock();
+        auto ticket = (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].fetch_add(1);
+        if (ticket >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1){
+            sr.send_flags = IBV_SEND_SIGNALED|IBV_SEND_INLINE;
+            ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
+
+            rc = ibv_post_send(qp, &sr, &bad_wr);
+            ibv_wc wc[2] = {};
+
+            if (poll_completion_xcompute(wc, 1, std::string("main"),
+                                         true, target_node_id, num_of_qp)){
+                fprintf(stderr, "failed to poll send for remote memory register\n");
+                assert(false);
+            }
+            (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].store(0);
+            mtx.unlock();
+        }else{
+            mtx.unlock();
+            sr.send_flags = IBV_SEND_INLINE;
+            ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
+            rc = ibv_post_send(qp, &sr, &bad_wr);
+        }
+    }
 //    std::shared_lock<std::shared_mutex> l(qp_cq_map_mutex);
     /* post the Send Request to the RQ */
-    ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
 //    l.unlock();
-    rc = ibv_post_send(qp, &sr, &bad_wr);
     if (rc) {
         assert(false);
         fprintf(stderr, "failed to post SR, return is %d\n", rc);
@@ -5372,10 +5433,10 @@ bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint
     ibv_wc wc[2] = {};
     assert(send_pointer->command!= create_qp_);
 
-    if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
-        fprintf(stderr, "failed to poll send for remote memory register\n");
-        return false;
-    }
+//    if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
+//        fprintf(stderr, "failed to poll send for remote memory register\n");
+//        return false;
+//    }
 //  asm volatile ("sfence\n" : : );
 //  asm volatile ("lfence\n" : : );
 //  asm volatile ("mfence\n" : : );
@@ -5388,7 +5449,6 @@ bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint
 }
 
     bool RDMA_Manager::Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level) {
-        qp_xcompute;
 //    printf(" send write invalidation message to other nodes %p\n", global_ptr);
 
         RDMA_Request* send_pointer;
@@ -5420,10 +5480,10 @@ bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint
         assert(send_pointer->command!= create_qp_);
 
 
-        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
-            fprintf(stderr, "failed to poll send for remote memory register\n");
-            return false;
-        }
+//        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
+//            fprintf(stderr, "failed to poll send for remote memory register\n");
+//            return false;
+//        }
 
 
         asm volatile ("sfence\n" : : );
@@ -5460,10 +5520,10 @@ bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint
         assert(send_pointer->command!= create_qp_);
 
 
-        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
-            fprintf(stderr, "failed to poll send for remote memory register\n");
-            return false;
-        }
+//        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
+//            fprintf(stderr, "failed to poll send for remote memory register\n");
+//            return false;
+//        }
         asm volatile ("sfence\n" : : );
         asm volatile ("lfence\n" : : );
         asm volatile ("mfence\n" : : );
@@ -5508,13 +5568,7 @@ bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint
 
         //Use node 1 memory node as the place to store the temporary QP information
         post_send_xcompute(send_mr, target_memory_node_id, 0);
-        ibv_wc wc[2] = {};
 
-        if (poll_completion_xcompute(wc, 1, std::string("main"),
-                            true, target_memory_node_id, 0)){
-//    assert(try_poll_completions(wc, 1, std::string("main"),true) == 0);
-            fprintf(stderr, "failed to poll send for remote memory register\n");
-        }
         asm volatile ("sfence\n" : : );
         asm volatile ("lfence\n" : : );
         asm volatile ("mfence\n" : : );
