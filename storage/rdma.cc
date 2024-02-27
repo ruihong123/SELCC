@@ -404,7 +404,7 @@ void RDMA_Manager::compute_message_handling_thread(std::string q_id, uint16_t sh
 
   ibv_qp* qp;
   int rc = 0;
-
+  uint64_t miss_poll_counter = 0;
   ibv_mr* recv_mr;
   int buffer_counter;
   //TODO: keep the recv mr in rdma manager so that next time we restart
@@ -445,8 +445,25 @@ void RDMA_Manager::compute_message_handling_thread(std::string q_id, uint16_t sh
     while (1) {
     // we can only use try_poll... rather than poll_com.. because we need to
     // make sure the shutting down signal can work.
-    if(try_poll_completions(wc, 1, q_id, false,
-                                      shard_target_node_id) >0){
+        if (try_poll_completions(wc, 1, q_id, false, shard_target_node_id) == 0){
+            // exponetial back off to save cpu cycles.
+            if(++miss_poll_counter < 1024){
+                continue;
+            }
+            if(++miss_poll_counter < 2048){
+                usleep(10);
+                continue ;
+            }
+            if(++miss_poll_counter < 4096){
+                usleep(32);
+                continue;
+            }else{
+                usleep(512);
+                continue;
+            }
+        }
+        miss_poll_counter = 0;
+
       if(wc[0].wc_flags & IBV_WC_WITH_IMM){
         wc[0].imm_data;// use this to find the correct condition variable.
         std::unique_lock<std::mutex> lck(*mtx_imme);
@@ -511,17 +528,7 @@ void RDMA_Manager::compute_message_handling_thread(std::string q_id, uint16_t sh
         buffer_counter++;
       }
     }
-    //        rdma_mg->poll_completion(wc, 1, q_id, false);
-
-
-  }
-
-  //    remote_qp_reset(q_id);
   comm_thread_buffer.insert({shard_target_node_id, buffer_counter});
-  //    sleep(1);
-  //    for (int i = 0; i < R_SIZE; ++i) {
-  //      rdma_mg->Deallocate_Local_RDMA_Slot(recv_mr[i].addr, Message);
-  //    }
 }
 void RDMA_Manager::ConnectQPThroughSocket(std::string qp_type, int socket_fd,
                                           uint16_t& target_node_id) {
