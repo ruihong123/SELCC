@@ -1148,12 +1148,10 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
                     }
                     if(++miss_poll_counter < 20480){
                         usleep(1);
-
                         continue ;
                     }
                     if(++miss_poll_counter < 40960){
                         usleep(16);
-
                         continue;
                     }else{
                         usleep(512);
