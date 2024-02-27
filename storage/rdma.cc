@@ -1076,7 +1076,7 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
 void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
     auto* cq_arr = new  std::array<ibv_cq*, NUM_QP_ACCROSS_COMPUTE*2>();
     auto* qp_arr = new  std::array<ibv_qp*, NUM_QP_ACCROSS_COMPUTE>();
-    auto* temp_counter = new std::array<std::atomic<uint16_t>, NUM_QP_ACCROSS_COMPUTE>();
+    auto* temp_counter = new std::array<std::atomic<uint16_t>, NUM_QP_ACCROSS_COMPUTE*2>();
     auto* temp_mtx_arr = new std::array<SpinMutex, NUM_QP_ACCROSS_COMPUTE>();
     for (int i = 0; i < NUM_QP_ACCROSS_COMPUTE; ++i) {
         (*temp_counter)[i].store(0);
@@ -2565,8 +2565,6 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
         struct ibv_sge sge;
         struct ibv_send_wr* bad_wr = NULL;
         int rc = 0;
-        auto ticket = (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].fetch_add(1);
-        bool need_signal =  ticket >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1;
         /* prepare the scatter/gather entry */
         memset(&sge, 0, sizeof(sge));
         sge.addr = (uintptr_t)local_mr->addr;
@@ -2581,35 +2579,60 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
         sr.opcode = IBV_WR_RDMA_WRITE;
         sr.wr.rdma.remote_addr = (uint64_t)addr;
         sr.wr.rdma.rkey = rkey;
+        //TODO: maybe unsingaled wr does not perform well, when there is high concurrrency over the same queue pair, because
+        // we need a lock to protect the outstanding counter. We shall adjust SEND_OUTSTANDING_SIZE_XCOMPUTE to much larger than (2x) the
+        // parallelism of the compute node.
+        std::atomic<uint16_t >* os_start = &(*qp_xcompute_os_c.at(target_node_id))[2*num_of_qp];
+        std::atomic<uint16_t >* os_end = &(*qp_xcompute_os_c.at(target_node_id))[2*num_of_qp-1];
+        auto pending_num = os_start->fetch_add(1);
+        bool need_signal =  pending_num >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1;
         if (!need_signal){
             sr.send_flags = IBV_SEND_INLINE;
             ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
             rc = ibv_post_send(qp, &sr, &bad_wr);
-
+            //os_end is updated after os_start, it is possible to have os_end >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1
+            // we spin here until the end counter reset.
+            while(os_end->load() >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1){
+                asm volatile("pause\n": : :"memory");
+            }
+            os_end->fetch_add(1);
+            assert(os_end->load() <= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1);
         }
         else{
             SpinMutex* mtx = &(*qp_xcompute_mtx.at(target_node_id))[num_of_qp];
             mtx->lock();
-            auto new_ticket = (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].fetch_add(1);
-            if (new_ticket >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1){
+            auto new_pending_num = os_start->fetch_add(1);
+            if (new_pending_num >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1){
+
                 sr.send_flags = IBV_SEND_SIGNALED|IBV_SEND_INLINE;
                 ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
-
+                //We need to make sure that the wr sequence in the queue is in the ticket order. otherwise, the pending wr
+                // can still exceed the upper bound.
+                while (os_end->load() < SEND_OUTSTANDING_SIZE_XCOMPUTE - 1){
+                    asm volatile("pause\n": : :"memory");
+                }
+                assert(os_end->load() == SEND_OUTSTANDING_SIZE_XCOMPUTE - 1);
                 rc = ibv_post_send(qp, &sr, &bad_wr);
                 ibv_wc wc[2] = {};
-
+                if (rc) {
+                    assert(false);
+                    fprintf(stderr, "failed to post SR, return is %d\n", rc);
+                }
                 if (poll_completion_xcompute(wc, 1, std::string("main"),
                                              true, target_node_id, num_of_qp)){
                     fprintf(stderr, "failed to poll send for remote memory register\n");
                     assert(false);
                 }
-                (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].store(0);
+                os_start->store(0);
+                os_end->store(0);
                 mtx->unlock();
             }else{
-                mtx->unlock();
                 sr.send_flags = IBV_SEND_INLINE;
                 ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
                 rc = ibv_post_send(qp, &sr, &bad_wr);
+                os_end->fetch_add(1);
+                assert(os_end->load() <= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1);
+                mtx->unlock();
             }
         }
         if (rc) {
@@ -4967,8 +4990,7 @@ int RDMA_Manager::post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int nu
     struct ibv_sge sge;
     struct ibv_send_wr* bad_wr = NULL;
     int rc = 0;
-    auto ticket = (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].fetch_add(1);
-    bool need_signal =  ticket >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1;
+
     //  if (!rdma_config.server_name) {
     //    /* prepare the scatter/gather entry */
 
@@ -4994,35 +5016,57 @@ int RDMA_Manager::post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int nu
     sr.sg_list = &sge;
     sr.num_sge = 1;
     sr.opcode = static_cast<ibv_wr_opcode>(IBV_WR_SEND);
+    std::atomic<uint16_t >* os_start = &(*qp_xcompute_os_c.at(target_node_id))[2*num_of_qp];
+    std::atomic<uint16_t >* os_end = &(*qp_xcompute_os_c.at(target_node_id))[2*num_of_qp-1];
+    auto pending_num = os_start->fetch_add(1);
+    bool need_signal =  pending_num >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1;
     if (!need_signal){
         sr.send_flags = IBV_SEND_INLINE;
         ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
         rc = ibv_post_send(qp, &sr, &bad_wr);
-
+        //os_end is updated after os_start, it is possible to have os_end >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1
+        // we spin here until the end counter reset.
+        while(os_end->load() >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1){
+            asm volatile("pause\n": : :"memory");
+        }
+        os_end->fetch_add(1);
+        assert(os_end->load() <= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1);
     }
     else{
         SpinMutex* mtx = &(*qp_xcompute_mtx.at(target_node_id))[num_of_qp];
         mtx->lock();
-        auto ticket = (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].fetch_add(1);
-        if (ticket >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1){
+        auto new_pending_num = os_start->fetch_add(1);
+        if (new_pending_num >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1){
+
             sr.send_flags = IBV_SEND_SIGNALED|IBV_SEND_INLINE;
             ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
-
+            //We need to make sure that the wr sequence in the queue is in the ticket order. otherwise, the pending wr
+            // can still exceed the upper bound.
+            while (os_end->load() < SEND_OUTSTANDING_SIZE_XCOMPUTE - 1){
+                asm volatile("pause\n": : :"memory");
+            }
+            assert(os_end->load() == SEND_OUTSTANDING_SIZE_XCOMPUTE - 1);
             rc = ibv_post_send(qp, &sr, &bad_wr);
             ibv_wc wc[2] = {};
-
+            if (rc) {
+                assert(false);
+                fprintf(stderr, "failed to post SR, return is %d\n", rc);
+            }
             if (poll_completion_xcompute(wc, 1, std::string("main"),
                                          true, target_node_id, num_of_qp)){
                 fprintf(stderr, "failed to poll send for remote memory register\n");
                 assert(false);
             }
-            (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].store(0);
+            os_start->store(0);
+            os_end->store(0);
             mtx->unlock();
         }else{
-            mtx->unlock();
             sr.send_flags = IBV_SEND_INLINE;
             ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
             rc = ibv_post_send(qp, &sr, &bad_wr);
+            os_end->fetch_add(1);
+            assert(os_end->load() <= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1);
+            mtx->unlock();
         }
     }
 //    std::shared_lock<std::shared_mutex> l(qp_cq_map_mutex);
