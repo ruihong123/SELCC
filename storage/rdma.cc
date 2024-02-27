@@ -571,15 +571,15 @@ void RDMA_Manager::ConnectQPThroughSocket(std::string qp_type, int socket_fd,
     if (!qp) {
       fprintf(stderr, "failed to create QP\n");
     }
-    fprintf(stdout, "QP was created, QP number=0x%x\n", qp->qp_num);
+//    fprintf(stdout, "QP was created, QP number=0x%x\n", qp->qp_num);
 //  Used to be "ibv_qp* qp = create_qp(shard_target_node_id, true, qp_type);", but the
     // shard_target_node_id is not available so we unwrap the function
   local_con_data.qp_num = htonl(qp->qp_num);
   local_con_data.lid = htons(res->port_attr.lid);
   memcpy(local_con_data.gid, &res->my_gid, 16);
-  printf("checkpoint2");
-
-  fprintf(stdout, "\nLocal LID = 0x%x\n", res->port_attr.lid);
+//  printf("checkpoint2");
+//
+//  fprintf(stdout, "\nLocal LID = 0x%x\n", res->port_attr.lid);
 
   if (sock_sync_data(socket_fd, sizeof(struct Registered_qp_config),
       (char*)&local_con_data, (char*)&tmp_con_data) < 0) {
@@ -589,8 +589,8 @@ void RDMA_Manager::ConnectQPThroughSocket(std::string qp_type, int socket_fd,
   remote_con_data->qp_num = ntohl(tmp_con_data.qp_num);
   remote_con_data->lid = ntohs(tmp_con_data.lid);
   memcpy(remote_con_data->gid, tmp_con_data.gid, 16);
-  fprintf(stdout, "Remote QP number = 0x%x\n", remote_con_data->qp_num);
-  fprintf(stdout, "Remote LID = 0x%x\n", remote_con_data->lid);
+//  fprintf(stdout, "Remote QP number = 0x%x\n", remote_con_data->qp_num);
+//  fprintf(stdout, "Remote LID = 0x%x\n", remote_con_data->lid);
   remote_con_data->node_id = tmp_con_data.node_id;
   target_node_id = tmp_con_data.node_id;
   std::unique_lock<std::shared_mutex> l(qp_cq_map_mutex);
@@ -1000,8 +1000,8 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
   remote_con_data->lid = ntohs(tmp_con_data.lid);
   memcpy(remote_con_data->gid, tmp_con_data.gid, 16);
 
-  fprintf(stdout, "Remote QP number = 0x%x\n", remote_con_data->qp_num);
-  fprintf(stdout, "Remote LID = 0x%x\n", remote_con_data->lid);
+//  fprintf(stdout, "Remote QP number = 0x%x\n", remote_con_data->qp_num);
+//  fprintf(stdout, "Remote LID = 0x%x\n", remote_con_data->lid);
   std::unique_lock<std::shared_mutex> l(qp_cq_map_mutex);
   if (qp_type == "default" ){
     assert(local_read_qp_info.at(target_node_id) != nullptr);
@@ -1527,7 +1527,7 @@ ibv_qp* RDMA_Manager::create_qp_Mside(bool seperated_cq,
   }
 
     qp_map_Mside[qp_id] = qp;
-  fprintf(stdout, "QP was created, QP number=0x%x\n", qp->qp_num);
+//  fprintf(stdout, "QP was created, QP number=0x%x\n", qp->qp_num);
   //  uint16_t* p = qp->gid;
   //  fprintf(stdout,
   //          "Remote GID =%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n ",
@@ -1615,7 +1615,7 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
 //    qp_local_write_compact->Reset(qp);
   else
     res->qp_map[target_node_id] = qp;
-  fprintf(stdout, "QP was created, QP number=0x%x\n", qp->qp_num);
+//  fprintf(stdout, "QP was created, QP number=0x%x\n", qp->qp_num);
 //  uint16_t* p = qp->gid;
 //  fprintf(stdout,
 //          "Remote GID =%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n ",
@@ -5655,8 +5655,8 @@ bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint
   else
     res->qp_main_connection_info.insert({target_node_id,temp_buff});
   l1.unlock();
-  fprintf(stdout, "Remote QP number=0x%x\n", temp_buff->qp_num);
-  fprintf(stdout, "Remote LID = 0x%x\n", temp_buff->lid);
+//  fprintf(stdout, "Remote QP number=0x%x\n", temp_buff->qp_num);
+//  fprintf(stdout, "Remote LID = 0x%x\n", temp_buff->lid);
   // te,p_buff will have the informatin for the remote query pair,
   // use this information for qp connection.
   connect_qp(qp, qp_type, target_node_id);
