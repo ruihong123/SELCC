@@ -1246,8 +1246,8 @@ void RDMA_Manager::Put_qp_info_into_RemoteM(uint16_t target_compute_node_id,
     send_pointer->content.qp_config_xcompute.lid = res->port_attr.lid;
     memcpy(send_pointer->content.qp_config_xcompute.gid, &my_gid, 16);
     send_pointer->content.qp_config_xcompute.node_id_pairs = (uint32_t)target_compute_node_id | ((uint32_t)node_id) << 16;
-    printf("node id pair to be put is %x 1 \n", send_pointer->content.qp_config_xcompute.node_id_pairs);
-    fprintf(stdout, "Local LID = 0x%x\n", res->port_attr.lid);
+//    printf("node id pair to be put is %x 1 \n", send_pointer->content.qp_config_xcompute.node_id_pairs);
+//    fprintf(stdout, "Local LID = 0x%x\n", res->port_attr.lid);
 //    send_pointer->buffer = receive_mr.addr;
 //    send_pointer->rkey = receive_mr.rkey;
 //    RDMA_Reply* receive_pointer;
@@ -1654,7 +1654,7 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
             qp_init_attr.send_cq = cq1;
             qp_init_attr.recv_cq = cq2;
             // TODO: we need to maintain a atomic pending request counter to avoid the pend wr exceed max_send_wr.
-            qp_init_attr.cap.max_send_wr = SEND_OUTSTANDING_SIZE_XCOMPUTE; // THis should be larger that he maixum core number for the machine.
+            qp_init_attr.cap.max_send_wr = SEND_OUTSTANDING_SIZE_XCOMPUTE + 1; // THis should be larger that he maixum core number for the machine.
             qp_init_attr.cap.max_recv_wr = RECEIVE_OUTSTANDING_SIZE; // this can be down graded if we have the invalidation message with reply
             qp_init_attr.cap.max_send_sge = 2;
             qp_init_attr.cap.max_recv_sge = 2;
@@ -1812,7 +1812,7 @@ int RDMA_Manager::connect_qp(ibv_qp* qp, std::string& qp_type,
 //  else{
 //    printf("connection built up!\n");
 //  }
-  fprintf(stdout, "QP %p state was change to RTS\n", qp);
+//  fprintf(stdout, "QP %p state was change to RTS\n", qp);
 /* sync to make sure that both sides are in states that they can connect to prevent packet loose */
 connect_qp_exit:
   return rc;
@@ -1861,7 +1861,7 @@ int RDMA_Manager::connect_qp(ibv_qp* qp, Registered_qp_config* remote_con_data) 
     fprintf(stderr, "failed to modify QP state to RTS\n");
     goto connect_qp_exit;
   }
-  fprintf(stdout, "QP %p state was change to RTS\n", qp);
+//  fprintf(stdout, "QP %p state was change to RTS\n", qp);
   /* sync to make sure that both sides are in states that they can connect to prevent packet loose */
   connect_qp_exit:
   return rc;
@@ -1897,7 +1897,7 @@ int RDMA_Manager::connect_qp_xcompute(std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUT
             fprintf(stderr, "failed to modify QP xcompute state to RTS\n");
             goto connect_qp_exit;
         }
-        fprintf(stdout, "QP xcompute %p state was change to RTS\n", (*qp_arr)[i]);
+//        fprintf(stdout, "QP xcompute %p state was change to RTS\n", (*qp_arr)[i]);
     }
 
     /* sync to make sure that both sides are in states that they can connect to prevent packet loose */
@@ -2590,8 +2590,8 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
 
         }
         else{
-            SpinMutex& mtx = (*qp_xcompute_mtx.at(target_node_id))[num_of_qp];
-            mtx.lock();
+            SpinMutex* mtx = &(*qp_xcompute_mtx.at(target_node_id))[num_of_qp];
+            mtx->lock();
             auto new_ticket = (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].fetch_add(1);
             if (new_ticket >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1){
                 sr.send_flags = IBV_SEND_SIGNALED|IBV_SEND_INLINE;
@@ -2606,9 +2606,9 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
                     assert(false);
                 }
                 (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].store(0);
-                mtx.unlock();
+                mtx->unlock();
             }else{
-                mtx.unlock();
+                mtx->unlock();
                 sr.send_flags = IBV_SEND_INLINE;
                 ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
                 rc = ibv_post_send(qp, &sr, &bad_wr);
@@ -5003,8 +5003,8 @@ int RDMA_Manager::post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int nu
 
     }
     else{
-        SpinMutex& mtx = (*qp_xcompute_mtx.at(target_node_id))[num_of_qp];
-        mtx.lock();
+        SpinMutex* mtx = &(*qp_xcompute_mtx.at(target_node_id))[num_of_qp];
+        mtx->lock();
         auto ticket = (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].fetch_add(1);
         if (ticket >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1){
             sr.send_flags = IBV_SEND_SIGNALED|IBV_SEND_INLINE;
@@ -5019,9 +5019,9 @@ int RDMA_Manager::post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int nu
                 assert(false);
             }
             (*qp_xcompute_os_c.at(target_node_id))[num_of_qp].store(0);
-            mtx.unlock();
+            mtx->unlock();
         }else{
-            mtx.unlock();
+            mtx->unlock();
             sr.send_flags = IBV_SEND_INLINE;
             ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
             rc = ibv_post_send(qp, &sr, &bad_wr);
