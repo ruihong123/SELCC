@@ -3505,7 +3505,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        printf("global read lock at %p \n", page_addr);
         retry:
 //        retry_cnt++;
-        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1) {
+        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1 || starvation_level > 6) {
 //            assert(compare%2 == 0);
             if(retry_cnt < 20){
 //                port::AsmVolatilePause();
@@ -3545,12 +3545,16 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         }
         //TODO: For high starvation level the invalidation interval shall be shorter.
         if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL == 0){
-            if (retry_cnt < 32){
-                spin_wait_us(8);
-            }else {
-                usleep(16);
-            }
+            if (starvation_level <= 2){
+                usleep(8);
+            }else if (starvation_level <= 4){
+                //No sleep if the starvation level is high.
+                usleep(4);
+            }else if (starvation_level <= 6){
+                spin_wait_us(2);
+            }else{
 
+            }
         }
 //        if (retry_cnt > 210) {
 //            std::cout << "Deadlock " << lock_addr << std::endl;
@@ -3811,7 +3815,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //TODO: send an RPC to the destination every 4 retries.
         // Check whether the invalidation is write type or read type. If it is a read type
         // we need to broadcast the message to multiple destination.
-        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1) {
+        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1 || starvation_level > 6) {
 //            assert(compare%2 == 0);
             if(retry_cnt < 20){
 //                port::AsmVolatilePause();
@@ -3874,10 +3878,15 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // the compared value is the real id /2 + 1.
         }
         if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL == 0){
-            if (retry_cnt < 32){
-                spin_wait_us(8);
-            }else {
-                usleep(16);
+            if (starvation_level <= 2){
+                usleep(8);
+            }else if (starvation_level <= 4){
+                //No sleep if the starvation level is high.
+                usleep(4);
+            }else if (starvation_level <= 6){
+                spin_wait_us(2);
+            }else{
+
             }
         }
 //        if (retry_cnt > 210) {
@@ -4041,7 +4050,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //TODO: send an RPC to the destination every 4 retries.
         // Check whether the invalidation is write type or read type. If it is a read type
         // we need to broadcast the message to multiple destination.
-        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1) {
+        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1 || starvation_level > 6) {
 //            assert(compare%2 == 0);
             if(retry_cnt < 20){
 //                port::AsmVolatilePause();
@@ -4101,10 +4110,15 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // the compared value is the real id /2 + 1.
         }
         if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL == 0){
-            if (retry_cnt < 32){
-                spin_wait_us(8);
-            }else {
+            if (starvation_level <= 2){
                 usleep(8);
+            }else if (starvation_level <= 4){
+                //No sleep if the starvation level is high.
+                usleep(4);
+            }else if (starvation_level <= 6){
+                spin_wait_us(2);
+            }else{
+
             }
         }
 //        if (retry_cnt > 210) {
