@@ -6434,18 +6434,22 @@ void RDMA_Manager::fs_deserilization(
 //                assert(false);
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, global_lock);
             }
-            if (handle->remote_lock_status.load() == 1) {
+            if (handle->remote_lock_status.load() > 0) {
                 //TODO: Use try lock instead of lock.
 //                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                 if(handle->rw_mtx.try_lock()){
-                    if ( handle->remote_lock_status.load() == 1){
-                        global_RUnlock(lock_gptr, cas_mr);
-                        handle->remote_lock_status.store(0);
-//                        printf("Writer invalid shared worked directly %lu\n", g_ptr);
+                    if (starv_level >= handle->starvation_priority){
+                        if ( handle->remote_lock_status.load() == 1){
+                            global_RUnlock(lock_gptr, cas_mr);
+                            handle->remote_lock_status.store(0);
+                            reply_type = 1;
+                            handle->clear_states();
+                        }
+                    }else{
+                        handle->Invalid_local_by_cached_mes(g_ptr,page_mr->length, lock_gptr, page_mr);
                     }
                     handle->rw_mtx.unlock();
-                    handle->clear_states();
-                    reply_type = 1;
+
                 }else{
                     handle->state_mtx.lock();
                     if (handle->remote_lock_status.load() == 1){
@@ -6506,19 +6510,24 @@ void RDMA_Manager::fs_deserilization(
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, global_lock);
             }
             // double check locking
-            if (handle->remote_lock_status.load() == 2){
+            if (handle->remote_lock_status.load() > 0){
 //                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                 if (handle->rw_mtx.try_lock()){
-                    if (handle->remote_lock_status.load() == 2){
-                        //TODO: implement an atomic lock downgradation.
-                        // Do not use async lock release here.
-                        global_write_page_and_WdowntoR(page_mr, g_ptr,
-                                                      page_mr->length, lock_gptr, false);
-                        handle->remote_lock_status.store(1);
-                        handle->clear_states();
-                        reply_type = 1;
+                    if (starv_level >= handle->starvation_priority){
+                        if (handle->remote_lock_status.load() == 2){
+                            global_write_page_and_WdowntoR(page_mr, g_ptr,
+                                                           page_mr->length, lock_gptr, false);
+                            handle->remote_lock_status.store(1);
+                            handle->clear_states();
+                            reply_type = 1;
 //                        printf("Release write lock %lu\n", g_ptr);
+                        }
                     }
+                    else{
+                        handle->Invalid_local_by_cached_mes(g_ptr,page_mr->length, lock_gptr, page_mr);
+
+                    }
+
                     handle->rw_mtx.unlock();
                 }else{
 
@@ -6574,20 +6583,26 @@ void RDMA_Manager::fs_deserilization(
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, global_lock);
             }
             // double check locking
-            if (handle->remote_lock_status.load() == 2){
+            if (handle->remote_lock_status.load() > 0){
 //                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                 if (handle->rw_mtx.try_lock()){
-                    if (handle->remote_lock_status.load() == 2){
-                        // Do not use async lock release here.
-                        global_write_page_and_Wunlock(page_mr, g_ptr,
-                                                      page_mr->length, lock_gptr, false);
-                        handle->remote_lock_status.store(0);
-                        handle->clear_states();
-                        reply_type = 1;
-                        //todo: (1) implement a lock handover mechanism. if starvation level larger than 1.
-                        // (2) check whether there is lock urge, if so check whether the starvation_priority is larger than this.
+                    if (starv_level >= handle->starvation_priority){
+                        if (handle->remote_lock_status.load() == 2){
+                            // Do not use async lock release here.
+                            global_write_page_and_Wunlock(page_mr, g_ptr,
+                                                          page_mr->length, lock_gptr, false);
+                            handle->remote_lock_status.store(0);
+                            handle->clear_states();
+                            reply_type = 1;
+                            //todo: (1) implement a lock handover mechanism. if starvation level larger than 1.
+                            // (2) check whether there is lock urge, if so check whether the starvation_priority is larger than this.
 //                        printf("Release write lock %lu\n", g_ptr);
+                        }
                     }
+                    else{
+                        handle->Invalid_local_by_cached_mes(g_ptr,page_mr->length, lock_gptr, page_mr);
+                    }
+
                     handle->rw_mtx.unlock();
                 }else{
 
