@@ -4298,7 +4298,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         assert(STRUCT_OFFSET(DataPage, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
         post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr.p_version);
         //Increase the page version before every page flush back.
-        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
+        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr.p_version));
         ((DataPage*)page_buffer->addr)->hdr.p_version++;
         ibv_mr post_gl_page_local_mr = *page_buffer;
         post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
@@ -4414,7 +4414,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         ibv_mr post_gl_page_local_mr = *page_buffer;
         //Increase the page version before every page flush back.
-        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
+        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr.p_version));
         ((DataPage*)page_buffer->addr)->hdr.p_version++;
         post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
         page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
@@ -4533,7 +4533,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         ibv_mr post_gl_page_local_mr = *page_buffer;
         //Increase the page version before every page flush back.
-        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
+        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr.p_version));
         ((DataPage*)page_buffer->addr)->hdr.p_version++;
         post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
         page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
