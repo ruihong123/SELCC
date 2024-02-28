@@ -3545,12 +3545,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
         }
         //TODO: For high starvation level the invalidation interval shall be shorter.
-        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL < 2){
+        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL < 1){
             if (starvation_level <= 2){
-                usleep(8);
+                spin_wait_us(8);
             }else if (starvation_level <= 4){
                 //No sleep if the starvation level is high.
-                usleep(4);
+                spin_wait_us(4);
             }else if (starvation_level <= 6){
                 spin_wait_us(2);
             }else{
@@ -3880,12 +3880,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             // the compared value is the real id /2 + 1.
         }
-        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL < 2){
+        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL < 1){
             if (starvation_level <= 2){
-                usleep(8);
+                spin_wait_us(8);
             }else if (starvation_level <= 4){
                 //No sleep if the starvation level is high.
-                usleep(4);
+                spin_wait_us(4);
             }else if (starvation_level <= 6){
                 spin_wait_us(2);
             }else{
@@ -4113,12 +4113,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             // the compared value is the real id /2 + 1.
         }
-        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL < 2){
+        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL < 1){
             if (starvation_level <= 2){
-                usleep(8);
+                spin_wait_us(8);
             }else if (starvation_level <= 4){
                 //No sleep if the starvation level is high.
-                usleep(4);
+                spin_wait_us(4);
             }else if (starvation_level <= 6){
                 spin_wait_us(2);
             }else{
