@@ -1150,14 +1150,15 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
             // TODO: Event driven programming is better than polling.
                 if (try_poll_completions_xcompute(wc, 1, false, target_node_id, qp_num) == 0){
                     // exponetial back off to save cpu cycles.
-                    if(++miss_poll_counter < 10240){
+                    if(++miss_poll_counter < 20480){
+//                        asm("pause");
                         continue;
                     }
-                    if(++miss_poll_counter < 20480){
-                        usleep(1);
+                    if(++miss_poll_counter < 40960){
+                        pthread_yield();
                         continue ;
                     }
-                    if(++miss_poll_counter < 40960){
+                    if(++miss_poll_counter < 81920){
                         usleep(16);
                         continue;
                     }else{
