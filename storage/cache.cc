@@ -849,7 +849,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         rw_mtx.unlock();
     }
     void Cache::Handle::writer_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
-        if (rdma_mg == nullptr){
+        assert(false);
+    if (rdma_mg == nullptr){
             rdma_mg = RDMA_Manager::Get_Instance(nullptr);
         }
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
@@ -951,9 +952,11 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
         }
     }
-
+    //Deprecated temporarilly.
     void
     Cache::Handle::writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
+        assert(false);
+
         // Same as updater_post_access
         if (strategy == 2){
             rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);

@@ -54,6 +54,7 @@ namespace DSMEngine{
     class Header_Index {
     public:
         Page_Type p_type = P_Plain;
+        uint64_t p_version = 0;
         GlobalAddress this_page_g_ptr;
         GlobalAddress leftmost_ptr;
         GlobalAddress sibling_ptr;
@@ -409,6 +410,7 @@ namespace DSMEngine{
     class Header {
     public:
         Page_Type p_type = P_Data;
+        uint64_t p_version = 0;
         GlobalAddress this_page_g_ptr;
         int32_t number_of_records;
         friend class RDMA_Manager;

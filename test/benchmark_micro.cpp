@@ -490,8 +490,8 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     memset(buf, i, item_size);
                     GlobalAddress target_cache_line = TOPAGE(to_access);
                     uint64_t cache_line_offset = to_access.offset - target_cache_line.offset;
-                    if (UNLIKELY(cache_line_offset == STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock))){
-                        cache_line_offset += sizeof(uint64_t);
+                    if (UNLIKELY(cache_line_offset <= STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, data_[0]))){
+                        cache_line_offset += STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, data_[0]);
                     }
                     alloc->PrePage_Write(page_buffer, target_cache_line, handle);
                     // Can not write to random place because we can not hurt the metadata in the page.
@@ -546,8 +546,8 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     memset(buf, i, item_size);
                     GlobalAddress target_cache_line = TOPAGE(to_access);
                     uint64_t cache_line_offset = to_access.offset - target_cache_line.offset;
-                    if (UNLIKELY(cache_line_offset == STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock))){
-                        cache_line_offset += sizeof(uint64_t);
+                    if (UNLIKELY(cache_line_offset <= STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, data_[0]))){
+                        cache_line_offset += STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, data_[0]);
                     }
                     alloc->PrePage_Update(page_buffer, target_cache_line, handle);
                     // Can not write to random place because we can not hurt the metadata in the page.
@@ -571,8 +571,8 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     memset(buf, i, item_size);
                     GlobalAddress target_cache_line = TOPAGE(to_access);
                     uint64_t cache_line_offset = to_access.offset - target_cache_line.offset;
-                    if (UNLIKELY(cache_line_offset == STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock))){
-                        cache_line_offset += sizeof(uint64_t);
+                    if (UNLIKELY(cache_line_offset <= STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, data_[0]))){
+                        cache_line_offset += STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, data_[0]);
                     }
                     alloc->PrePage_Update(page_buffer, target_cache_line, handle);
                     // Can not write to random place because we can not hurt the metadata in the page.
@@ -596,8 +596,8 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     memset(buf, i, item_size);
                     GlobalAddress target_cache_line = TOPAGE(to_access);
                     uint64_t cache_line_offset = to_access.offset - target_cache_line.offset;
-                    if (UNLIKELY(cache_line_offset == STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock))){
-                        cache_line_offset += sizeof(uint64_t);
+                    if (UNLIKELY(cache_line_offset <= STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, data_[0]))){
+                        cache_line_offset += STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, data_[0]);
                     }
                     alloc->PrePage_Update(page_buffer, target_cache_line, handle);
                     // Can not write to random place because we can not hurt the metadata in the page.

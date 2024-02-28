@@ -171,6 +171,7 @@ struct sst_gc {
 };
 struct Invalid_Message{
     GlobalAddress page_addr;
+    uint64_t p_version;
     uint8_t starvation_level;
 };
 //struct WUnlock_message{
@@ -468,9 +469,12 @@ class RDMA_Manager {
   ibv_mr * Preregister_Memory(size_t gb_number); //Pre register the memroy do not allocate bit map
   // Remote Memory registering will call RDMA send and receive to the remote memory it also push the new SST bit map to the Remote_Leaf_Node_Bitmap
   bool Remote_Memory_Register(size_t size, uint16_t target_node_id, Chunk_type pool_name);
-  bool Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level);
-    bool Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level);
-  bool Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level);
+  bool Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
+                                      uint64_t page_version);
+    bool Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
+                                        uint64_t page_version);
+  bool Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level,
+                                    uint64_t page_version);
   bool Send_heart_beat();
     bool Send_heart_beat_xcompute(uint16_t target_memory_node_id);
   int Remote_Memory_Deregister();

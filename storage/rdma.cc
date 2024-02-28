@@ -3497,6 +3497,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint8_t target_compute_node_id = 0;
         uint64_t last_atomic_return = 0;
         uint8_t starvation_level = 0;
+        uint64_t page_version = 0;
 #ifdef INVALIDATION_STATISTICS
         bool invalidation_counted = false;
 #endif
@@ -3534,7 +3535,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 }
 #endif
                 //TODO: change the function below to Reader_Invalidate_Modified_RPC.
-                Reader_Invalidate_Modified_RPC(page_addr, target_compute_node_id, starvation_level);
+                Reader_Invalidate_Modified_RPC(page_addr, target_compute_node_id, starvation_level, page_version);
 
             }else{
                 // THis could happen if we enable async write unlock. one thread unlock and another thread acqurie the lock.
@@ -3544,7 +3545,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
         }
         //TODO: For high starvation level the invalidation interval shall be shorter.
-        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL == 0){
+        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL < 2){
             if (starvation_level <= 2){
                 usleep(8);
             }else if (starvation_level <= 4){
@@ -3594,7 +3595,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // unlock the lock this time util see a write lock.
 
             RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page);
-
+            //Get the latest page version and make an invalidation message based on current version. (exact once)
+            page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
             target_compute_node_id = ((return_value >> 56) - 1)*2;
             goto retry;
         }
@@ -3676,7 +3678,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         if (retry_cnt % 4 ==  2) {
 //            assert(compare%2 == 0);
             for (auto iter: read_invalidation_targets) {
-                Writer_Invalidate_Shared_RPC(page_addr, iter, 0);
+                Writer_Invalidate_Shared_RPC(page_addr, iter, 0, 0);
             }
         }
         struct ibv_send_wr sr[2];
@@ -3803,6 +3805,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint16_t write_invalidation_target = 0-1;
         uint8_t starvation_level = 0;
         uint64_t last_CAS_return = 0;
+        uint64_t page_version = 0;
         int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
 #ifdef INVALIDATION_STATISTICS
         bool invalidation_counted = false;
@@ -3846,7 +3849,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                             cache_invalidation[RDMA_Manager::thread_id]++;
                         }
 #endif
-                        Writer_Invalidate_Shared_RPC(page_addr, iter, starvation_level);
+                        Writer_Invalidate_Shared_RPC(page_addr, iter, starvation_level, page_version);
                     }else{
                         // This rare case is because under async read release, the cache mutex will be released before the read/write lock release.
                         // If there is another request comes in immediately for the same page before the lock release, this print
@@ -3865,7 +3868,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                         cache_invalidation[RDMA_Manager::thread_id]++;
                     }
 #endif
-                    Writer_Invalidate_Modified_RPC(page_addr, write_invalidation_target, starvation_level);
+                    Writer_Invalidate_Modified_RPC(page_addr, write_invalidation_target, starvation_level, page_version);
 
                 }else{
                     //It is okay to have a write invalidation target is itself, if we enable the async write unlock.
@@ -3877,7 +3880,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             // the compared value is the real id /2 + 1.
         }
-        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL == 0){
+        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL < 2){
             if (starvation_level <= 2){
                 usleep(8);
             }else if (starvation_level <= 4){
@@ -3950,6 +3953,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            }
             uint64_t cas_value = (*(uint64_t*) cas_buffer->addr);
             uint64_t write_byte = cas_value >> 56;
+            page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
             if (write_byte > 0){
                 invalidation_RPC_type = 2;
                 //The CAS record (ID/2+1), so we need to recover the real ID.
@@ -4028,7 +4032,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
     void RDMA_Manager::global_Wlock_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
                                                                GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
                                                                int coro_id) {
-
+        assert(false);
         uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
@@ -4081,7 +4085,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                             cache_invalidation[RDMA_Manager::thread_id]++;
                         }
 #endif
-                        Writer_Invalidate_Shared_RPC(page_addr, iter, starvation_level);
+                        Writer_Invalidate_Shared_RPC(page_addr, iter, starvation_level, 0);
                     }else{
                         // This rare case is because the cache mutex will be released before the read/write lock release.
                         // If there is another request comes in immediately for the same page before the lock release, this print
@@ -4099,7 +4103,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                         cache_invalidation[RDMA_Manager::thread_id]++;
                     }
 #endif
-                    Writer_Invalidate_Modified_RPC(page_addr, write_invalidation_target, starvation_level);
+                    Writer_Invalidate_Modified_RPC(page_addr, write_invalidation_target, starvation_level, 0);
 
                 }else{
                     //It is okay to have a write invalidation target is itself, if we enable the async write unlock.
@@ -4109,7 +4113,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             // the compared value is the real id /2 + 1.
         }
-        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL == 0){
+        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL < 2){
             if (starvation_level <= 2){
                 usleep(8);
             }else if (starvation_level <= 4){
@@ -4291,7 +4295,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //The header should be the same offset in Leaf or INternal nodes
         assert(STRUCT_OFFSET(LeafPage<int COMMA int>, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
         assert(STRUCT_OFFSET(InternalPage<int>, hdr) == STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
-        post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
+        assert(STRUCT_OFFSET(DataPage, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
+        post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr.p_version);
+        //Increase the page version before every page flush back.
+        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
+        ((DataPage*)page_buffer->addr)->hdr.p_version++;
         ibv_mr post_gl_page_local_mr = *page_buffer;
         post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
         page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
@@ -4405,6 +4413,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         assert(STRUCT_OFFSET(InternalPage<int>, hdr) == STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
         post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         ibv_mr post_gl_page_local_mr = *page_buffer;
+        //Increase the page version before every page flush back.
+        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
+        ((DataPage*)page_buffer->addr)->hdr.p_version++;
         post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
         page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         assert(remote_lock_addr <= post_gl_page_addr - 8);
@@ -4521,6 +4532,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         assert(STRUCT_OFFSET(InternalPage<int>, hdr) == STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
         post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         ibv_mr post_gl_page_local_mr = *page_buffer;
+        //Increase the page version before every page flush back.
+        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
+        ((DataPage*)page_buffer->addr)->hdr.p_version++;
         post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
         page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         assert(remote_lock_addr <= post_gl_page_addr - 8);
@@ -5470,7 +5484,9 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
   return true;
 }
 
-bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level) {
+bool
+RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
+                                             uint64_t page_version) {
 //    printf(" send write invalidation message to other nodes %p\n", global_ptr);
     RDMA_Request* send_pointer;
     ibv_mr* send_mr = Get_local_send_message_mr();
@@ -5481,6 +5497,7 @@ bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint
     send_pointer->command = writer_invalidate_modified;
     send_pointer->content.inv_message.page_addr = global_ptr;
     send_pointer->content.inv_message.starvation_level = starv_level;
+    send_pointer->content.inv_message.p_version = page_version;
     send_pointer->buffer = recv_mr->addr;
     send_pointer->rkey = recv_mr->rkey;
 //    send_pointer->buffer = receive_mr.addr;
@@ -5513,7 +5530,9 @@ bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint
     return true;
 }
 
-    bool RDMA_Manager::Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level) {
+    bool
+    RDMA_Manager::Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
+                                                 uint64_t page_version) {
 //    printf(" send write invalidation message to other nodes %p\n", global_ptr);
 
         RDMA_Request* send_pointer;
@@ -5526,6 +5545,7 @@ bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint
         send_pointer->command = reader_invalidate_modified;
         send_pointer->content.inv_message.page_addr = global_ptr;
         send_pointer->content.inv_message.starvation_level = starv_level;
+        send_pointer->content.inv_message.p_version = page_version;
         send_pointer->buffer = recv_mr->addr;
         send_pointer->rkey = recv_mr->rkey;
 //        RDMA_ReplyXCompute* receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
@@ -5559,7 +5579,8 @@ bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint
         return true;
     }
 
-    bool RDMA_Manager::Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level) {
+    bool RDMA_Manager::Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level,
+                                                    uint64_t page_version) {
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
         ibv_mr* recv_mr = Get_local_receive_message_mr();
@@ -5567,6 +5588,7 @@ bool RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint
         send_pointer->command = writer_invalidate_shared;
         send_pointer->content.inv_message.page_addr = g_ptr;
         send_pointer->content.inv_message.starvation_level = starv_level;
+        send_pointer->content.inv_message.p_version = page_version;
         send_pointer->buffer = recv_mr->addr;
         send_pointer->rkey = recv_mr->rkey;
 //        RDMA_ReplyXCompute* receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
@@ -6448,7 +6470,7 @@ void RDMA_Manager::fs_deserilization(
 //                assert(false);
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, global_lock);
             }
-            if (handle->remote_lock_status.load() > 0) {
+            if (handle->remote_lock_status.load() > 0 && ((DataPage*)page_mr->addr)->hdr.p_version == receive_msg_buf->content.inv_message.p_version) {
                 //TODO: Use try lock instead of lock.
 //                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                 if(handle->rw_mtx.try_lock()){
@@ -6524,7 +6546,7 @@ void RDMA_Manager::fs_deserilization(
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, global_lock);
             }
             // double check locking
-            if (handle->remote_lock_status.load() > 0){
+            if (handle->remote_lock_status.load() > 0 && ((DataPage*)page_mr->addr)->hdr.p_version == receive_msg_buf->content.inv_message.p_version){
 //                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                 if (handle->rw_mtx.try_lock()){
                     if (starv_level >= handle->starvation_priority){
@@ -6597,7 +6619,7 @@ void RDMA_Manager::fs_deserilization(
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, global_lock);
             }
             // double check locking
-            if (handle->remote_lock_status.load() > 0){
+            if (handle->remote_lock_status.load() > 0 && ((DataPage*)page_mr->addr)->hdr.p_version == receive_msg_buf->content.inv_message.p_version){
 //                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                 if (handle->rw_mtx.try_lock()){
                     if (starv_level >= handle->starvation_priority){
