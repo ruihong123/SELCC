@@ -3505,7 +3505,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        printf("global read lock at %p \n", page_addr);
         retry:
 //        retry_cnt++;
-        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1 || starvation_level > 6) {
+        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1) {
 //            assert(compare%2 == 0);
             if(retry_cnt < 20){
 //                port::AsmVolatilePause();
@@ -3815,7 +3815,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //TODO: send an RPC to the destination every 4 retries.
         // Check whether the invalidation is write type or read type. If it is a read type
         // we need to broadcast the message to multiple destination.
-        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1 || starvation_level > 6) {
+        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1 ) {
 //            assert(compare%2 == 0);
             if(retry_cnt < 20){
 //                port::AsmVolatilePause();
@@ -4050,7 +4050,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //TODO: send an RPC to the destination every 4 retries.
         // Check whether the invalidation is write type or read type. If it is a read type
         // we need to broadcast the message to multiple destination.
-        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1 || starvation_level > 6) {
+        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1 ) {
 //            assert(compare%2 == 0);
             if(retry_cnt < 20){
 //                port::AsmVolatilePause();
