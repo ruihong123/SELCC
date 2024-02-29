@@ -4431,7 +4431,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // lock releasing to reduce the RDMA ROUND trips in the protocol
             volatile uint64_t add = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
             volatile uint64_t substract = (~add) + 1;
-            add = ((uint64_t)RDMA_Manager::node_id/2 +1) << 56;
+            add = ((uint64_t)next_holder_id/2 +1) << 56;
             // The code below is to prevent a work request overflow in the send queue, since we enable
             // async lock releasing.
             uint32_t * counter = (uint32_t *)async_counter.at(page_addr.nodeID)->Get();
@@ -4494,7 +4494,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            uint64_t swap = 0;
             uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
             volatile uint64_t substract = (~compare) + 1;
-            volatile uint64_t add = ((uint64_t)RDMA_Manager::node_id/2 +1) << 56;
+            volatile uint64_t add = ((uint64_t)next_holder_id/2 +1) << 56;
 
             //TODO: USE rdma faa to release the write lock to avoid continuous spurious unlock resulting from the concurrent read lock request.
             Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract + add, IBV_SEND_SIGNALED, Regular_Page);
