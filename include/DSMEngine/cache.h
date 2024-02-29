@@ -124,7 +124,7 @@ class DSMEngine_EXPORT Cache {
         void writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
         bool global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt = nullptr, int coro_id = 0);
         inline void Invalid_local_by_cached_mes(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
-                                                ibv_mr *mr);
+                                                ibv_mr *mr, bool need_spin);
     };
   Cache(const Cache&) = delete;
   Cache& operator=(const Cache&) = delete;
