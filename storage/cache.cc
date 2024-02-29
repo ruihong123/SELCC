@@ -1017,7 +1017,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 }else{
 #ifdef GLOBAL_HANDOVER
                     assert(next_holder_id != RDMA_Manager::node_id);
-                    printf("Global lock for page %p handover from node %u to node %u\n", page_addr, rdma_mg->node_id, next_holder_id.load());
+                    printf("Global lock for page %p handover from node %u to node %u part 2\n", page_addr, rdma_mg->node_id, next_holder_id.load());
                     fflush( stdout );
                     rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, next_holder_id.load(), lock_addr);
                     remote_lock_status.store(0);
