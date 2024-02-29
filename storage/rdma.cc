@@ -6626,10 +6626,17 @@ void RDMA_Manager::fs_deserilization(
                     if (starv_level >= handle->starvation_priority){
                         if (handle->remote_lock_status.load() == 2){
                             if (starv_level >0){
+#ifdef GLOBAL_HANDOVER
                                 printf("Global lock for page %p handover from node %u to node %u\n", g_ptr, node_id, target_node_id);
                                 global_write_page_and_WHandover(page_mr, g_ptr,
                                                                 page_mr->length, target_node_id, lock_gptr);
                                 handle->remote_lock_status.store(0);
+#else
+                                global_write_page_and_Wunlock(page_mr, g_ptr,
+                                                              page_mr->length, lock_gptr, false);
+                                handle->remote_lock_status.store(0);
+#endif
+
                             }else{
                                 global_write_page_and_Wunlock(page_mr, g_ptr,
                                                               page_mr->length, lock_gptr, false);
