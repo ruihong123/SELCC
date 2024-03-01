@@ -35,7 +35,7 @@ public:
   }
   ~Table() {
     if (primary_index_) {
-        delete primary_index_->scheme_ptr;
+//        delete primary_index_->scheme_ptr;
         delete primary_index_;
       primary_index_ = nullptr;
     }
