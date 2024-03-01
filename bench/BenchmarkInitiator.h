@@ -60,7 +60,7 @@ class BenchmarkInitiator {
   }
   
  protected:
-  virtual void RegisterTables(const char* storage_addr,
+  virtual void RegisterTables(char* const storage_addr,
       const std::vector<RecordSchema*>& schemas) {}
 
   virtual void RegisterSchemas(std::vector<RecordSchema*>& schemas) {}
