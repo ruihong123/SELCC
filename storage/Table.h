@@ -40,7 +40,7 @@ public:
       primary_index_ = nullptr;
     }
   }
-
+    // Only the master node (node-0) can create the new table and new index.
   void Init(size_t table_id, RecordSchema* schema_ptr, DDSM* ddsm) {
     table_id_ = table_id;
     schema_ptr_ = schema_ptr;
@@ -133,7 +133,7 @@ public:
     schema_ptr_->Deserialize(cur_addr);
     cur_addr = cur_addr + schema_ptr_->GetSerializeSize();
     RecordSchema* index_schema_ptr = GetPrimaryIndexSchema();
-    primary_index_ = new Btr<IndexKey, uint64_t>(default_gallocator, default_gallocator->rdma_mg->page_cache_, index_schema_ptr,0);
+    primary_index_ = new Btr<IndexKey, uint64_t>(default_gallocator, default_gallocator->rdma_mg->page_cache_, index_schema_ptr);
     primary_index_->Deserialize(cur_addr);
   }
     
