@@ -848,8 +848,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         }
         rw_mtx.unlock();
     }
+    //This function should be used with caution. only used when there on the new allocated cache line. and used only once per page.
     void Cache::Handle::writer_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
-        assert(false);
+
     if (rdma_mg == nullptr){
             rdma_mg = RDMA_Manager::Get_Instance(nullptr);
         }
