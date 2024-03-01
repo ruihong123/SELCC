@@ -18,6 +18,7 @@ class TpccInitiator : public BenchmarkInitiator {
 protected:
   virtual void RegisterTables(char* const storage_addr,
       const std::vector<RecordSchema*>& schemas) {
+      printf("schema table count is %d\n", schemas.size());
     StorageManager storage_manager;
     storage_manager.RegisterTables(schemas, default_gallocator);
     storage_manager.Serialize(storage_addr);
