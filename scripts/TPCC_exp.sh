@@ -63,6 +63,14 @@ launch () {
   echo "start tpcc for dist_ratio ${dist_ratio}"
   output_file="${output_dir}/${dist_ratio}_tpcc.log"
   memory_file="${output_dir}/Memory.log"
+  for ((i=0;i<${#memory_nodes[@]};i++)); do
+        memory=${memory_nodes[$i]}
+        script_memory="cd ${bin_dir} && ./memory_server_tpcc $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size > ${output_file} 2>&1"
+        echo "start worker: ssh ${ssh_opts} ${memory} '$script_memory' &"
+        ssh ${ssh_opts} ${memory} "echo '/proj/purduedb-PG0/logs/core$memory' | sudo tee /proc/sys/kernel/core_pattern"
+        ssh ${ssh_opts} ${memory} "ulimit -S -c unlimited && $script_memory" &
+        sleep 1
+  done
   script_compute="cd ${bin_dir} && ./tpcc ${compute_ARGS} -d${dist_ratio} > ${output_file} 2>&1"
   echo "start master: ssh ${ssh_opts} ${master_host} '$script_compute -sn$master_host  -nid0' &"
   ssh ${ssh_opts} ${master_host} "echo '/proj/purduedb-PG0/logs/core$master_host' | sudo tee /proc/sys/kernel/core_pattern"
@@ -77,14 +85,7 @@ launch () {
     ssh ${ssh_opts} ${compute} "ulimit -S -c unlimited && $script_compute -sn$compute -nid$((2*$i))" &
     sleep 1
   done
-  for ((i=0;i<${#memory_nodes[@]};i++)); do
-      memory=${memory_nodes[$i]}
-      script_memory="cd ${bin_dir} && ./memory_server_tpcc $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size > ${output_file} 2>&1"
-      echo "start worker: ssh ${ssh_opts} ${memory} '$script_memory' &"
-      ssh ${ssh_opts} ${memory} "echo '/proj/purduedb-PG0/logs/core$memory' | sudo tee /proc/sys/kernel/core_pattern"
-      ssh ${ssh_opts} ${memory} "ulimit -S -c unlimited && $script_memory" &
-      sleep 1
-  done
+
   wait
   echo "done for ${dist_ratio}"
 }
