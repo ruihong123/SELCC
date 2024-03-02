@@ -193,6 +193,7 @@ namespace DSMEngine{
         // this is called when tree grows
         InternalPage(GlobalAddress left, const Key &key, GlobalAddress right, GlobalAddress this_page_g_ptr,
                      uint32_t level = 0) {
+            assert(level> 0);
             assert(STRUCT_OFFSET(InternalPage<Key>, local_lock_meta) == 0);
             hdr.p_type = P_Internal;
             hdr.leftmost_ptr = left;
@@ -211,6 +212,7 @@ namespace DSMEngine{
         }
 
         explicit InternalPage(GlobalAddress this_page_g_ptr, uint32_t level = 0) {
+            assert(level > 0)
             hdr.level = level;
             global_lock = 0;
             records[0].ptr = GlobalAddress::Null();
