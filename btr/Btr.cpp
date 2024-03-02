@@ -83,7 +83,7 @@ namespace DSMEngine {
             }
         }
         assert(sizeof(InternalPage<Key>) <= kInternalPageSize);
-
+        leaf_cardinality_ = (kLeafPageSize - STRUCT_OFFSET(LeafPage<Key COMMA Value>, data_[0])) / scheme_ptr->GetSchemaSize();
         print_verbose();
         assert(g_root_ptr.is_lock_free());
     }
