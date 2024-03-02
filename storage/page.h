@@ -212,7 +212,7 @@ namespace DSMEngine{
         }
 
         explicit InternalPage(GlobalAddress this_page_g_ptr, uint32_t level = 0) {
-            assert(level > 0)
+            assert(level > 0);
             hdr.level = level;
             global_lock = 0;
             records[0].ptr = GlobalAddress::Null();
