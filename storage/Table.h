@@ -58,7 +58,7 @@ public:
   bool InsertPriIndex(const IndexKey* keys, size_t key_num, GlobalAddress tuple_gaddr) {
     assert(key_num == secondary_count_ + 1);
     char key_value_pair[16] = {0};
-    Slice inserted_slice(key_value_pair, 8);
+    Slice inserted_slice(key_value_pair, 16);
     memcpy(key_value_pair, &keys[0], 8);
     memcpy(key_value_pair + 8, &tuple_gaddr, 8);
     primary_index_->insert(keys[0], inserted_slice);
