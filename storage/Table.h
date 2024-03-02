@@ -165,6 +165,7 @@ public:
         int cnt = 0;
         bool ret = page->AllocateRecord(cnt, GetSchema() , tuple_gaddr, tuple_data_);
         assert(ret);
+        printf("current page tuple count is  %d\n", cnt);
         // if this page is full, close it and  create a new cache line next time.
         if(cnt == page->hdr.kDataCardinality){
             g_addr = GlobalAddress::Null();
