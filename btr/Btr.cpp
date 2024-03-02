@@ -2521,7 +2521,7 @@ re_read:
 //          printf("Allocate slot for page 3 %p\n", sibling_addr);
 
             rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Regular_Page);
-            assert(level >0);
+            assert(page->hdr.level >0);
             auto sibling = new(sibling_mr->addr) InternalPage<Key>(sibling_addr, page->hdr.level);
 
 //              std::cout << "addr " <<  sibling_addr << " | level " <<
@@ -2604,6 +2604,7 @@ re_read:
             assert(page->global_lock == ((uint64_t)(rdma_mg->node_id/2 +1) <<56));
             assert(page->hdr.valid_page);
             //TODO: Change false to true.
+            assert(page->hdr.level > 0);
             rdma_mg->global_write_page_and_Wunlock(page_mr, page_addr, kInternalPageSize, lock_addr, false);
             releases_local_optimistic_lock(&page->local_lock_meta);
         }
