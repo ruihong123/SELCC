@@ -480,7 +480,7 @@ namespace DSMEngine{
         bool DeleteRecord(GlobalAddress g_addr, RecordSchema *record_scheme);
         bool Data_page_delete(char* local_addr);
         bool Data_page_delete(Record* out_side_record);
-        static uint32_t find_empty_spot_from_bitmap(uint64_t* bitmap, uint32_t number_of_bits);
+        static int find_empty_spot_from_bitmap(uint64_t* bitmap, uint32_t number_of_bits);
         void set_bitmap(uint64_t* bitmap, size_t index);
         void reset_bitmap(uint64_t* bitmap, size_t index);
     };
