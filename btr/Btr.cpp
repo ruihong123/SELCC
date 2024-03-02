@@ -347,6 +347,7 @@ namespace DSMEngine {
         if(++round_robin_cur == rdma_mg->memory_nodes.size()){
             round_robin_cur = 0;
         }
+        assert(level >0);
         auto new_root = new(page_buffer->addr) InternalPage<Key>(left, k, right, new_root_addr, level);
 
         // The code below is just for debugging
@@ -2519,7 +2520,7 @@ re_read:
 //          printf("Allocate slot for page 3 %p\n", sibling_addr);
 
             rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Regular_Page);
-
+            assert(level >0);
             auto sibling = new(sibling_mr->addr) InternalPage<Key>(sibling_addr, page->hdr.level);
 
 //              std::cout << "addr " <<  sibling_addr << " | level " <<
