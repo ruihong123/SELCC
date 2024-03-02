@@ -155,7 +155,7 @@ public:
             page = new(page_buffer) DataPage(g_addr, cardinality, table_id_);
         } else {
             gallocator->PrePage_Update(page_buffer, g_addr, handle);
-            assert(((DataPage*)page_buffer)->hdr.kTableID == table_id_);
+            assert(((DataPage*)page_buffer)->hdr.table_id == table_id_);
             page = reinterpret_cast<DataPage*>(page_buffer);
 
         }
