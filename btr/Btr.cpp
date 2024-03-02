@@ -2259,6 +2259,7 @@ re_read:
                     rdma_mg->global_Wlock_and_read_page_without_INVALID(&temp_mr, temp_page_add,
                                                                         kInternalPageSize - RDMA_OFFSET,
                                                                         lock_addr, cas_mr, 1, cxt, coro_id);
+                    assert(page->hdr.level > 0);
                     //                handle->remote_lock_status.store(2);
                     //            usleep(1);
                 }
