@@ -146,14 +146,22 @@ public:
   void AllocateNewTuple(char*& tuple_data_, GlobalAddress &tuple_gaddr, Cache::Handle* &handle, DDSM *gallocator ) {
         void* page_buffer;
         GlobalAddress g_addr = GetOpenedBlock();
+      DataPage *page = nullptr;
         if ( g_addr == GlobalAddress::Null()){
             g_addr = gallocator->Allocate_Remote(Regular_Page);
             SetOpenedBlock(g_addr);
+            gallocator->PrePage_Write(page_buffer, g_addr, handle);
+            uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0])) / (8ull*schema_ptr_->GetSchemaSize() +1);
+            page = new(page_buffer) DataPage(g_addr, cardinality, table_id_);
+        } else {
+            gallocator->PrePage_Update(page_buffer, g_addr, handle);
+            assert(((DataPage*)page_buffer)->hdr.kTableID == table_id_);
+            page = reinterpret_cast<DataPage*>(page_buffer);
+
         }
-        gallocator->PrePage_Write(page_buffer, g_addr, handle);
         assert(handle != nullptr);
         assert(page_buffer != nullptr);
-        DataPage *page = reinterpret_cast<DataPage *>(page_buffer);
+        // TODO: if this is a new cache line, we need to initialize the header correctly.
         int cnt = 0;
         bool ret = page->AllocateRecord(cnt, GetSchema() , tuple_gaddr, tuple_data_);
         assert(ret);

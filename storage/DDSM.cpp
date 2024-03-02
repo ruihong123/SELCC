@@ -52,6 +52,8 @@ namespace DSMEngine {
         assert(handle != nullptr);
         handle->writer_pre_access(page_addr, kLeafPageSize, lock_addr, mr);
         page_buffer = mr->addr;
+        // reset the local buffer
+        memset(page_buffer,0, kLeafPageSize);
     }
 
     void DDSM::PostPage_Write(GlobalAddress page_addr, Cache::Handle *&handle) {
