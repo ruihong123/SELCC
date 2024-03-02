@@ -524,17 +524,19 @@ namespace DSMEngine {
         return true;
     }
 
-    int DataPage::find_empty_spot_from_bitmap(uint64_t* bitmap, uint32_t number_of_bits){
+    uint32_t DataPage::find_empty_spot_from_bitmap(uint64_t* bitmap, uint32_t number_of_bits){
         uint32_t number_of_64 = (number_of_bits + 63) / 64;
-        for (int i = 0; i < number_of_64; ++i) {
+        uint32_t number_left = number_of_bits;
+        for (uint32_t i = 0; i < number_of_64; ++i) {
             if (bitmap[i] != 0xFFFFFFFFFFFFFFFF){
-                for (int j = 0; j < 64; ++j) {
+                for (uint32_t j = 0; j < (number_left>64?64:number_left); ++j) {
                     if ((bitmap[i] & (1<<j)) == 0){
                         assert(i*64 + j < number_of_bits);
                         return i*64 + j;
                     }
                 }
             }
+            number_left -= 64;
         }
 
         return -1;
