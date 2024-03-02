@@ -168,7 +168,7 @@ public:
         printf("current page tuple count is  %d\n", cnt);
         // if this page is full, close it and  create a new cache line next time.
         if(cnt == page->hdr.kDataCardinality){
-            g_addr = GlobalAddress::Null();
+            SetOpenedBlock(GlobalAddress::Null());
         }
   }
 
