@@ -147,7 +147,7 @@ public:
         void* page_buffer;
         GlobalAddress g_addr = GetOpenedBlock();
       DataPage *page = nullptr;
-        if ( g_addr == GlobalAddress::Null()){
+        if (g_addr == GlobalAddress::Null() ){
             g_addr = gallocator->Allocate_Remote(Regular_Page);
             SetOpenedBlock(g_addr);
             gallocator->PrePage_Write(page_buffer, g_addr, handle);
@@ -165,9 +165,9 @@ public:
         int cnt = 0;
         bool ret = page->AllocateRecord(cnt, GetSchema() , tuple_gaddr, tuple_data_);
         assert(ret);
-        // always open a new page when current page is full.
+        // if this page is full, close it and  create a new cache line next time.
         if(cnt == page->hdr.kDataCardinality){
-            SetOpenedBlock(gallocator->Allocate_Remote(Regular_Page));
+            g_addr = GlobalAddress::Null();
         }
   }
 
