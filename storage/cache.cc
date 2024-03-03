@@ -795,7 +795,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 cache_miss[RDMA_Manager::thread_id][0]++;
 //                cache_hit_valid[RDMA_Manager::thread_id][0]++;
                 if (!global_Rlock_update(lock_addr, cas_mr)){
-//
+                    remote_lock_status.store(0);
                     //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
                     // is problematice if we want to upgrade the lock during a transaction.
                     // May be we can take advantage of the lock starvation bit to solve this problem.
