@@ -538,7 +538,7 @@ namespace DSMEngine {
             }
             number_left -= 64;
         }
-
+        assert(hdr.number_of_records == hdr.kDataCardinality);
         return -1;
     }
     void DataPage::set_bitmap(uint64_t *bitmap, size_t index) {
