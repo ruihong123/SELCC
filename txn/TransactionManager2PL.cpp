@@ -22,7 +22,7 @@ namespace DSMEngine {
 //            if (locked_handles_[g_addr].second < INSERT_ONLY){
 //                locked_handles_[g_addr].second = INSERT_ONLY;
 //            }
-            assert(locked_handles_.at(g_addr).second >= INSERT_ONLY);
+            assert(locked_handles_.at(*g_addr).second >= INSERT_ONLY);
 //            default_gallocator->PrePage_Write(page_buffer, g_addr, handle);
             page_buffer = handle->value;
         }
