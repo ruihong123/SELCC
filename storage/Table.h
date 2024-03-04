@@ -8,6 +8,7 @@
 #include "Meta.h"
 #include "HashIndex.h"
 #include "Btr.h"
+#include "thread_local.h"
 //#include "Profiler.h"
 
 namespace DSMEngine {
@@ -25,13 +26,16 @@ namespace DSMEngine {
 
         return index_schema_ptr;
     }
+    void delete_GAddr(void* ptr){
+        delete (GlobalAddress*) ptr;
+    }
 class Table{
 public:
   Table() {
     schema_ptr_ = nullptr;
     primary_index_ = nullptr;
 //    secondary_indexes_ = nullptr;
-    opened_block_ == GlobalAddress::Null();
+    opened_block_;
   }
   ~Table() {
     if (primary_index_) {
@@ -99,12 +103,12 @@ public:
   size_t GetSchemaSize() const {
     return schema_ptr_->GetSchemaSize();
   }
-  GlobalAddress GetOpenedBlock() const {
+  GlobalAddress* GetOpenedBlock() const {
 
-    return opened_block_;
+    return (GlobalAddress*)opened_block_.Get();
   }
-    void SetOpenedBlock(const GlobalAddress& opened_block) {
-        opened_block_ = opened_block;
+    void SetOpenedBlock(const GlobalAddress* opened_block) {
+        opened_block_.Reset((void*)opened_block);
     }
   Btr<IndexKey, uint64_t>* GetPrimaryIndex() {
     return primary_index_;
@@ -145,16 +149,18 @@ public:
   }
   void AllocateNewTuple(char*& tuple_data_, GlobalAddress &tuple_gaddr, Cache::Handle* &handle, DDSM *gallocator ) {
         void* page_buffer;
-        GlobalAddress g_addr = GetOpenedBlock();
+        GlobalAddress* g_addr = GetOpenedBlock();
       DataPage *page = nullptr;
-        if (g_addr == GlobalAddress::Null() ){
-            g_addr = gallocator->Allocate_Remote(Regular_Page);
+        if (g_addr == nullptr){
+            g_addr = new GlobalAddress();
+            *g_addr = gallocator->Allocate_Remote(Regular_Page);
+
             SetOpenedBlock(g_addr);
-            gallocator->PrePage_Update(page_buffer, g_addr, handle);
+            gallocator->PrePage_Update(page_buffer, *g_addr, handle);
             uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0])) / (8ull*schema_ptr_->GetSchemaSize() +1);
-            page = new(page_buffer) DataPage(g_addr, cardinality, table_id_);
+            page = new(page_buffer) DataPage(*g_addr, cardinality, table_id_);
         } else {
-            gallocator->PrePage_Update(page_buffer, g_addr, handle);
+            gallocator->PrePage_Update(page_buffer, *g_addr, handle);
             assert(((DataPage*)page_buffer)->hdr.table_id == table_id_);
             page = reinterpret_cast<DataPage*>(page_buffer);
 
@@ -168,7 +174,7 @@ public:
         printf("current page tuple count is  %d\n", cnt);
         // if this page is full, close it and  create a new cache line next time.
         if(cnt == page->hdr.kDataCardinality){
-            SetOpenedBlock(GlobalAddress::Null());
+            SetOpenedBlock(nullptr);
         }
   }
 
@@ -180,7 +186,9 @@ public:
 //  HashIndex *primary_index_;
   Btr<IndexKey, uint64_t>* primary_index_;
 //  HashIndex **secondary_indexes_; // Currently disabled
-  static thread_local GlobalAddress opened_block_;
+    // todo: make the opened block thread local in RocksDB.
+//  static thread_local GlobalAddress opened_block_;
+    ThreadLocalPtr opened_block_ = ThreadLocalPtr(&delete_GAddr);
 };
 
 }

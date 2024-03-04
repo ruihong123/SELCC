@@ -3,5 +3,5 @@
 //
 #include "Table.h"
 namespace DSMEngine {
-    thread_local GlobalAddress Table::opened_block_ = GlobalAddress::Null();
+//    thread_local GlobalAddress Table::opened_block_ = GlobalAddress::Null();
 }
