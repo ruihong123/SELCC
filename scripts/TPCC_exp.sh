@@ -3,7 +3,7 @@ set -o nounset
 bin=`dirname "$0"`
 bin=`cd "$bin"; pwd`
 SRC_HOME=$bin/..
-BIN_HOME=$bin/../release
+BIN_HOME=$bin/../debug
 # With the specified arguments for benchmark setting,
 # this script_compute runs tpcc for varied distributed ratios
 
@@ -68,21 +68,21 @@ launch () {
         script_memory="cd ${bin_dir} && ./memory_server_tpcc $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size > ${output_file} 2>&1"
         echo "start worker: ssh ${ssh_opts} ${memory} '$script_memory' &"
         ssh ${ssh_opts} ${memory} "echo '/proj/purduedb-PG0/logs/core$memory' | sudo tee /proc/sys/kernel/core_pattern"
-        ssh ${ssh_opts} ${memory} "ulimit -S -c unlimited && $script_memory" &
+        ssh ${ssh_opts} ${memory} "ulimit -S -c unlimited && $script_memory"
         sleep 1
   done
   script_compute="cd ${bin_dir} && ./tpcc ${compute_ARGS} -d${dist_ratio} > ${output_file} 2>&1"
   echo "start master: ssh ${ssh_opts} ${master_host} '$script_compute -sn$master_host  -nid0' &"
   ssh ${ssh_opts} ${master_host} "echo '/proj/purduedb-PG0/logs/core$master_host' | sudo tee /proc/sys/kernel/core_pattern"
 
-  ssh ${ssh_opts} ${master_host} "ulimit -S -c unlimited && $script_compute -sn$master_host -nid0" &
+  ssh ${ssh_opts} ${master_host} "ulimit -S -c unlimited && $script_compute -sn$master_host -nid0"
   sleep 3
 
   for ((i=1;i<${#compute_nodes[@]};i++)); do
     compute=${compute_nodes[$i]}
     echo "start worker: ssh ${ssh_opts} ${compute} '$script_compute -sn$compute -nid$((2*$i))' &"
     ssh ${ssh_opts} ${compute} "echo '/proj/purduedb-PG0/logs/core$compute' | sudo tee /proc/sys/kernel/core_pattern"
-    ssh ${ssh_opts} ${compute} "ulimit -S -c unlimited && $script_compute -sn$compute -nid$((2*$i))" &
+    ssh ${ssh_opts} ${compute} "ulimit -S -c unlimited && $script_compute -sn$compute -nid$((2*$i))"
     sleep 1
   done
 
