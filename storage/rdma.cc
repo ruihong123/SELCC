@@ -4301,7 +4301,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         assert(STRUCT_OFFSET(LeafPage<int COMMA int>, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
         assert(STRUCT_OFFSET(InternalPage<int>, hdr) == STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
         assert(STRUCT_OFFSET(DataPage, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
-        post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr.p_version);
+        post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         //Increase the page version before every page flush back.
         assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr.p_version));
         ((DataPage*)page_buffer->addr)->hdr.p_version++;
