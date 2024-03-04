@@ -26,7 +26,7 @@ namespace DSMEngine {
 
         return index_schema_ptr;
     }
-    void delete_GAddr(void* ptr){
+    static void delete_GAddr(void* ptr){
         delete (GlobalAddress*) ptr;
     }
 class Table{

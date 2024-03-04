@@ -7,17 +7,17 @@ namespace DSMEngine {
                                            Cache::Handle* &handle, GlobalAddress &tuple_gaddr, char* &tuple_buffer) {
         Table* table = storage_manager_->tables_[table_id];
         void* page_buffer;
-        GlobalAddress g_addr = table->GetOpenedBlock();
-        if ( g_addr == GlobalAddress::Null()){
-            g_addr = default_gallocator->Allocate_Remote(Regular_Page);
+        GlobalAddress* g_addr = table->GetOpenedBlock();
+        if ( g_addr == nullptr){
+            *g_addr = default_gallocator->Allocate_Remote(Regular_Page);
             table->SetOpenedBlock(g_addr);
         }
-        if (locked_handles_.find(g_addr) == locked_handles_.end()){
-            default_gallocator->PrePage_Update(page_buffer, g_addr, handle);
-            locked_handles_[g_addr] = std::pair(handle,INSERT_ONLY);
+        if (locked_handles_.find(*g_addr) == locked_handles_.end()){
+            default_gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+            locked_handles_[*g_addr] = std::pair(handle,INSERT_ONLY);
         }
         else{
-            handle = locked_handles_.at(g_addr).first;
+            handle = locked_handles_.at(*g_addr).first;
             //TODO: update the hierachical lock atomically, if the lock is shared lock
 //            if (locked_handles_[g_addr].second < INSERT_ONLY){
 //                locked_handles_[g_addr].second = INSERT_ONLY;
@@ -33,9 +33,9 @@ namespace DSMEngine {
         int cnt = 0;
         bool ret = page->AllocateRecord(cnt, table->GetSchema() , tuple_gaddr, tuple_buffer);
         assert(ret);
-        // always open a new page when current page is full.
+        // if the cache line is full, set the thread local ptr as null, and allocate a new page next time.
         if(cnt == page->hdr.kDataCardinality){
-            table->SetOpenedBlock(default_gallocator->Allocate_Remote(Regular_Page));
+            table->SetOpenedBlock(nullptr);
         }
     }
     //The hierachy lock shall be acquired outside of this function.
