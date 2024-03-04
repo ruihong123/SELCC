@@ -358,7 +358,7 @@ namespace DSMEngine {
         g_root_ptr.store(new_root_addr,std::memory_order_seq_cst);
         cached_root_page_mr.store(page_buffer);
         tree_height.store(level);
-
+        assert(new_root->hdr.level == level);
         rdma_mg->RDMA_Write(new_root_addr, page_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
         ibv_mr remote_mr = *rdma_mg->global_index_table;
         // find the table enty according to the id

@@ -159,7 +159,6 @@ namespace DSMEngine{
         uint8_t hand_time;
         uint32_t hand_over;//can be only 1 byte.
     };
-//        constexpr int RDMA_OFFSET  = 64; // local lock offset.
     constexpr int RDMA_OFFSET  = sizeof(Local_Meta);
 //    constexpr int kInternalCardinality =
 //            (kInternalPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) -RDMA_OFFSET) /
@@ -180,7 +179,7 @@ namespace DSMEngine{
         alignas(8) uint64_t global_lock;
 //        uint8_t busy;
 //        uint8_t front_version = 0;
-        Header_Index<Key> hdr;
+        Header_Index<Key> hdr = {};
         InternalEntry<Key> records[kInternalCardinality] = {};
 //        char data[1] = {};
 //  uint8_t padding[InternalPagePadding];
