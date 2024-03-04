@@ -511,6 +511,7 @@ namespace DSMEngine {
         auto* bitmap = (uint64_t*)data_;
         int empty_slot = find_empty_spot_from_bitmap(bitmap, hdr.kDataCardinality);
         if (empty_slot == -1){
+            assert(hdr.number_of_records == hdr.kDataCardinality);
             //Need to allcoate a new page
             return false;
         }
