@@ -75,7 +75,7 @@ namespace DSMEngine {
         //Btree waiting for serialization. get the root node from memcached
         Btr(DDSM *dsm, Cache *cache_ptr, RecordSchema *record_scheme_ptr);
 
-        void insert(const Key &k, const Slice &v, CoroContext *cxt = nullptr,
+        [[noreturn]] void insert(const Key &k, const Slice &v, CoroContext *cxt = nullptr,
                     int coro_id = 0);
 
         bool search(const Key &k, const Slice &v, CoroContext *cxt = nullptr,

@@ -1774,6 +1774,10 @@ namespace DSMEngine {
                         printf("The internal page search is not start from root node.\n");
                     }
 
+                }else{
+                    // the upper node is NULL which means this node is viewed as root node then the if
+                    // clause shall not comes here.
+                    assert(false);
                 }
 
 
@@ -2920,6 +2924,7 @@ re_read:
             if(++round_robin_cur == rdma_mg->memory_nodes.size()){
                 round_robin_cur = 0;
             }
+            printf("Create new sibling nodeid %lu, offset %llu, on tree %llu, left node's nodeid %lu, offset %lu", sibling_addr.nodeID, sibling_addr.offset, tree_id, page_addr.nodeID, page_addr.offset);
             //TODO: use a thread local sibling memory region to reduce the allocator contention.
             ibv_mr* sibling_mr = new ibv_mr{};
 //      printf("Allocate slot for page 3 %p\n", sibling_addr);
@@ -2971,7 +2976,8 @@ re_read:
         page_cache->Release(handle);
 
         if (sibling_addr != GlobalAddress::Null()){
-            auto p = path_stack[coro_id][level+1];
+            int upper_level = level + 1;
+            auto p = path_stack[coro_id][upper_level];
             ibv_mr* page_hint = nullptr;
             //check whether the node split is for a root node.
             if (UNLIKELY(p == GlobalAddress::Null() )){
