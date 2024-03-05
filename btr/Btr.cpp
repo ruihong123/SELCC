@@ -2224,10 +2224,10 @@ re_read:
                 Header_Index<Key> *header = (Header_Index<Key> *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
                 //since tree height is modified the last, so the page must be correct. the only situation which
                 // challenge the assertion below is that the root page is changed too fast or there is a long context switch above.
+                assert(header->level == level);
                 assert(header->this_page_g_ptr == page_addr);
                 cache_hit_valid[RDMA_Manager::thread_id][0]++;
 
-                assert(header->level == level);
                 // if this page mr is in-use and is the local cache for page_addr
                 skip_cache = true;
                 page = (InternalPage<Key> *) page_buffer;
