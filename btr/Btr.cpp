@@ -289,7 +289,7 @@ namespace DSMEngine {
         g_root_ptr.store(root_ptr);
         cached_root_page_mr.store(temp_mr);
         tree_height.store(((InternalPage<Key>*) temp_mr->addr)->hdr.level);
-        std::cout << "Get new root" << g_root_ptr << "tree id is " << tree_id <<std::endl;
+        printf("Get new root node id is %u, offset is %lu, tree id is %lu, this node_id is %hu\n", g_root_ptr.load().nodeID, g_root_ptr.load().offset, tree_id, rdma_mg->node_id);
 //        if (last_level > 0){
 //            assert(last_level != tree_height.load());
 //        }
@@ -370,7 +370,7 @@ namespace DSMEngine {
         //TODO: The new root seems not be updated by the CAS, the old root and new_root addr are the same
         if (!rdma_mg->RDMA_CAS(&remote_mr, cas_buffer, old_root, new_root_addr, IBV_SEND_SIGNALED, 1, 1)) {
             assert(*(uint64_t*)cas_buffer->addr == (uint64_t)old_root);
-            printf("Update the root global buffer %p successfully new root node is %d, offset is %llu, level is %u tree id is %llu\n",remote_mr.addr, new_root_addr.nodeID, new_root_addr.offset , level, tree_id);
+            printf("Update the root global buffer %p successfully new root node is %d, offset is %llu, level is %u tree id is %llu, this node id is %lu\n",remote_mr.addr, new_root_addr.nodeID, new_root_addr.offset , level, tree_id, rdma_mg->node_id);
             broadcast_new_root(new_root_addr, level);
 #ifndef NDEBUG
             usleep(10);
