@@ -1774,10 +1774,10 @@ namespace DSMEngine {
                         printf("The internal page search is not start from root node.\n");
                     }
 
-                }else{
-                    // the upper node is NULL which means this node is viewed as root node then the if
-                    // clause shall not comes here.
-                    assert(false);
+//                }else{
+//                    // the upper node is NULL which means this node is viewed as root node then the if
+//                    // clause shall not comes here.
+//                    assert(false);
                 }
 
 
@@ -2228,6 +2228,11 @@ re_read:
                 // challenge the assertion below is that the root page is changed too fast or there is a long context switch above.
                 assert(header->level == level);
                 assert(header->this_page_g_ptr == page_addr);
+                //Do not know why the code can have the following scenario.
+                if (header->this_page_g_ptr != page_addr){
+                    std::unique_lock<std::shared_mutex> lck(root_mtx);
+                    g_root_ptr.store(GlobalAddress::Null());
+                }
                 cache_hit_valid[RDMA_Manager::thread_id][0]++;
 
                 // if this page mr is in-use and is the local cache for page_addr
