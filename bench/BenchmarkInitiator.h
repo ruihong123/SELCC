@@ -45,15 +45,14 @@ class BenchmarkInitiator {
   }
 
   char* InitStorage() {
-      char* storage_addr = nullptr;
-    int my_partition_id = config_->GetMyPartitionId();
+      char* storage_addr = static_cast<char *>(malloc(StorageManager::GetSerializeSize()));
+      int my_partition_id = config_->GetMyPartitionId();
     int partition_num = config_->GetPartitionNum();
     if (config_->IsMaster()) {
       // RecordSchema
       std::vector<RecordSchema*> schemas;
       this->RegisterSchemas(schemas);
       // TODO: utilize memcached to sync the storage metadata
-      storage_addr = static_cast<char *>(malloc(StorageManager::GetSerializeSize()));
       this->RegisterTables(storage_addr, schemas);
     } 
     return storage_addr;
