@@ -370,7 +370,7 @@ namespace DSMEngine {
         //TODO: The new root seems not be updated by the CAS, the old root and new_root addr are the same
         if (!rdma_mg->RDMA_CAS(&remote_mr, cas_buffer, old_root, new_root_addr, IBV_SEND_SIGNALED, 1, 1)) {
             assert(*(uint64_t*)cas_buffer->addr == (uint64_t)old_root);
-            printf("Update the root global buffer %p successfully new root node is %d, offset is %d, level is %u tree id is %llu\n", new_root_addr.nodeID, new_root_addr.offset, remote_mr.addr, level, tree_id);
+            printf("Update the root global buffer %p successfully new root node is %d, offset is %llu, level is %u tree id is %llu\n",remote_mr.addr, new_root_addr.nodeID, new_root_addr.offset , level, tree_id);
             broadcast_new_root(new_root_addr, level);
 #ifndef NDEBUG
             usleep(10);
