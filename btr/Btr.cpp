@@ -284,10 +284,13 @@ namespace DSMEngine {
 //        ibv_mr* old_mr = cached_root_page_mr.load();
 //        rdma_mg->Deallocate_Local_RDMA_Slot(old_mr->addr, Internal_and_Leaf);
 //        delete old_mr;
+        uint8_t last_level = tree_height.load();
         g_root_ptr.store(root_ptr);
         cached_root_page_mr.store(temp_mr);
         tree_height.store(((InternalPage<Key>*) temp_mr->addr)->hdr.level);
-
+        if (last_level > 0){
+            assert(last_level != tree_height.load());
+        }
         std::cout << "Get new root" << g_root_ptr <<std::endl;
         assert(g_root_ptr != GlobalAddress::Null());
 //        root_hint = temp_mr;
