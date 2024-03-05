@@ -246,8 +246,8 @@ namespace DSMEngine {
             }
         }
 
-        size_t GetSerializeSize() {
-            return sizeof(RecordSchema) + column_count_*sizeof(ColumnInfo);
+        static size_t GetSerializeSize() {
+            return sizeof(RecordSchema) + kMaxColumnNum*sizeof(ColumnInfo);
         }
         const size_t GetMetaColumnId() const {
             return column_count_ - 1;

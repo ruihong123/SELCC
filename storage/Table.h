@@ -122,7 +122,7 @@ public:
     off += sizeof(size_t);
     const char* cur_addr = (addr + off);
     schema_ptr_->Serialize(cur_addr);
-    cur_addr = cur_addr + schema_ptr_->GetSerializeSize();
+    cur_addr = cur_addr + RecordSchema::GetSerializeSize();
     primary_index_->Serialize(cur_addr);
   }
   
@@ -135,7 +135,7 @@ public:
     const char* cur_addr = addr + off;
     schema_ptr_ = new RecordSchema(table_id_);
     schema_ptr_->Deserialize(cur_addr);
-    cur_addr = cur_addr + schema_ptr_->GetSerializeSize();
+    cur_addr = cur_addr + RecordSchema::GetSerializeSize();
     RecordSchema* index_schema_ptr = GetPrimaryIndexSchema();
     primary_index_ = new Btr<IndexKey, uint64_t>(default_gallocator, default_gallocator->rdma_mg->page_cache_, index_schema_ptr);
     primary_index_->Deserialize(cur_addr);
