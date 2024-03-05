@@ -523,14 +523,19 @@ namespace DSMEngine {
         cnt = hdr.number_of_records;
         return true;
     }
-
+    //todo: maybe we need to reimplement it when we change the server from little edian to big edian.
     int DataPage::find_empty_spot_from_bitmap(uint64_t* bitmap, uint32_t number_of_bits){
         uint32_t number_of_64 = (number_of_bits + 63) / 64;
         uint32_t number_left = number_of_bits;
+        uint64_t last_result = 0;
+        uint64_t last_j = 0;
         for (uint32_t i = 0; i < number_of_64; ++i) {
             if (bitmap[i] != 0xFFFFFFFFFFFFFFFF){
+
                 for (uint32_t j = 0; j < (number_left>64?64:number_left); ++j) {
-                    if ((bitmap[i] & (1<<j)) == 0){
+                    last_result = bitmap[i] & (1<<j);
+                    last_j = j;
+                    if (last_result == 0){
                         assert(i*64 + j < number_of_bits);
                         return i*64 + j;
                     }

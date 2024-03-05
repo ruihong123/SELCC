@@ -168,17 +168,12 @@ public:
     operator uint64_t() {
         return val;
     }
-    //TODO: How to distinguish the page at node 0 offest 0, and null_ptr.
-    // May be we should put compute node as even number so that the global address will never
-    // hase GlobalAddress::Null()
-
+    //The memory node ID is odd number not including 0.
     static GlobalAddress Null() {
         static GlobalAddress zero{0, 0};
         return zero;
     };
 } __attribute__((packed));
-//TODO: This to page operation is wrong. !!!!!!! THe page is not aligned to 2048, it only
-// alligned to 8.
 static GlobalAddress TOPAGE(GlobalAddress addr){
     GlobalAddress ret = addr;
     size_t bulk_granularity = 1024ull*1024*1024;
