@@ -32,6 +32,7 @@ int main(int argc, char* argv[]) {
 
   // initialize benchmark data
   char* storage_addr = initiator.InitStorage();
+    assert(storage_addr);
   char storage_key[16] = "Storage Key";
 //  default_gallocator->memSet(storage_key, 16, storage_addr, StorageManager::GetSerializeSize());
     synchronizer.MasterBroadcast(storage_key, 16, storage_addr, StorageManager::GetSerializeSize());
