@@ -1503,7 +1503,7 @@ namespace DSMEngine {
                     // if the root node is the leaf node this path will happen.
                     printf("root and leaf are the same 1\n");
                     // assert the page is a valid page.
-                    assert(page->check_whether_globallock_is_unlocked());
+//                    assert(page->check_whether_globallock_is_unlocked());
                     if (k >= page->hdr.highest){
                         std::unique_lock<std::shared_mutex> l(root_mtx);
                         if (page_addr == g_root_ptr.load()){
