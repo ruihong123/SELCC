@@ -72,7 +72,7 @@ public:
   GlobalAddress SearchRecord(const IndexKey& key) {
       GlobalAddress tuple_gaddr = GlobalAddress::Null();
       char key_value_pair[16] = {0};
-      Slice retrieved_slice(key_value_pair, 8);
+      Slice retrieved_slice(key_value_pair, 16);
     bool find = primary_index_->search(key, retrieved_slice);
       if (find){
             memcpy(&tuple_gaddr, key_value_pair + 8, 8);
