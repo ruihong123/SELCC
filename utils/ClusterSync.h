@@ -100,7 +100,7 @@ public:
         else {
             size_t get_size = 0;
             void* ret = default_gallocator->memGet(key, key_size, &get_size);
-            assert(get_size == sizeof(size));
+            assert(get_size == size);
             memcpy(buff, ret, size);
         }
         sync_key_xcompute_ += partition_num;
