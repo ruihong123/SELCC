@@ -505,9 +505,11 @@ namespace DSMEngine {
         cnt = hdr.number_of_records;
         return true;
     }
+
     bool DataPage::AllocateRecord(int &cnt, RecordSchema *record_scheme, GlobalAddress &g_addr, char *&data_buffer) {
         int tuple_length = record_scheme->GetSchemaSize();
-        uint32_t bitmap_size = (hdr.kDataCardinality + 7) / 8;
+        uint32_t bitmap_size = (hdr.kDataCardinality + 63) / 64;
+        bitmap_size*=8;
         auto* bitmap = (uint64_t*)data_;
         int empty_slot = find_empty_spot_from_bitmap(bitmap, hdr.kDataCardinality);
         if (empty_slot == -1){
@@ -556,7 +558,8 @@ namespace DSMEngine {
     bool DataPage::DeleteRecord(GlobalAddress g_addr, RecordSchema *record_scheme) {
         assert(g_addr.nodeID == hdr.this_page_g_ptr.nodeID);
         int tuple_length = record_scheme->GetSchemaSize();
-        uint32_t bitmap_size = (hdr.kDataCardinality + 7) / 8;
+        uint32_t bitmap_size = (hdr.kDataCardinality + 63) / 64;
+        bitmap_size*=8;
         size_t page_offset = g_addr.offset - hdr.this_page_g_ptr.offset - bitmap_size - STRUCT_OFFSET(DataPage, data_);
 
         size_t index = page_offset / tuple_length;

@@ -29,7 +29,8 @@ namespace DSMEngine {
 //        default_gallocator->PrePage_Write(page_buffer, g_addr, handle);
         assert(handle != nullptr);
         assert(page_buffer != nullptr);
-        DataPage *page = reinterpret_cast<DataPage *>(page_buffer);
+        uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*table->GetSchema()->GetSchemaSize() +1);
+        auto* page = new(page_buffer) DataPage(*g_addr, cardinality, table_id);
         int cnt = 0;
         bool ret = page->AllocateRecord(cnt, table->GetSchema() , tuple_gaddr, tuple_buffer);
         assert(ret);

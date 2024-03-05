@@ -157,7 +157,7 @@ public:
 
             SetOpenedBlock(g_addr);
             gallocator->PrePage_Update(page_buffer, *g_addr, handle);
-            uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0])) / (8ull*schema_ptr_->GetSchemaSize() +1);
+            uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*schema_ptr_->GetSchemaSize() +1);
             page = new(page_buffer) DataPage(*g_addr, cardinality, table_id_);
         } else {
             gallocator->PrePage_Update(page_buffer, *g_addr, handle);
