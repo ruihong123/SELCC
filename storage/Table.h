@@ -122,7 +122,7 @@ public:
     off += sizeof(size_t);
     const char* cur_addr = (addr + off);
     schema_ptr_->Serialize(cur_addr);
-    cur_addr = cur_addr + schema_ptr_->GetSerializeSize() ;
+    cur_addr = cur_addr + schema_ptr_->GetSerializeSize();
     primary_index_->Serialize(cur_addr);
   }
   

@@ -226,15 +226,28 @@ namespace DSMEngine {
         virtual void Serialize(const char*& addr) {
             size_t off = 0;
             memcpy((void *) addr, this, sizeof(RecordSchema));
+            off += sizeof(RecordSchema);
+//            memcpy((void *) (addr + off), columns_, sizeof(RecordSchema));
+            for (size_t i = 0; i < column_count_; ++i){
+                memcpy((void *) (addr + off), columns_[i], sizeof(RecordSchema));
+                off += sizeof(ColumnInfo);
+            }
         }
 
         virtual void Deserialize(const char*& addr) {
             size_t off = 0;
             memcpy((void*)this, addr, sizeof(RecordSchema));
+            off += sizeof(RecordSchema);
+            columns_ = new ColumnInfo*[column_count_];
+            for (size_t i = 0; i < column_count_; ++i) {
+                columns_[i] = new ColumnInfo();
+                memcpy((void*)columns_[i], addr + off, sizeof(ColumnInfo));
+                off += sizeof(ColumnInfo);
+            }
         }
 
-        static size_t GetSerializeSize() {
-            return sizeof(RecordSchema);
+        size_t GetSerializeSize() {
+            return sizeof(RecordSchema) + column_count_*sizeof(ColumnInfo);
         }
         const size_t GetMetaColumnId() const {
             return column_count_ - 1;
