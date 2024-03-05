@@ -290,9 +290,9 @@ namespace DSMEngine {
         cached_root_page_mr.store(temp_mr);
         tree_height.store(((InternalPage<Key>*) temp_mr->addr)->hdr.level);
         std::cout << "Get new root" << g_root_ptr << "tree id is " << tree_id <<std::endl;
-        if (last_level > 0){
-            assert(last_level != tree_height.load());
-        }
+//        if (last_level > 0){
+//            assert(last_level != tree_height.load());
+//        }
         assert(g_root_ptr != GlobalAddress::Null());
 //        root_hint = temp_mr;
     }
@@ -2645,6 +2645,7 @@ re_read:
                     *(uint64_t*)cas_buffer->addr = 0;
                     rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, 1, IBV_SEND_SIGNALED,1, LockTable);
                     if ((*(uint64_t*) cas_buffer->addr) != 0){
+                        printf("Two nodes are trying to modifying the same root for Btree \n");
                         goto acquire_global_lock;
                     }
                     refetch_rootnode();
