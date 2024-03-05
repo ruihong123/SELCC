@@ -2924,7 +2924,7 @@ re_read:
             if(++round_robin_cur == rdma_mg->memory_nodes.size()){
                 round_robin_cur = 0;
             }
-            printf("Create new sibling nodeid %lu, offset %llu, on tree %llu\n", sibling_addr.nodeID, sibling_addr.offset, tree_id);
+//            printf("Create new sibling nodeid %lu, offset %llu, on tree %llu\n", sibling_addr.nodeID, sibling_addr.offset, tree_id);
             //TODO: use a thread local sibling memory region to reduce the allocator contention.
             ibv_mr* sibling_mr = new ibv_mr{};
 //      printf("Allocate slot for page 3 %p\n", sibling_addr);
