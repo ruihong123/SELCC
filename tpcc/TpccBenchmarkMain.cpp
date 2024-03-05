@@ -44,8 +44,7 @@ int main(int argc, char* argv[]) {
   INIT_PROFILE_TIME(gThreadCount);
   TpccPopulator populator(&storage_manager, &tpcc_scale_params);
   populator.Start();
-  REPORT_PROFILE_TIME
-  (gThreadCount);
+  REPORT_PROFILE_TIME(gThreadCount);
     synchronizer.FenceXComputes();
 
   // generate workload
