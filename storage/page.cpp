@@ -533,7 +533,7 @@ namespace DSMEngine {
             if (bitmap[i] != 0xFFFFFFFFFFFFFFFF){
 
                 for (uint32_t j = 0; j < (number_left>64?64:number_left); ++j) {
-                    last_result = bitmap[i] & (1<<j);
+                    last_result = bitmap[i] & (1ull<<j);
                     last_j = j;
                     if (last_result == 0){
                         assert(i*64 + j < number_of_bits);
@@ -547,10 +547,10 @@ namespace DSMEngine {
         return -1;
     }
     void DataPage::set_bitmap(uint64_t *bitmap, size_t index) {
-        bitmap[index / 64] |= (1 << (index % 64));
+        bitmap[index / 64] |= (1ull << (index % 64));
     }
     void DataPage::reset_bitmap(uint64_t *bitmap, size_t index) {
-        bitmap[index / 64] &= ~(1 << (index % 64));
+        bitmap[index / 64] &= ~(1ull << (index % 64));
     }
 
     bool DataPage::DeleteRecord(GlobalAddress g_addr, RecordSchema *record_scheme) {
