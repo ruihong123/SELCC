@@ -11,6 +11,7 @@ class TpccInitiator : public BenchmarkInitiator {
  public:
   TpccInitiator(const size_t& thread_count, ClusterConfig* config)
       : BenchmarkInitiator(thread_count, config) {
+      printf("Iitialize the TpccInitiator\n");
   }
   ~TpccInitiator() {
   }
