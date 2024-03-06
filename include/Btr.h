@@ -271,6 +271,10 @@ namespace DSMEngine {
 
         // should be executed with in a local page lock.
         void Initialize_page_invalidation(InternalPage<Key> *upper_page);
+//        void invalid_root_prt(){
+//            std::unique_lock<std::shared_mutex> lck(root_mtx);
+//            g_root_ptr.store(GlobalAddress::Null());
+//        }
     };
 
 //template class Btr<int,int>;

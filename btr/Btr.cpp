@@ -2227,11 +2227,12 @@ re_read:
                 //since tree height is modified the last, so the page must be correct. the only situation which
                 // challenge the assertion below is that the root page is changed too fast or there is a long context switch above.
                 assert(header->level == level);
-                assert(header->this_page_g_ptr == page_addr);
+//                assert(header->this_page_g_ptr == page_addr);
                 //Do not know why the code can have the following scenario.
                 if (header->this_page_g_ptr != page_addr){
                     std::unique_lock<std::shared_mutex> lck(root_mtx);
                     g_root_ptr.store(GlobalAddress::Null());
+                    return false;
                 }
                 cache_hit_valid[RDMA_Manager::thread_id][0]++;
 
