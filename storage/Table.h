@@ -170,6 +170,7 @@ public:
         // TODO: if this is a new cache line, we need to initialize the header correctly.
         int cnt = 0;
         bool ret = page->AllocateRecord(cnt, GetSchema() , tuple_gaddr, tuple_data_);
+        assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
         assert(ret);
         // if this page is full, close it and  create a new cache line next time.
         if(cnt == page->hdr.kDataCardinality){
