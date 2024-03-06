@@ -1046,7 +1046,8 @@ namespace DSMEngine {
                 p = result.slibing;
 
             }else if (result.next_level != GlobalAddress::Null()){
-                printf("move to the next level, this nodeid is %lu\n", RDMA_Manager::node_id);
+                printf("move to the next level this level %d, next level %d, this gaddr node id %lu, offset, next nodeid %lu offset %lu this nodeid is %lu\n",
+                       result.level, result.level - 1, p.nodeID, p.offset, result.next_level.nodeID, result.next_level.offset, RDMA_Manager::node_id);
                 assert(result.next_level != GlobalAddress::Null());
                 p = result.next_level;
                 level = result.level - 1;
