@@ -1101,7 +1101,7 @@ namespace DSMEngine {
 #ifndef NDEBUG
             next_times++;
 #endif
-            if (next_times == 999){
+            if (next_times++ == 999){
                 printf("break here\n");
             }
             goto next;
@@ -1456,10 +1456,6 @@ namespace DSMEngine {
 
         int counter = 0;
 
-//    if (++counter > 100) {
-//    printf("re read too many times\n");
-//    sleep(1);
-//    }
         // Quetion: We need to implement the lock coupling. how to avoid unnecessary RDMA for lock coupling?
         // Answer: No, see next question.
         Slice page_id((char*)&page_addr, sizeof(GlobalAddress));
@@ -1791,7 +1787,7 @@ namespace DSMEngine {
             if (nested_retry_counter <= 2){
 //            printf("arrive here\n");
                 nested_retry_counter++;
-                result.slibing = page->hdr.sibling_ptr;
+//                result.slibing = page->hdr.sibling_ptr;
                 assert(page->hdr.sibling_ptr != GlobalAddress::Null());
                 GlobalAddress sib_ptr = page->hdr.sibling_ptr;
                 // In case that the sibling pointer is invalidated
@@ -1804,9 +1800,6 @@ namespace DSMEngine {
 #endif
                     goto local_reread;
                 }
-//            if(front_v != rear_v){
-//                goto local_reread;
-//            }
                 // The release should always happen in the end of the function, other wise the
                 // page will be overwrittened. When you run release, this means the page buffer will
                 // sooner be overwritten.
@@ -1816,6 +1809,7 @@ namespace DSMEngine {
 
                 isroot = false;
                 page_hint = nullptr;
+                printf("Right turn from Page nodeid %lu, offset %lu\n", page_addr.nodeID, page_addr.offset);
                 return internal_page_search(sib_ptr, k, result, level, isroot, page_hint, cxt, coro_id);
             }else{
                 nested_retry_counter = 0;
