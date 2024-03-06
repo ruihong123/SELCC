@@ -229,7 +229,7 @@ namespace DSMEngine {
             off += sizeof(RecordSchema);
 //            memcpy((void *) (addr + off), columns_, sizeof(RecordSchema));
             for (size_t i = 0; i < column_count_; ++i){
-                memcpy((void *) (addr + off), columns_[i], sizeof(RecordSchema));
+                memcpy((void *) (addr + off), columns_[i], sizeof(ColumnInfo));
                 off += sizeof(ColumnInfo);
             }
         }
