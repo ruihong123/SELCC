@@ -5057,7 +5057,7 @@ int RDMA_Manager::post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int nu
     sr.num_sge = 1;
     sr.opcode = static_cast<ibv_wr_opcode>(IBV_WR_SEND);
     std::atomic<uint16_t >* os_start = &(*qp_xcompute_os_c.at(target_node_id))[2*num_of_qp];
-    std::atomic<uint16_t >* os_end = &(*qp_xcompute_os_c.at(target_node_id))[2*num_of_qp-1];
+    std::atomic<uint16_t >* os_end = &(*qp_xcompute_os_c.at(target_node_id))[2*num_of_qp+1];
     auto pending_num = os_start->fetch_add(1);
     bool need_signal =  pending_num >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1;
     if (!need_signal){
