@@ -1774,10 +1774,10 @@ namespace DSMEngine {
                         printf("The internal page search is not start from root node.\n");
                     }
 
-//                }else{
-//                    // the upper node is NULL which means this node is viewed as root node then the if
-//                    // clause shall not comes here.
-//                    assert(false);
+                }else{
+                    // the upper node is NULL which means this node is viewed as root node then the if
+                    // clause shall not comes here.
+                    assert(false);
                 }
 
 
