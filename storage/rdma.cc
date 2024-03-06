@@ -2591,7 +2591,7 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
         // we need a lock to protect the outstanding counter. We shall adjust SEND_OUTSTANDING_SIZE_XCOMPUTE to much larger than (2x) the
         // parallelism of the compute node.
         std::atomic<uint16_t >* os_start = &(*qp_xcompute_os_c.at(target_node_id))[2*num_of_qp];
-        std::atomic<uint16_t >* os_end = &(*qp_xcompute_os_c.at(target_node_id))[2*num_of_qp-1];
+        std::atomic<uint16_t >* os_end = &(*qp_xcompute_os_c.at(target_node_id))[2*num_of_qp+1];
         auto pending_num = os_start->fetch_add(1);
         bool need_signal =  pending_num >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1;
         if (!need_signal){
