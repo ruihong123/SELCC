@@ -1020,11 +1020,13 @@ namespace DSMEngine {
 
         if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
             if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
+                printf("revisit the root, this nodeid is %lu\n", RDMA_Manager::node_id);
                 p = get_root_ptr_protected(page_hint);
                 level = -1;
             }else{
                 // fall back to upper level
                 assert(level == result.level || level == -1);
+                printf("fall back to the upper level, this nodeid is %lu\n", RDMA_Manager::node_id);
                 p = path_stack[coro_id][result.level +1];
                 page_hint = nullptr;
                 level = result.level +1;
@@ -1044,6 +1046,7 @@ namespace DSMEngine {
                 p = result.slibing;
 
             }else if (result.next_level != GlobalAddress::Null()){
+                printf("move to the next level, this nodeid is %lu\n", RDMA_Manager::node_id);
                 assert(result.next_level != GlobalAddress::Null());
                 p = result.next_level;
                 level = result.level - 1;
@@ -1591,6 +1594,7 @@ namespace DSMEngine {
                 // CHANGE IT BACK
                 page->check_invalidation_and_refetch_outside_lock(page_addr, rdma_mg, mr);
             }else {
+                assert(false);
                 cache_miss[RDMA_Manager::thread_id][0]++;
                 // TODO (potential optimization) we can use a lock when pushing the read page to cache
                 // so that we can avoid install the page to cache mulitple times. But currently it is okay.
