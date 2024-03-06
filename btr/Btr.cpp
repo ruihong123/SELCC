@@ -1595,7 +1595,6 @@ namespace DSMEngine {
                 // CHANGE IT BACK
                 page->check_invalidation_and_refetch_outside_lock(page_addr, rdma_mg, mr);
             }else {
-                assert(false);
                 cache_miss[RDMA_Manager::thread_id][0]++;
                 // TODO (potential optimization) we can use a lock when pushing the read page to cache
                 // so that we can avoid install the page to cache mulitple times. But currently it is okay.
