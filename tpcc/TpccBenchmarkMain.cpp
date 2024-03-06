@@ -46,6 +46,7 @@ int main(int argc, char* argv[]) {
   TpccPopulator populator(&storage_manager, &tpcc_scale_params);
   populator.Start();
   REPORT_PROFILE_TIME(gThreadCount);
+  //TODO: it seems that FenceXComputes did not do the synchronization.
     synchronizer.FenceXComputes();
 
   // generate workload
