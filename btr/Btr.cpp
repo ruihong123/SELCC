@@ -289,7 +289,7 @@ namespace DSMEngine {
         g_root_ptr.store(root_ptr);
         cached_root_page_mr.store(temp_mr);
         tree_height.store(((InternalPage<Key>*) temp_mr->addr)->hdr.level);
-        std::cout << "Get new root" << g_root_ptr << "tree id is " << tree_id <<std::endl;
+//        printf("Get new root node id is %u, offset is %lu, tree id is %lu, this node_id is %hu\n", g_root_ptr.load().nodeID, g_root_ptr.load().offset, tree_id, DSMEngine::RDMA_Manager::node_id);
 //        if (last_level > 0){
 //            assert(last_level != tree_height.load());
 //        }
