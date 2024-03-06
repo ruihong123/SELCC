@@ -3,7 +3,7 @@ set -o nounset
 bin=`dirname "$0"`
 bin=`cd "$bin"; pwd`
 SRC_HOME=$bin/..
-BIN_HOME=$bin/../release
+BIN_HOME=$bin/../debug
 # With the specified arguments for benchmark setting,
 # this script_compute runs tpcc for varied distributed ratios
 
