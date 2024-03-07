@@ -1533,7 +1533,8 @@ namespace DSMEngine {
         }
 
         if(!skip_cache){
-            assert(!isroot);
+            // Can be root if the original root ptr is invalid and this funciton is entered again bby the node fall back, because we do not have
+            // page_hint this time.
             handle = page_cache->Lookup(page_id);
 #ifdef PROCESSANALYSIS
             if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
@@ -2218,7 +2219,11 @@ re_read:
         InternalPage<Key>* page;
         bool skip_cache = false;
         Cache::Handle* handle = nullptr;
-        // TODO: also use page hint to access the internal store to bypassing the cache
+        // TODO: Think whetehr the update in the root node can be lost since during the execution this page may no longer be the root node.
+        //  and other thread may create a handle in the cache and update the root node from the cache entry and finally overwrite the data back.
+        //  In this case, some of the node split's new pointer can be lost in this old root node.
+        // We can solve this problem by store the root cache handle in Btr attribute and do the concurrency control like a normal page.
+        // Need to rewrite the whole logic of cached root page.
         if (level == tree_height.load()) {
             std::unique_lock<std::shared_mutex> lck(root_mtx);
             //Refresh the root ptr;
