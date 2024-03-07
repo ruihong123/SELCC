@@ -130,7 +130,8 @@ namespace DSMEngine {
 // TODO: not make it as a fixed
 
         std::atomic<ibv_mr *> cached_root_page_mr; // useful when we want to reduce the hash table access in cache with id. (avoid pointer swizzling)
-//    InternalPage* cached_root_page_ptr;
+        Cache::Handle *cached_root_page_handle;
+        //    InternalPage* cached_root_page_ptr;
         std::atomic<GlobalAddress> g_root_ptr = GlobalAddress::Null();
         std::atomic<uint8_t> tree_height = 0;
         static thread_local size_t round_robin_cur;

@@ -833,7 +833,7 @@ class RDMA_Manager {
   int connect_qp(ibv_qp* qp, std::string& qp_type, uint16_t target_node_id);
   int connect_qp_Mside(ibv_qp* qp, std::string& q_id);
   int connect_qp(ibv_qp* qp, Registered_qp_config* remote_con_data);
-    int connect_qp_xcompute(std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUTE> *qp_arr, Registered_qp_config_xcompute* remote_con_data);
+  int connect_qp_xcompute(std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUTE> *qp_arr, Registered_qp_config_xcompute* remote_con_data);
   int resources_destroy();
   void print_config(void);
   void usage(const char* argv0);
