@@ -83,7 +83,6 @@ public:
 
     // copy data, memory allocated outside
     char* GetColumn(const size_t &column_id, void *data) const {
-        assert(schema_ptr_->GetColumnType(column_id) != ValueType::VARCHAR);
         memcpy(data, data_ptr_ + schema_ptr_->GetColumnOffset(column_id), schema_ptr_->GetColumnSize(column_id));
         return (char*)data;
     }
