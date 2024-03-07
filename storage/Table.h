@@ -36,7 +36,7 @@ public:
     schema_ptr_ = nullptr;
     primary_index_ = nullptr;
 //    secondary_indexes_ = nullptr;
-    opened_block_;
+    opened_block_ = new ThreadLocalPtr(&delete_GAddr);
   }
   ~Table() {
     if (primary_index_) {
@@ -107,10 +107,10 @@ public:
   }
   GlobalAddress* GetOpenedBlock() const {
 
-    return (GlobalAddress*)opened_block_.Get();
+    return (GlobalAddress*)opened_block_->Get();
   }
     void SetOpenedBlock(const GlobalAddress* opened_block) {
-        opened_block_.Reset((void*)opened_block);
+        opened_block_->Reset((void*)opened_block);
     }
   Btr<IndexKey, uint64_t>* GetPrimaryIndex() {
     return primary_index_;
@@ -190,7 +190,7 @@ public:
 //  HashIndex **secondary_indexes_; // Currently disabled
     // todo: make the opened block thread local in RocksDB.
 //  static thread_local GlobalAddress opened_block_;
-    ThreadLocalPtr opened_block_ = ThreadLocalPtr(&delete_GAddr);
+    ThreadLocalPtr* opened_block_;
 };
 
 }
