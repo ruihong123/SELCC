@@ -127,6 +127,7 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
 //#endif
     // No longer in use; move to lru_ list.
     LRU_Remove(e);// remove from in_use list move to LRU list.
+    e->in_cache.store(false);
     LRU_Append(&lru_, e);
   }
 }
