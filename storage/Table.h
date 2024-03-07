@@ -60,7 +60,7 @@ public:
   // return false if the key exists in primary index already
   //TODO: rename it
   bool InsertPriIndex(const IndexKey* keys, size_t key_num, GlobalAddress tuple_gaddr) {
-      assert(TOPAGE(tuple_gaddr.offset) != tuple_gaddr.offset);
+      assert(TOPAGE(tuple_gaddr) != tuple_gaddr.offset);
     assert(key_num == secondary_count_ + 1);
     char key_value_pair[16] = {0};
     Slice inserted_slice(key_value_pair, 16);
