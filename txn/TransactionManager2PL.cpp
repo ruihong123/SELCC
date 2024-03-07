@@ -75,7 +75,7 @@ namespace DSMEngine {
       if (locked_handles_.find(g_addr) == locked_handles_.end()){
           if (access_type == READ_ONLY) {
               PROFILE_TIME_START(thread_id_, LOCK_READ);
-              default_gallocator->PrePage_Read(page_buff, tuple_gaddr, handle);
+              default_gallocator->PrePage_Read(page_buff, TOPAGE(tuple_gaddr), handle);
               assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
               tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
               locked_handles_[g_addr] = std::pair(handle,access_type);
@@ -85,7 +85,7 @@ namespace DSMEngine {
           else {
               // DELETE_ONLY, READ_WRITE
               PROFILE_TIME_START(thread_id_, LOCK_WRITE);
-              default_gallocator->PrePage_Update(page_buff, tuple_gaddr, handle);
+              default_gallocator->PrePage_Update(page_buff, TOPAGE(tuple_gaddr), handle);
               assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
               tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
               locked_handles_[g_addr] = std::pair(handle,access_type);

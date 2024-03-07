@@ -41,6 +41,7 @@ namespace DSMEngine {
     }
 
     void DDSM::PrePage_Write(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
+        assert(TOPAGE(page_addr) == page_addr);
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
 
