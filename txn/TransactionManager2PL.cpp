@@ -9,6 +9,7 @@ namespace DSMEngine {
         void* page_buffer;
         GlobalAddress* g_addr = table->GetOpenedBlock();
         if ( g_addr == nullptr){
+            g_addr = new GlobalAddress();
             *g_addr = default_gallocator->Allocate_Remote(Regular_Page);
             table->SetOpenedBlock(g_addr);
         }

@@ -27,6 +27,7 @@ namespace DSMEngine {
         return index_schema_ptr;
     }
     static void delete_GAddr(void* ptr){
+        printf("Deallocate the GLOBAL ADDRESS SUccessfully\n");
         delete (GlobalAddress*) ptr;
     }
 class Table{
