@@ -1020,13 +1020,18 @@ namespace DSMEngine {
         if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
             if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
                 printf("revisit the root, this nodeid is %lu\n", RDMA_Manager::node_id);
+                isroot = true;
                 p = get_root_ptr_protected(page_hint);
                 level = -1;
             }else{
                 // fall back to upper level
                 assert(level == result.level || level == -1);
+
                 printf("fall back to the upper level, this nodeid is %lu\n", RDMA_Manager::node_id);
                 p = path_stack[coro_id][result.level +1];
+                if (p == root){
+                    isroot = true;
+                }
                 page_hint = nullptr;
                 level = result.level +1;
             }
@@ -1090,7 +1095,11 @@ namespace DSMEngine {
 //#endif
         if (!leaf_page_store(p, k, v, split_key, sibling_prt, root, 0, cxt, coro_id)){
             if (path_stack[coro_id][1] != GlobalAddress::Null()){
+
                 p = path_stack[coro_id][1];
+                if (p == root){
+                    isroot = true;
+                }
                 level = 1;
 //            printf("Fall back to the level 1\n");
             }
@@ -1098,6 +1107,7 @@ namespace DSMEngine {
 
                 // re-search the tree from the scratch. (only happen when root and leaf are the same.)
                 p = get_root_ptr_protected(page_hint);
+                isroot = true;
                 level = -1;
 //            printf("Fall back to root\n");
 
