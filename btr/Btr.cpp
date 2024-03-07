@@ -2246,7 +2246,7 @@ re_read:
 //                assert(header->this_page_g_ptr == page_addr);
                 //Do not know why the code can have the following scenario.
                 if (header->this_page_g_ptr != page_addr){
-                    std::unique_lock<std::shared_mutex> lck(root_mtx);
+//                    std::unique_lock<std::shared_mutex> lck(root_mtx);
                     g_root_ptr.store(GlobalAddress::Null());
                     return false;
                 }
@@ -2439,6 +2439,13 @@ re_read:
                     page_cache->Release(upper_layer_handle);
                 }
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
+            }else{
+                // path_stack[coro_id][level+1] == GlobalAddress::Null() then this node is the old root and it have sibling ptr,
+                // then the g_roo_ptr need to be updated.
+                std::unique_lock<std::shared_mutex> l(root_mtx);
+                if (page_addr == g_root_ptr.load()){
+                    g_root_ptr.store(GlobalAddress::Null());
+                }
             }
             // This could be async.
 //        this->unlock_addr(lock_addr, cxt, coro_id, false);
