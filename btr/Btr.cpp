@@ -1001,9 +1001,8 @@ namespace DSMEngine {
 #ifdef PROCESSANALYSIS
         auto start = std::chrono::high_resolution_clock::now();
 #endif
-//#ifndef NDEBUG
         int next_times = 0;
-//#endif
+
     next: // Internal_and_Leaf page search
 
         if (next_times == 5000){
@@ -1046,11 +1045,12 @@ namespace DSMEngine {
                 p = result.slibing;
 
             }else if (result.next_level != GlobalAddress::Null()){
+                p = result.next_level;
+                level = result.level - 1;
                 printf("move to the next level this level %d, next level %d, this gaddr node id %lu, offset %lu, next nodeid %lu offset %lu this nodeid is %lu\n",
                        result.level, result.level - 1, p.nodeID, p.offset, result.next_level.nodeID, result.next_level.offset, RDMA_Manager::node_id);
                 assert(result.next_level != GlobalAddress::Null());
-                p = result.next_level;
-                level = result.level - 1;
+                assert(p != root);
             }else{
                 assert(tree_height == 0);
                 printf("happens when there is only one level, tree height is %d\n", tree_height.load());
