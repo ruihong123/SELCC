@@ -1005,9 +1005,6 @@ namespace DSMEngine {
         int next_times = 0;
 //#endif
     next: // Internal_and_Leaf page search
-//#ifndef NDEBUG
-//        printf("this result level is %d\n", result.level);
-
 
         if (next_times == 5000){
             if (next_times%10 == 0){
@@ -1018,6 +1015,9 @@ namespace DSMEngine {
 
 //#endif
 
+        if (!isroot){
+            assert(p != root);
+        }
         if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
             if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
                 printf("revisit the root, this nodeid is %lu\n", RDMA_Manager::node_id);
