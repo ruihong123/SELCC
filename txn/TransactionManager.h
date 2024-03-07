@@ -38,6 +38,7 @@ class TransactionManager {
     PROFILE_TIME_START(thread_id_, INDEX_READ);
     GlobalAddress data_addr = storage_manager_->tables_[table_id]->SearchRecord(
         primary_key);
+      assert(TOPAGE(data_addr).offset != data_addr.offset);
     PROFILE_TIME_END(thread_id_, INDEX_READ);
     if (data_addr != GlobalAddress::Null()) {
       bool ret = SelectRecordCC(context, table_id, record, data_addr,
