@@ -1786,9 +1786,12 @@ namespace DSMEngine {
                     }
 
                 }else{
-                    // the upper node is NULL which means this node is viewed as root node then the if
-                    // clause shall not comes here.
-                    assert(false);
+                    // this path can be acheived if the root node is outdated very much. and this node is updated,
+                    // and have a left turn. However, it is no longer the root search anymore.
+                    std::unique_lock<std::shared_mutex> l(root_mtx);
+                    if (page_addr == g_root_ptr.load()){
+                        g_root_ptr.store(GlobalAddress::Null());
+                    }
                 }
 
 
