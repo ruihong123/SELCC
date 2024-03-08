@@ -440,6 +440,7 @@ class TpccPopulator : public BenchmarkPopulator {
       storage_manager_->tables_[DISTRICT_TABLE_ID]->InsertPriIndex(
               &k, 1, tuple_gaddr);
       gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
+      assert(!handle->rw_mtx.islocked());
   }
 
   void InsertCustomerRecord(CustomerRecord* record_ptr, Record *record_buf,

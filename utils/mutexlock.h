@@ -109,6 +109,9 @@ public:
     void unlock() {
         write_now.store(false, std::memory_order_release);
     }
+    bool islocked(){
+        return write_now.load(std::memory_order_relaxed);
+    }
 
     void lock_shared() {
         // unique_lock have priority
