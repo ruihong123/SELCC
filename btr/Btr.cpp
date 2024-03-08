@@ -2860,7 +2860,7 @@ re_read:
 //                    }
 //                    // Has to be unlocked to avoid a deadlock.
 //                    l.unlock();
-                    handle->updater_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+                    handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
                     page_cache->Release(handle);
 
                     return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt, coro_id);
@@ -2873,7 +2873,7 @@ re_read:
 //                        global_unlock_addr(lock_addr,handle, cxt, coro_id, false);
 //                        handle->remote_lock_status.store(0);
 //                    }
-                    handle->updater_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+                    handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 
                     //No matter what strategy it is the cache handle need to be released.
                     page_cache->Release(handle);
@@ -2914,7 +2914,7 @@ re_read:
 //                global_unlock_addr(lock_addr,handle, cxt, coro_id, false);
 //                handle->remote_lock_status.store(0);
 //            }
-            handle->updater_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+            handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 
             page_cache->Release(handle);
             DEBUG_PRINT_CONDITION_arg("retry place 8, this level is %d\n", level);
@@ -2936,7 +2936,7 @@ re_read:
 //        assert(page->hdr.last_index== 0 || page->data_[0]!=0);
         if (!need_split) {
 
-            handle->updater_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+            handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 
             page_cache->Release(handle);
 
@@ -3001,7 +3001,7 @@ re_read:
             delete sibling_mr;
 
         }
-        handle->updater_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+        handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 
         page_cache->Release(handle);
 

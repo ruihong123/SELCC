@@ -142,7 +142,7 @@ namespace DSMEngine {
             default_gallocator->PostPage_Read(iter.second.first->gptr, iter.second.first);
         }
         else {
-            default_gallocator->PostPage_Update(iter.second.first->gptr, iter.second.first);
+            default_gallocator->PostPage_UpdateOrWrite(iter.second.first->gptr, iter.second.first);
         }
       // unlock
 //      this->UnLockRecord(access->access_addr_, record->GetSchemaSize());
@@ -176,7 +176,7 @@ namespace DSMEngine {
               default_gallocator->PostPage_Read(iter.second.first->gptr, iter.second.first);
           }
           else {
-              default_gallocator->PostPage_Update(iter.second.first->gptr, iter.second.first);
+              default_gallocator->PostPage_UpdateOrWrite(iter.second.first->gptr, iter.second.first);
           }
           // unlock
 //      this->UnLockRecord(access->access_addr_, record->GetSchemaSize());

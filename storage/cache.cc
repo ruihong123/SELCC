@@ -820,7 +820,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         }
     }
 
-    void Cache::Handle::updater_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
+    void Cache::Handle::updater_writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
         if (strategy == 2){
             rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
             remote_lock_status.store(0);

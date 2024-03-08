@@ -89,7 +89,7 @@ namespace DSMEngine {
         // Handle should be not nullptr
         void PrePage_Upgrade(void*& page_buffer, GlobalAddress page_addr, Cache::Handle *&handle);
 
-        void PostPage_Update(GlobalAddress page_addr, Cache::Handle *&handle);
+        void PostPage_UpdateOrWrite(GlobalAddress page_addr, Cache::Handle *&handle);
         bool connectMemcached();
         bool disconnectMemcached();
         void memSet(const char *key, uint32_t klen, const char *val, uint32_t vlen);

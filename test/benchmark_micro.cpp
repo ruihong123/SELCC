@@ -552,7 +552,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     alloc->PrePage_Update(page_buffer, target_cache_line, handle);
                     // Can not write to random place because we can not hurt the metadata in the page.
                     memcpy((char*)page_buffer + (cache_line_offset), buf, item_size);
-                    alloc->PostPage_Update(target_cache_line, handle);
+                    alloc->PostPage_UpdateOrWrite(target_cache_line, handle);
                 }
                 break;
             }
@@ -577,7 +577,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     alloc->PrePage_Update(page_buffer, target_cache_line, handle);
                     // Can not write to random place because we can not hurt the metadata in the page.
                     memcpy((char*)page_buffer + (cache_line_offset), buf, item_size);
-                    alloc->PostPage_Update(target_cache_line, handle);
+                    alloc->PostPage_UpdateOrWrite(target_cache_line, handle);
                 }
                 break;
             }
@@ -602,7 +602,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     alloc->PrePage_Update(page_buffer, target_cache_line, handle);
                     // Can not write to random place because we can not hurt the metadata in the page.
                     memcpy((char*)page_buffer + (cache_line_offset), buf, item_size);
-                    alloc->PostPage_Update(target_cache_line, handle);
+                    alloc->PostPage_UpdateOrWrite(target_cache_line, handle);
                 }
                 break;
             }

@@ -117,14 +117,18 @@ namespace DSMEngine {
         assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == page_addr);
     }
 
-    void DDSM::PostPage_Update(GlobalAddress page_addr, Cache::Handle *&handle) {
+    void DDSM::PostPage_UpdateOrWrite(GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
         ibv_mr *local_mr = (ibv_mr *) handle->value;
-        handle->updater_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+        handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
         page_cache->Release(handle);
         handle = nullptr;
+        assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, hdr.this_page_g_ptr) == STRUCT_OFFSET(DataPage, hdr.this_page_g_ptr));
+        auto page_buffer = local_mr->addr;
+        assert(((DataPage*)page_buffer)->global_lock);
+        assert(((DataPage*)page_buffer)->hdr.this_page_g_ptr == page_addr);
     }
 #elif ACCESS_MODE == 0
     void DDSM::PrePage_Read(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
