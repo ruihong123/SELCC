@@ -731,11 +731,13 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
     void
     Cache::Handle::updater_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
+        assert(remote_lock_status == 1);
+        assert(rw_mtx.issharelocked());
         if (rdma_mg == nullptr){
             rdma_mg = RDMA_Manager::Get_Instance(nullptr);
         }
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
-
+        rw_mtx.unlock_shared();
         if (remote_lock_urged.load() > 0){
             lock_pending_num.fetch_add(1);
             uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;

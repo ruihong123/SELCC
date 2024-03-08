@@ -36,6 +36,7 @@ namespace DSMEngine {
             if (locked_handles_.at(g_addr).second == READ_ONLY){
                 default_gallocator->PrePage_Upgrade(page_buffer, g_addr, handle);
             }
+            locked_handles_[g_addr].second = INSERT_ONLY;
             page_buffer = handle->value;
         }
 //        default_gallocator->PrePage_Write(page_buffer, g_addr, handle);
@@ -98,6 +99,7 @@ namespace DSMEngine {
           //TODO: update the hierachical lock atomically, if the lock is shared lock
           if (access_type > READ_ONLY && locked_handles_[g_addr].second == READ_ONLY){
               default_gallocator->PrePage_Upgrade(page_buff, g_addr, handle);
+              locked_handles_[g_addr].second = access_type;
           }
           page_buff = handle->value;
           tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);

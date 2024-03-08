@@ -97,7 +97,9 @@ namespace DSMEngine {
         assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == page_addr);
 
     }
-    void DDSM::PrePage_Upgrade(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
+    void DDSM::PrePage_Upgrade(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *handle) {
+        assert(handle->remote_lock_status == 1);
+        assert(handle->rw_mtx.issharelocked());
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
 

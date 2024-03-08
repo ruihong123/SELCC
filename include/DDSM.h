@@ -87,7 +87,8 @@ namespace DSMEngine {
         void PostPage_Write(GlobalAddress page_addr, Cache::Handle *&handle);
         void PrePage_Update(void*& page_buffer, GlobalAddress page_addr, Cache::Handle *&handle);
         // Handle should be not nullptr
-        void PrePage_Upgrade(void*& page_buffer, GlobalAddress page_addr, Cache::Handle *&handle);
+        //TODO: make the hierachical lock upgrade atomaticlly, currently we release and then acquire the lock.
+        void PrePage_Upgrade(void*& page_buffer, GlobalAddress page_addr, Cache::Handle* handle);
 
         void PostPage_UpdateOrWrite(GlobalAddress page_addr, Cache::Handle *&handle);
         bool connectMemcached();

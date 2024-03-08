@@ -112,6 +112,9 @@ public:
     bool islocked(){
         return write_now.load(std::memory_order_relaxed);
     }
+    bool issharelocked(){
+        return readers_count.load(std::memory_order_relaxed) > 0;
+    }
 
     void lock_shared() {
         // unique_lock have priority
