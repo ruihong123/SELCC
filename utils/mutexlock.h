@@ -137,6 +137,7 @@ public:
     }
     void unlock_shared() {
         readers_count.fetch_sub(1, std::memory_order_release);
+        assert(readers_count.load(std::memory_order_relaxed) >= 0);
     }
 };
 
