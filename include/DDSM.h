@@ -37,7 +37,7 @@ namespace DSMEngine {
                 assert(mr->addr!= nullptr );
 //                TODO: recover the assert below if we are testing the blind write operation.
                 LeafPage<uint64_t ,uint64_t>* page = ((LeafPage<uint64_t ,uint64_t>*)mr->addr);
-                assert(page->this_page_g_ptr == handle->gptr);
+                assert(page->hdr.this_page_g_ptr == handle->gptr);
                 assert(page->global_lock);
 //                assert(handle->gptr == ((LeafPage<uint64_t,uint64_t>*)mr->addr)->hdr.this_page_g_ptr);
 
