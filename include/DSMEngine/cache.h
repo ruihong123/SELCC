@@ -117,6 +117,8 @@ class DSMEngine_EXPORT Cache {
         void reader_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
         void reader_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *mr);
         void updater_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
+        void upgrade_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
+
         void updater_writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
         void invalidate_current_entry(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *mr, ibv_mr* cas_mr);
         // Blind write, carefully used.
