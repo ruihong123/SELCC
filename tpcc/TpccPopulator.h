@@ -435,6 +435,7 @@ class TpccPopulator : public BenchmarkPopulator {
       record_in_cache.SetColumn(8, &record_ptr->d_tax_);
       record_in_cache.SetColumn(9, &record_ptr->d_ytd_);
       record_in_cache.SetColumn(10, &record_ptr->d_next_o_id_);
+      assert(record_ptr->d_next_o_id_ > 0);
     IndexKey k = GetDistrictPrimaryKey(record_ptr->d_id_, record_ptr->d_w_id_);
       storage_manager_->tables_[DISTRICT_TABLE_ID]->InsertPriIndex(
               &k, 1, tuple_gaddr);
