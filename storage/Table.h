@@ -36,6 +36,7 @@ public:
     schema_ptr_ = nullptr;
     primary_index_ = nullptr;
 //    secondary_indexes_ = nullptr;
+// TODO: it seems that the deallocator does not work, need to understand why.
     opened_block_ = new ThreadLocalPtr(&delete_GAddr);
   }
   ~Table() {

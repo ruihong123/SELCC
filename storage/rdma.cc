@@ -3723,6 +3723,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }
             assert(false);
         }
+//        ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
 //        printf("Lock update successful page global addr is %p\n", page_addr);
         return true;
     }
@@ -3976,6 +3977,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 goto retry;
             }
         }
+        ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
+
 //        printf("Acquire Write Lock at %lu\n", page_addr);
 //        assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
     }
