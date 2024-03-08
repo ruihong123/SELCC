@@ -126,12 +126,12 @@ namespace DSMEngine {
         ibv_mr *local_mr = (ibv_mr *) handle->value;
         handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
         page_cache->Release(handle);
+//        assert(!handle->rw_mtx.islocked());
         handle = nullptr;
         assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, hdr.this_page_g_ptr) == STRUCT_OFFSET(DataPage, hdr.this_page_g_ptr));
         auto page_buffer = local_mr->addr;
         assert(((DataPage*)page_buffer)->global_lock);
         assert(((DataPage*)page_buffer)->hdr.this_page_g_ptr == page_addr);
-        assert(!handle->rw_mtx.islocked());
     }
 #elif ACCESS_MODE == 0
     void DDSM::PrePage_Read(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
