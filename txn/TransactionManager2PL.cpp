@@ -92,17 +92,17 @@ namespace DSMEngine {
               locked_handles_[g_addr] = std::pair(handle,access_type);
               PROFILE_TIME_END(thread_id_, LOCK_WRITE);
           }
-      }
-      else{
+      }else{
           handle = locked_handles_.at(g_addr).first;
           //TODO: update the hierachical lock atomically, if the lock is shared lock
-//            if (locked_handles_[g_addr].second < INSERT_ONLY){
-//                locked_handles_[g_addr].second = INSERT_ONLY;
-//            }
-          assert(locked_handles_.at(g_addr).second >= access_type);
-//            default_gallocator->PrePage_Write(page_buffer, g_addr, handle);
+          if (access_type > READ_ONLY && locked_handles_[g_addr].second == READ_ONLY){
+              assert(locked_handles_.at(g_addr).second >= access_type);
+              default_gallocator->PrePage_Upgrade(page_buff, g_addr, handle);
+          }
           page_buff = handle->value;
           tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+
+
       }
 
 

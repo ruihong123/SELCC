@@ -81,6 +81,21 @@ namespace DSMEngine {
         handle->updater_pre_access(page_addr, kLeafPageSize, lock_addr, mr);
         page_buffer = mr->addr;
     }
+    void DDSM::PrePage_Upgrade(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
+        GlobalAddress lock_addr;
+        lock_addr.nodeID = page_addr.nodeID;
+
+        lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
+        ibv_mr *mr = nullptr;
+        Slice page_id((char *) &page_addr, sizeof(GlobalAddress));
+
+//        handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+        assert(handle != nullptr);
+        assert(handle->value != nullptr);
+        //TODO: unwarp the updater_pre_access.
+        handle->updater_pre_access(page_addr, kLeafPageSize, lock_addr, mr);
+        page_buffer = mr->addr;
+    }
 
     void DDSM::PostPage_Update(GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
