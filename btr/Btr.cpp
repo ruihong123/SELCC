@@ -1802,7 +1802,7 @@ namespace DSMEngine {
             //          if (path_stack[coro_id][result.level+1] != GlobalAddress::Null()){
             //              page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)))
             //          }
-            if (nested_retry_counter <= 2){
+            if (nested_retry_counter <= 4){
 //            printf("arrive here\n");
                 nested_retry_counter++;
 //                result.slibing = page->hdr.sibling_ptr;
@@ -2013,7 +2013,7 @@ namespace DSMEngine {
                 }
             }
             // In case that there is a long distance(num. of sibiling pointers) between current node and the target node
-            if (nested_retry_counter <= 2){
+            if (nested_retry_counter <= 4){
                 nested_retry_counter++;
                 result.slibing = page->hdr.sibling_ptr;
                 goto returntrue;
@@ -2453,7 +2453,7 @@ re_read:
 
 
             assert(page->hdr.sibling_ptr != GlobalAddress::Null());
-            if (nested_retry_counter <= 2){
+            if (nested_retry_counter <= 4){
                 nested_retry_counter++;
                 GlobalAddress sib_ptr = page->hdr.sibling_ptr;
                 //Unlock this page.
@@ -2851,7 +2851,7 @@ re_read:
                     }
                 }
 //            this->unlock_addr(lock_addr, cxt, coro_id, true);
-                if (nested_retry_counter <= 2){
+                if (nested_retry_counter <= 4){
 
                     nested_retry_counter++;
 //                    if (handle->strategy == 2){

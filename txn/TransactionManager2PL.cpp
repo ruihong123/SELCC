@@ -20,11 +20,9 @@ namespace DSMEngine {
         else{
             handle = locked_handles_.at(*g_addr).first;
             //TODO: update the hierachical lock atomically, if the lock is shared lock
-//            if (locked_handles_[g_addr].second < INSERT_ONLY){
-//                locked_handles_[g_addr].second = INSERT_ONLY;
-//            }
-            assert(locked_handles_.at(*g_addr).second >= INSERT_ONLY);
-//            default_gallocator->PrePage_Write(page_buffer, g_addr, handle);
+            if (locked_handles_.at(*g_addr).second == READ_ONLY){
+                default_gallocator->PrePage_Upgrade(page_buffer, *g_addr, handle);
+            }
             page_buffer = handle->value;
         }
 //        default_gallocator->PrePage_Write(page_buffer, g_addr, handle);

@@ -113,8 +113,8 @@ class TransactionManager {
   size_t thread_count_;
 
   AccessList<kMaxAccessLimit> access_list_;
-  //TODO: need to redesign the lock handles and enable the txn manager to detected those locked
-  // Cache lines.
+
+  //TODO: the transaction manager is actually thread local why there will be a contention on the locke handles.
   std::unordered_map<uint64_t , std::pair<Cache::Handle*, AccessType>> locked_handles_;
 };
 }
