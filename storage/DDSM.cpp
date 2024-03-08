@@ -131,6 +131,7 @@ namespace DSMEngine {
         auto page_buffer = local_mr->addr;
         assert(((DataPage*)page_buffer)->global_lock);
         assert(((DataPage*)page_buffer)->hdr.this_page_g_ptr == page_addr);
+        assert(!handle->rw_mtx.islocked());
     }
 #elif ACCESS_MODE == 0
     void DDSM::PrePage_Read(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
