@@ -59,8 +59,8 @@ namespace DSMEngine {
         assert(handle != nullptr);
         handle->writer_pre_access(page_addr, kLeafPageSize, lock_addr, mr);
         page_buffer = mr->addr;
-        // reset the local buffer
-        memset(page_buffer,0, kLeafPageSize);
+        // reset the local buffer beyond the lock word.
+        memset((char*)page_buffer + 16,0, kLeafPageSize - 16);
 //        assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, hdr.this_page_g_ptr) == STRUCT_OFFSET(DataPage, hdr.this_page_g_ptr));
 //        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->global_lock);
 //        assert(handle->gptr == page_addr);

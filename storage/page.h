@@ -198,7 +198,7 @@ namespace DSMEngine{
             hdr.leftmost_ptr = left;
             hdr.level = level;
             hdr.valid_page = true;
-            global_lock = 0;
+//            global_lock = 0;
             records[0].key = key;
             records[0].ptr = right;
             records[1].ptr = GlobalAddress::Null();
@@ -359,7 +359,7 @@ namespace DSMEngine{
 //        constexpr static int kLeafCardinality = (kLeafPageSize - sizeof(Header<TKey>) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) / sizeof(LeafEntry<TKey, Value>);
         Local_Meta local_lock_meta;
         // if busy we will not cache it in cache, switch back to the Naive
-        alignas(8) uint64_t global_lock = 0;
+        alignas(8) uint64_t global_lock;
 //        uint8_t busy;
 //        uint8_t front_version;
         Header_Index<TKey> hdr;
@@ -380,7 +380,7 @@ namespace DSMEngine{
             hdr.level = level;
             hdr.this_page_g_ptr = this_page_g_ptr;
             hdr.kLeafCardinality = leaf_cardinality;
-            global_lock = 0;
+//            global_lock = 0;
 //            records[0].value = {0};
 
 //            front_version = 0;
@@ -430,7 +430,7 @@ namespace DSMEngine{
 //        constexpr static int kLeafCardinality = (kLeafPageSize - sizeof(Header<TKey>) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) / sizeof(LeafEntry<TKey, Value>);
         Local_Meta local_lock_meta;
         // if busy we will not cache it in cache, switch back to the Naive
-        alignas(8) uint64_t global_lock = 0;
+        alignas(8) uint64_t global_lock;
 //        uint8_t busy;
 //        uint8_t front_version;
         Header hdr;
@@ -450,7 +450,7 @@ namespace DSMEngine{
             hdr.this_page_g_ptr = this_page_g_ptr;
             hdr.kDataCardinality = data_cardinality;
             hdr.table_id = id;
-            global_lock = 0;
+//            global_lock = 0;
 //            records[0].value = {0};
 
 //            front_version = 0;
