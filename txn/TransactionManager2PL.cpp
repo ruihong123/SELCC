@@ -26,6 +26,7 @@ namespace DSMEngine {
 //            table->SetOpenedBlock(nullptr);
 //        }
         GlobalAddress g_addr = TOPAGE(tuple_gaddr);
+        assert(g_addr == handle->gptr);
         if (locked_handles_.find(g_addr) == locked_handles_.end()){
             default_gallocator->PrePage_Update(page_buffer, g_addr, handle);
             locked_handles_[g_addr] = std::pair(handle,INSERT_ONLY);
@@ -37,7 +38,6 @@ namespace DSMEngine {
                 default_gallocator->PrePage_Upgrade(page_buffer, g_addr, handle);
             }
             locked_handles_[g_addr].second = INSERT_ONLY;
-            page_buffer = handle->value;
         }
 //        default_gallocator->PrePage_Write(page_buffer, g_addr, handle);
 
