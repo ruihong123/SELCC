@@ -68,7 +68,7 @@ class DSMEngine_EXPORT Cache {
   Cache() = default;
     struct Handle {
     public:
-        void* value = nullptr;
+        void* value = nullptr; // NOTE: the value is the pointer to ibv_mr not the buffer!!!! Carefule.
         std::atomic<uint32_t> refs;     // References, including table_cache reference, if present.
         //TODO: the internal node may not need the rw_mtx below, maybe we can delete them.
         std::atomic<int> remote_lock_status = 0; // 0 unlocked, 1 read locked, 2 write lock

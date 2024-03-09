@@ -7,7 +7,7 @@ namespace DSMEngine {
                                            Cache::Handle* &handle, GlobalAddress &tuple_gaddr, char* &tuple_buffer) {
         Table* table = storage_manager_->tables_[table_id];
         table->AllocateNewTuple(tuple_buffer, tuple_gaddr, handle, default_gallocator);
-        void* page_buffer = handle->value;
+        void* page_buffer = ((ibv_mr*)handle->value)->addr;
 //        GlobalAddress* g_addr = table->GetOpenedBlock();
 //        if ( g_addr == nullptr){
 //            g_addr = new GlobalAddress();
@@ -35,6 +35,7 @@ namespace DSMEngine {
             handle = locked_handles_.at(g_addr).first;
             //TODO: update the hierachical lock atomically, if the lock is shared lock
             if (locked_handles_.at(g_addr).second == READ_ONLY){
+                assert(false);
                 default_gallocator->PrePage_Upgrade(page_buffer, g_addr, handle);
             }
             locked_handles_[g_addr].second = INSERT_ONLY;
@@ -101,7 +102,7 @@ namespace DSMEngine {
               default_gallocator->PrePage_Upgrade(page_buff, g_addr, handle);
               locked_handles_[g_addr].second = access_type;
           }
-          page_buff = handle->value;
+          page_buff = ((ibv_mr*)handle->value)->addr;
           tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
 
 
