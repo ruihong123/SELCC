@@ -25,21 +25,22 @@ namespace DSMEngine {
 //        if(cnt == page->hdr.kDataCardinality){
 //            table->SetOpenedBlock(nullptr);
 //        }
-        GlobalAddress g_addr = TOPAGE(tuple_gaddr);
-        assert(g_addr == handle->gptr);
-        if (locked_handles_.find(g_addr) == locked_handles_.end()){
-            default_gallocator->PrePage_Update(page_buffer, g_addr, handle);
-            locked_handles_[g_addr] = std::pair(handle,INSERT_ONLY);
+        GlobalAddress cacheline_g_addr = TOPAGE(tuple_gaddr);
+        assert(cacheline_g_addr == handle->gptr);
+        if (locked_handles_.find(cacheline_g_addr) == locked_handles_.end()){
+            default_gallocator->PrePage_Update(page_buffer, cacheline_g_addr, handle);
+            locked_handles_[cacheline_g_addr] = std::pair(handle, INSERT_ONLY);
         }
         else{
-            handle = locked_handles_.at(g_addr).first;
+            handle = locked_handles_.at(cacheline_g_addr).first;
             //TODO: update the hierachical lock atomically, if the lock is shared lock
-            if (locked_handles_.at(g_addr).second == READ_ONLY){
+            if (locked_handles_.at(cacheline_g_addr).second == READ_ONLY){
                 assert(false);
-                default_gallocator->PrePage_Upgrade(page_buffer, g_addr, handle);
+                default_gallocator->PrePage_Upgrade(page_buffer, cacheline_g_addr, handle);
             }
-            locked_handles_[g_addr].second = INSERT_ONLY;
+            locked_handles_[cacheline_g_addr].second = INSERT_ONLY;
         }
+        assert(locked_handles_.find(cacheline_g_addr) != locked_handles_.end());
 //        default_gallocator->PrePage_Write(page_buffer, g_addr, handle);
 
     }
