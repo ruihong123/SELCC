@@ -96,7 +96,7 @@ class TransactionExecutor {
   }
 
   virtual void ProcessQueryThread(const size_t& thread_id) {
-      bindCore(thread_id);
+      bindCore(thread_id + 1);
     //std::cout << "start thread " << thread_id << std::endl;
     std::vector<ParamBatch*> &execution_batches = 
       *(redirector_ptr_->GetParameterBatches(thread_id));
