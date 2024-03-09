@@ -80,8 +80,9 @@ class SpinMutex {
 class RWSpinLock{
     std::atomic<int> readers_count{0};
     std::atomic<bool> write_now{false};
+    size_t thread_id = 0;
 public:
-    void lock() {
+    void lock(size_t thread_ID = 128) {
         while (write_now.exchange(true, std::memory_order_acquire)){
             port::AsmVolatilePause();
             std::this_thread::yield();
@@ -92,6 +93,7 @@ public:
             port::AsmVolatilePause();
             std::this_thread::yield();
         }
+        thread_id = thread_ID + 1;
     }
     bool try_lock() {
         auto currently_locked = write_now.load(std::memory_order_relaxed);
@@ -107,6 +109,7 @@ public:
     }
 
     void unlock() {
+        thread_id = 0;
         write_now.store(false, std::memory_order_release);
     }
     bool islocked(){

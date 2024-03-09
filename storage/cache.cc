@@ -626,7 +626,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 asm volatile ("lfence\n" : : );
                 asm volatile ("mfence\n" : : );
 //                std::unique_lock<std::shared_mutex> w_l(rw_mtx);
-                rw_mtx.lock();
+                rw_mtx.lock(RDMA_Manager::thread_id+384);
 #ifdef LOCAL_LOCK_DEBUG
 
                 {
@@ -717,7 +717,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
                 // make sure only one thread release the global latch successfully by double check lock.
                 rw_mtx.unlock_shared();
-                rw_mtx.lock();
+                rw_mtx.lock(RDMA_Manager::thread_id+256);
                 Invalid_local_by_cached_mes(page_addr, page_size, lock_addr, mr, true);
                 rw_mtx.unlock();
                 return;
@@ -743,11 +743,11 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
                 asm volatile("pause\n": : :"memory");
             }
-            rw_mtx.lock();
+            rw_mtx.lock(RDMA_Manager::thread_id+512);
             lock_pending_num.fetch_sub(1);
             write_lock_counter.fetch_add(1);
         }else{
-            rw_mtx.lock();
+            rw_mtx.lock(RDMA_Manager::thread_id+512);
         }
 //        lock_pending_num.fetch_add(1);
 //        rw_mtx.lock();
@@ -834,11 +834,11 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
                 asm volatile("pause\n": : :"memory");
             }
-            rw_mtx.lock();
+            rw_mtx.lock(RDMA_Manager::thread_id+640);
             lock_pending_num.fetch_sub(1);
             write_lock_counter.fetch_add(1);
         }else{
-            rw_mtx.lock();
+            rw_mtx.lock(RDMA_Manager::thread_id+640);
         }
 //        lock_pending_num.fetch_add(1);
 //        rw_mtx.lock();
@@ -954,11 +954,11 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
                 asm volatile("pause\n": : :"memory");
             }
-            rw_mtx.lock();
+            rw_mtx.lock(RDMA_Manager::thread_id+768);
             lock_pending_num.fetch_sub(1);
             write_lock_counter.fetch_add(1);
         }else{
-            rw_mtx.lock();
+            rw_mtx.lock(RDMA_Manager::thread_id+768);
         }
 #ifdef LOCAL_LOCK_DEBUG
 

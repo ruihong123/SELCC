@@ -2551,7 +2551,7 @@ re_read:
             if(++round_robin_cur == rdma_mg->memory_nodes.size()){
                 round_robin_cur = 0;
             }
-            printf("Node split, this g page addr is node %lu, offset %lu, sibling g page addr is node %lu, offset %lu\n", page_addr.nodeID, page_addr.offset, sibling_addr.nodeID, sibling_addr.offset);
+//            printf("Node split, this g page addr is node %lu, offset %lu, sibling g page addr is node %lu, offset %lu\n", page_addr.nodeID, page_addr.offset, sibling_addr.nodeID, sibling_addr.offset);
             ibv_mr* sibling_mr = new ibv_mr{};
 //          printf("Allocate slot for page 3 %p\n", sibling_addr);
 
