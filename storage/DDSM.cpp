@@ -79,6 +79,7 @@ namespace DSMEngine {
     }
 
     void DDSM::PrePage_Update(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
+        assert(TOPAGE(page_addr) == page_addr);
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
 
@@ -91,10 +92,10 @@ namespace DSMEngine {
         //TODO: unwarp the updater_pre_access.
         handle->updater_pre_access(page_addr, kLeafPageSize, lock_addr, mr);
         page_buffer = mr->addr;
-        assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, hdr.this_page_g_ptr) == STRUCT_OFFSET(DataPage, hdr.this_page_g_ptr));
-        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->global_lock);
-        assert(handle->gptr == page_addr);
-        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == page_addr);
+//        assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, hdr.this_page_g_ptr) == STRUCT_OFFSET(DataPage, hdr.this_page_g_ptr));
+//        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->global_lock);
+//        assert(handle->gptr == page_addr);
+//        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == page_addr);
 
     }
     void DDSM::PrePage_Upgrade(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *handle) {

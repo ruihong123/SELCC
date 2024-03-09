@@ -197,6 +197,7 @@ namespace DSMEngine{
             hdr.p_type = P_Internal;
             hdr.leftmost_ptr = left;
             hdr.level = level;
+            hdr.p_version = 0;
             hdr.valid_page = true;
 //            global_lock = 0;
             records[0].key = key;
@@ -380,6 +381,7 @@ namespace DSMEngine{
             hdr.level = level;
             hdr.this_page_g_ptr = this_page_g_ptr;
             hdr.kLeafCardinality = leaf_cardinality;
+            hdr.p_version = 0;
 //            global_lock = 0;
 //            records[0].value = {0};
 
