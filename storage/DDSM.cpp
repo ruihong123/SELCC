@@ -79,6 +79,7 @@ namespace DSMEngine {
     }
 
     void DDSM::PrePage_Update(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
+        printf("Update page node %d, offset %lu\n", page_addr.nodeID, page_addr.offset);
         assert(TOPAGE(page_addr) == page_addr);
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
