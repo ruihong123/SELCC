@@ -263,7 +263,7 @@ class NewOrderProcedure : public StoredProcedure {
         InsertRecord(&context_, NEW_ORDER_TABLE_ID, 
           &new_order_key, 1, new_order_record, new_order_handle, new_order_gaddr));
 
-    bool all_local = true;
+    int all_local = true;
     for (auto & w_id : new_order_param->i_w_ids_) {
       all_local = (all_local && (new_order_param->w_id_ == w_id));
     }
