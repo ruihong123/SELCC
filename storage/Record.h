@@ -46,7 +46,7 @@ public:
 
     // set column. type can be any type.
     void SetColumn(const size_t &column_id, void *data){
-        printf("Memcpy to %p from %p size %lu\n", data_ptr_ + schema_ptr_->GetColumnOffset(column_id), data, schema_ptr_->GetColumnSize(column_id));
+//        printf("Memcpy to %p from %p size %lu\n", data_ptr_ + schema_ptr_->GetColumnOffset(column_id), data, schema_ptr_->GetColumnSize(column_id));
         fflush(stdout);
         memcpy(data_ptr_ + schema_ptr_->GetColumnOffset(column_id), data, schema_ptr_->GetColumnSize(column_id));
     }
