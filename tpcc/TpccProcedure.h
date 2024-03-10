@@ -239,15 +239,14 @@ class NewOrderProcedure : public StoredProcedure {
 //        tables_[NEW_ORDER_TABLE_ID]->GetSchemaSize());
     Cache::Handle *new_order_handle = nullptr;
     char* new_order_buffer;
-    GlobalAddress new_order_gaddr;
+    GlobalAddress new_order_gaddr = GlobalAddress::Null();
     // TODO: need to allocate a allocation in the transaction manager, and make sure that the access_handle for the same
     // cache line was not locked muliple time.
     transaction_manager_->AllocateNewRecord(&context_, NEW_ORDER_TABLE_ID, new_order_handle, new_order_gaddr, new_order_buffer);
 //    ->storage_manager_->tables_[NEW_ORDER_TABLE_ID]->AllocateNewTuple(
 //            new_order_buffer, new_order_gaddr, new_order_handle, gallocators[thread_id_]);
     Record *new_order_record = new Record(
-        transaction_manager_->storage_manager_->
-        tables_[NEW_ORDER_TABLE_ID]->GetSchema(), new_order_buffer);
+        transaction_manager_->storage_manager_->tables_[NEW_ORDER_TABLE_ID]->GetSchema(), new_order_buffer);
     new_order_record->SetColumn(0, (char*) (&d_next_o_id));
     new_order_record->SetColumn(1, (char*) (&new_order_param->d_id_));
     new_order_record->SetColumn(2, (char*) (&new_order_param->w_id_));
