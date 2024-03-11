@@ -15,14 +15,14 @@ public:
     // sync use RDMA node_id as the key
     void Fence_XALLNodes() {
         uint16_t node_id = default_gallocator->GetID();
-        int* id;
+        uint16_t* id;
         uint64_t temp_sync_key = sync_key_xall_ + node_id;
         default_gallocator->memSet((char*)&temp_sync_key, sizeof(uint64_t), (char*)&node_id, sizeof(node_id));
         uint64_t no_node = config_->GetPartitionNum() + config_->GetMemoryNum();
         for (int i = 0; i < no_node; i++) {
             temp_sync_key = sync_key_xall_ + i;
             size_t get_size = 0;
-            id = (int*)default_gallocator->memGet((char*)&temp_sync_key, sizeof(uint64_t), &get_size);
+            id = (uint16_t*)default_gallocator->memGet((char*)&temp_sync_key, sizeof(uint64_t), &get_size);
             assert(get_size == sizeof(uint16_t));
             assert(*id == i);
         }
