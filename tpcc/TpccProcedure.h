@@ -266,7 +266,7 @@ class NewOrderProcedure : public StoredProcedure {
     }
     // "createOrder": "INSERT INTO ORDERS (O_ID, O_D_ID, O_W_ID, O_C_ID, O_ENTRY_D, O_CARRIER_ID, O_OL_CNT, O_ALL_LOCAL) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       Cache::Handle *order_handle = nullptr;
-      char* order_buffer;
+      char* order_buffer = nullptr;
       GlobalAddress order_gaddr = GlobalAddress::Null();
       transaction_manager_->AllocateNewRecord(&context_, ORDER_TABLE_ID, order_handle, order_gaddr, order_buffer);
 
@@ -302,8 +302,7 @@ class NewOrderProcedure : public StoredProcedure {
       // "createOrderLine": "INSERT INTO ORDER_LINE (OL_O_ID, OL_D_ID, OL_W_ID, OL_NUMBER, OL_I_ID, OL_SUPPLY_W_ID, OL_DELIVERY_D, OL_QUANTITY, OL_AMOUNT, OL_DIST_INFO) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         Cache::Handle *order_line_handle = nullptr;
         GlobalAddress order_line_gaddr = GlobalAddress::Null();
-
-        char* order_line_buffer;
+        char* order_line_buffer = nullptr;
         transaction_manager_->AllocateNewRecord(&context_, ORDER_LINE_TABLE_ID, order_line_handle, order_line_gaddr, order_line_buffer);
 
       Record *order_line_record = new Record(
