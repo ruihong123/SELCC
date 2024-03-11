@@ -6,7 +6,7 @@ namespace DSMEngine {
     bool TransactionManager::AllocateNewRecord(TxnContext *context, size_t table_id,
                                            Cache::Handle* &handle, GlobalAddress &tuple_gaddr, char* &tuple_buffer) {
         Table* table = storage_manager_->tables_[table_id];
-        table->AllocateNewTuple(tuple_buffer, tuple_gaddr, handle, default_gallocator);
+        table->AllocateNewTuple(tuple_buffer, tuple_gaddr, handle, default_gallocator, &locked_handles_);
         void* page_buffer = ((ibv_mr*)handle->value)->addr;
 //        GlobalAddress* g_addr = table->GetOpenedBlock();
 //        if ( g_addr == nullptr){
@@ -25,22 +25,8 @@ namespace DSMEngine {
 //        if(cnt == page->hdr.kDataCardinality){
 //            table->SetOpenedBlock(nullptr);
 //        }
-        GlobalAddress cacheline_g_addr = TOPAGE(tuple_gaddr);
-        assert(cacheline_g_addr == handle->gptr);
-        if (locked_handles_.find(cacheline_g_addr) == locked_handles_.end()){
-//            default_gallocator->PrePage_Update(page_buffer, cacheline_g_addr, handle);
-            locked_handles_[cacheline_g_addr] = std::pair(handle, INSERT_ONLY);
-        }
-        else{
-            handle = locked_handles_.at(cacheline_g_addr).first;
-            //TODO: update the hierachical lock atomically, if the lock is shared lock
-            if (locked_handles_.at(cacheline_g_addr).second == READ_ONLY){
-                assert(false);
-                default_gallocator->PrePage_Upgrade(page_buffer, cacheline_g_addr, handle);
-            }
-            locked_handles_[cacheline_g_addr].second = INSERT_ONLY;
-        }
-        assert(locked_handles_.find(cacheline_g_addr) != locked_handles_.end());
+
+
 //        default_gallocator->PrePage_Write(page_buffer, g_addr, handle);
 
     }

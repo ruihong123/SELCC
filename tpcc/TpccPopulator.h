@@ -374,7 +374,7 @@ class TpccPopulator : public BenchmarkPopulator {
       char* tuple_data_;
       GlobalAddress tuple_gaddr;
       storage_manager_->tables_[ITEM_TABLE_ID]->AllocateNewTuple(
-              tuple_data_, tuple_gaddr, handle, gallocator);
+              tuple_data_, tuple_gaddr, handle, gallocator, nullptr);
 
       Record record_in_cache = Record(storage_manager_->tables_[ITEM_TABLE_ID]->GetSchema(), tuple_data_);
       record_in_cache.SetColumn(0, &record_ptr->i_id_);
@@ -396,7 +396,7 @@ class TpccPopulator : public BenchmarkPopulator {
       char* tuple_data_;
       GlobalAddress tuple_gaddr;
       storage_manager_->tables_[WAREHOUSE_TABLE_ID]->AllocateNewTuple(
-              tuple_data_, tuple_gaddr, handle, gallocator);
+              tuple_data_, tuple_gaddr, handle, gallocator, nullptr);
 //    GAddr data_addr = gallocator->Malloc(record_buf->GetSchemaSize());
       Record record_in_cache = Record(storage_manager_->tables_[WAREHOUSE_TABLE_ID]->GetSchema(), tuple_data_);
     record_in_cache.SetColumn(0, &record_ptr->w_id_);
@@ -421,7 +421,7 @@ class TpccPopulator : public BenchmarkPopulator {
       char* tuple_data_;
       GlobalAddress tuple_gaddr;
       storage_manager_->tables_[DISTRICT_TABLE_ID]->AllocateNewTuple(
-              tuple_data_, tuple_gaddr, handle, gallocator);
+              tuple_data_, tuple_gaddr, handle, gallocator, nullptr);
       Record record_in_cache = Record(storage_manager_->tables_[DISTRICT_TABLE_ID]->GetSchema(), tuple_data_);
 
       record_in_cache.SetColumn(0, &record_ptr->d_id_);
@@ -449,7 +449,7 @@ class TpccPopulator : public BenchmarkPopulator {
       char* tuple_data_;
       GlobalAddress tuple_gaddr;
       storage_manager_->tables_[CUSTOMER_TABLE_ID]->AllocateNewTuple(
-              tuple_data_, tuple_gaddr, handle, gallocator);
+              tuple_data_, tuple_gaddr, handle, gallocator, nullptr);
       Record record_in_cache = Record(storage_manager_->tables_[CUSTOMER_TABLE_ID]->GetSchema(), tuple_data_);
 
       record_in_cache.SetColumn(0, &record_ptr->c_id_);
@@ -487,7 +487,7 @@ class TpccPopulator : public BenchmarkPopulator {
       char* tuple_data_;
       GlobalAddress tuple_gaddr;
       storage_manager_->tables_[STOCK_TABLE_ID]->AllocateNewTuple(
-              tuple_data_, tuple_gaddr, handle, gallocator);
+              tuple_data_, tuple_gaddr, handle, gallocator, nullptr);
       Record record_in_cache = Record(storage_manager_->tables_[STOCK_TABLE_ID]->GetSchema(), tuple_data_);
 
       record_in_cache.SetColumn(0, &record_ptr->s_i_id_);
@@ -513,7 +513,7 @@ class TpccPopulator : public BenchmarkPopulator {
       char* tuple_data_;
       GlobalAddress tuple_gaddr;
       storage_manager_->tables_[ORDER_TABLE_ID]->AllocateNewTuple(
-              tuple_data_, tuple_gaddr, handle, gallocator);
+              tuple_data_, tuple_gaddr, handle, gallocator, nullptr);
       Record record_in_cache = Record(storage_manager_->tables_[ORDER_TABLE_ID]->GetSchema(), tuple_data_);
 
       record_in_cache.SetColumn(0, &record_ptr->o_id_);
@@ -538,7 +538,7 @@ class TpccPopulator : public BenchmarkPopulator {
       char* tuple_data_;
       GlobalAddress tuple_gaddr;
       storage_manager_->tables_[NEW_ORDER_TABLE_ID]->AllocateNewTuple(
-              tuple_data_, tuple_gaddr, handle, gallocator);
+              tuple_data_, tuple_gaddr, handle, gallocator, nullptr);
       Record record_in_cache = Record(storage_manager_->tables_[NEW_ORDER_TABLE_ID]->GetSchema(), tuple_data_);
 
       record_in_cache.SetColumn(0, &record_ptr->o_id_);
@@ -558,7 +558,7 @@ class TpccPopulator : public BenchmarkPopulator {
       char* tuple_data_;
       GlobalAddress tuple_gaddr;
       storage_manager_->tables_[ORDER_LINE_TABLE_ID]->AllocateNewTuple(
-              tuple_data_, tuple_gaddr, handle, gallocator);
+              tuple_data_, tuple_gaddr, handle, gallocator, nullptr);
       Record record_in_cache = Record(storage_manager_->tables_[ORDER_LINE_TABLE_ID]->GetSchema(), tuple_data_);
       record_in_cache.SetColumn(0, &record_ptr->ol_o_id_);
       record_in_cache.SetColumn(1, &record_ptr->ol_d_id_);
@@ -587,7 +587,7 @@ class TpccPopulator : public BenchmarkPopulator {
       char* tuple_data_;
       GlobalAddress tuple_gaddr;
       storage_manager_->tables_[HISTORY_TABLE_ID]->AllocateNewTuple(
-              tuple_data_, tuple_gaddr, handle, gallocator);
+              tuple_data_, tuple_gaddr, handle, gallocator, nullptr);
       Record record_in_cache = Record(storage_manager_->tables_[HISTORY_TABLE_ID]->GetSchema(), tuple_data_);
       record_in_cache.SetColumn(0, &record_ptr->h_c_id_);
       record_in_cache.SetColumn(1, &record_ptr->h_c_d_id_);
@@ -612,7 +612,7 @@ class TpccPopulator : public BenchmarkPopulator {
       char* tuple_data_;
       GlobalAddress tuple_gaddr;
       storage_manager_->tables_[DISTRICT_NEW_ORDER_TABLE_ID]->AllocateNewTuple(
-              tuple_data_, tuple_gaddr, handle, gallocator);
+              tuple_data_, tuple_gaddr, handle, gallocator, nullptr);
       Record record_in_cache = Record(storage_manager_->tables_[DISTRICT_NEW_ORDER_TABLE_ID]->GetSchema(), tuple_data_);
 
       record_in_cache.SetColumn(0, &record_ptr->d_id_);

@@ -150,22 +150,46 @@ public:
     ret += Btr<IndexKey, uint64_t>::GetSerializeSize();
     return ret;
   }
-  void AllocateNewTuple(char*& tuple_data_, GlobalAddress &tuple_gaddr, Cache::Handle* &handle, DDSM *gallocator ) {
+  //Allocate the tuple from new page, if there is a cached handles list, we need to consider whether the latch has already been
+  // acquired.
+  void AllocateNewTuple(char *&tuple_data_, GlobalAddress &tuple_gaddr, Cache::Handle *&handle, DDSM *gallocator,
+                        std::unordered_map<uint64_t, std::pair<Cache::Handle *, AccessType>>* locked_handles_) {
         void* page_buffer;
         GlobalAddress* g_addr = GetOpenedBlock();
-      DataPage *page = nullptr;
-        if (g_addr == nullptr){
-            g_addr = new GlobalAddress();
-            *g_addr = gallocator->Allocate_Remote(Regular_Page);
-            SetOpenedBlock(g_addr);
-            gallocator->PrePage_Update(page_buffer, *g_addr, handle);
-            uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*schema_ptr_->GetSchemaSize() +1);
-            page = new(page_buffer) DataPage(*g_addr, cardinality, table_id_);
-        } else {
-            gallocator->PrePage_Update(page_buffer, *g_addr, handle);
-            assert(((DataPage*)page_buffer)->hdr.table_id == table_id_);
-            page = reinterpret_cast<DataPage*>(page_buffer);
-        }
+        DataPage *page = nullptr;
+      if (locked_handles_!= nullptr && g_addr != nullptr){
+          GlobalAddress cacheline_g_addr = *g_addr;
+          if (locked_handles_->find(cacheline_g_addr) == locked_handles_->end()){
+              gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+              assert(((DataPage*)page_buffer)->hdr.table_id == table_id_);
+              (*locked_handles_)[cacheline_g_addr] = std::pair(handle, INSERT_ONLY);
+              page = reinterpret_cast<DataPage*>(page_buffer);
+          }
+          else{
+              handle = locked_handles_->at(cacheline_g_addr).first;
+              //TODO: update the hierachical lock atomically, if the lock is shared lock
+              if (locked_handles_->at(cacheline_g_addr).second == READ_ONLY){
+                  default_gallocator->PrePage_Upgrade(page_buffer, cacheline_g_addr, handle);
+              }
+              (*locked_handles_)[cacheline_g_addr].second = INSERT_ONLY;
+              page_buffer = ((ibv_mr*)handle->value)->addr;
+              page = reinterpret_cast<DataPage*>(page_buffer);
+
+          }
+      }else if(locked_handles_== nullptr && g_addr != nullptr){
+          gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+          assert(((DataPage*)page_buffer)->hdr.table_id == table_id_);
+          page = reinterpret_cast<DataPage*>(page_buffer);
+      }else if (!g_addr){
+          g_addr = new GlobalAddress();
+          *g_addr = gallocator->Allocate_Remote(Regular_Page);
+          SetOpenedBlock(g_addr);
+          gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+          uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*schema_ptr_->GetSchemaSize() +1);
+          page = new(page_buffer) DataPage(*g_addr, cardinality, table_id_);
+      }
+
+
         assert(handle != nullptr);
         assert(page_buffer != nullptr);
         // TODO: if this is a new cache line, we need to initialize the header correctly.
