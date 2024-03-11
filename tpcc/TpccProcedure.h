@@ -304,7 +304,7 @@ class NewOrderProcedure : public StoredProcedure {
         GlobalAddress order_line_gaddr = GlobalAddress::Null();
 
         char* order_line_buffer;
-        transaction_manager_->AllocateNewRecord(&context_, ORDER_TABLE_ID, order_line_handle, order_line_gaddr, order_line_buffer);
+        transaction_manager_->AllocateNewRecord(&context_, ORDER_LINE_TABLE_ID, order_line_handle, order_line_gaddr, order_line_buffer);
 
       Record *order_line_record = new Record(
           transaction_manager_->storage_manager_->
@@ -416,9 +416,9 @@ class PaymentProcedure : public StoredProcedure {
     customer_record->SetColumn(18, &payment_cnt);
     // "insertHistory": "INSERT INTO HISTORY VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       Cache::Handle *history_handle = nullptr;
-      char* history_buffer;
+      char* history_buffer = nullptr;
       GlobalAddress history_gaddr;
-      transaction_manager_->AllocateNewRecord(&context_, ORDER_TABLE_ID, history_handle, history_gaddr, history_buffer);
+      transaction_manager_->AllocateNewRecord(&context_, HISTORY_TABLE_ID, history_handle, history_gaddr, history_buffer);
 
     Record *history_record = new Record(
         transaction_manager_->storage_manager_->
