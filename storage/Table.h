@@ -180,7 +180,17 @@ public:
           gallocator->PrePage_Update(page_buffer, *g_addr, handle);
           assert(((DataPage*)page_buffer)->hdr.table_id == table_id_);
           page = reinterpret_cast<DataPage*>(page_buffer);
-      }else if (!g_addr){
+      }else if (locked_handles_!= nullptr && g_addr == nullptr){
+          g_addr = new GlobalAddress();
+          *g_addr = gallocator->Allocate_Remote(Regular_Page);
+          SetOpenedBlock(g_addr);
+          gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+          uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*schema_ptr_->GetSchemaSize() +1);
+          page = new(page_buffer) DataPage(*g_addr, cardinality, table_id_);
+          (*locked_handles_)[*g_addr] = std::pair(handle, INSERT_ONLY);
+
+      } else{
+          assert(locked_handles_== nullptr && g_addr == nullptr);
           g_addr = new GlobalAddress();
           *g_addr = gallocator->Allocate_Remote(Regular_Page);
           SetOpenedBlock(g_addr);
