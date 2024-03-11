@@ -149,6 +149,7 @@ namespace DSMEngine {
       access->access_addr_ = GlobalAddress::Null();
     }
     access_list_.Clear();
+    locked_handles_.clear();
     PROFILE_TIME_END(thread_id_, CC_COMMIT);
     return true;
   }
@@ -182,6 +183,7 @@ namespace DSMEngine {
       access->access_addr_ = GlobalAddress::Null();
     }
     access_list_.Clear();
+    locked_handles_.clear();
     PROFILE_TIME_END(thread_id_, CC_ABORT);
   }
 
