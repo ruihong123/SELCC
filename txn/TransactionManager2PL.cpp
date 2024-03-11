@@ -7,7 +7,6 @@ namespace DSMEngine {
                                            Cache::Handle* &handle, GlobalAddress &tuple_gaddr, char* &tuple_buffer) {
         Table* table = storage_manager_->tables_[table_id];
         table->AllocateNewTuple(tuple_buffer, tuple_gaddr, handle, default_gallocator, &locked_handles_);
-        void* page_buffer = ((ibv_mr*)handle->value)->addr;
 //        GlobalAddress* g_addr = table->GetOpenedBlock();
 //        if ( g_addr == nullptr){
 //            g_addr = new GlobalAddress();

@@ -234,9 +234,6 @@ class NewOrderProcedure : public StoredProcedure {
     double c_discount = 0;
     customer_record->GetColumn(15, &c_discount);
     // "createNewOrder": "INSERT INTO NEW_ORDER (NO_O_ID, NO_D_ID, NO_W_ID) VALUES (?, ?, ?)"
-      //    GAddr new_order_addr = gallocators[thread_id_]->Malloc(
-//        transaction_manager_->storage_manager_->
-//        tables_[NEW_ORDER_TABLE_ID]->GetSchemaSize());
     Cache::Handle *new_order_handle = nullptr;
     char* new_order_buffer;
     GlobalAddress new_order_gaddr = GlobalAddress::Null();
@@ -270,7 +267,7 @@ class NewOrderProcedure : public StoredProcedure {
     // "createOrder": "INSERT INTO ORDERS (O_ID, O_D_ID, O_W_ID, O_C_ID, O_ENTRY_D, O_CARRIER_ID, O_OL_CNT, O_ALL_LOCAL) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       Cache::Handle *order_handle = nullptr;
       char* order_buffer;
-      GlobalAddress order_gaddr;
+      GlobalAddress order_gaddr = GlobalAddress::Null();
       transaction_manager_->AllocateNewRecord(&context_, ORDER_TABLE_ID, order_handle, order_gaddr, order_buffer);
 
 //      GAddr order_addr = gallocators[thread_id_]->Malloc(
@@ -304,8 +301,9 @@ class NewOrderProcedure : public StoredProcedure {
       int ol_quantity = new_order_param->i_qtys_[i];
       // "createOrderLine": "INSERT INTO ORDER_LINE (OL_O_ID, OL_D_ID, OL_W_ID, OL_NUMBER, OL_I_ID, OL_SUPPLY_W_ID, OL_DELIVERY_D, OL_QUANTITY, OL_AMOUNT, OL_DIST_INFO) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         Cache::Handle *order_line_handle = nullptr;
+        GlobalAddress order_line_gaddr = GlobalAddress::Null();
+
         char* order_line_buffer;
-        GlobalAddress order_line_gaddr;
         transaction_manager_->AllocateNewRecord(&context_, ORDER_TABLE_ID, order_line_handle, order_line_gaddr, order_line_buffer);
 
       Record *order_line_record = new Record(
