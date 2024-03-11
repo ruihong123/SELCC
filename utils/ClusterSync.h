@@ -22,8 +22,8 @@ public:
         for (int i = 0; i < no_node; i++) {
             temp_sync_key = sync_key_xall_ + i;
             size_t get_size = 0;
-            id = (int*)default_gallocator->memGet((char*)temp_sync_key, sizeof(uint64_t), &get_size);
-            assert(get_size == sizeof(int));
+            id = (int*)default_gallocator->memGet((char*)&temp_sync_key, sizeof(uint64_t), &get_size);
+            assert(get_size == sizeof(uint16_t));
             assert(*id == i);
         }
         sync_key_xall_ += no_node;
