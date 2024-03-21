@@ -54,7 +54,7 @@ public:
             data = default_gallocator->memGet(
                   (char*)&temp_sync_key, sizeof(uint64_t), &get_size);
             assert(get_size == sizeof(T));
-          memcpy(receive + i, data, sizeof(T));
+            memcpy(receive + i, data, sizeof(T));
         }
         else {
           memcpy(receive + i, send, sizeof(T));
