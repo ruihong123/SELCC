@@ -112,10 +112,8 @@ namespace DSMEngine {
 //    page_cache = NewLRUCache(define::kIndexCacheSize);
 
 //  root_ptr_ptr = get_root_ptr_ptr();
-        cached_root_page_mr = new ibv_mr{};
-        // try to init tree and install root pointer
-        rdma_mg->Allocate_Local_RDMA_Slot(*cached_root_page_mr, Regular_Page);// local allocate
-        memset(cached_root_page_mr.load()->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
+        cached_root_page_handle = new Cache::Handle();
+//        Cache::Handle* handle = cached_root_page_handle.load();
         if (DSMEngine::RDMA_Manager::node_id == 0){
             // only the first compute node create the root node for index
             g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Regular_Page, 2 * round_robin_cur + 1); // remote allocation.
@@ -123,11 +121,21 @@ namespace DSMEngine {
             if(++round_robin_cur == rdma_mg->memory_nodes.size()){
                 round_robin_cur = 0;
             }
-            auto root_page = new(cached_root_page_mr.load()->addr) LeafPage<Key,Value>(g_root_ptr, leaf_cardinality_);
+            void* root_page_buf = nullptr;
+            GlobalAddress Gptr = g_root_ptr.load();
+            Slice page_id((char *) &Gptr, sizeof(GlobalAddress));
+            // Remember to release the handle when the root page has been changed.
+            cached_root_page_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+            auto mr = new ibv_mr{};
+            rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
+            memset(mr->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
+            cached_root_page_handle.load()->value = mr;
+            assert(!root_page_buf);
+            auto root_page = new(root_page_buf) LeafPage<Key,Value>(g_root_ptr, leaf_cardinality_);
 
 //            root_page->front_version++;
 //            root_page->rear_version = root_page->front_version;
-            rdma_mg->RDMA_Write(g_root_ptr, cached_root_page_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
+            rdma_mg->RDMA_Write(g_root_ptr, (ibv_mr*)cached_root_page_handle.load()->value, kLeafPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
             // TODO: create a special region to store the root_ptr for every tree id.
             auto local_mr = rdma_mg->Get_local_CAS_mr(); // remote allocation.
             ibv_mr remote_mr{};
@@ -139,10 +147,10 @@ namespace DSMEngine {
             assert(*(uint64_t*)local_mr->addr == 0);
 
         }else{
-            memset(cached_root_page_mr.load()->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
+//            memset(cached_root_page_mr.load()->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
 //        rdma_mg->Allocate_Local_RDMA_Slot()
-            ibv_mr* dummy_mr;
-            get_root_ptr_protected(dummy_mr);
+            Cache::Handle* dummy_hd;
+            get_root_ptr_protected(dummy_hd);
         }
 
 //  auto cas_buffer = (rdma_mg->get_rbuf(0)).get_cas_buffer();
@@ -198,22 +206,22 @@ namespace DSMEngine {
 //extern int g_root_level;
 //extern bool enable_cache;
     template <typename Key, typename Value>
-    GlobalAddress Btr<Key,Value>::get_root_ptr_protected(ibv_mr*& root_hint) {
+    GlobalAddress Btr<Key,Value>::get_root_ptr_protected(Cache::Handle *&root_hint_handle) {
         //Note it is okay if cached_root_page_mr is an older version for the g_root_ptr, because when we use the
         // page we will check whether this page is correct or not
 
         GlobalAddress root_ptr = g_root_ptr.load();
-        root_hint = cached_root_page_mr.load();
+        root_hint_handle = cached_root_page_handle.load();
         if (root_ptr == GlobalAddress::Null()) {
             std::unique_lock<std::shared_mutex> l(root_mtx);
 
             root_ptr = g_root_ptr.load();
-            root_hint = cached_root_page_mr.load();
+            root_hint_handle = cached_root_page_handle.load();
             if (root_ptr == GlobalAddress::Null()) {
 //          assert(cached_root_page_mr = nullptr);
                 refetch_rootnode();
                 root_ptr = g_root_ptr.load();
-                root_hint = cached_root_page_mr.load();
+                root_hint_handle = cached_root_page_handle.load();
             }
             return root_ptr;
         } else {
@@ -225,17 +233,17 @@ namespace DSMEngine {
         // std::cout << "root ptr " << root_ptr << std::endl;
     }
     template <typename Key, typename Value>
-    GlobalAddress Btr<Key,Value>::get_root_ptr(ibv_mr*& root_hint) {
+    GlobalAddress Btr<Key,Value>::get_root_ptr(Cache::Handle *&root_hint_handle) {
         //Note it is okay if cached_root_page_mr is an older version for the g_root_ptr, because when we use the
         // page we will check whether this page is correct or not
 
         GlobalAddress root_ptr = g_root_ptr.load();
-        root_hint = cached_root_page_mr.load();
+        root_hint_handle = cached_root_page_handle.load();
         if (root_ptr == GlobalAddress::Null()) {
 
             refetch_rootnode();
             root_ptr = g_root_ptr.load();
-            root_hint = cached_root_page_mr.load();
+            root_hint_handle = cached_root_page_handle.load();
             return root_ptr;
         } else {
             return root_ptr;
@@ -287,7 +295,16 @@ namespace DSMEngine {
         uint8_t last_level = tree_height.load();
         GlobalAddress last_root = g_root_ptr.load();
         g_root_ptr.store(root_ptr);
-        cached_root_page_mr.store(temp_mr);
+        Slice page_id((char *) &root_ptr, sizeof(GlobalAddress));
+        // We assume the old root page will not be quickly evicted from the local cache, so we can release the handle immediately
+        // after a new root is detected and the old root buffer can still be valid.
+        // TODO: What if the assumption is not correct?
+        if (cached_root_page_handle != nullptr){
+            page_cache->Release(cached_root_page_handle);
+        }
+        // Remember to release the handle when the root page has been changed.
+        cached_root_page_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+        cached_root_page_handle.load()->value = temp_mr;
         tree_height.store(((InternalPage<Key>*) temp_mr->addr)->hdr.level);
         printf("Get new root node id is %u, offset is %lu, tree id is %lu, this node_id is %hu\n", g_root_ptr.load().nodeID, g_root_ptr.load().offset, tree_id, DSMEngine::RDMA_Manager::node_id);
 //        if (last_level > 0){
@@ -360,7 +377,16 @@ namespace DSMEngine {
 //    new_root->rear_version = new_root->front_version;
         // set local cache for root address
         g_root_ptr.store(new_root_addr,std::memory_order_seq_cst);
-        cached_root_page_mr.store(page_buffer);
+        Slice page_id((char *) &new_root_addr, sizeof(GlobalAddress));
+        // We assume the old root page will not be quickly evicted from the local cache, so we can release the handle immediately
+        // after a new root is detected and the old root buffer can still be valid.
+        // TODO: What if the assumption is not correct?
+        if (cached_root_page_handle != nullptr){
+            page_cache->Release(cached_root_page_handle);
+        }
+        // Remember to release the handle when the root page has been changed.
+        cached_root_page_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+        cached_root_page_handle.load()->value = page_buffer;
         tree_height.store(level);
         assert(new_root->hdr.level == level);
         rdma_mg->RDMA_Write(new_root_addr, page_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
@@ -885,7 +911,7 @@ namespace DSMEngine {
                                          int coro_id, int target_level) {
 
         //TODO: You need to acquire a lock when you write a page
-        ibv_mr* page_hint = nullptr;
+        Cache::Handle* page_hint = nullptr;
         auto root = get_root_ptr_protected(page_hint);
         SearchResult<Key, Value> result;
 
@@ -981,7 +1007,7 @@ namespace DSMEngine {
         before_operation(cxt, coro_id);
 
 
-        ibv_mr* page_hint = nullptr;
+        Cache::Handle* page_hint = nullptr;
         auto root = get_root_ptr_protected(page_hint);
         assert(root != GlobalAddress::Null());
         GlobalAddress p = root;
@@ -1139,7 +1165,7 @@ namespace DSMEngine {
     template <typename Key, typename Value>
     bool Btr<Key,Value>::search(const Key &k, const Slice &value_buff, CoroContext *cxt, int coro_id) {
 //  assert(rdma_mg->is_register());
-        ibv_mr* page_hint = nullptr;
+        Cache::Handle* page_hint = nullptr;
         auto root = get_root_ptr_protected(page_hint);
         SearchResult<Key,Value> result = {0};
 //        if(!search_result_memo){
@@ -1461,7 +1487,7 @@ namespace DSMEngine {
  */
     template <typename Key, typename Value>
     bool Btr<Key,Value>::internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key,Value> &result, int &level, bool isroot,
-                                              ibv_mr *page_hint, CoroContext *cxt, int coro_id) {
+                                              Cache::Handle *page_hint, CoroContext *cxt, int coro_id) {
 
 // tothink: How could I know whether this level before I actually access this page.
 
@@ -1488,7 +1514,7 @@ namespace DSMEngine {
         if (page_hint != nullptr) {
             // No need to acquire root mtx here, because if we got an outdated child ptr, the optimistic lock coupling can
             // handle it.
-            mr = page_hint;
+            mr = (ibv_mr*)page_hint->value;
             page_buffer = mr->addr;
             header = (Header_Index<Key> *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
             // if is root, then we should always bypass the cache.
@@ -1769,7 +1795,7 @@ namespace DSMEngine {
                 // mark the page invalidated within the page and then let the next thread access this page to refresh this page.
 //          DEBUG_arg("Erase the page 1 %p\n", path_stack[coro_id][result.level+1]);
                 if (UNLIKELY(level+1 == tree_height.load())){
-                    InternalPage<Key>* upper_page = (InternalPage<Key>*)cached_root_page_mr.load()->addr;
+                    InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)cached_root_page_handle.load()->value)->addr;
                     make_page_invalidated(upper_page);
                 }else if(path_stack[coro_id][result.level+1] != GlobalAddress::Null()){
                     Slice upper_node_page_id((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress));
@@ -1849,7 +1875,7 @@ namespace DSMEngine {
                 }
             }else{
                 if (UNLIKELY(level+1 == tree_height.load())){
-                    InternalPage<Key>* upper_page = (InternalPage<Key>*)cached_root_page_mr.load()->addr;
+                    InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)cached_root_page_handle.load()->value)->addr;
                     make_page_invalidated(upper_page);
                 }else if(path_stack[coro_id][result.level + 1] != GlobalAddress::Null()){
                     Slice upper_node_page_id((char *) &path_stack[coro_id][result.level + 1], sizeof(GlobalAddress));
@@ -2230,13 +2256,13 @@ re_read:
         if (level == tree_height.load()) {
             std::unique_lock<std::shared_mutex> lck(root_mtx);
             //Refresh the root ptr;
-            ibv_mr* dummy_mr;
+            Cache::Handle* dummy_mr;
             auto g_root_ptr_temp = get_root_ptr(dummy_mr);
             // THe optimistic latch free mechanims is not safe for root update, becuase there could be two root page existing
             // at the same time and two updates are conducted over two different page copy. Since the optimistic latch free
             // is embeded in the page, they can not get aware of each other.
             if (level == tree_height.load()) {
-                page_mr = cached_root_page_mr.load();
+                page_mr = (ibv_mr*)cached_root_page_handle.load()->value;
                 page_buffer = page_mr->addr;
                 page = (InternalPage<Key> *) page_buffer;
                 Header_Index<Key> *header = (Header_Index<Key> *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
@@ -2424,7 +2450,7 @@ re_read:
                 }
 
             }else if (UNLIKELY(level + 1 ==  tree_height.load())){
-                ibv_mr* rootnode_hint = cached_root_page_mr.load();
+                ibv_mr* rootnode_hint = (ibv_mr*)cached_root_page_handle.load()->value;
                 InternalPage<Key>* upper_page = (InternalPage<Key>*)rootnode_hint->addr;
                 make_page_invalidated(upper_page);
             }else if(path_stack[coro_id][level+1]!= GlobalAddress::Null()){
@@ -2505,7 +2531,7 @@ re_read:
                     g_root_ptr.store(GlobalAddress::Null());
                 }
             }else if (UNLIKELY(level + 1 ==  tree_height.load())) {
-                ibv_mr *rootnode_hint = cached_root_page_mr.load();
+                ibv_mr *rootnode_hint = (ibv_mr*)cached_root_page_handle.load()->value;
                 InternalPage<Key> *upper_page = (InternalPage<Key> *) rootnode_hint->addr;
                 make_page_invalidated(upper_page);
             }else if(path_stack[coro_id][level+1]!= GlobalAddress::Null()){
@@ -2654,13 +2680,13 @@ re_read:
 
         // We can also say if need_split
         if (sibling_addr != GlobalAddress::Null()){
-            ibv_mr* page_hint = nullptr;
+            Cache::Handle* page_hint = nullptr;
             auto p = path_stack[coro_id][level+1];
             //check whether the node split is for a root node.
             if (UNLIKELY(p == GlobalAddress::Null() )){
                 // First acquire local lock
                 std::unique_lock<std::shared_mutex> l(root_mtx);
-                ibv_mr* dummy_mr;
+                Cache::Handle* dummy_mr;
                 p = get_root_ptr(dummy_mr);
                 uint8_t height = tree_height.load();
 
@@ -3017,7 +3043,7 @@ re_read:
                 // If you find the current root node does not have higher stack, and it is not a outdated root node,
                 // the reason behind is that the inserted key is very small and the leaf node keep sibling shift to the right.
                 // IN this case, the code will call "insert_internal"
-                ibv_mr* dummy_mr;
+                Cache::Handle* dummy_mr;
                 p = get_root_ptr(dummy_mr);
                 uint8_t height = tree_height;
                 // Note path_stack is a global variable, be careful when debugging

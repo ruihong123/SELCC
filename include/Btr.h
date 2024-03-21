@@ -103,7 +103,7 @@ namespace DSMEngine {
             off += sizeof(uint64_t);
             //TODO: refactor the code below. need to move the attribute initialization to a separate function.
             // Some initialization of attributes which does not need to be serilizaed.
-            ibv_mr* dummy_mr;
+            Cache::Handle* dummy_mr;
             get_root_ptr_protected(dummy_mr);
 
         }
@@ -129,8 +129,8 @@ namespace DSMEngine {
 //  GlobalAddress root_ptr_ptr; // the address which stores root pointer;
 // TODO: not make it as a fixed
 
-        std::atomic<ibv_mr *> cached_root_page_mr; // useful when we want to reduce the hash table access in cache with id. (avoid pointer swizzling)
-        Cache::Handle *cached_root_page_handle;
+//        std::atomic<ibv_mr *> cached_root_page_mr; // useful when we want to reduce the hash table access in cache with id. (avoid pointer swizzling)
+        std::atomic<Cache::Handle*> cached_root_page_handle;
         //    InternalPage* cached_root_page_ptr;
         std::atomic<GlobalAddress> g_root_ptr = GlobalAddress::Null();
         std::atomic<uint8_t> tree_height = 0;
@@ -156,9 +156,9 @@ namespace DSMEngine {
 
         GlobalAddress get_root_ptr_ptr();
 
-        GlobalAddress get_root_ptr_protected(ibv_mr *&root_hint);
+        GlobalAddress get_root_ptr_protected(Cache::Handle *&root_hint_handle);
 
-        GlobalAddress get_root_ptr(ibv_mr *&root_hint);
+        GlobalAddress get_root_ptr(Cache::Handle *&root_hint_handle);
 
         void refetch_rootnode();
 
@@ -230,7 +230,7 @@ namespace DSMEngine {
         // result. this funciton = fetch the page + internal page serach + leafpage search + re-read
         bool internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key, Value> &result, int &level,
                                   bool isroot,
-                                  ibv_mr *page_hint = nullptr, CoroContext *cxt = nullptr, int coro_id = 0);
+                                  Cache::Handle *page_hint = nullptr, CoroContext *cxt = nullptr, int coro_id = 0);
 
         bool leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key, Value> &result, int level,
                               CoroContext *cxt,
