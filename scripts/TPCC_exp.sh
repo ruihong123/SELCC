@@ -26,7 +26,7 @@ conf_file="../connection.conf"
 
 # specify your directory for log files
 output_dir="/users/Ruihong/MemoryEngine/scripts/data"
-
+core_dump_dir="/proj/purduecs541f20-PG0/logs"
 # working environment
 proj_dir="/users/Ruihong/MemoryEngine"
 bin_dir="${proj_dir}/debug"
@@ -67,13 +67,13 @@ launch () {
         memory=${memory_nodes[$i]}
         script_memory="cd ${bin_dir} && ./memory_server_tpcc $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size > ${output_file} 2>&1"
         echo "start worker: ssh ${ssh_opts} ${memory} '$script_memory' &"
-        ssh ${ssh_opts} ${memory} "echo '/proj/purduedb-PG0/logs/core$memory' | sudo tee /proc/sys/kernel/core_pattern"
+        ssh ${ssh_opts} ${memory} "echo '$core_dump_dir/core$memory' | sudo tee /proc/sys/kernel/core_pattern"
         ssh ${ssh_opts} ${memory} "ulimit -S -c 20000000 && $script_memory" &
         sleep 1
   done
   script_compute="cd ${bin_dir} && ./tpcc ${compute_ARGS} -d${dist_ratio}"
   echo "start master: ssh ${ssh_opts} ${master_host} '$script_compute -sn$master_host  -nid0 > ${output_file} 2>&1 "
-  ssh ${ssh_opts} ${master_host} "echo '/proj/purduedb-PG0/logs/core$master_host' | sudo tee /proc/sys/kernel/core_pattern"
+  ssh ${ssh_opts} ${master_host} "echo '$core_dump_dir/core$master_host' | sudo tee /proc/sys/kernel/core_pattern"
 
   ssh ${ssh_opts} ${master_host} "ulimit -S -c unlimited && $script_compute -sn$master_host -nid0 > ${output_file} 2>&1" &
   sleep 3
@@ -81,7 +81,7 @@ launch () {
   for ((i=1;i<${#compute_nodes[@]};i++)); do
     compute=${compute_nodes[$i]}
     echo "start worker: ssh ${ssh_opts} ${compute} '$script_compute -sn$compute -nid$((2*$i)) > ${output_file} 2>&1' &"
-    ssh ${ssh_opts} ${compute} "echo '/proj/purduedb-PG0/logs/core$compute' | sudo tee /proc/sys/kernel/core_pattern"
+    ssh ${ssh_opts} ${compute} "echo '$core_dump_dir/core$compute' | sudo tee /proc/sys/kernel/core_pattern"
     ssh ${ssh_opts} ${compute} "ulimit -S -c unlimited && $script_compute -sn$compute -nid$((2*$i)) > ${output_file} 2>&1" &
     sleep 1
   done
