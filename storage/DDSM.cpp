@@ -47,7 +47,7 @@ namespace DSMEngine {
     }
 
     void DDSM::PrePage_Write(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
-        printf("PRE Write page node %d, offset %lu, THIS NODE IS %u\n", page_addr.nodeID, page_addr.offset,RDMA_Manager::node_id);
+//        printf("PRE Write page node %d, offset %lu, THIS NODE IS %u\n", page_addr.nodeID, page_addr.offset,RDMA_Manager::node_id);
         assert(TOPAGE(page_addr) == page_addr);
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
@@ -80,7 +80,7 @@ namespace DSMEngine {
     }
 
     void DDSM::PrePage_Update(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
-        printf("PRE Update page node %d, offset %lu, THIS NODE IS %u\n", page_addr.nodeID, page_addr.offset,RDMA_Manager::node_id);
+//        printf("PRE Update page node %d, offset %lu, THIS NODE IS %u\n", page_addr.nodeID, page_addr.offset,RDMA_Manager::node_id);
         assert(TOPAGE(page_addr) == page_addr);
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
@@ -123,7 +123,7 @@ namespace DSMEngine {
     }
 
     void DDSM::PostPage_UpdateOrWrite(GlobalAddress page_addr, Cache::Handle *&handle) {
-        printf("POST Update or Write page node %d, offset %lu, THIS NODE IS %u\n", page_addr.nodeID, page_addr.offset,RDMA_Manager::node_id);
+//        printf("POST Update or Write page node %d, offset %lu, THIS NODE IS %u\n", page_addr.nodeID, page_addr.offset,RDMA_Manager::node_id);
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);

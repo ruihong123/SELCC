@@ -240,7 +240,7 @@ class NewOrderProcedure : public StoredProcedure {
     // TODO: need to allocate a allocation in the transaction manager, and make sure that the access_handle for the same
     // cache line was not locked muliple time.
     transaction_manager_->AllocateNewRecord(&context_, NEW_ORDER_TABLE_ID, new_order_handle, new_order_gaddr, new_order_buffer);
-      printf("Pointer of new_order_buffer: %p, all local this stack is around %p\n", new_order_buffer, &new_order_buffer);
+//      printf("Pointer of new_order_buffer: %p, all local this stack is around %p\n", new_order_buffer, &new_order_buffer);
       fflush(stdout);
       //    ->storage_manager_->tables_[NEW_ORDER_TABLE_ID]->AllocateNewTuple(
 //            new_order_buffer, new_order_gaddr, new_order_handle, gallocators[thread_id_]);
