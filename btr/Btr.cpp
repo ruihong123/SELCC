@@ -1305,6 +1305,7 @@ namespace DSMEngine {
             TimePrintCounter[RDMA_Manager::thread_id]++;
         }
 #endif
+            assert(false);
             return false; // not found
         }
     }
