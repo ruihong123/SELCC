@@ -282,6 +282,8 @@ namespace DSMEngine {
             assert(result.val.size() == r.GetRecordSize());
             memcpy((void*)result.val.data(),r.data_ptr_, r.GetRecordSize());
             result.find_value = true;
+        }else{
+            assert(false);
         }
         return;
 

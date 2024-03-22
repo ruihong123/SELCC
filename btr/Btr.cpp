@@ -1305,7 +1305,7 @@ namespace DSMEngine {
             TimePrintCounter[RDMA_Manager::thread_id]++;
         }
 #endif
-            assert(false);
+//            assert(false);
             return false; // not found
         }
     }
@@ -2053,7 +2053,7 @@ namespace DSMEngine {
 
         }
         nested_retry_counter = 0;
-        if ((k < page->hdr.lowest )) { // cache is stale
+        if ((k < page->hdr.lowest)) { // cache is stale
             // erase the upper node from the cache and refetch the upper node to continue.
             int last_level = 1;
             if (path_stack[coro_id][last_level] != GlobalAddress::Null()){
