@@ -376,18 +376,10 @@ namespace DSMEngine {
         Slice page_id((char *) &new_root_addr, sizeof(GlobalAddress));
         // Remember to release the handle when the root page has been changed.
         Cache::Handle* temp_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
-        if(temp_handle->value == nullptr){
+        assert(temp_handle->value == nullptr);
             //Try to rebuild a local mr for the new root, the old root may
-            ibv_mr* temp_mr = new ibv_mr{};
+        temp_handle->value = page_buffer;
 
-            // try to init tree and install root pointer
-            rdma_mg->Allocate_Local_RDMA_Slot(*temp_mr, Regular_Page);// local allocate
-            memset(temp_mr->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
-            //Read a larger enough data for the root node thorugh it may oversize the page but it is ok since we only read the data.
-            rdma_mg->RDMA_Read(new_root_addr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
-
-            temp_handle->value = temp_mr;
-        };
         if (cached_root_page_handle != nullptr){
             page_cache->Release(cached_root_page_handle);
         }
@@ -1038,7 +1030,7 @@ namespace DSMEngine {
 
     next: // Internal_and_Leaf page search
 
-        if (next_times == 5000){
+        if (next_times++ == 5000){
             if (next_times%10 == 0){
                 printf("this result level is %d\n", result.level);
             }
@@ -1097,9 +1089,6 @@ namespace DSMEngine {
             if (level != 0){
                 // level ==0 is corresponding to the corner case where the leaf node and root node are the same.
                 assert(!result.is_leaf);
-#ifndef NDEBUG
-                next_times++;
-#endif
 
                 goto next;
             }
