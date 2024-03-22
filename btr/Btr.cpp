@@ -279,14 +279,6 @@ namespace DSMEngine {
         assert(*(GlobalAddress*)local_mr->addr != GlobalAddress::Null());
         GlobalAddress root_ptr = *(GlobalAddress*)local_mr->addr;
 
-        //Try to rebuild a local mr for the new root, the old root may
-        ibv_mr* temp_mr = new ibv_mr{};
-
-        // try to init tree and install root pointer
-        rdma_mg->Allocate_Local_RDMA_Slot(*temp_mr, Regular_Page);// local allocate
-        memset(temp_mr->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
-        //Read a larger enough data for the root node thorugh it may oversize the page but it is ok since we only read the data.
-        rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
         //TODO: Since there could be other thread acessing the root page, we need to make sure that the root page is not
         // deleted until the other thread finish the access. The commented code below is problematic.
         //  We may need a shared pointer mechanism.
@@ -305,8 +297,19 @@ namespace DSMEngine {
         }
         // Remember to release the handle when the root page has been changed.
         cached_root_page_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
-        cached_root_page_handle.load()->value = temp_mr;
-        tree_height.store(((InternalPage<Key>*) temp_mr->addr)->hdr.level);
+        if(cached_root_page_handle.load()->value == nullptr){
+            //Try to rebuild a local mr for the new root, the old root may
+            ibv_mr* temp_mr = new ibv_mr{};
+
+            // try to init tree and install root pointer
+            rdma_mg->Allocate_Local_RDMA_Slot(*temp_mr, Regular_Page);// local allocate
+            memset(temp_mr->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
+            //Read a larger enough data for the root node thorugh it may oversize the page but it is ok since we only read the data.
+            rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
+
+            cached_root_page_handle.load()->value = temp_mr;
+        };
+        tree_height.store(((InternalPage<Key>*) ((ibv_mr*)cached_root_page_handle.load()->value)->addr)->hdr.level);
         printf("Get new root node id is %u, offset is %lu, tree id is %lu, this node_id is %hu\n", g_root_ptr.load().nodeID, g_root_ptr.load().offset, tree_id, DSMEngine::RDMA_Manager::node_id);
 //        if (last_level > 0){
 //            assert(last_level != tree_height.load());
