@@ -211,6 +211,7 @@ public:
         assert(ret);
         // if this page is full, close it and  create a new cache line next time.
         if(cnt == page->hdr.kDataCardinality){
+            delete g_addr;
             SetOpenedBlock(nullptr);
         }
   }

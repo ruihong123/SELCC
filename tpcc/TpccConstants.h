@@ -39,10 +39,10 @@ const int FREQUENCY_ORDER_STATUS = 0;  //4;
 const int FREQUENCY_STOCK_LEVEL = 0;  //4;
 
 /********** generate HashKey ************************/
-const size_t kWarehouseBits = 58;
-const size_t kTableIdLowBits = 54;
-const size_t kTableIdHighBits = 6;
-const size_t kDistrictLowBits = 32;
+const size_t kWarehouseBits = 48;
+//const size_t kTableIdLowBits = 44;
+//const size_t kTableIdHighBits = 6;
+const size_t kDistrictLowBits = 40;
 const size_t kOrderIdLowBits = 4;
 
 /******************** source *************************/
