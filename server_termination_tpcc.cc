@@ -11,7 +11,7 @@ int Memcache_offset = 1024;
 int main(int argc,char* argv[])
 {
   DSMEngine::Memory_Node_Keeper* mn_keeper;
-  if (argc == 5){
+  if (argc == 4){
     uint32_t tcp_port;
     int pr_size;
     uint16_t Memory_server_id;
@@ -29,12 +29,12 @@ int main(int argc,char* argv[])
     //  strValue.str("");
     strValue3 << value;
     strValue3 >> Memory_server_id;
-    value = argv[4];
-    std::stringstream strValue4;
-    //  strValue.str("");
-    strValue4 << value;
-    strValue4 >> allocated_mem_size;
-    allocated_mem_size = allocated_mem_size*1024ull*1024*1024;
+//    value = argv[4];
+//    std::stringstream strValue4;
+//    //  strValue.str("");
+//    strValue4 << value;
+//    strValue4 >> allocated_mem_size;
+//    allocated_mem_size = allocated_mem_size*1024ull*1024*1024;
       struct DSMEngine::config_t config = {
               NULL,  /* dev_name */
               NULL,  /* server_name */

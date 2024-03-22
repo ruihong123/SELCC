@@ -44,7 +44,7 @@ memory_num=${#memory_nodes[@]}
 #memory_nodes=(`echo ${memory_list}`)
 master_host=${compute_nodes[0]}
 cache_mem_size=8 # 8 gb Local memory size (Currently not working)
-remote_mem_size=1 # 8 gb Remote memory size pernode is enough
+remote_mem_size=10 # 8 gb Remote memory size pernode is enough
 port=$((13000+RANDOM%1000))
 
 compute_ARGS="$@"
@@ -65,7 +65,7 @@ launch () {
   memory_file="${output_dir}/Memory.log"
   for ((i=0;i<${#memory_nodes[@]};i++)); do
         memory=${memory_nodes[$i]}
-        script_memory="cd ${bin_dir} && ./memory_server_tpcc $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size > ${output_file} 2>&1"
+        script_memory="cd ${bin_dir} && ./memory_server_tpcc $port $(($remote_mem_size)) $((2*$i +1)) > ${output_file} 2>&1"
         echo "start worker: ssh ${ssh_opts} ${memory} '$script_memory' &"
         ssh ${ssh_opts} ${memory} "echo '$core_dump_dir/core$memory' | sudo tee /proc/sys/kernel/core_pattern"
         ssh ${ssh_opts} ${memory} "ulimit -S -c 20000000 && $script_memory" &
@@ -121,7 +121,7 @@ vary_temp_locality () {
 
 auto_fill_params () {
   # so that users don't need to specify parameters for themselves
-  compute_ARGS="-p$port -sf4096 -sf1 -c4 -t200000 -f../connection.conf"
+  compute_ARGS="-p$port -sf32 -sf1 -c4 -t200000 -f../connection.conf"
 }
 
 auto_fill_params
