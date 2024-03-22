@@ -279,25 +279,15 @@ namespace DSMEngine {
         assert(*(GlobalAddress*)local_mr->addr != GlobalAddress::Null());
         GlobalAddress root_ptr = *(GlobalAddress*)local_mr->addr;
 
-        //TODO: Since there could be other thread acessing the root page, we need to make sure that the root page is not
-        // deleted until the other thread finish the access. The commented code below is problematic.
-        //  We may need a shared pointer mechanism.
-//        ibv_mr* old_mr = cached_root_page_mr.load();
-//        rdma_mg->Deallocate_Local_RDMA_Slot(old_mr->addr, Internal_and_Leaf);
-//        delete old_mr;
-        uint8_t last_level = tree_height.load();
-        GlobalAddress last_root = g_root_ptr.load();
-        g_root_ptr.store(root_ptr);
+
         Slice page_id((char *) &root_ptr, sizeof(GlobalAddress));
         // We assume the old root page will not be quickly evicted from the local cache, so we can release the handle immediately
         // after a new root is detected and the old root buffer can still be valid.
         // TODO: What if the assumption is not correct?
-        if (cached_root_page_handle != nullptr){
-            page_cache->Release(cached_root_page_handle);
-        }
+
         // Remember to release the handle when the root page has been changed.
-        cached_root_page_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
-        if(cached_root_page_handle.load()->value == nullptr){
+        Cache::Handle* temp_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+        if(temp_handle->value == nullptr){
             //Try to rebuild a local mr for the new root, the old root may
             ibv_mr* temp_mr = new ibv_mr{};
 
@@ -307,8 +297,16 @@ namespace DSMEngine {
             //Read a larger enough data for the root node thorugh it may oversize the page but it is ok since we only read the data.
             rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
 
-            cached_root_page_handle.load()->value = temp_mr;
+            temp_handle->value = temp_mr;
         };
+        if (cached_root_page_handle != nullptr){
+            page_cache->Release(cached_root_page_handle);
+        }
+        cached_root_page_handle.store(temp_handle);
+        uint8_t last_level = tree_height.load();
+        GlobalAddress last_root = g_root_ptr.load();
+        g_root_ptr.store(root_ptr);
+
         tree_height.store(((InternalPage<Key>*) ((ibv_mr*)cached_root_page_handle.load()->value)->addr)->hdr.level);
         printf("Get new root node id is %u, offset is %lu, tree id is %lu, this node_id is %hu\n", g_root_ptr.load().nodeID, g_root_ptr.load().offset, tree_id, DSMEngine::RDMA_Manager::node_id);
 //        if (last_level > 0){
@@ -375,22 +373,29 @@ namespace DSMEngine {
         assert(level >0);
         auto new_root = new(page_buffer->addr) InternalPage<Key>(left, k, right, new_root_addr, level);
 
-        // The code below is just for debugging
-//    new_root_addr.mark = 3;
-//    new_root->front_version++;
-//    new_root->rear_version = new_root->front_version;
-        // set local cache for root address
-        g_root_ptr.store(new_root_addr,std::memory_order_seq_cst);
+
+
         Slice page_id((char *) &new_root_addr, sizeof(GlobalAddress));
-        // We assume the old root page will not be quickly evicted from the local cache, so we can release the handle immediately
-        // after a new root is detected and the old root buffer can still be valid.
-        // TODO: What if the assumption is not correct?
+        // Remember to release the handle when the root page has been changed.
+        Cache::Handle* temp_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+        if(temp_handle->value == nullptr){
+            //Try to rebuild a local mr for the new root, the old root may
+            ibv_mr* temp_mr = new ibv_mr{};
+
+            // try to init tree and install root pointer
+            rdma_mg->Allocate_Local_RDMA_Slot(*temp_mr, Regular_Page);// local allocate
+            memset(temp_mr->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
+            //Read a larger enough data for the root node thorugh it may oversize the page but it is ok since we only read the data.
+            rdma_mg->RDMA_Read(new_root_addr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
+
+            temp_handle->value = temp_mr;
+        };
         if (cached_root_page_handle != nullptr){
             page_cache->Release(cached_root_page_handle);
         }
-        // Remember to release the handle when the root page has been changed.
-        cached_root_page_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
-        cached_root_page_handle.load()->value = page_buffer;
+        cached_root_page_handle.store(temp_handle);
+        // set local cache for root address
+        g_root_ptr.store(new_root_addr,std::memory_order_seq_cst);
         tree_height.store(level);
         assert(new_root->hdr.level == level);
         rdma_mg->RDMA_Write(new_root_addr, page_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
