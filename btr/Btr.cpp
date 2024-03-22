@@ -278,7 +278,8 @@ namespace DSMEngine {
         }
         assert(*(GlobalAddress*)local_mr->addr != GlobalAddress::Null());
         GlobalAddress root_ptr = *(GlobalAddress*)local_mr->addr;
-
+        uint8_t last_level = tree_height.load();
+        GlobalAddress last_root = g_root_ptr.load();
 
         Slice page_id((char *) &root_ptr, sizeof(GlobalAddress));
         // We assume the old root page will not be quickly evicted from the local cache, so we can release the handle immediately
@@ -303,10 +304,7 @@ namespace DSMEngine {
             page_cache->Release(cached_root_page_handle);
         }
         cached_root_page_handle.store(temp_handle);
-        uint8_t last_level = tree_height.load();
-        GlobalAddress last_root = g_root_ptr.load();
         g_root_ptr.store(root_ptr);
-
         tree_height.store(((InternalPage<Key>*) ((ibv_mr*)cached_root_page_handle.load()->value)->addr)->hdr.level);
         printf("Get new root node id is %u, offset is %lu, tree id is %lu, this node_id is %hu\n", g_root_ptr.load().nodeID, g_root_ptr.load().offset, tree_id, DSMEngine::RDMA_Manager::node_id);
 //        if (last_level > 0){
