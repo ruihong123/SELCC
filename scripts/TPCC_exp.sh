@@ -44,7 +44,7 @@ memory_num=${#memory_nodes[@]}
 #memory_nodes=(`echo ${memory_list}`)
 master_host=${compute_nodes[0]}
 cache_mem_size=8 # 8 gb Local memory size (Currently not working)
-remote_mem_size=10 # 8 gb Remote memory size pernode is enough
+remote_mem_size=55 # 8 gb Remote memory size pernode is enough
 port=$((13000+RANDOM%1000))
 
 compute_ARGS="$@"
