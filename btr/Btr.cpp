@@ -375,10 +375,10 @@ namespace DSMEngine {
 
         Slice page_id((char *) &new_root_addr, sizeof(GlobalAddress));
         // Remember to release the handle when the root page has been changed.
-        Cache::Handle* temp_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
-        assert(temp_handle->value == nullptr);
+        Cache::Handle* temp_handle = page_cache->Insert(page_id, page_buffer, kLeafPageSize, Deallocate_MR_WITH_CCP);
+        assert(temp_handle->value == page_buffer);
             //Try to rebuild a local mr for the new root, the old root may
-        temp_handle->value = page_buffer;
+//        temp_handle->value = page_buffer;
 
         if (cached_root_page_handle != nullptr){
             page_cache->Release(cached_root_page_handle);
