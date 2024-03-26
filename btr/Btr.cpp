@@ -1857,7 +1857,7 @@ namespace DSMEngine {
                 if(!skip_cache){
                     page_cache->Release(handle);
                 }
-//            DEBUG_PRINT("retry over two times place 1\n");
+                DEBUG_PRINT("retry over two times place 1\n");
                 return false;
             }
 
@@ -1904,7 +1904,7 @@ namespace DSMEngine {
             if(!skip_cache){
                 page_cache->Release(handle);
             }
-            DEBUG_PRINT_CONDITION("retry place 2\n");
+            DEBUG_PRINT("retry place 2\n");
             return false;
         }
         // this function will add the children pointer to the result.
