@@ -1555,7 +1555,7 @@ namespace DSMEngine {
 //                if (page_addr == g_root_ptr.load()){
 //                    g_root_ptr.store(GlobalAddress::Null());
 //                }
-                printf("page_addr node id %lu, offset is %lu, page_hint shows node id %lu, offset is %lu\n", page_addr.nodeID, page_addr.offset, header->this_page_g_ptr.nodeID, header->this_page_g_ptr.offset);
+                printf("page_addr node id %lu, offset is %lu, page_hint shows node id %lu, offset is %lu page_hit pointer is %p\n", page_addr.nodeID, page_addr.offset, header->this_page_g_ptr.nodeID, header->this_page_g_ptr.offset, page_hint);
                 return false;
             }
 
