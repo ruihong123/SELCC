@@ -1044,9 +1044,9 @@ namespace DSMEngine {
         }
         if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
             if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
-                printf("revisit the root, this nodeid is %lu\n", RDMA_Manager::node_id);
                 isroot = true;
                 p = get_root_ptr_protected(page_hint);
+                printf("revisit the root, this nodeid is %lu\n", RDMA_Manager::node_id);
                 level = -1;
             }else{
                 // fall back to upper level
@@ -1550,6 +1550,12 @@ namespace DSMEngine {
                 assert(page->hdr.level < 100);
                 page->check_invalidation_and_refetch_outside_lock(page_addr, rdma_mg, mr);
             }else if(isroot){
+//                //
+//                std::unique_lock<std::shared_mutex> l(root_mtx);
+//                if (page_addr == g_root_ptr.load()){
+//                    g_root_ptr.store(GlobalAddress::Null());
+//                }
+                printf("page_addr node id %lu, offset is %lu, page_hint shows node id %lu, offset is %lu\n", page_addr.nodeID, page_addr.offset, header->this_page_g_ptr.nodeID, header->this_page_g_ptr.offset);
                 return false;
             }
 
