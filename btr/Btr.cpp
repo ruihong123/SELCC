@@ -285,21 +285,25 @@ namespace DSMEngine {
         // We assume the old root page will not be quickly evicted from the local cache, so we can release the handle immediately
         // after a new root is detected and the old root buffer can still be valid.
         // TODO: What if the assumption is not correct?
-
+        ibv_mr* temp_mr = nullptr;
         // Remember to release the handle when the root page has been changed.
         Cache::Handle* temp_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
         if(temp_handle->value == nullptr){
             //Try to rebuild a local mr for the new root, the old root may
-            ibv_mr* temp_mr = new ibv_mr{};
+            temp_mr = new ibv_mr{};
 
             // try to init tree and install root pointer
             rdma_mg->Allocate_Local_RDMA_Slot(*temp_mr, Regular_Page);// local allocate
             memset(temp_mr->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
-            //Read a larger enough data for the root node thorugh it may oversize the page but it is ok since we only read the data.
-            rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
-
             temp_handle->value = temp_mr;
-        };
+
+        }else{
+            temp_mr = (ibv_mr*)temp_handle->value;
+        }
+        //Read a larger enough data for the root node thorugh it may oversize the page but it is ok since we only read the data.
+        rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
+
+        assert(((DataPage*)((ibv_mr*)temp_handle->value)->addr)->hdr.this_page_g_ptr == root_ptr);
         if (cached_root_page_handle != nullptr){
             page_cache->Release(cached_root_page_handle);
         }
