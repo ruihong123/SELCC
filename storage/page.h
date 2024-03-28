@@ -56,6 +56,7 @@ namespace DSMEngine{
         Page_Type p_type = P_Plain;
         uint64_t p_version = 0;
         GlobalAddress this_page_g_ptr;
+        //=============================
         GlobalAddress leftmost_ptr;
         GlobalAddress sibling_ptr;
         // the last index is initialized as -1 in leaf node and internal nodes,
@@ -415,6 +416,7 @@ namespace DSMEngine{
         Page_Type p_type = P_Data;
         uint64_t p_version = 0;
         GlobalAddress this_page_g_ptr;
+        // =============================
         int32_t number_of_records;
         friend class RDMA_Manager;
         friend class DataPage;

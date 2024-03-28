@@ -135,7 +135,7 @@ static uint64_t  round_to_cacheline(uint64_t size) {
   Mempool_initialize(Message,
                      message_size, RECEIVE_OUTSTANDING_SIZE * message_size);
   Mempool_initialize(Version_edit, 1024 * 1024, 32*1024*1024);
-  Mempool_initialize(Regular_Page, kInternalPageSize, 0);
+  Mempool_initialize(Regular_Page, kInternalPageSize, 5ull*1024ull*1024);
         printf("atomic uint8_t, uint16_t, uint32_t and uint64_t are, %lu %lu %lu %lu\n ", sizeof(std::atomic<uint8_t>), sizeof(std::atomic<uint16_t>), sizeof(std::atomic<uint32_t>), sizeof(std::atomic<uint64_t>));
 //    if(node_id%2 == 0){
 //        Invalidation_bg_threads.SetBackgroundThreads(NUM_QP_ACCROSS_COMPUTE);
@@ -3882,6 +3882,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             // the compared value is the real id /2 + 1.
         }
+
         if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL < 1){
             if (starvation_level <= 2){
                 spin_wait_us(8);
@@ -5465,7 +5466,7 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
 //  asm volatile ("sfence\n" : : );
 //  asm volatile ("lfence\n" : : );
 //  asm volatile ("mfence\n" : : );
-  printf("Remote memory registeration, size: %zu\n", size);
+  printf("Remote memory registeration at node %u, size: %zu\n", target_node_id, size);
   poll_reply_buffer(receive_pointer); // poll the receive for 2 entires
   printf("polled reply buffer\n");
   auto* temp_pointer = new ibv_mr();
@@ -6000,8 +6001,8 @@ void RDMA_Manager::Allocate_Local_RDMA_Slot(ibv_mr& mr_input,
 
 size_t RDMA_Manager::Calculate_size_of_pool(Chunk_type pool_name) {
   size_t Sum = 0;
-  Sum = name_to_mem_pool.at(pool_name).size();
-//        *name_to_allocated_size.at(pool_name);
+  Sum = name_to_mem_pool.at(pool_name).size()
+        *name_to_allocated_size.at(pool_name);
   return Sum;
 }
 void RDMA_Manager::BatchGarbageCollection(uint64_t* ptr, size_t size) {
