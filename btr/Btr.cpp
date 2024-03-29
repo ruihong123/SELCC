@@ -358,11 +358,11 @@ namespace DSMEngine {
 
         // TODO: recycle the olde registered memory, but we need to make sure that there
         // is no pending access over that old mr. (Temporarily not recyle it)
-        ibv_mr* page_buffer = new ibv_mr{};
+        ibv_mr* page_mr = new ibv_mr{};
 
         // try to init tree and install root pointer
-        rdma_mg->Allocate_Local_RDMA_Slot(*page_buffer, Regular_Page);// local allocate
-        memset(page_buffer->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
+        rdma_mg->Allocate_Local_RDMA_Slot(*page_mr, Regular_Page);// local allocate
+        memset(page_mr->addr, 0, rdma_mg->name_to_chunksize.at(Regular_Page));
 //  auto page_buffer = rdma_mg->Get_local_read_mr();
 
         assert(left != GlobalAddress::Null());
@@ -373,14 +373,14 @@ namespace DSMEngine {
             round_robin_cur = 0;
         }
         assert(level >0);
-        auto new_root = new(page_buffer->addr) InternalPage<Key>(left, k, right, new_root_addr, level);
+        auto new_root = new(page_mr->addr) InternalPage<Key>(left, k, right, new_root_addr, level);
 
 
 
         Slice page_id((char *) &new_root_addr, sizeof(GlobalAddress));
         // Remember to release the handle when the root page has been changed.
-        Cache::Handle* temp_handle = page_cache->Insert(page_id, page_buffer, kLeafPageSize, Deallocate_MR_WITH_CCP);
-        assert(temp_handle->value == page_buffer);
+        Cache::Handle* temp_handle = page_cache->Insert(page_id, page_mr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+        assert(temp_handle->value == page_mr);
             //Try to rebuild a local mr for the new root, the old root may
 //        temp_handle->value = page_buffer;
 
@@ -392,7 +392,7 @@ namespace DSMEngine {
         g_root_ptr.store(new_root_addr,std::memory_order_seq_cst);
         tree_height.store(level);
         assert(new_root->hdr.level == level);
-        rdma_mg->RDMA_Write(new_root_addr, page_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
+        rdma_mg->RDMA_Write(new_root_addr, page_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
         ibv_mr remote_mr = *rdma_mg->global_index_table;
         // find the table enty according to the id
         remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*tree_id);

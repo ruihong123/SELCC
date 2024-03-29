@@ -135,7 +135,7 @@ static uint64_t  round_to_cacheline(uint64_t size) {
   Mempool_initialize(Message,
                      message_size, RECEIVE_OUTSTANDING_SIZE * message_size);
   Mempool_initialize(Version_edit, 1024 * 1024, 32*1024*1024);
-  Mempool_initialize(Regular_Page, kInternalPageSize, 5ull*1024ull*1024);
+  Mempool_initialize(Regular_Page, kInternalPageSize, 256ull*1024ull*1024);
         printf("atomic uint8_t, uint16_t, uint32_t and uint64_t are, %lu %lu %lu %lu\n ", sizeof(std::atomic<uint8_t>), sizeof(std::atomic<uint16_t>), sizeof(std::atomic<uint32_t>), sizeof(std::atomic<uint64_t>));
 //    if(node_id%2 == 0){
 //        Invalidation_bg_threads.SetBackgroundThreads(NUM_QP_ACCROSS_COMPUTE);
@@ -6635,7 +6635,7 @@ void RDMA_Manager::fs_deserilization(
                         if (handle->remote_lock_status.load() == 2){
                             if (starv_level >0){
 #ifdef GLOBAL_HANDOVER
-//                                printf("Global lock for page %p handover from node %u to node %u part 1\n", g_ptr, node_id, target_node_id);
+                                printf("Global lock for page %p handover from node %u to node %u part 1\n", g_ptr, node_id, target_node_id);
                                 fflush( stdout );
                                 global_write_page_and_WHandover(page_mr, g_ptr,
                                                                 page_mr->length, target_node_id, lock_gptr);
