@@ -2590,8 +2590,12 @@ re_read:
 //          printf("Allocate slot for page 3 %p\n", sibling_addr);
 
             rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Regular_Page);
+//            memset(sibling_mr->addr, 0, rdma_mg->name_to_chunksize.at(Regular_Page));
+
             assert(page->hdr.level >0);
             auto sibling = new(sibling_mr->addr) InternalPage<Key>(sibling_addr, page->hdr.level);
+            //clear the global lock state. The page initialization will not reset the global lock byte.
+            sibling->global_lock = 0;
 
 //              std::cout << "addr " <<  sibling_addr << " | level " <<
 //              (int)(page->hdr.level) << std::endl;
@@ -2989,6 +2993,7 @@ re_read:
             rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Regular_Page);
 //      memset(sibling_mr->addr, 0, kLeafPageSize);
             auto sibling = new(sibling_mr->addr) LeafPage<Key,Value>(sibling_addr, leaf_cardinality_,page->hdr.level);
+            sibling->global_lock = 0;
             assert(sibling->global_lock == 0);
             //TODO: add the sibling to the local cache.
 //            sibling->front_version ++;

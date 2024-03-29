@@ -190,7 +190,7 @@ namespace DSMEngine{
         friend class Cache;
 
     public:
-        // this is called when tree grows
+        // this is called when tree grows, The page initialization will not reset the global lock byte.
         InternalPage(GlobalAddress left, const Key &key, GlobalAddress right, GlobalAddress this_page_g_ptr,
                      uint32_t level = 0) {
             assert(level> 0);
@@ -200,7 +200,7 @@ namespace DSMEngine{
             hdr.level = level;
             hdr.p_version = 0;
             hdr.valid_page = true;
-            global_lock = 0;
+//            global_lock = 0;
             records[0].key = key;
             records[0].ptr = right;
             records[1].ptr = GlobalAddress::Null();
@@ -215,7 +215,7 @@ namespace DSMEngine{
         explicit InternalPage(GlobalAddress this_page_g_ptr, uint32_t level = 0) {
             assert(level > 0);
             hdr.level = level;
-            global_lock = 0;
+//            global_lock = 0;
             records[0].ptr = GlobalAddress::Null();
             local_metadata_init();
             assert(this_page_g_ptr!= GlobalAddress::Null());
@@ -383,7 +383,7 @@ namespace DSMEngine{
             hdr.this_page_g_ptr = this_page_g_ptr;
             hdr.kLeafCardinality = leaf_cardinality;
             hdr.p_version = 0;
-            global_lock = 0;
+//            global_lock = 0;
 //            records[0].value = {0};
 
 //            front_version = 0;
