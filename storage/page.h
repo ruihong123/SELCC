@@ -200,7 +200,7 @@ namespace DSMEngine{
             hdr.level = level;
             hdr.p_version = 0;
             hdr.valid_page = true;
-//            global_lock = 0;
+            global_lock = 0;
             records[0].key = key;
             records[0].ptr = right;
             records[1].ptr = GlobalAddress::Null();
@@ -383,7 +383,7 @@ namespace DSMEngine{
             hdr.this_page_g_ptr = this_page_g_ptr;
             hdr.kLeafCardinality = leaf_cardinality;
             hdr.p_version = 0;
-//            global_lock = 0;
+            global_lock = 0;
 //            records[0].value = {0};
 
 //            front_version = 0;

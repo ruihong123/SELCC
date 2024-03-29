@@ -2989,6 +2989,7 @@ re_read:
             rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Regular_Page);
 //      memset(sibling_mr->addr, 0, kLeafPageSize);
             auto sibling = new(sibling_mr->addr) LeafPage<Key,Value>(sibling_addr, leaf_cardinality_,page->hdr.level);
+            assert(sibling->global_lock == 0);
             //TODO: add the sibling to the local cache.
 //            sibling->front_version ++;
             int m = cnt / 2;
@@ -3024,6 +3025,7 @@ re_read:
             page->hdr.sibling_ptr = sibling_addr;
 //            sibling->rear_version =  sibling->front_version;
 //    sibling->set_consistent();
+            // TODO: directly back the page with read lock and insert the page into the cache with shared state.
             rdma_mg->RDMA_Write(sibling_addr, sibling_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
             rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Regular_Page);
             delete sibling_mr;
