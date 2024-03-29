@@ -2964,6 +2964,7 @@ re_read:
         int cnt = 0;
 //        int empty_index = -1;
 //        char *update_addr = nullptr;
+        int tuple_length = scheme_ptr->GetSchemaSize();
 
         bool need_split = page->leaf_page_store(k, v, cnt,  scheme_ptr);
         num_of_record++;
@@ -2975,15 +2976,8 @@ re_read:
             page_cache->Release(handle);
 
             return true;
-        }
-
-        assert(need_split);
-//        int kLeafCardinality = scheme_ptr->GetLeafCardi();
-        int tuple_length = scheme_ptr->GetSchemaSize();
-//  Key split_key;
-//  GlobalAddress sibling_addr;
-        if (need_split) { // need split
-//      printf("Node split\n");
+        }else {
+            // need split
             sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Regular_Page, 2 * round_robin_cur + 1);
             if(++round_robin_cur == rdma_mg->memory_nodes.size()){
                 round_robin_cur = 0;
