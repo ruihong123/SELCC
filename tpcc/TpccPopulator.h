@@ -411,6 +411,11 @@ class TpccPopulator : public BenchmarkPopulator {
     IndexKey k = GetWarehousePrimaryKey(record_ptr->w_id_);
       storage_manager_->tables_[WAREHOUSE_TABLE_ID]->InsertPriIndex(
               &k, 1, tuple_gaddr);
+#ifndef NDEBUG
+      auto ret = storage_manager_->tables_[WAREHOUSE_TABLE_ID]->SearchRecord(
+              k);
+      assert(ret == k);
+#endif
       gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
   }
 
