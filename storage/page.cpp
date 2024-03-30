@@ -399,7 +399,7 @@ namespace DSMEngine {
         r_temp.GetPrimaryKey((char*)&temp_key1);
         if (k < temp_key1 || hdr.last_index == -1) {
             // this branc can only happen when the page is empty or the leafpage is the left most leaf page
-            assert(hdr.last_index == -1);
+//            assert(hdr.last_index == -1);
             insert_index = 0;
         }else{
             assert(hdr.last_index >= 0);
