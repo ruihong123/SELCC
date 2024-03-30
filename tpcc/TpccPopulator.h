@@ -444,6 +444,11 @@ class TpccPopulator : public BenchmarkPopulator {
     IndexKey k = GetDistrictPrimaryKey(record_ptr->d_id_, record_ptr->d_w_id_);
       storage_manager_->tables_[DISTRICT_TABLE_ID]->InsertPriIndex(
               &k, 1, tuple_gaddr);
+#ifndef NDEBUG
+      auto ret = storage_manager_->tables_[DISTRICT_TABLE_ID]->SearchRecord(
+              k);
+      assert(ret == tuple_gaddr);
+#endif
       gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
   }
 
@@ -482,6 +487,11 @@ class TpccPopulator : public BenchmarkPopulator {
                                          record_ptr->c_w_id_);
       storage_manager_->tables_[CUSTOMER_TABLE_ID]->InsertPriIndex(
               &key, 1, tuple_gaddr);
+#ifndef NDEBUG
+      auto ret = storage_manager_->tables_[CUSTOMER_TABLE_ID]->SearchRecord(
+              key);
+      assert(ret == tuple_gaddr);
+#endif
       gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
   }
 
