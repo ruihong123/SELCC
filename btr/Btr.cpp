@@ -2854,6 +2854,7 @@ re_read:
         // TODO: under some situation the lock is not released
         page_buffer = local_mr->addr;
         page = (LeafPage<Key,Value> *)page_buffer;
+//        assert(page->hdr.last_index == level);
         //TODO: Create an assert to check the page is not an empty page, except root page.
 //        assert(scheme_ptr->GetPrimary(page->data_));
         assert(page->hdr.level == level);
@@ -3003,6 +3004,7 @@ re_read:
 
             auto split_record = Record(scheme_ptr,tuple_start);
             split_record.GetPrimaryKey(&split_key);
+            printf("leaf node split, split key is %llu, tree id is %lu, this node id is %lu\n", split_key, tree_id, rdma_mg->node_id);
             //TODO： check why the split_record point to an empty record. when I print the page content, it is weird.
             // It turns out the page is an empty page
 
@@ -3020,6 +3022,7 @@ re_read:
 //      assert(page_addr == root || page->hdr.last_index == m-1);
             //TODO: double check the code below if there is a bug
             sibling->hdr.last_index = (cnt - m - 1);
+            assert(sibling->hdr.last_index + 1 + page->hdr.last_index + 1 == cnt);
 //      assert(sibling->hdr.last_index == cnt -m -1);
             sibling->hdr.lowest = split_key;
             sibling->hdr.highest = page->hdr.highest;
