@@ -294,10 +294,10 @@ namespace DSMEngine {
         Key temp_key;
         r.GetPrimaryKey(&temp_key);
         if (k == temp_key){
-            assert(false);
-//            assert(result.val.size() == r.GetRecordSize());
-//            memcpy((void*)result.val.data(),r.data_ptr_, r.GetRecordSize());
-//            result.find_value = true;
+//            assert(false);
+            assert(result.val.size() == r.GetRecordSize());
+            memcpy((void*)result.val.data(),r.data_ptr_, r.GetRecordSize());
+            result.find_value = true;
         }else{
             assert(k >temp_key);
             assert(false);
