@@ -414,7 +414,7 @@ class TpccPopulator : public BenchmarkPopulator {
 #ifndef NDEBUG
       auto ret = storage_manager_->tables_[WAREHOUSE_TABLE_ID]->SearchRecord(
               k);
-      assert(ret == k);
+      assert(ret == tuple_gaddr);
 #endif
       gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
   }
@@ -508,6 +508,11 @@ class TpccPopulator : public BenchmarkPopulator {
     IndexKey key = GetStockPrimaryKey(record_ptr->s_i_id_, record_ptr->s_w_id_);
       storage_manager_->tables_[STOCK_TABLE_ID]->InsertPriIndex(
               &key, 1, tuple_gaddr);
+#ifndef NDEBUG
+      auto ret = storage_manager_->tables_[STOCK_TABLE_ID]->SearchRecord(
+              key);
+      assert(ret == tuple_gaddr);
+#endif
       gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
   }
 
