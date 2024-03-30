@@ -252,6 +252,14 @@ namespace DSMEngine {
         uint16_t left = 0;
         uint16_t right = hdr.last_index;
         uint16_t mid = 0;
+#ifndef NDEBUG
+        char* tuple_last = data_ + hdr.last_index*tuple_length;
+        auto r_last = Record(record_scheme,tuple_last);
+        Key last_key;
+        r_last.GetPrimaryKey(&last_key);
+        assert(k < hdr.highest );
+        assert(last_key < hdr.highest);
+#endif
         while (left < right) {
             mid = (left + right + 1) / 2;
             tuple_start = data_ + mid*tuple_length;
@@ -360,8 +368,17 @@ namespace DSMEngine {
         bool is_update = false;
         uint16_t insert_index = 0;
         assert(hdr.kLeafCardinality > 0);
-//        int kLeafCardinality = record_scheme->GetLeafCardi();
         int tuple_length = record_scheme->GetSchemaSize();
+
+#ifndef NDEBUG
+        char* tuple_last = data_ + hdr.last_index*tuple_length;
+        auto r_last = Record(record_scheme,tuple_last);
+        TKey last_key;
+        r_last.GetPrimaryKey(&last_key);
+        assert(k < hdr.highest );
+        assert(last_key < hdr.highest);
+#endif
+//        int kLeafCardinality = record_scheme->GetLeafCardi();
         char* tuple_start;
         tuple_start = data_ + 0*tuple_length;
 
@@ -392,7 +409,7 @@ namespace DSMEngine {
                 } else{
                     //Find the value.
                     assert(v.size() == r.GetRecordSize());
-                    memcpy(r.data_ptr_,v.data(), r.GetRecordSize());
+                    memcpy(r.data_ptr_, v.data(), r.GetRecordSize());
                     is_update = true;
                     return cnt == hdr.kLeafCardinality;
                 }
@@ -407,7 +424,7 @@ namespace DSMEngine {
                 insert_index = left +1;
             }else{
                 assert(v.size() == r.GetRecordSize());
-                memcpy(r.data_ptr_,v.data(), r.GetRecordSize());
+                memcpy(r.data_ptr_, v.data(), r.GetRecordSize());
                 is_update = true;
                 return cnt == hdr.kLeafCardinality;
             }
@@ -442,7 +459,13 @@ namespace DSMEngine {
         hdr.last_index++;
         assert(hdr.last_index < hdr.kLeafCardinality);
 //        }
-
+#ifndef NDEBUG
+        tuple_last = data_ + hdr.last_index*tuple_length;
+        auto r_last2 = Record(record_scheme,tuple_last);
+        r_last2.GetPrimaryKey(&last_key);
+        assert(k < hdr.highest  );
+        assert(last_key < hdr.highest && last_key > 0);
+#endif
         return cnt == hdr.kLeafCardinality;
 #else
         for (int i = 0; i < kLeafCardinality; ++i) {
