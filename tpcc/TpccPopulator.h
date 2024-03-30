@@ -412,7 +412,7 @@ class TpccPopulator : public BenchmarkPopulator {
       storage_manager_->tables_[WAREHOUSE_TABLE_ID]->InsertPriIndex(
               &k, 1, tuple_gaddr);
 #ifndef NDEBUG
-      auto ret = storage_manager_->tables_[WAREHOUSE_TABLE_ID]->SearchRecord(
+      auto ret = storage_manager_->tables_[WAREHOUSE_TABLE_ID]->SearchPriIndex(
               k);
       assert(ret == tuple_gaddr);
 #endif
@@ -445,7 +445,7 @@ class TpccPopulator : public BenchmarkPopulator {
       storage_manager_->tables_[DISTRICT_TABLE_ID]->InsertPriIndex(
               &k, 1, tuple_gaddr);
 #ifndef NDEBUG
-      auto ret = storage_manager_->tables_[DISTRICT_TABLE_ID]->SearchRecord(
+      auto ret = storage_manager_->tables_[DISTRICT_TABLE_ID]->SearchPriIndex(
               k);
       assert(ret == tuple_gaddr);
 #endif
@@ -488,7 +488,7 @@ class TpccPopulator : public BenchmarkPopulator {
       storage_manager_->tables_[CUSTOMER_TABLE_ID]->InsertPriIndex(
               &key, 1, tuple_gaddr);
 #ifndef NDEBUG
-      auto ret = storage_manager_->tables_[CUSTOMER_TABLE_ID]->SearchRecord(
+      auto ret = storage_manager_->tables_[CUSTOMER_TABLE_ID]->SearchPriIndex(
               key);
       assert(ret == tuple_gaddr);
 #endif
@@ -519,7 +519,7 @@ class TpccPopulator : public BenchmarkPopulator {
       storage_manager_->tables_[STOCK_TABLE_ID]->InsertPriIndex(
               &key, 1, tuple_gaddr);
 #ifndef NDEBUG
-      auto ret = storage_manager_->tables_[STOCK_TABLE_ID]->SearchRecord(
+      auto ret = storage_manager_->tables_[STOCK_TABLE_ID]->SearchPriIndex(
               key);
       assert(ret == tuple_gaddr);
 #endif

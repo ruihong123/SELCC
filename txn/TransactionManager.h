@@ -36,8 +36,8 @@ class TransactionManager {
                     const IndexKey& primary_key, Record *&record,
                     AccessType access_type) {
     PROFILE_TIME_START(thread_id_, INDEX_READ);
-    GlobalAddress data_addr = storage_manager_->tables_[table_id]->SearchRecord(
-        primary_key);
+    GlobalAddress data_addr = storage_manager_->tables_[table_id]->SearchPriIndex(
+            primary_key);
       assert(TOPAGE(data_addr).offset != data_addr.offset);
     PROFILE_TIME_END(thread_id_, INDEX_READ);
     if (data_addr != GlobalAddress::Null()) {

@@ -150,6 +150,8 @@ namespace DSMEngine {
                     // after "mid" are uninteresting.
                     right = mid - 1;
                 }else{
+                    // internal node entry shall never get updated
+                    assert(false);
                     records[mid].ptr = value;
                     is_update = true;
 
@@ -159,6 +161,8 @@ namespace DSMEngine {
             if (BOOST_LIKELY(k!=records[left].key)){
                 insert_index = left +1;
             }else{
+                // internal node entry shall never get updated
+                assert(false);
                 records[left].ptr = value;
                 is_update = true;
             }
@@ -253,6 +257,7 @@ namespace DSMEngine {
         uint16_t right = hdr.last_index;
         uint16_t mid = 0;
 #ifndef NDEBUG
+        std::vector<std::pair<uint16_t, uint16_t>> binary_history;
         char* tuple_last = data_ + hdr.last_index*tuple_length;
         auto r_last = Record(record_scheme,tuple_last);
         Key last_key;
@@ -266,6 +271,7 @@ namespace DSMEngine {
             auto r = Record(record_scheme,tuple_start);
             Key temp_key;
             r.GetPrimaryKey(&temp_key);
+            binary_history.push_back(std::make_pair(left, right));
             if (k > temp_key) {
                 // Key at "mid" is smaller than "target".  Therefore all
                 // blocks before "mid" are uninteresting.
@@ -281,16 +287,19 @@ namespace DSMEngine {
                 return;
             }
         }
+        // Not find
         assert(right == left);
         tuple_start = data_ + right*tuple_length;
         auto r = Record(record_scheme,tuple_start);
         Key temp_key;
         r.GetPrimaryKey(&temp_key);
         if (k == temp_key){
-            assert(result.val.size() == r.GetRecordSize());
-            memcpy((void*)result.val.data(),r.data_ptr_, r.GetRecordSize());
-            result.find_value = true;
+            assert(false);
+//            assert(result.val.size() == r.GetRecordSize());
+//            memcpy((void*)result.val.data(),r.data_ptr_, r.GetRecordSize());
+//            result.find_value = true;
         }else{
+            assert(k >temp_key);
             assert(false);
         }
         return;
@@ -386,6 +395,8 @@ namespace DSMEngine {
         TKey temp_key1;
         r_temp.GetPrimaryKey((char*)&temp_key1);
         if (k < temp_key1 || hdr.last_index == -1) {
+            // leaf page shall never go into this branch because the first key is the lowest bound
+            assert(false);
             insert_index = 0;
         }else{
             assert(hdr.last_index >= 0);
@@ -420,9 +431,9 @@ namespace DSMEngine {
             TKey temp_key;
             r.GetPrimaryKey(&temp_key);
             if ((k != temp_key )){
-//                DEBUG_ASSERT_CONDITION(false);
                 insert_index = left +1;
             }else{
+                assert(false);
                 assert(v.size() == r.GetRecordSize());
                 memcpy(r.data_ptr_, v.data(), r.GetRecordSize());
                 is_update = true;

@@ -72,7 +72,7 @@ public:
       return true;
   }
 
-  GlobalAddress SearchRecord(const IndexKey& key) {
+  GlobalAddress SearchPriIndex(const IndexKey& key) {
       GlobalAddress tuple_gaddr = GlobalAddress::Null();
       char key_value_pair[16] = {0};
       Slice retrieved_slice(key_value_pair, 16);
