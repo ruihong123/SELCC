@@ -398,7 +398,7 @@ namespace DSMEngine {
         TKey temp_key1;
         r_temp.GetPrimaryKey((char*)&temp_key1);
         if (k < temp_key1 || hdr.last_index == -1) {
-            // leaf page shall never have inserted key smaller than the lower bound the first key is the lowest bound
+            // this branc can only happen when the page is empty or the leafpage is the left most leaf page
             assert(hdr.last_index == -1);
             insert_index = 0;
         }else{
