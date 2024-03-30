@@ -380,12 +380,15 @@ namespace DSMEngine {
         int tuple_length = record_scheme->GetSchemaSize();
 
 #ifndef NDEBUG
-        char* tuple_last = data_ + hdr.last_index*tuple_length;
-        auto r_last = Record(record_scheme,tuple_last);
-        TKey last_key;
-        r_last.GetPrimaryKey(&last_key);
-        assert(k < hdr.highest );
-        assert(last_key < hdr.highest);
+        if (hdr.last_index >= 0){
+            char* tuple_last = data_ + hdr.last_index*tuple_length;
+            auto r_last = Record(record_scheme,tuple_last);
+            TKey last_key;
+            r_last.GetPrimaryKey(&last_key);
+            assert(k < hdr.highest );
+            assert(last_key < hdr.highest);
+        }
+
 #endif
 //        int kLeafCardinality = record_scheme->GetLeafCardi();
         char* tuple_start;
@@ -396,7 +399,7 @@ namespace DSMEngine {
         r_temp.GetPrimaryKey((char*)&temp_key1);
         if (k < temp_key1 || hdr.last_index == -1) {
             // leaf page shall never have inserted key smaller than the lower bound the first key is the lowest bound
-            assert(k >= temp_key1);
+            assert(hdr.last_index == -1);
             insert_index = 0;
         }else{
             assert(hdr.last_index >= 0);
@@ -471,8 +474,9 @@ namespace DSMEngine {
         assert(hdr.last_index < hdr.kLeafCardinality);
 //        }
 #ifndef NDEBUG
-        tuple_last = data_ + hdr.last_index*tuple_length;
+        auto tuple_last = data_ + hdr.last_index*tuple_length;
         auto r_last2 = Record(record_scheme,tuple_last);
+        TKey last_key;
         r_last2.GetPrimaryKey(&last_key);
         assert(k < hdr.highest  );
         assert(last_key < hdr.highest && last_key >= hdr.lowest);
