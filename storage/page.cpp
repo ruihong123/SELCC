@@ -464,7 +464,7 @@ namespace DSMEngine {
         auto r_last2 = Record(record_scheme,tuple_last);
         r_last2.GetPrimaryKey(&last_key);
         assert(k < hdr.highest  );
-        assert(last_key < hdr.highest && last_key > 0);
+        assert(last_key < hdr.highest && last_key >= hdr.lowest);
 #endif
         return cnt == hdr.kLeafCardinality;
 #else
