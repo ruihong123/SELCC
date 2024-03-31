@@ -276,7 +276,7 @@ namespace DSMEngine {
             auto r = Record(record_scheme,tuple_start);
             Key temp_key;
             r.GetPrimaryKey(&temp_key);
-            binary_history.push_back(std::make_pair(left, right));
+//            binary_history.push_back(std::make_pair(left, right));
             if (k > temp_key) {
                 // Key at "mid" is smaller than "target".  Therefore all
                 // blocks before "mid" are uninteresting.
