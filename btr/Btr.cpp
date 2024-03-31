@@ -3002,11 +3002,11 @@ re_read:
 
             auto split_record = Record(scheme_ptr,tuple_start);
             split_record.GetPrimaryKey(&split_key);
-            if ((k & ((1ull << 40) -1)) == 0) {
-                printf("leaf node split, split key is %p, tree id is %lu, this node id is %lu\n", split_key, tree_id,
-                       rdma_mg->node_id);
-                fflush(stdout);
-            }
+//            if ((k & ((1ull << 40) -1)) == 0) {
+//                printf("leaf node split, split key is %p, tree id is %lu, this node id is %lu\n", split_key, tree_id,
+//                       rdma_mg->node_id);
+//                fflush(stdout);
+//            }
             //TODO： check why the split_record point to an empty record. when I print the page content, it is weird.
             // It turns out the page is an empty page
 

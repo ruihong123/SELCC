@@ -195,11 +195,11 @@ namespace DSMEngine {
 //        Key split_key;
 //        GlobalAddress sibling_addr = GlobalAddress::Null();
         if (!is_update) { // insert and shift
-            if ((k & ((1ull << 40) -1)) == 0){
-                printf("Internal Node Insert position for key %p is %d, this node_id is %lu\n", k, insert_index,
-                       RDMA_Manager::node_id);
-                fflush(stdout);
-            }
+//            if ((k & ((1ull << 40) -1)) == 0){
+//                printf("Internal Node Insert position for key %p is %d, this node_id is %lu\n", k, insert_index,
+//                       RDMA_Manager::node_id);
+//                fflush(stdout);
+//            }
             // The update should mark the page version change because this will make the page state in consistent.
 //      __atomic_fetch_add(&page->front_version, 1, __ATOMIC_SEQ_CST);
 //      page->front_version++;
