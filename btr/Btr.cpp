@@ -278,9 +278,8 @@ namespace DSMEngine {
         assert(*(GlobalAddress*)local_mr->addr != GlobalAddress::Null());
         GlobalAddress root_ptr = *(GlobalAddress*)local_mr->addr;
         if (cached_root_page_handle!= nullptr && root_ptr == cached_root_page_handle.load()->gptr){
+            g_root_ptr.store(root_ptr);
             return;
-        }else{
-            assert(false);
         }
         uint8_t last_level = tree_height.load();
         GlobalAddress last_root = g_root_ptr.load();
