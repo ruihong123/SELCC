@@ -3,7 +3,7 @@ set -o nounset
 bin=`dirname "$0"`
 bin=`cd "$bin"; pwd`
 SRC_HOME=$bin/..
-BIN_HOME=$bin/../release
+#BIN_HOME=$bin/../release
 # With the specified arguments for benchmark setting,
 # this script_compute runs tpcc for varied distributed ratios
 
@@ -29,7 +29,7 @@ output_dir="/users/Ruihong/MemoryEngine/scripts/data"
 core_dump_dir="/proj/purduecs541f20-PG0/logs"
 # working environment
 proj_dir="/users/Ruihong/MemoryEngine"
-bin_dir="${proj_dir}/debug"
+bin_dir="${proj_dir}/release"
 script_dir="${proj_dir}/database/scripts"
 ssh_opts="-o StrictHostKeyChecking=no"
 
