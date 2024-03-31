@@ -269,8 +269,6 @@ namespace DSMEngine {
         ibv_mr remote_mr{};
         remote_mr = *rdma_mg->global_index_table;
         // find the table enty according to the id
-        //TODO: sometimes the page search will re invalidate the g_toot_ptr after we RDMA read the new  root.
-        // need to find a way to invalidate only once.
         remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*tree_id);
         *(GlobalAddress*)(local_mr->addr) = GlobalAddress::Null();
         // The first compute node may not have written the root ptr to root_ptr_ptr, we need to keep polling.
@@ -281,11 +279,11 @@ namespace DSMEngine {
         GlobalAddress root_ptr = *(GlobalAddress*)local_mr->addr;
         if (cached_root_page_handle!= nullptr && root_ptr == cached_root_page_handle.load()->gptr){
             return;
+        }else{
+            assert(false);
         }
         uint8_t last_level = tree_height.load();
         GlobalAddress last_root = g_root_ptr.load();
-        // TODO: need to acquire the latch if the level is 0. otherwise the lock state could be global locked by we read the dirty pages
-        // from the remote memory.
         Slice page_id((char *) &root_ptr, sizeof(GlobalAddress));
         // We assume the old root page will not be quickly evicted from the local cache, so we can release the handle immediately
         // after a new root is detected and the old root buffer can still be valid.
@@ -293,6 +291,7 @@ namespace DSMEngine {
         ibv_mr* temp_mr = nullptr;
         // Remember to release the handle when the root page has been changed.
         Cache::Handle* temp_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+        // TODO: need to have some mechanisms to gurantee the integraty of fetched root page, either optimistic way or pessimistic way.
         if(temp_handle->value == nullptr){
             //Try to rebuild a local mr for the new root, the old root may
             temp_mr = new ibv_mr{};
