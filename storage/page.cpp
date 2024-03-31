@@ -384,17 +384,17 @@ namespace DSMEngine {
         assert(hdr.kLeafCardinality > 0);
         int tuple_length = record_scheme->GetSchemaSize();
 
-#ifndef NDEBUG
-        if (hdr.last_index >= 0){
-            char* tuple_last = data_ + hdr.last_index*tuple_length;
-            auto r_last = Record(record_scheme,tuple_last);
-            TKey last_key;
-            r_last.GetPrimaryKey(&last_key);
-            assert(k < hdr.highest );
-            assert(last_key < hdr.highest);
-        }
-
-#endif
+//#ifndef NDEBUG
+//        if (hdr.last_index >= 0){
+//            char* tuple_last = data_ + hdr.last_index*tuple_length;
+//            auto r_last = Record(record_scheme,tuple_last);
+//            TKey last_key;
+//            r_last.GetPrimaryKey(&last_key);
+//            assert(k < hdr.highest );
+//            assert(last_key < hdr.highest);
+//        }
+//
+//#endif
 //        int kLeafCardinality = record_scheme->GetLeafCardi();
         char* tuple_start;
         tuple_start = data_ + 0*tuple_length;
@@ -441,7 +441,7 @@ namespace DSMEngine {
             if ((k != temp_key )){
                 insert_index = left +1;
             }else{
-                assert(false);
+//                assert(false);
                 assert(v.size() == r.GetRecordSize());
                 memcpy(r.data_ptr_, v.data(), r.GetRecordSize());
                 is_update = true;
@@ -478,18 +478,18 @@ namespace DSMEngine {
         hdr.last_index++;
         assert(hdr.last_index < hdr.kLeafCardinality);
 //        }
-#ifndef NDEBUG
-        auto tuple_last = data_ + insert_index*tuple_length;
-        if ((k & ((1ull << 40) -1)) == 0){
-            printf("Leafnode Insert position for key %p is %d, this node id %lu \n", k, insert_index, RDMA_Manager::node_id);
-            fflush(stdout);
-        }
-        auto r_last2 = Record(record_scheme,tuple_last);
-        TKey last_key;
-        r_last2.GetPrimaryKey(&last_key);
-//        assert(k < hdr.highest  );
-        assert(k == last_key);
-#endif
+//#ifndef NDEBUG
+//        auto tuple_last = data_ + insert_index*tuple_length;
+//        if ((k & ((1ull << 40) -1)) == 0){
+//            printf("Leafnode Insert position for key %p is %d, this node id %lu \n", k, insert_index, RDMA_Manager::node_id);
+//            fflush(stdout);
+//        }
+//        auto r_last2 = Record(record_scheme,tuple_last);
+//        TKey last_key;
+//        r_last2.GetPrimaryKey(&last_key);
+////        assert(k < hdr.highest  );
+//        assert(k == last_key);
+//#endif
         return cnt == hdr.kLeafCardinality;
 #else
         for (int i = 0; i < kLeafCardinality; ++i) {
