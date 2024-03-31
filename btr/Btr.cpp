@@ -279,9 +279,13 @@ namespace DSMEngine {
         }
         assert(*(GlobalAddress*)local_mr->addr != GlobalAddress::Null());
         GlobalAddress root_ptr = *(GlobalAddress*)local_mr->addr;
+        if (cached_root_page_handle!= nullptr && root_ptr == cached_root_page_handle.load()->gptr){
+            return;
+        }
         uint8_t last_level = tree_height.load();
         GlobalAddress last_root = g_root_ptr.load();
-
+        // TODO: need to acquire the latch if the level is 0. otherwise the lock state could be global locked by we read the dirty pages
+        // from the remote memory.
         Slice page_id((char *) &root_ptr, sizeof(GlobalAddress));
         // We assume the old root page will not be quickly evicted from the local cache, so we can release the handle immediately
         // after a new root is detected and the old root buffer can still be valid.

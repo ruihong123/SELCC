@@ -482,8 +482,8 @@ namespace DSMEngine {
         auto tuple_last = data_ + insert_index*tuple_length;
         if ((k & ((1ull << 40) -1)) == 0){
             printf("Leafnode Insert position for key %p is %d, this node id %lu \n", k, insert_index, RDMA_Manager::node_id);
+            fflush(stdout);
         }
-        fflush(stdout);
         auto r_last2 = Record(record_scheme,tuple_last);
         TKey last_key;
         r_last2.GetPrimaryKey(&last_key);
