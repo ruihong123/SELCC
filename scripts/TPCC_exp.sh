@@ -108,6 +108,15 @@ vary_read_ratios () {
   done
 }
 
+vary_thread_number () {
+  #read_ratios=(0 30 50 70 90 100)
+  thread_number=(1, 8, 16, 32)
+  for thread_n in ${thread_number[@]}; do
+    compute_ARGS="-p$port -sf512 -sf1 -c$thread_n -t200000 -f../connection.conf"
+    run_tpcc
+  done
+}
+
 vary_temp_locality () {
   #localities=(0 30 50 70 90 100)
   localities=(0 50 100)
@@ -126,7 +135,7 @@ auto_fill_params () {
 
 auto_fill_params
 # run standard tpcc
-run_tpcc
-
+#run_tpcc
+vary_thread_number
 # vary_read_ratios
 #vary_temp_locality
