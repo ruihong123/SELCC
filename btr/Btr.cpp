@@ -130,6 +130,7 @@ namespace DSMEngine {
             rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
             memset(mr->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
             cached_root_page_handle.load()->value = mr;
+            assert(cached_root_page_handle.load()->remote_lock_status == 0);
             root_page_buf = mr->addr;
             assert(root_page_buf);
             auto root_page = new(root_page_buf) LeafPage<Key,Value>(g_root_ptr, leaf_cardinality_);
