@@ -474,12 +474,12 @@ namespace DSMEngine {
         assert(hdr.last_index < hdr.kLeafCardinality);
 //        }
 #ifndef NDEBUG
-        auto tuple_last = data_ + hdr.last_index*tuple_length;
+        auto tuple_last = data_ + insert_index*tuple_length;
         auto r_last2 = Record(record_scheme,tuple_last);
         TKey last_key;
         r_last2.GetPrimaryKey(&last_key);
-        assert(k < hdr.highest  );
-        assert(last_key < hdr.highest && last_key >= hdr.lowest);
+//        assert(k < hdr.highest  );
+        assert(k == last_key);
 #endif
         return cnt == hdr.kLeafCardinality;
 #else

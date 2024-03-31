@@ -66,8 +66,8 @@ public:
     assert(key_num == secondary_count_ + 1);
     char key_value_pair[16] = {0};
     Slice inserted_slice(key_value_pair, 16);
-    memcpy(key_value_pair, &keys[0], 8);
-    memcpy(key_value_pair + 8, &tuple_gaddr, 8);
+    memcpy(key_value_pair, &keys[0], sizeof(IndexKey));
+      memcpy(key_value_pair + sizeof(IndexKey), &tuple_gaddr, sizeof(GlobalAddress));
     primary_index_->insert(keys[0], inserted_slice);
       return true;
   }
@@ -78,7 +78,7 @@ public:
       Slice retrieved_slice(key_value_pair, 16);
     bool find = primary_index_->search(key, retrieved_slice);
       if (find){
-            memcpy(&tuple_gaddr, key_value_pair + 8, 8);
+            memcpy(&tuple_gaddr, key_value_pair + sizeof(IndexKey), sizeof(GlobalAddress));
             return tuple_gaddr;
       } else {
           tuple_gaddr = GlobalAddress::Null();
