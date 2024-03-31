@@ -477,7 +477,7 @@ namespace DSMEngine {
 //        }
 #ifndef NDEBUG
         auto tuple_last = data_ + insert_index*tuple_length;
-        printf("Leafnode Insert position for key %p is %d\n", k, insert_index);
+        printf("Leafnode Insert position for key %p is %d, this node id %lu \n", k, insert_index, RDMA_Manager::node_id);
         fflush(stdout);
         auto r_last2 = Record(record_scheme,tuple_last);
         TKey last_key;
