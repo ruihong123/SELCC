@@ -310,7 +310,7 @@ namespace DSMEngine {
         cached_root_page_handle.store(temp_handle);
         g_root_ptr.store(root_ptr);
         tree_height.store(((InternalPage<Key>*) ((ibv_mr*)cached_root_page_handle.load()->value)->addr)->hdr.level);
-        printf("Get new root node id is %u, offset is %lu, tree id is %lu, this node_id is %hu\n", g_root_ptr.load().nodeID, g_root_ptr.load().offset, tree_id, DSMEngine::RDMA_Manager::node_id);
+        printf("Get new root node id is %u, offset is %lu, tree id is %lu, this node_id is %hu, tree height is %hhu\n", g_root_ptr.load().nodeID, g_root_ptr.load().offset, tree_id, DSMEngine::RDMA_Manager::node_id, tree_height.load());
 //        if (last_level > 0){
 //            assert(last_level != tree_height.load());
 //        }
@@ -2948,11 +2948,6 @@ re_read:
                     g_root_ptr.store(GlobalAddress::Null());
                 }
             }
-//            this->unlock_addr(lock_addr, cxt, coro_id, false);
-//            if (handle->strategy == 2){
-//                global_unlock_addr(lock_addr,handle, cxt, coro_id, false);
-//                handle->remote_lock_status.store(0);
-//            }
             handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 
             page_cache->Release(handle);
@@ -3005,6 +3000,7 @@ re_read:
             auto split_record = Record(scheme_ptr,tuple_start);
             split_record.GetPrimaryKey(&split_key);
             printf("leaf node split, split key is %p, tree id is %lu, this node id is %lu\n", split_key, tree_id, rdma_mg->node_id);
+            fflush(stdout);
             //TODO： check why the split_record point to an empty record. when I print the page content, it is weird.
             // It turns out the page is an empty page
 

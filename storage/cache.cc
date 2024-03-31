@@ -932,8 +932,6 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             assert(remote_lock_status == 2);
             if ( handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
                 Invalid_local_by_cached_mes(page_addr, page_size, lock_addr, mr, true);
-
-
             }
         }
         rw_mtx.unlock();
