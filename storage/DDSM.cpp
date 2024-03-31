@@ -14,7 +14,7 @@ namespace DSMEngine {
         return res;
     }
 #if ACCESS_MODE == 1 || ACCESS_MODE == 2
-    void DDSM::PrePage_Read(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
+    void DDSM::PrePage_Read(void *& page_buffer, GlobalAddress page_addr, Cache::Handle *& handle) {
         assert((page_addr.offset % 1ULL*1024ULL*1024ULL*1024ULL)% kLeafPageSize == 0);
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;

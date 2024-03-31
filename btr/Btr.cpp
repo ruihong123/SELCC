@@ -1970,22 +1970,17 @@ namespace DSMEngine {
         auto rdma_mg = RDMA_Manager::Get_Instance(nullptr);
         int counter = 0;
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
-
-        GlobalAddress lock_addr;
-        lock_addr.nodeID = page_addr.nodeID;
-
-        lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<Key COMMA Value>,global_lock);
-        // TODO: We need to implement the lock coupling. how to avoid unnecessary RDMA for lock coupling?
-        //
         Slice page_id((char*)&page_addr, sizeof(GlobalAddress));
         Cache::Handle* handle = nullptr;
         void* page_buffer;
+        GlobalAddress lock_addr;
+        lock_addr.nodeID = page_addr.nodeID;
+        lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<Key COMMA Value>,global_lock);
         Header_Index<Key> * header;
         LeafPage<Key,Value>* page;
-        ibv_mr* mr = nullptr;
-        assert(level == 0);
-        handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
-        assert(handle!= nullptr);
+
+//        ibv_mr* mr = nullptr;
+        ddms_->PrePage_Read(page_buffer, page_addr, handle);
 #ifdef PROCESSANALYSIS
         if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
             auto stop = std::chrono::high_resolution_clock::now();
@@ -1996,16 +1991,14 @@ namespace DSMEngine {
         }
 //#endif
 #endif
-        // TODO: use real pointer to bypass the cache hash table. We need overwrittened function for internal page search,
-        //  given an local address (now the global address is given). Or we make it the same function with both global ptr and local ptr,
-        //  and let the function to figure out the situation.
-
-
 //        if (handle != nullptr){
-        handle->reader_pre_access(page_addr, kLeafPageSize, lock_addr, mr);
-        //TODO: how to make the optimistic latch free within this funciton
-
-        page_buffer = mr->addr;
+//        assert(level == 0);
+//        handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+//        assert(handle!= nullptr);
+//        handle->reader_pre_access(page_addr, kLeafPageSize, lock_addr, mr);
+//        //TODO: how to make the optimistic latch free within this funciton
+//
+//        page_buffer = mr->addr;
         header = (Header_Index<Key> *) ((char*)page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
         page = (LeafPage<Key,Value> *)page_buffer;
         result.Reset();
@@ -2090,7 +2083,7 @@ namespace DSMEngine {
             goto returnfalse;
         }
 
-        page->leaf_page_search(k, result, *mr, page_addr, scheme_ptr);
+        page->leaf_page_search(k, result, page_addr, scheme_ptr);
         assert(result.val.data()!= nullptr);
     returntrue:
 //        if (handle->strategy == 2){
@@ -2098,8 +2091,9 @@ namespace DSMEngine {
 ////                    handle->remote_lock_status.store(0);
 //        }
         assert(handle);
-        handle->reader_post_access(page_addr, kLeafPageSize, lock_addr, mr);
-        page_cache->Release(handle);
+        ddms_->PostPage_Read(page_addr, handle);
+//        handle->reader_post_access(page_addr, kLeafPageSize, lock_addr, mr);
+//        page_cache->Release(handle);
         return true;
     returnfalse:
 //        if (handle->strategy == 2){
@@ -2107,8 +2101,9 @@ namespace DSMEngine {
 ////                    handle->remote_lock_status.store(0);
 //        }
         assert(handle);
-        handle->reader_post_access(page_addr, kLeafPageSize, lock_addr, mr);
-        page_cache->Release(handle);
+        ddms_->PostPage_Read(page_addr, handle);
+//        handle->reader_post_access(page_addr, kLeafPageSize, lock_addr, mr);
+//        page_cache->Release(handle);
         return false;
 
 
@@ -2841,21 +2836,22 @@ re_read:
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(InternalPage<Key>,global_lock);
         // TODO: We need to implement the lock coupling. how to avoid unnecessary RDMA for lock coupling?
         //
-        Slice page_id((char*)&page_addr, sizeof(GlobalAddress));
-        Cache::Handle* handle = nullptr;
         void* page_buffer;
+        Cache::Handle* handle = nullptr;
+        Slice page_id((char*)&page_addr, sizeof(GlobalAddress));
         Header_Index<Key> * header;
         LeafPage<Key,Value>* page;
-        ibv_mr* local_mr;
+        ddms_->PrePage_Update(page_buffer, page_addr,handle);
+        assert(page_buffer != nullptr);
+//        ibv_mr* local_mr;
         assert(level == 0);
-        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
-
-        handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
-        assert(handle!= nullptr);
-        handle->updater_pre_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+//        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+//        handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+//        assert(handle!= nullptr);
+//        handle->updater_pre_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 
         // TODO: under some situation the lock is not released
-        page_buffer = local_mr->addr;
+//        page_buffer = local_mr->addr;
         page = (LeafPage<Key,Value> *)page_buffer;
 //        assert(page->hdr.last_index == level);
         //TODO: Create an assert to check the page is not an empty page, except root page.
@@ -2902,8 +2898,9 @@ re_read:
 //                    }
 //                    // Has to be unlocked to avoid a deadlock.
 //                    l.unlock();
-                    handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
-                    page_cache->Release(handle);
+                    ddms_->PostPage_UpdateOrWrite(page_addr,handle);
+//                    handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+//                    page_cache->Release(handle);
 
                     return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt, coro_id);
                 }else{
@@ -2915,10 +2912,12 @@ re_read:
 //                        global_unlock_addr(lock_addr,handle, cxt, coro_id, false);
 //                        handle->remote_lock_status.store(0);
 //                    }
-                    handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
-
-                    //No matter what strategy it is the cache handle need to be released.
-                    page_cache->Release(handle);
+                    ddms_->PostPage_UpdateOrWrite(page_addr,handle);
+//
+//                    handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+//
+//                    //No matter what strategy it is the cache handle need to be released.
+//                    page_cache->Release(handle);
                     return false;
                 }
             }else{
@@ -2951,9 +2950,11 @@ re_read:
                     g_root_ptr.store(GlobalAddress::Null());
                 }
             }
-            handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+            ddms_->PostPage_UpdateOrWrite(page_addr,handle);
 
-            page_cache->Release(handle);
+//            handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+//
+//            page_cache->Release(handle);
             DEBUG_PRINT_CONDITION_arg("retry place 8, this level is %d\n", level);
             return false;// result in fall back search on the higher level.
         }
@@ -2973,10 +2974,11 @@ re_read:
         num_of_record++;
 //        assert(page->hdr.last_index== 0 || page->data_[0]!=0);
         if (!need_split) {
+                ddms_->PostPage_UpdateOrWrite(page_addr,handle);
 
-            handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
-
-            page_cache->Release(handle);
+//            handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+//
+//            page_cache->Release(handle);
 
             return true;
         }else {
@@ -3041,9 +3043,10 @@ re_read:
             delete sibling_mr;
 
         }
-        handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
-
-        page_cache->Release(handle);
+        ddms_->PostPage_UpdateOrWrite(page_addr,handle);
+//        handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
+//
+//        page_cache->Release(handle);
 
         if (sibling_addr != GlobalAddress::Null()){
             int upper_level = level + 1;

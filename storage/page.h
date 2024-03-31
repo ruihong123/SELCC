@@ -406,8 +406,8 @@ namespace DSMEngine{
             local_lock_meta.hand_time = 0;
         }
 
-        void leaf_page_search(const TKey &k, SearchResult <TKey, Value> &result, ibv_mr local_mr_copied,
-                              GlobalAddress g_page_ptr, RecordSchema *record_scheme);
+        void leaf_page_search(const Key &k, SearchResult<Key, Value> &result, GlobalAddress g_page_ptr,
+                              RecordSchema *record_scheme);
         bool leaf_page_store(const TKey &k, const Slice &v, int &cnt, RecordSchema *record_scheme);
 
     };

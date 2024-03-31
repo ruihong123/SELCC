@@ -81,7 +81,7 @@ namespace DSMEngine {
         ~DDSM(){
             disconnectMemcached();
         }
-        void PrePage_Read(void*& page_buffer, GlobalAddress page_addr, Cache::Handle *&handle);
+        void PrePage_Read(void*& page_buffer, GlobalAddress page_addr, Cache::Handle*& handle);
         void PostPage_Read(GlobalAddress page_addr, Cache::Handle *&handle);
         void PrePage_Write(void*& page_buffer, GlobalAddress page_addr, Cache::Handle *&handle);
         void PostPage_Write(GlobalAddress page_addr, Cache::Handle *&handle);
