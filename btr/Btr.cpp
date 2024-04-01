@@ -304,10 +304,10 @@ namespace DSMEngine {
         }else{
             temp_mr = (ibv_mr*)temp_handle->value;
         }
-//        // no need to read the data, the cached_handle is just bypassing the cache by still under the suveillance of SELCC.
-//        rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
+        //TODO: Remove the code below if we are using the pessimistic way to gurantee the integraty of the fetched root page.
+        rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
 
-//        assert(((DataPage*)((ibv_mr*)temp_handle->value)->addr)->hdr.this_page_g_ptr == root_ptr);
+        assert(((DataPage*)((ibv_mr*)temp_handle->value)->addr)->hdr.this_page_g_ptr == root_ptr);
         if (cached_root_page_handle != nullptr){
             // Wait until all the thread finish the access of the cached root handle, then
             // let the btree release the ref on the true handle
