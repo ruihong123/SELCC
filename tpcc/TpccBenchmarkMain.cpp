@@ -95,7 +95,9 @@ void ExchPerfStatistics(ClusterConfig* config,
     stats[i].Print();
     stats[0].Aggregate(stats[i]);
   }
-  stats[0].PrintAgg();
+    if (config->IsMaster()){
+        stats[0].PrintAgg();
+    }
   delete[] stats;
   stats = nullptr;
 }

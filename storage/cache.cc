@@ -75,29 +75,6 @@ LRUCache::~LRUCache() {
         e->refs++;
     }
 
-// THere should be no lock outside
-//void LRUCache::Ref_in_LookUp(LRUHandle* e) {
-//    //TODO: Update the read lock to a write lock within the if predicate
-//  if (e->refs.load() == 1 && e->in_cache.load()) {  // If on lru_ list, move to in_use_ list.
-//      mutex_.ReadUnlock();
-//      mutex_.WriteLock();
-//      if (e->refs.load() == 1 && e->in_cache.load()) {
-//          LRU_Remove(e);
-//          LRU_Append(&in_use_, e);
-//          e->refs.fetch_add(1);
-//          mutex_.WriteUnlock();
-//          return;
-//      }
-//      e->refs.fetch_add(1);
-//      assert(e->in_cache.load());
-//      mutex_.WriteUnlock();
-//      return;
-//  }
-////  e->refs++;
-//    e->refs.fetch_add(1);
-//    assert(e->in_cache.load());
-//    mutex_.ReadUnlock();
-//}
 
 void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
   assert(e->refs > 0);
@@ -169,11 +146,6 @@ void LRUCache::LRU_Remove(LRUHandle* e) {
 }
 
 void LRUCache::LRU_Append(LRUHandle* list, LRUHandle* e) {
-//#ifndef NDEBUG
-//    if (e->gptr.offset < 9480863232){
-//        printf("page %lu is being append to a LRU list", e->gptr.offset);
-//    }
-//#endif
   // Make "e" newest entry by inserting just before *list
   e->next = list;
   e->prev = list->prev;

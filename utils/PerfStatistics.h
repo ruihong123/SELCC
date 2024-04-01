@@ -28,8 +28,8 @@ struct PerfStatistics {
         << std::endl;
     double abort_rate = agg_total_abort_count_ * 1.0 / (agg_total_count_ + 1);
     printf(
-        "agg_total_count\t%lld\nagg_total_abort_count\t%lld\nabort_rate\t%lf\n",
-        agg_total_count_, agg_total_abort_count_, abort_rate);
+        "this node id: %hu, agg_total_count\t%lld\nagg_total_abort_count\t%lld\nabort_rate\t%lf\n",
+        RDMA_Manager::node_id, agg_total_count_, agg_total_abort_count_, abort_rate);
     printf(
         "per_node_elapsed_time\t%lf\ntotal_throughput\t%lf\nper_node_throughput\t%lf\nper_core_throughput\t%lf\n",
         agg_elapsed_time_ * 1.0 / agg_node_num_, agg_throughput_,
