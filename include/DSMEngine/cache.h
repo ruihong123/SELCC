@@ -211,8 +211,8 @@ class DSMEngine_EXPORT Cache {
 
 
         LRUHandle* next_hash;// Next LRUhandle in the hash
-        LRUHandle* next;
-        LRUHandle* prev;
+        std::atomic<LRUHandle*> next;
+        std::atomic<LRUHandle*> prev;
         uint64_t charge;
         size_t key_length;
         std::atomic<bool> in_cache;     // Whether entry is in the table_cache.

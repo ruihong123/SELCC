@@ -141,16 +141,16 @@ void LRUCache::LRU_Remove(LRUHandle* e) {
 //        printf("page %lu is being remove from a list", e->gptr.offset);
 //    }
 #endif
-  e->next->prev = e->prev;
-  e->prev->next = e->next;
+  e->next.load()->prev = e->prev.load();
+  e->prev.load()->next = e->next.load();
 }
 
 void LRUCache::LRU_Append(LRUHandle* list, LRUHandle* e) {
   // Make "e" newest entry by inserting just before *list
   e->next = list;
-  e->prev = list->prev;
-  e->prev->next = e;
-  e->next->prev = e;
+  e->prev.store(list->prev);
+  e->prev.load()->next = e;
+  e->next.load()->prev = e;
 }
 
 //Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {

@@ -126,11 +126,17 @@ namespace DSMEngine {
     private:
         std::shared_mutex root_mtx;// in case of contention in the root cache
         uint64_t tree_id;
-//  GlobalAddress root_ptr_ptr; // the address which stores root pointer;
-// TODO: not make it as a fixed
 
-//        std::atomic<ibv_mr *> cached_root_page_mr; // useful when we want to reduce the hash table access in cache with id. (avoid pointer swizzling)
+        // The cached_root_handle_ref is to keep track of the number of reference to the root page handle.
+        // this is necessary because the access of cached_root_page_handle will bypass the cache,
+        // so the refs in the handle will not be increased, when accessing the root node, which can result in
+        // the access on an evicted/destroyed cache handle if the root node is not accessed frequetly.
+        // To solve this problem we introduce another reference mechanism in the tree for the cached root node.
+        // The btree fetch the root handle from the cache (with handle refs ++ implicitly), when the cached_root_handle is invalid,
+        // the cache root handle will not immediately be replaced with handle's refs --. Instead, the invaliding thread
+        // will wait for the unfinished access on the old root handle, by checking the cached_root_handle_ref.
         std::atomic<Cache::Handle*> cached_root_page_handle;
+        std::atomic<uint32_t> cached_root_handle_ref = 1;
         //    InternalPage* cached_root_page_ptr;
         std::atomic<GlobalAddress> g_root_ptr = GlobalAddress::Null();
         std::atomic<uint8_t> tree_height = 0;
@@ -269,6 +275,20 @@ namespace DSMEngine {
         void releases_local_optimistic_lock(Local_Meta *local_lock_meta);
 
         void make_page_invalidated(InternalPage<Key> *upper_page);
+        void cache_root_handle_ref(){
+            loop_back:
+            uint32_t root_handle_ref = 0;
+            while (root_handle_ref == 0){
+                root_handle_ref = cached_root_handle_ref.load();
+            }
+            if(!cached_root_handle_ref.compare_exchange_strong(root_handle_ref, root_handle_ref + 1)){
+                goto loop_back;
+            }
+        };
+        void cache_root_handle_unref(){
+            auto ret = cached_root_handle_ref.fetch_sub(1);
+            assert(ret >= 1);
+        };
 
         // should be executed with in a local page lock.
         void Initialize_page_invalidation(InternalPage<Key> *upper_page);

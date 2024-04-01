@@ -1,5 +1,5 @@
 #include "Btr.h"
-
+#include <atomic>
 namespace DSMEngine {
     template class Btr<uint64_t , uint64_t>;
 //    template class Btr<uint64_t , char[100]>;
@@ -126,6 +126,7 @@ namespace DSMEngine {
             Slice page_id((char *) &Gptr, sizeof(GlobalAddress));
             // Remember to release the handle when the root page has been changed.
             cached_root_page_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+            cached_root_handle_ref.store(1);
             auto mr = new ibv_mr{};
             rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
             memset(mr->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
@@ -303,16 +304,25 @@ namespace DSMEngine {
         }else{
             temp_mr = (ibv_mr*)temp_handle->value;
         }
-        //Read a larger enough data for the root node thorugh it may oversize the page but it is ok since we only read the data.
-        rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
+//        // no need to read the data, the cached_handle is just bypassing the cache by still under the suveillance of SELCC.
+//        rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
 
         assert(((DataPage*)((ibv_mr*)temp_handle->value)->addr)->hdr.this_page_g_ptr == root_ptr);
         if (cached_root_page_handle != nullptr){
+            // Wait until all the thread finish the access of the cached root handle, then
+            // let the btree release the ref on the true handle
+            uint32_t compare = 1;
+            while (!cached_root_handle_ref.compare_exchange_strong(compare, 0, std::memory_order_acquire,std::memory_order_relaxed)){
+                port::AsmVolatilePause();
+            }
+//            // set the ref as 0 to stop the access of the cached root handle.
+//            cached_root_handle_ref.store(0);
             page_cache->Release(cached_root_page_handle);
         }
         cached_root_page_handle.store(temp_handle);
         g_root_ptr.store(root_ptr);
         tree_height.store(((InternalPage<Key>*) ((ibv_mr*)cached_root_page_handle.load()->value)->addr)->hdr.level);
+        cached_root_handle_ref.store(1);
         printf("Get new root node id is %u, offset is %lu, tree id is %lu, this node_id is %hu, tree height is %hhu\n", g_root_ptr.load().nodeID, g_root_ptr.load().offset, tree_id, DSMEngine::RDMA_Manager::node_id, tree_height.load());
 //        if (last_level > 0){
 //            assert(last_level != tree_height.load());
@@ -1516,6 +1526,9 @@ namespace DSMEngine {
         // the page. Also we need a mechanism to avoid the page being deallocate during the access. if a page
         // is pointer swizzled, we need to make sure it will not be evict from the cache.
         if (page_hint != nullptr) {
+
+            cache_root_handle_ref();
+            page_hint->reader_pre_access()
             // No need to acquire root mtx here, because if we got an outdated child ptr, the optimistic lock coupling can
             // handle it.
             mr = (ibv_mr*)page_hint->value;
@@ -1525,6 +1538,8 @@ namespace DSMEngine {
 
             if (header->this_page_g_ptr == page_addr) {
                 // if this page mr is in-use and is the local cache for page_addr
+
+
                 skip_cache = true;
                 page = (InternalPage<Key> *)page_buffer;
 //                memset(&result, 0, sizeof(result));
@@ -1542,7 +1557,7 @@ namespace DSMEngine {
                 //If this is the leaf node, directly return let leaf page search to handle it.
                 if (result.level == 0){
                     // if the root node is the leaf node this path will happen.
-//                    printf("root and leaf are the same 1, this tree id is %lu, this node id is %lu\n", tree_id, RDMA_Manager::node_id);
+                    printf("root and leaf are the same 1, this tree id is %lu, this node id is %lu\n", tree_id, RDMA_Manager::node_id);
                     // assert the page is a valid page.
 //                    assert(page->check_whether_globallock_is_unlocked());
                     if (k >= page->hdr.highest){
