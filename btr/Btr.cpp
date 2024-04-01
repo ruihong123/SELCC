@@ -1565,8 +1565,10 @@ namespace DSMEngine {
                         if (page_addr == g_root_ptr.load()){
                             g_root_ptr.store(GlobalAddress::Null());
                         }
+                        cache_root_handle_unref();
                         return false;
                     }
+                    cache_root_handle_unref();
                     return true;
                 }
                 assert(page->hdr.level < 100);
@@ -1579,6 +1581,7 @@ namespace DSMEngine {
 //                }
                 printf("page_addr node id %lu, offset is %lu, page_hint shows node id %lu, offset is %lu page_hit pointer is %p\n", page_addr.nodeID, page_addr.offset, header->this_page_g_ptr.nodeID, header->this_page_g_ptr.offset, page_hint);
 //                assert(false);
+                cache_root_handle_unref();
                 return false;
             }
 
@@ -1875,6 +1878,8 @@ namespace DSMEngine {
                 // sooner be overwritten.
                 if(!skip_cache){
                     page_cache->Release(handle);
+                }else{
+                    cache_root_handle_unref();
                 }
 
                 isroot = false;
@@ -1885,6 +1890,8 @@ namespace DSMEngine {
                 nested_retry_counter = 0;
                 if(!skip_cache){
                     page_cache->Release(handle);
+                }else{
+                    cache_root_handle_unref();
                 }
                 DEBUG_PRINT("retry over two times place 1\n");
                 return false;
@@ -1932,6 +1939,8 @@ namespace DSMEngine {
             nested_retry_counter = 0;
             if(!skip_cache){
                 page_cache->Release(handle);
+            }else{
+                cache_root_handle_unref();
             }
             DEBUG_PRINT("retry place 2\n");
             return false;
@@ -1958,6 +1967,8 @@ namespace DSMEngine {
 
         if(!skip_cache){
             page_cache->Release(handle);
+        }else{
+            cache_root_handle_unref();
         }
 
 #ifdef PROCESSANALYSIS
@@ -2537,6 +2548,8 @@ re_read:
 
             if (!skip_cache){
                 page_cache->Release(handle);
+            }else{
+                cache_root_handle_unref();
             }
 
             return insert_success;
@@ -2584,6 +2597,8 @@ re_read:
             DEBUG_PRINT_CONDITION("retry place 6\n");
             if (!skip_cache){
                 page_cache->Release(handle);
+            }else{
+                cache_root_handle_unref();
             }
             return insert_success;// result in fall back search on the higher level.
         }
@@ -2700,6 +2715,8 @@ re_read:
 
         if (!skip_cache){
             page_cache->Release(handle);
+        }else{
+            cache_root_handle_unref();
         }
 
 
