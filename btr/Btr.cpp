@@ -1528,7 +1528,7 @@ namespace DSMEngine {
         if (page_hint != nullptr) {
 
             cache_root_handle_ref();
-            page_hint->reader_pre_access()
+//            page_hint->reader_pre_access()
             // No need to acquire root mtx here, because if we got an outdated child ptr, the optimistic lock coupling can
             // handle it.
             mr = (ibv_mr*)page_hint->value;
