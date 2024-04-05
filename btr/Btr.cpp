@@ -1705,7 +1705,7 @@ namespace DSMEngine {
         // dynamic cast the types.
         assert(STRUCT_OFFSET(SearchResult<Key COMMA GlobalAddress>, later_key) == STRUCT_OFFSET(SearchResult<Key COMMA Value>, later_key));
         page->internal_page_search(k, &result);
-
+        assert(result.next_level != page_addr);
 #ifdef PROCESSANALYSIS
         start = std::chrono::high_resolution_clock::now();
 #endif
