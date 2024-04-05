@@ -226,16 +226,7 @@ namespace DSMEngine {
 //  assert(page->records[page->hdr.last_index] != GlobalAddress::Null());
             cnt = hdr.last_index + 1;
         }
-//            need_split =
 
-        // THe internal node is different from leaf nodes because it has the
-        // leftmost_ptr. THe internal nodes has n key but n+1 global pointers.
-        // the internal node split pick the middle key as split key and the middle key
-        // will not existed in either of the splited node
-        // THe data under this internal node [lowest, highest)
-
-        //Both internal node and leaf nodes are [lowest, highest) except for the left most
-        assert(local_lock_meta.local_lock_byte == 1);
         return cnt == kInternalCardinality;
     }
 
