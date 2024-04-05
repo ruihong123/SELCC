@@ -10,14 +10,14 @@ namespace DSMEngine {
     template class LeafPage<uint64_t, uint64_t>;
     template class InternalPage<uint64_t>;
     template<class Key>
-    bool InternalPage<Key>::internal_page_search(const Key &k, void *result_ptr, uint16_t current_ticket) {
+    bool InternalPage<Key>::internal_page_search(const Key &k, void *result_ptr) {
         SearchResult<Key,GlobalAddress>& result = *(SearchResult<Key,GlobalAddress>*)result_ptr;
         assert(k >= hdr.lowest);
 //        assert(k < hdr.highest);
-        uint64_t local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
-        if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
-            return false;
-        }
+//        uint64_t local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
+//        if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
+//            return false;
+//        }
 
 //        Key highest_buffer = 0;
 //        highest_buffer = hdr.highest;
@@ -59,13 +59,7 @@ namespace DSMEngine {
             result.later_key = records[0].key;
 #endif
 
-//            asm volatile ("sfence\n" : : );
-//            asm volatile ("lfence\n" : : );
-//            asm volatile ("mfence\n" : : );
-            local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
-            if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
-                return false;
-            }
+
 
             assert(k < result.later_key);
             assert(result.next_level != GlobalAddress::Null());
@@ -104,10 +98,7 @@ namespace DSMEngine {
         }
 
 #endif
-        local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
-        if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
-            return false;
-        }
+
 #ifndef NDEBUG
 //        if (right < hdr.last_index){
 

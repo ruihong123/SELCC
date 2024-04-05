@@ -112,7 +112,7 @@ namespace DSMEngine {
 //    page_cache = NewLRUCache(define::kIndexCacheSize);
 
 //  root_ptr_ptr = get_root_ptr_ptr();
-        cached_root_page_handle = new Cache::Handle();
+//        cached_root_page_handle = new Cache::Handle();
 //        Cache::Handle* handle = cached_root_page_handle.load();
         if (DSMEngine::RDMA_Manager::node_id == 0){
             // only the first compute node create the root node for index
@@ -124,9 +124,9 @@ namespace DSMEngine {
             void* root_page_buf = nullptr;
             GlobalAddress Gptr = g_root_ptr.load();
             Slice page_id((char *) &Gptr, sizeof(GlobalAddress));
+            std::unique_lock<std::shared_mutex> lck(cached_root_handle_mtx);
             // Remember to release the handle when the root page has been changed.
             cached_root_page_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
-            cached_root_handle_ref.store(1);
             auto mr = new ibv_mr{};
             rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
             memset(mr->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
@@ -308,21 +308,14 @@ namespace DSMEngine {
         rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
 
         assert(((DataPage*)((ibv_mr*)temp_handle->value)->addr)->hdr.this_page_g_ptr == root_ptr);
+        std::unique_lock<std::shared_mutex> lck(cached_root_handle_mtx);
         if (cached_root_page_handle != nullptr){
-            // Wait until all the thread finish the access of the cached root handle, then
-            // let the btree release the ref on the true handle
-            uint32_t compare = 1;
-            while (!cached_root_handle_ref.compare_exchange_strong(compare, 0, std::memory_order_acquire,std::memory_order_relaxed)){
-                port::AsmVolatilePause();
-            }
-//            // set the ref as 0 to stop the access of the cached root handle.
-//            cached_root_handle_ref.store(0);
+
             page_cache->Release(cached_root_page_handle);
         }
         cached_root_page_handle.store(temp_handle);
         g_root_ptr.store(root_ptr);
         tree_height.store(((InternalPage<Key>*) ((ibv_mr*)cached_root_page_handle.load()->value)->addr)->hdr.level);
-        cached_root_handle_ref.store(1);
         printf("Get new root node id is %u, offset is %lu, tree id is %lu, this node_id is %hu, tree height is %hhu\n", g_root_ptr.load().nodeID, g_root_ptr.load().offset, tree_id, DSMEngine::RDMA_Manager::node_id, tree_height.load());
 //        if (last_level > 0){
 //            assert(last_level != tree_height.load());
@@ -1501,7 +1494,7 @@ namespace DSMEngine {
  */
     template <typename Key, typename Value>
     bool Btr<Key,Value>::internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key,Value> &result, int &level, bool isroot,
-                                              Cache::Handle *page_hint, CoroContext *cxt, int coro_id) {
+                                              Cache::Handle *handle, CoroContext *cxt, int coro_id) {
 
 // tothink: How could I know whether this level before I actually access this page.
 
@@ -1513,8 +1506,11 @@ namespace DSMEngine {
         // Quetion: We need to implement the lock coupling. how to avoid unnecessary RDMA for lock coupling?
         // Answer: No, see next question.
         Slice page_id((char*)&page_addr, sizeof(GlobalAddress));
-        Cache::Handle* handle = nullptr;
+//        Cache::Handle* handle = nullptr;
         void* page_buffer;
+        GlobalAddress lock_addr;
+        lock_addr.nodeID = page_addr.nodeID;
+        lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<Key COMMA Value>,global_lock);
         Header_Index<Key> * header;
         InternalPage<Key>* page;
         ibv_mr* mr;
@@ -1525,13 +1521,13 @@ namespace DSMEngine {
         //TODO: For the pointer swizzling, we need to clear the hdr.this_page_g_ptr when we deallocate
         // the page. Also we need a mechanism to avoid the page being deallocate during the access. if a page
         // is pointer swizzled, we need to make sure it will not be evict from the cache.
-        if (page_hint != nullptr) {
-
-            cache_root_handle_ref();
-//            page_hint->reader_pre_access()
+        if (handle != nullptr) {
+            cached_root_handle_mtx.lock_shared();
+            handle = cached_root_page_handle.load();
+            handle->reader_pre_access(page_addr, kInternalPageSize, lock_addr, mr);
             // No need to acquire root mtx here, because if we got an outdated child ptr, the optimistic lock coupling can
             // handle it.
-            mr = (ibv_mr*)page_hint->value;
+            assert(mr == (ibv_mr*)handle->value);
             page_buffer = mr->addr;
             header = (Header_Index<Key> *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
             // if is root, then we should always bypass the cache.
@@ -1565,23 +1561,24 @@ namespace DSMEngine {
                         if (page_addr == g_root_ptr.load()){
                             g_root_ptr.store(GlobalAddress::Null());
                         }
-                        cache_root_handle_unref();
+                        handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
+                        cached_root_handle_mtx.unlock_shared();
                         return false;
                     }
-                    cache_root_handle_unref();
+                    handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
+                    cached_root_handle_mtx.unlock_shared();
                     return true;
                 }
                 assert(page->hdr.level < 100);
-                page->check_invalidation_and_refetch_outside_lock(page_addr, rdma_mg, mr);
             }else if(isroot){
 //                //
 //                std::unique_lock<std::shared_mutex> l(root_mtx);
 //                if (page_addr == g_root_ptr.load()){
 //                    g_root_ptr.store(GlobalAddress::Null());
 //                }
-                printf("page_addr node id %lu, offset is %lu, page_hint shows node id %lu, offset is %lu page_hit pointer is %p\n", page_addr.nodeID, page_addr.offset, header->this_page_g_ptr.nodeID, header->this_page_g_ptr.offset, page_hint);
-//                assert(false);
-                cache_root_handle_unref();
+                printf("page_addr node id %lu, offset is %lu, page_hint shows node id %lu, offset is %lu page_hit pointer is %p\n", page_addr.nodeID, page_addr.offset, header->this_page_g_ptr.nodeID, header->this_page_g_ptr.offset, handle);
+                handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
+                cached_root_handle_mtx.unlock_shared();
                 return false;
             }
 
@@ -1590,218 +1587,44 @@ namespace DSMEngine {
         if(!skip_cache){
             // Can be root if the original root ptr is invalid and this funciton is entered again bby the node fall back, because we do not have
             // page_hint this time.
-            handle = page_cache->Lookup(page_id);
-#ifdef PROCESSANALYSIS
-            if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-            auto stop = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-//#ifndef NDEBUG
-            printf("cache look up for level %d is (%ld) ns, \n", level, duration.count());
-//          TimePrintCounter = 0;
-        }
-//#endif
-#endif
-            // TODO: use real pointer to bypass the cache hash table. We need overwrittened function for internal page search,
-            //  given an local address (now the global address is given). Or we make it the same function with both global ptr and local ptr,
-            //  and let the function to figure out the situation.
+            ddms_->PrePage_Read(page_buffer, page_addr, handle);
+            page = (InternalPage<Key> *)page_buffer;
+            result.Reset();
+            result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
+            result.level = header->level;
 #ifndef NDEBUG
-            int rdma_refetch_times = 0;
-#endif
-            //
-            //Question: Shall we implement a shared-exclusive lock here for local contention. or we still
-            // follow the optimistic latch free design?
-            // Answer: Still optimistic latch free, the local read of internal node do not need local lock,
-            // but the local write will write through the memory node and acquire the global lock.
-            if (handle != nullptr){
-                cache_hit_valid[RDMA_Manager::thread_id][0]++;
-                mr = (ibv_mr*)page_cache->Value(handle);
-                page_buffer = mr->addr;
-                header = (Header_Index<Key> *)((char*)page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
-#ifndef NDEBUG
-                uint64_t local_meta_old = __atomic_load_n((uint64_t*)page_buffer, (int)std::memory_order_seq_cst);
-#endif
-                page = (InternalPage<Key> *)page_buffer;
-#ifndef NDEBUG
-                uint64_t local_meta_new = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
-#endif
-                result.Reset();
-                result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
-                result.level = header->level;
-#ifndef NDEBUG
-                if (level != -1){
-                    assert(level ==result.level );
-                }
-#endif
-                level = result.level;
-                assert(result.is_leaf == (level == 0));
-                path_stack[coro_id][result.level] = page_addr;
-                if (result.level == 0){
-                    // if the root node is the leaf node this path will happen.
-                    printf("root and leaf are the same 2\n");
-                    //Why this is impossible?
-                    // Ans: here the level is 0 and we are internal search the page, then the index only have one leaf node
-                    // which is also the root node. In this case, the root page has to have a page_hint,
-                    // it is impossible to search a root leaf node without a page hint.
-                    assert(false);
-                    assert(page->check_whether_globallock_is_unlocked());
-                    if (k >= page->hdr.highest){
-                        std::unique_lock<std::shared_mutex> l(root_mtx);
-                        if (page_addr == g_root_ptr.load()){
-                            g_root_ptr.store(GlobalAddress::Null());
-                        }
-                        return false;
-                    }
-                    return true;
-                }
-                assert(page->hdr.level < 100);
-
-//        assert((page->local_lock_meta.current_ticket == page->local_lock_meta.issued_ticket && page->local_lock_meta.local_lock_byte == 0) || (page->local_lock_meta.current_ticket != page->local_lock_meta.issued_ticket && page->local_lock_meta.local_lock_byte == 1));
-                // Note: we can not make the local lock outside the page, because in that case, the local lock
-                // are aggregated but the global lock is per page, we can not do the lock handover.
-                // CHANGE IT BACK
-                page->check_invalidation_and_refetch_outside_lock(page_addr, rdma_mg, mr);
-            }else {
-                cache_miss[RDMA_Manager::thread_id][0]++;
-                // TODO (potential optimization) we can use a lock when pushing the read page to cache
-                // so that we can avoid install the page to cache mulitple times. But currently it is okay.
-                //  pattern_cnt++;
-                mr = new ibv_mr{};
-                rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
-
-//        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
-//               page_addr, mr->addr, HashSlice(page_id), level);
-
-                page_buffer = mr->addr;
-                header = (Header_Index<Key> *) ((char*)page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
-                page = (InternalPage<Key> *)page_buffer;
-                page->global_lock = 1;
-
-#ifndef NDEBUG
-                rdma_refetch_times = 1;
-#endif
-            rdma_refetch:
-#ifndef NDEBUG
-                if (rdma_refetch_times >= 50000){
-                    assert(false);
-                }
-#endif
-                //TODO: Why the internal page read some times read an empty page?
-                // THe bug could be resulted from the concurrent access by multiple threads.
-                // why the last_index is always greater than the records number?
-                // it can read the full page, because it has not inserted to the cache.
-                rdma_mg->RDMA_Read(page_addr, mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
-//        DEBUG_arg("cache miss and RDMA read %p", page_addr);
-                //
-                assert(page->hdr.this_page_g_ptr = page_addr);
-                result.Reset();
-                result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
-                result.level = header->level;
-                level = result.level;
-                path_stack[coro_id][result.level] = page_addr;
-//        printf("From remote memory, Page offest %lu last index is %d, page pointer is %p\n", page_addr.offset, page->hdr.last_index, page);
-                //check level first because the rearversion's position depends on the leaf node or internal node
-                if (result.level == 0){
-                    // if the root node is the leaf node this path will happen.
-                    printf("root and leaf are the same 3\n");
-                    assert(false);
-                    assert(page->check_whether_globallock_is_unlocked());
-                    if (k >= page->hdr.highest){
-                        std::unique_lock<std::shared_mutex> l(root_mtx);
-                        if (page_addr == g_root_ptr.load()){
-                            g_root_ptr.store(GlobalAddress::Null());
-                        }
-                        rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Regular_Page);
-                        //todo:
-                        return false;
-                    }else{
-                        // No need for reread.
-                        rdma_mg->Deallocate_Local_RDMA_Slot(page_buffer, Regular_Page);
-                        // return true and let the outside code figure out that the leaf node is the root node
-//            this->unlock_addr(lock_addr, cxt, coro_id, false);
-                        return true;
-                    }
-
-                }
-                // This consistent check should be in the path of RDMA read only.
-                //TODO (OPTIMIZATION): Think about Why the last index check is necessary? can we remove it
-                // If  there is no such check, the page may stay in some invalid state, where the last key-value noted by "last_index"
-                // is empty. I spent 3 days to debug, but unfortunatly I did not figure it out.
-                // THe weird thing is there will only be one empty in the last index, all the others are valid all the times.
-
-
-                if (!page->check_whether_globallock_is_unlocked() ) {
-                    //TODO: What is the other thread is modifying this page but you overwrite the buffer by a reread.
-                    // How to tell whether the inconsistent content is from local read-write conflict or remote
-                    // RDMA read and write conflict
-                    // TODO: What if the records are not consistent but the page version is consistent.
-                    //If this page is fetch from the remote memory, discard the page before insert to the cache,
-                    // then refetch the page by RDMA.
-                    //If this page read from the
-
-#ifndef NDEBUG
-                    rdma_refetch_times++;
-#endif
-//            this->unlock_addr(lock_addr, cxt, coro_id, false);
-                    goto rdma_refetch;
-                }
-                // Initialize the local lock informations.
-//        page->local_metadata_init();
-                /**
-                 * On the responder side, contents of the RDMA write buffer are guaranteed to be fully received only if one of the following events takes place:
-                 * *Completion of the RDMA Write with immediate data
-                 * *Arrival and completion of the subsequent Send message
-                 * *Update of a memory element by subsequent RDMA Atomic operation
-                 * On the requester side, contents of the RDMA read buffer are guaranteed to be fully received only if one of the following events takes place:
-                 * *Completion of the RDMA Read Work Request (if completion is requested)
-                 * *Completion of the subsequent Work Request
-                 */
-                assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
-                page->local_metadata_init();
-
-                // if there has already been a cache entry with the same key, the old one will be
-                // removed from the cache, but it may not be garbage collected right away
-                //TODO(): you need to make sure this insert will not push out any cache entry,
-                // because the page could hold a lock on that page and this page may miss the update.
-                // However, this page's read is still a valid read and the other update may not required to
-                // be seen for multiversion Transaction concurrency control, but this may critical for the 2PL algorithms.
-                assert(mr != nullptr);
-                handle = page_cache->Insert(page_id, mr, kInternalPageSize, Deallocate_MR);
-//        assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
-//        this->unlock_addr(lock_addr, cxt, coro_id, false);
-//#ifndef NDEBUG
-//        usleep(10);
-//        ibv_wc wc[2];
-//        auto qp_type = std::string("default");
-//        assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, page_addr.nodeID) == 0);
-//#endif
+            if (level != -1){
+                assert(level ==result.level );
             }
+#endif
+            level = result.level;
+            assert(result.is_leaf == (level == 0));
+            path_stack[coro_id][result.level] = page_addr;
+            //If this is the leaf node, directly return let leaf page search to handle it.
+            if (result.level == 0){
+                assert(false);
+                // if the root node is the leaf node this path will happen.
+                printf("root and leaf are the same 1, this tree id is %lu, this node id is %lu\n", tree_id, RDMA_Manager::node_id);
+                // assert the page is a valid page.
+//                    assert(page->check_whether_globallock_is_unlocked());
+                if (k >= page->hdr.highest){
+                    std::unique_lock<std::shared_mutex> l(root_mtx);
+                    if (page_addr == g_root_ptr.load()){
+                        g_root_ptr.store(GlobalAddress::Null());
+                    }
+                    ddms_->PostPage_Read(page_addr, handle);
+
+                    return false;
+                }
+                ddms_->PostPage_Read(page_addr, handle);
+                return true;
+            }
+
         }
         assert(mr!= nullptr);
 
         assert(page->hdr.level < 100);
         assert(result.level != 0);
-        //          assert(!from_cache);
-
-        //      assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
-
-// IN case that the local read have a conflict with the concurrent write.
-
-        local_reread:
-#ifndef NDEBUG
-        Key highest;
-        size_t local_reread_retry = 0;
-#endif
-        assert(((uint64_t)&page->local_lock_meta) % 8 == 0);
-        uint64_t local_meta = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
-        while( ((Local_Meta*) &local_meta)->local_lock_byte > 0){
-            local_meta = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
-        };
-        uint16_t issued_ticket = ((Local_Meta*) &local_meta)->issued_ticket;
-        uint16_t current_ticket = ((Local_Meta*) &local_meta)->current_ticket;
-#ifndef NDEBUG
-        highest = page->hdr.highest;
-#endif
-//        assert(page->records[page->hdr.last_index ].ptr != GlobalAddress::Null());
 
         if (k >= page->hdr.highest) { // should turn right
 //            printf("should turn right ");
@@ -1809,48 +1632,13 @@ namespace DSMEngine {
             // (2) if this node is from the level = (the root level) - 1 then the cached root page should be invalidated.
             // Note that the root page is not stored in LRU cache.
             // (3) If other level, then the upper level page in the LRU cache should be invalidated.
-            if (isroot){
+            if (isroot || path_stack[coro_id][result.level+1] == GlobalAddress::Null()){
                 // invalidate the root. Maybe we can omit the mtx here?
                 std::unique_lock<std::shared_mutex> l(root_mtx);
                 if (page_addr == g_root_ptr.load()){
                     g_root_ptr.store(GlobalAddress::Null());
                 }
 
-            }else {
-                // It is possible that a staled root will result in a reread at the same level and then the upper level is null
-                // Question: why none root tranverser will comes to here? If a stale root initial a sibling page read, then the k should
-                // not larger than the highest this time.
-                //TODO(potential bug): we need to avoid this erase because it is expensive, we can barely
-                // mark the page invalidated within the page and then let the next thread access this page to refresh this page.
-//          DEBUG_arg("Erase the page 1 %p\n", path_stack[coro_id][result.level+1]);
-                if (UNLIKELY(level+1 == tree_height.load())){
-                    InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)cached_root_page_handle.load()->value)->addr;
-                    make_page_invalidated(upper_page);
-                }else if(path_stack[coro_id][result.level+1] != GlobalAddress::Null()){
-                    Slice upper_node_page_id((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress));
-                    // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
-                    // the page to check whether the page has been evicted.
-                    Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
-                    if(upper_layer_handle){
-                        InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)upper_layer_handle->value)->addr;
-                        make_page_invalidated(upper_page);
-
-                        page_cache->Release(upper_layer_handle);
-                    }else{
-                        printf("The internal page search is not start from root node.\n");
-                    }
-
-                }else{
-                    // this path can be acheived if the root node is outdated very much. and this node is updated,
-                    // and have a left turn. However, it is no longer the root search anymore.
-                    std::unique_lock<std::shared_mutex> l(root_mtx);
-                    if (page_addr == g_root_ptr.load()){
-                        g_root_ptr.store(GlobalAddress::Null());
-                    }
-                }
-
-
-//            page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
             }
             //TODO: What if the Erased key is still in use by other threads? THis is very likely
             // for the upper level nodes.
@@ -1863,35 +1651,28 @@ namespace DSMEngine {
 //                result.slibing = page->hdr.sibling_ptr;
                 assert(page->hdr.sibling_ptr != GlobalAddress::Null());
                 GlobalAddress sib_ptr = page->hdr.sibling_ptr;
-                // In case that the sibling pointer is invalidated
-                uint64_t local_meta_new = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
-                if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
-#ifndef NDEBUG
-                    if(local_reread_retry++ > 500){
-                        assert(false);
-                    }
-#endif
-                    goto local_reread;
-                }
                 // The release should always happen in the end of the function, other wise the
                 // page will be overwrittened. When you run release, this means the page buffer will
                 // sooner be overwritten.
                 if(!skip_cache){
-                    page_cache->Release(handle);
+                    ddms_->PostPage_Read(page_addr, handle);
                 }else{
-                    cache_root_handle_unref();
+                    handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
+                    cached_root_handle_mtx.unlock_shared();
+
                 }
 
                 isroot = false;
-                page_hint = nullptr;
+                handle = nullptr;
                 printf("Right turn from Page nodeid %lu, offset %lu\n", page_addr.nodeID, page_addr.offset);
-                return internal_page_search(sib_ptr, k, result, level, isroot, page_hint, cxt, coro_id);
+                return internal_page_search(sib_ptr, k, result, level, isroot, handle, cxt, coro_id);
             }else{
                 nested_retry_counter = 0;
                 if(!skip_cache){
-                    page_cache->Release(handle);
+                    ddms_->PostPage_Read(page_addr, handle);
                 }else{
-                    cache_root_handle_unref();
+                    handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
+                    cached_root_handle_mtx.unlock_shared();
                 }
                 DEBUG_PRINT("retry over two times place 1\n");
                 return false;
@@ -1900,75 +1681,40 @@ namespace DSMEngine {
         }
 
         if (k < page->hdr.lowest) {
-            if (isroot && UNLIKELY(level+1 == tree_height.load())){
+            if (isroot || path_stack[coro_id][result.level + 1] == GlobalAddress::Null()){
                 // invalidate the root.
                 std::unique_lock<std::shared_mutex> l(root_mtx);
                 if (page_addr == g_root_ptr.load()){
                     g_root_ptr.store(GlobalAddress::Null());
                 }
-            }else{
-                if (UNLIKELY(level+1 == tree_height.load())){
-                    InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)cached_root_page_handle.load()->value)->addr;
-                    make_page_invalidated(upper_page);
-                }else if(path_stack[coro_id][result.level + 1] != GlobalAddress::Null()){
-                    Slice upper_node_page_id((char *) &path_stack[coro_id][result.level + 1], sizeof(GlobalAddress));
-                    // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
-                    // the page to check whether the page has been evicted.
-                    Cache::Handle *upper_layer_handle = page_cache->Lookup(upper_node_page_id);
-                    if (upper_layer_handle) {
-                        InternalPage<Key> *upper_page = (InternalPage<Key> *) ((ibv_mr *) upper_layer_handle->value)->addr;
-
-                        make_page_invalidated(upper_page);
-                        page_cache->Release(upper_layer_handle);
-                    }
-
-                }
-//          page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
             }
-            //              printf("key %ld error in level %d\n", k, page->hdr.level);
-            //              sleep(10);
-            //              print_and_check_tree();
-            //              assert(false);
-            //TODO: Maybe we can implement a invalidation instead of the erase. which will not
-            // deallocate the memolry region of this cache entry.
 
-            //          if (path_stack[coro_id][result.level+1] != GlobalAddress::Null()){
-            //              page_cache->Erase(Slice((char*)&path_stack[coro_id][result.level+1], sizeof(GlobalAddress)));
-            //
-            //          }
             nested_retry_counter = 0;
             if(!skip_cache){
-                page_cache->Release(handle);
+                ddms_->PostPage_Read(page_addr, handle);
             }else{
-                cache_root_handle_unref();
+                handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
+                cached_root_handle_mtx.unlock_shared();
             }
             DEBUG_PRINT("retry place 2\n");
             return false;
         }
-        // this function will add the children pointer to the result.
-        // TODO: how to make sure that a page split will not happen during you search
-        //  the page.
-//        assert(front_v == rear_v);
+        nested_retry_counter = 0;
         // The second template parameter of SearchResult shall not influence the space oganization, so we can
         // dynamic cast the types.
         assert(STRUCT_OFFSET(SearchResult<Key COMMA GlobalAddress>, later_key) == STRUCT_OFFSET(SearchResult<Key COMMA Value>, later_key));
-        if (!page->internal_page_search(k, &result, current_ticket)){
-            goto local_reread;
-        }
-//        //TODO: delete the validation code below
-//        if (isroot){
-//            printf("Root node next level pointer number is %d\n", page->hdr.last_index);
-//        }
-        nested_retry_counter = 0;
+        page->internal_page_search(k, &result);
+
 #ifdef PROCESSANALYSIS
         start = std::chrono::high_resolution_clock::now();
 #endif
 
 
         if(!skip_cache){
-            page_cache->Release(handle);
+            ddms_->PostPage_Read(page_addr, handle);
         }else{
-            cache_root_handle_unref();
+            handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
+            cached_root_handle_mtx.unlock_shared();
         }
 
 #ifdef PROCESSANALYSIS
@@ -2274,200 +2020,29 @@ re_read:
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(InternalPage<Key>,global_lock);
+//        Slice page_id((char*)&page_addr, sizeof(GlobalAddress));
 
         ibv_mr* page_mr;
         void * page_buffer;
         InternalPage<Key>* page;
         bool skip_cache = false;
         Cache::Handle* handle = nullptr;
-        // TODO: Think whetehr the update in the root node can be lost since during the execution this page may no longer be the root node.
-        //  and other thread may create a handle in the cache and update the root node from the cache entry and finally overwrite the data back.
-        //  In this case, some of the node split's new pointer can be lost in this old root node.
-        // We can solve this problem by store the root cache handle in Btr attribute and do the concurrency control like a normal page.
-        // Need to rewrite the whole logic of cached root page.
-        if (level == tree_height.load()) {
-            std::unique_lock<std::shared_mutex> lck(root_mtx);
-            //Refresh the root ptr;
-            Cache::Handle* dummy_mr;
-            auto g_root_ptr_temp = get_root_ptr(dummy_mr);
-            // THe optimistic latch free mechanims is not safe for root update, becuase there could be two root page existing
-            // at the same time and two updates are conducted over two different page copy. Since the optimistic latch free
-            // is embeded in the page, they can not get aware of each other.
-            if (level == tree_height.load()) {
-                page_mr = (ibv_mr*)cached_root_page_handle.load()->value;
-                page_buffer = page_mr->addr;
-                page = (InternalPage<Key> *) page_buffer;
-                Header_Index<Key> *header = (Header_Index<Key> *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
-                //since tree height is modified the last, so the page must be correct. the only situation which
-                // challenge the assertion below is that the root page is changed too fast or there is a long context switch above.
-                assert(header->level == level);
-//                assert(header->this_page_g_ptr == page_addr);
-                //Do not know why the code can have the following scenario.
-                if (header->this_page_g_ptr != page_addr){
-//                    std::unique_lock<std::shared_mutex> lck(root_mtx);
-                    g_root_ptr.store(GlobalAddress::Null());
-                    return false;
-                }
-                cache_hit_valid[RDMA_Manager::thread_id][0]++;
+        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
 
-                // if this page mr is in-use and is the local cache for page_addr
-                skip_cache = true;
-                page = (InternalPage<Key> *) page_buffer;
-                path_stack[coro_id][level] = page_addr;
-                assert(page->hdr.level < 100);
-                ibv_mr *cas_mr = rdma_mg->Get_local_CAS_mr();
-#ifndef NDEBUG
-                bool valid_temp = page->hdr.valid_page;
-                uint64_t local_meta_new = __atomic_load_n((uint64_t *) &page->local_lock_meta,
-                                                          (int) std::memory_order_seq_cst);
 
-#endif
-                bool handover = acquire_local_optimistic_lock(&page->local_lock_meta, cxt, coro_id);
-#ifndef NDEBUG
-                //        usleep(4);
-                uint8_t expected = 0;
-                assert(__atomic_load_n(&page->local_lock_meta.local_lock_byte, mem_cst_seq) != 0);
-                assert(!__atomic_compare_exchange_n(&page->local_lock_meta.local_lock_byte, &expected, 1, false,
-                                                    mem_cst_seq, mem_cst_seq));
-#endif
-                if (handover) {
-                    // No need to read the page again because we handover the page as well.
-                    //            rdma_mg->RDMA_Read(page_addr, local_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
+        if(!skip_cache) {
+            ddms_->PrePage_Update(page_buffer, page_addr, handle);
+            assert(handle != nullptr);
+            assert(((ibv_mr *) handle->value)->addr == page_buffer);
+            page = (InternalPage<Key> *) page_buffer;
+            page_mr = (ibv_mr *) page_cache->Value(handle);
 
-                } else {
-                    ibv_mr temp_mr = *page_mr;
-                    GlobalAddress temp_page_add = page_addr;
-                    temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
-                    temp_mr.addr = (char *) temp_mr.addr + RDMA_OFFSET;
-                    temp_mr.length = temp_mr.length - RDMA_OFFSET;
-                    assert(page->local_lock_meta.local_lock_byte == 1);
-                    rdma_mg->global_Wlock_and_read_page_without_INVALID(&temp_mr, temp_page_add,
-                                                                        kInternalPageSize - RDMA_OFFSET,
-                                                                        lock_addr, cas_mr, 1, cxt, coro_id);
-                    assert(page->hdr.level > 0);
-                    //                handle->remote_lock_status.store(2);
-                    //            usleep(1);
-                }
-                assert(page->local_lock_meta.local_lock_byte == 1);
-
-            }
         }
-
-        if(!skip_cache){
-            Slice page_id((char*)&page_addr, sizeof(GlobalAddress));
-
-            handle = page_cache->Lookup(page_id);
-            ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
-//    int flag = 3;
-            if (handle!= nullptr){
-                cache_hit_valid[RDMA_Manager::thread_id][0]++;
-                // TODO: only fetch the data outside the local metadata.
-                // is possible that the reader need to have a local reread, during the execution.
-                page_mr = (ibv_mr*)page_cache->Value(handle);
-                page_buffer = page_mr->addr;
-                // you have to reread to data from the remote side to not missing update from other
-                // nodes! Do not read the page from the cache!
-                page = (InternalPage<Key> *)page_buffer;
-
-                // TODO(Potential optimization): May be we can handover the cache if two writer threads modifying the same page.
-                //  saving some RDMA round trips.
-#ifndef NDEBUG
-                bool valid_temp = page->hdr.valid_page;
-                uint64_t local_meta_new = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
-
-#endif
-                bool handover = acquire_local_optimistic_lock(&page->local_lock_meta, cxt, coro_id);
-#ifndef NDEBUG
-//        usleep(4);
-                uint8_t expected = 0;
-                assert( __atomic_load_n(&page->local_lock_meta.local_lock_byte, mem_cst_seq) != 0);
-                assert(!__atomic_compare_exchange_n(&page->local_lock_meta.local_lock_byte, &expected, 1, false, mem_cst_seq, mem_cst_seq));
-#endif
-                if (handover){
-                    // No need to read the page again because we handover the page as well.
-//            rdma_mg->RDMA_Read(page_addr, local_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-
-                }else{
-                    // need to trune the page address, to avoid local lock overwritting.
-                    ibv_mr temp_mr = *page_mr;
-                    GlobalAddress temp_page_add = page_addr;
-                    temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
-                    temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
-                    temp_mr.length = temp_mr.length - RDMA_OFFSET;
-                    assert(page->local_lock_meta.local_lock_byte == 1);
-                    rdma_mg->global_Wlock_and_read_page_without_INVALID(&temp_mr, temp_page_add,
-                                                                        kInternalPageSize - RDMA_OFFSET,
-                                                                        lock_addr, cas_mr, 1, cxt, coro_id);
-
-//                handle->remote_lock_status.store(2);
-
-//            usleep(1);
-                }
-                assert(page->local_lock_meta.local_lock_byte == 1);
-                assert(!page->check_whether_globallock_is_unlocked());
-
-
-//        lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
-//                           lock_addr, 1, cxt, coro_id);
-//        printf("Existing cache entry: prepare RDMA read request global ptr is %p, local ptr is %p, level is %d\n", page_addr, page_buffer, level);
-
-//        printf("Read page %lu over address %p, version is %u  \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
-//        flag = 1;
-            } else{
-                cache_miss[RDMA_Manager::thread_id][0]++;
-                //TODO: acquire the lock when trying to insert the page to the cache.
-                page_mr = new ibv_mr{};
-//        printf("Allocate slot for page 2 %p\n", page_addr);
-                rdma_mg->Allocate_Local_RDMA_Slot(*page_mr, Regular_Page);
-                page_buffer = page_mr->addr;
-                page = (InternalPage<Key> *)page_buffer;
-                page->local_metadata_init();
-                // you have to reread to data from the remote side to not missing update from other
-                // nodes! Do not read the page from the cache!
-                bool handover = acquire_local_optimistic_lock(&page->local_lock_meta, cxt, coro_id);
-//        assert(page->local_lock_meta.local_lock_byte == 1);
-                assert(!handover);
-                ibv_mr temp_mr = *page_mr;
-                GlobalAddress temp_page_add = page_addr;
-                temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
-                temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
-                temp_mr.length = temp_mr.length - RDMA_OFFSET;
-                //Skip the local lock metadata
-                //TOTHINK: The RDMA read may result in the local spin lock not work if they are in the same cache line.
-                // The RDMA read may result in a false
-                rdma_mg->global_Wlock_and_read_page_without_INVALID(&temp_mr, temp_page_add, kInternalPageSize - RDMA_OFFSET,
-                                                                    lock_addr, cas_mr, 1, cxt, coro_id);
-//            handle->remote_lock_status.store(2);
-                assert(page->local_lock_meta.local_lock_byte == 1);
-
-
-//        lock_and_read_page(local_buffer, page_addr, kInternalPageSize, cas_mr,
-//                           lock_addr, 1, cxt, coro_id);
-//        printf("non-Existing cache entry: prepare RDMA read request global ptr is %p, local ptr is %p, level is %d\n", page_addr, page_buffer, level);
-
-//        printf("Read page %lu over address %p, version is %u \n", page_addr.offset, local_buffer->addr, ((InternalPage *)page_buffer)->hdr.last_index);
-                assert(page_mr != nullptr);
-
-                handle = page_cache->Insert(page_id, page_mr, kInternalPageSize, Deallocate_MR);
-                // No need for consistence check here.
-//        flag = 0;
-            }
-        }
-
-//    local_reread:
-//        assert(((uint64_t)&page->local_lock_meta) % 8 == 0);
-//        uint64_t local_meta = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
-//        while( ((Local_Meta*) &local_meta)->local_lock_byte > 0){
-//            local_meta = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
-//        };
-//        uint16_t issued_ticket = ((Local_Meta*) &local_meta)->issued_ticket;
-//        uint16_t current_ticket = ((Local_Meta*) &local_meta)->current_ticket;
 
 
 
         assert(((char*)&page->global_lock - (char*)page) == RDMA_OFFSET);
         assert(page->hdr.level == level);
-        assert(!page->check_whether_globallock_is_unlocked());
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
         path_stack[coro_id][page->hdr.level] = page_addr;
         // This is the result that we do not lock the btree when search for the key.
@@ -2475,38 +2050,13 @@ re_read:
         // Why this node can not be the right most node
         if (k >= page->hdr.highest ) {
             // TODO: No need for node invalidation when inserting things because the tree tranversing is enough for invalidation (Erase)
-            if(UNLIKELY(level == tree_height.load())){
+            if(UNLIKELY(level == tree_height.load()) || path_stack[coro_id][level+1]== GlobalAddress::Null()){
                 std::unique_lock<std::shared_mutex> l(root_mtx);
                 if (page_addr == g_root_ptr.load()){
                     g_root_ptr.store(GlobalAddress::Null());
                 }
 
-            }else if (UNLIKELY(level + 1 ==  tree_height.load())){
-                ibv_mr* rootnode_hint = (ibv_mr*)cached_root_page_handle.load()->value;
-                InternalPage<Key>* upper_page = (InternalPage<Key>*)rootnode_hint->addr;
-                make_page_invalidated(upper_page);
-            }else if(path_stack[coro_id][level+1]!= GlobalAddress::Null()){
-//            DEBUG_arg("Erase the page 7 %p\n", path_stack[coro_id][level+1]);
-                Slice upper_node_page_id((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress));
-                // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
-                // the page to check whether the page has been evicted.
-                Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
-                if(upper_layer_handle){
-                    InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)upper_layer_handle->value)->addr;
-                    make_page_invalidated(upper_page);
-                    page_cache->Release(upper_layer_handle);
-                }
-//            page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
-            }else{
-                // path_stack[coro_id][level+1] == GlobalAddress::Null() then this node is the old root and it have sibling ptr,
-                // then the g_roo_ptr need to be updated.
-                std::unique_lock<std::shared_mutex> l(root_mtx);
-                if (page_addr == g_root_ptr.load()){
-                    g_root_ptr.store(GlobalAddress::Null());
-                }
             }
-            // This could be async.
-//        this->unlock_addr(lock_addr, cxt, coro_id, false);
 
 
 
@@ -2514,42 +2064,20 @@ re_read:
             if (nested_retry_counter <= 4){
                 nested_retry_counter++;
                 GlobalAddress sib_ptr = page->hdr.sibling_ptr;
-                //Unlock this page.
-                bool hand_over_other = can_hand_over(&page->local_lock_meta);
-                if (hand_over_other) {
-                    releases_local_optimistic_lock(&page->local_lock_meta);
-                }else{
-
-                    assert(page->global_lock = 1);
-                    rdma_mg->global_unlock_addr(lock_addr,cxt,coro_id, false);
-                    releases_local_optimistic_lock(&page->local_lock_meta);
-                }
 
                 insert_success = this->internal_page_store(sib_ptr, k, v, level, cxt,
                                                            coro_id);
-
-
             }else{
                 nested_retry_counter = 0;
                 insert_success = false;
                 DEBUG_PRINT_CONDITION("retry place 5\n");
-                //Unlock this page.
-                bool hand_over_other = can_hand_over(&page->local_lock_meta);
-                if (hand_over_other) {
-                    releases_local_optimistic_lock(&page->local_lock_meta);
-                }else{
 
-                    assert(page->global_lock = 1);
-                    rdma_mg->global_unlock_addr(lock_addr,cxt,coro_id, false);
-                    releases_local_optimistic_lock(&page->local_lock_meta);
-                }
-//            return false;
             }
 
             if (!skip_cache){
-                page_cache->Release(handle);
+                ddms_->PostPage_UpdateOrWrite(page_addr, handle);
             }else{
-                cache_root_handle_unref();
+                assert(false);
             }
 
             return insert_success;
@@ -2559,46 +2087,18 @@ re_read:
         if (k < page->hdr.lowest ) {
             // if key is smaller than the lower bound, the insert has to be restart from the
             // upper level. because the sibling pointer only points to larger one.
-            if(UNLIKELY(level == tree_height.load())){
+            if(UNLIKELY(level == tree_height.load()) || path_stack[coro_id][level+1]== GlobalAddress::Null()){
                 std::unique_lock<std::shared_mutex> l(root_mtx);
                 if (page_addr == g_root_ptr.load()){
                     g_root_ptr.store(GlobalAddress::Null());
                 }
-            }else if (UNLIKELY(level + 1 ==  tree_height.load())) {
-                ibv_mr *rootnode_hint = (ibv_mr*)cached_root_page_handle.load()->value;
-                InternalPage<Key> *upper_page = (InternalPage<Key> *) rootnode_hint->addr;
-                make_page_invalidated(upper_page);
-            }else if(path_stack[coro_id][level+1]!= GlobalAddress::Null()){
-                Slice upper_node_page_id((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress));
-                // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
-                //  the page to check whether the page has been evicted.
-                Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
-                if(upper_layer_handle){
-                    InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)upper_layer_handle->value)->addr;
-                    make_page_invalidated(upper_page);
-                    page_cache->Release(upper_layer_handle);
-                }
-//            page_cache->Erase(Slice((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress)));
             }
-//        this->unlock_addr(lock_addr, cxt, coro_id, false);
-            bool hand_over_other = can_hand_over(&page->local_lock_meta);
-            if (hand_over_other) {
-                releases_local_optimistic_lock(&page->local_lock_meta);
-            }else{
-
-                assert(page->global_lock = 1);
-                rdma_mg->global_unlock_addr(lock_addr,cxt,coro_id, false);
-//            global_write_page_and_unlock(&temp_mr, temp_page_add, kInternalPageSize -RDMA_OFFSET, lock_addr, cxt, coro_id, false);
-                releases_local_optimistic_lock(&page->local_lock_meta);
-            }
-
-
             insert_success = false;
             DEBUG_PRINT_CONDITION("retry place 6\n");
             if (!skip_cache){
-                page_cache->Release(handle);
+                ddms_->PostPage_UpdateOrWrite(page_addr, handle);
             }else{
-                cache_root_handle_unref();
+                assert(false);
             }
             return insert_success;// result in fall back search on the higher level.
         }
@@ -2690,33 +2190,10 @@ re_read:
 
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 
-        asm volatile ("mfence" : : : "memory");
-//        printf("Can handover is %d, last index is %hd, page offset is %lu\n", can_hand_over(lock_addr),page->hdr.last_index, page_addr.offset);
-        // It is posisble that the local lock implementation is not strong enough, making
-        // the lock release before
-        assert(page->local_lock_meta.local_lock_byte == 1);
-
-        bool hand_over_other = can_hand_over(&page->local_lock_meta);
-        if (hand_over_other) {
-            //No need to write back we can handover the page as well.
-//            rdma_mg->RDMA_Write(page_addr, local_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-            releases_local_optimistic_lock(&page->local_lock_meta);
-        }else{
-            assert(page->global_lock == ((uint64_t)(rdma_mg->node_id/2 +1) <<56));
-            assert(page->hdr.valid_page);
-            //TODO: Change false to true.
-            assert(page->hdr.level > 0);
-            rdma_mg->global_write_page_and_Wunlock(page_mr, page_addr, kInternalPageSize, lock_addr, false);
-            releases_local_optimistic_lock(&page->local_lock_meta);
-        }
-//        write_page_and_unlock(local_buffer, page_addr, kInternalPagpeSize,
-//                              lock_addr, cxt, coro_id, false);
-//        printf("prepare RDMA write request global ptr is %p, local ptr is %p, level is %d\n", page_addr, page_buffer, level);
-
         if (!skip_cache){
-            page_cache->Release(handle);
+            ddms_->PostPage_UpdateOrWrite(page_addr, handle);
         }else{
-            cache_root_handle_unref();
+            assert(false);
         }
 
 

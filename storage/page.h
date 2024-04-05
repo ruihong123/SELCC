@@ -350,7 +350,7 @@ namespace DSMEngine{
 //            std::cout << "version: [" << (int)front_version << ", " << (int)rear_version
 //                      << "]" << std::endl;
         }
-        bool internal_page_search(const Key &k, void *result_ptr, uint16_t current_ticket);
+        bool internal_page_search(const Key &k, void *result_ptr);
         bool internal_page_store(GlobalAddress page_addr, const Key &k, GlobalAddress value, int level, CoroContext *cxt,
                             int coro_id);
     };
