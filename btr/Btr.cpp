@@ -1589,14 +1589,15 @@ namespace DSMEngine {
             // page_hint this time.
             ddms_->PrePage_Read(page_buffer, page_addr, handle);
             page = (InternalPage<Key> *)page_buffer;
+#ifndef NDEBUG
+            if (level != -1){
+                assert(level ==header->level );
+            }
+#endif
             result.Reset();
             result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
             result.level = header->level;
-#ifndef NDEBUG
-            if (level != -1){
-                assert(level ==result.level );
-            }
-#endif
+
             level = result.level;
             assert(result.is_leaf == (level == 0));
             path_stack[coro_id][result.level] = page_addr;
