@@ -252,7 +252,7 @@ namespace DSMEngine {
 
         //store a key and value to a leaf page [lowest, highest)
         bool leaf_page_store(GlobalAddress page_addr, const Key &k, const Slice &v, Key &split_key,
-                             GlobalAddress &sibling_addr, GlobalAddress root, int level, CoroContext *cxt, int coro_id);
+                             GlobalAddress &sibling_addr, int level, CoroContext *cxt, int coro_id);
 
 //        bool leaf_page_del(GlobalAddress page_addr, const Key &k, int level,
 //                           CoroContext *cxt, int coro_id);

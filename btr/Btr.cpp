@@ -1128,7 +1128,7 @@ namespace DSMEngine {
 //#ifdef PROCESSANALYSIS
 //    start = std::chrono::high_resolution_clock::now();
 //#endif
-        if (!leaf_page_store(p, k, v, split_key, sibling_prt, root, 0, cxt, coro_id)){
+        if (!leaf_page_store(p, k, v, split_key, sibling_prt, 0, cxt, coro_id)){
             if (path_stack[coro_id][1] != GlobalAddress::Null()){
 
                 p = path_stack[coro_id][1];
@@ -1524,21 +1524,20 @@ namespace DSMEngine {
         //TODO: For the pointer swizzling, we need to clear the hdr.this_page_g_ptr when we deallocate
         // the page. Also we need a mechanism to avoid the page being deallocate during the access. if a page
         // is pointer swizzled, we need to make sure it will not be evict from the cache.
-        if (handle != nullptr) {
+        if (isroot) {
             cached_root_handle_mtx.lock_shared();
             handle = cached_root_page_handle.load();
-            handle->reader_pre_access(page_addr, kInternalPageSize, lock_addr, mr);
-            // No need to acquire root mtx here, because if we got an outdated child ptr, the optimistic lock coupling can
-            // handle it.
-            assert(mr == (ibv_mr*)handle->value);
-            page_buffer = mr->addr;
-            header = (Header_Index<Key> *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
-            // if is root, then we should always bypass the cache.
-
-            if (header->this_page_g_ptr == page_addr) {
-                // if this page mr is in-use and is the local cache for page_addr
 
 
+            if (handle->gptr == page_addr) {
+
+                handle->reader_pre_access(page_addr, kInternalPageSize, lock_addr, mr);
+                // No need to acquire root mtx here, because if we got an outdated child ptr, the optimistic lock coupling can
+                // handle it.
+                assert(mr == (ibv_mr*)handle->value);
+                page_buffer = mr->addr;
+                header = (Header_Index<Key> *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
+                // if is root, then we should always bypass the cache.
                 skip_cache = true;
                 page = (InternalPage<Key> *)page_buffer;
 //                memset(&result, 0, sizeof(result));
@@ -1568,19 +1567,20 @@ namespace DSMEngine {
                         cached_root_handle_mtx.unlock_shared();
                         return false;
                     }
+
                     handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
                     cached_root_handle_mtx.unlock_shared();
                     return true;
                 }
                 assert(page->hdr.level < 100);
-            }else if(isroot){
+            }else {
 //                //
 //                std::unique_lock<std::shared_mutex> l(root_mtx);
 //                if (page_addr == g_root_ptr.load()){
 //                    g_root_ptr.store(GlobalAddress::Null());
 //                }
                 printf("page_addr node id %lu, offset is %lu, page_hint shows node id %lu, offset is %lu page_hit pointer is %p\n", page_addr.nodeID, page_addr.offset, header->this_page_g_ptr.nodeID, header->this_page_g_ptr.offset, handle);
-                handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
+//                handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
                 cached_root_handle_mtx.unlock_shared();
                 return false;
             }
@@ -2336,8 +2336,8 @@ re_read:
     }
 #ifdef CACHECOHERENCEPROTOCOL
     template <class Key, class Value>
-    bool Btr<Key,Value>::leaf_page_store(GlobalAddress page_addr, const Key &k, const Slice &v, Key &split_key, GlobalAddress &sibling_addr,
-                                         GlobalAddress root, int level, CoroContext *cxt, int coro_id) {
+    bool Btr<Key,Value>::leaf_page_store(GlobalAddress page_addr, const Key &k, const Slice &v, Key &split_key,
+                                         GlobalAddress &sibling_addr, int level, CoroContext *cxt, int coro_id) {
 #ifdef PROCESSANALYSIS
         auto start = std::chrono::high_resolution_clock::now();
 #endif
@@ -2415,7 +2415,8 @@ re_read:
 //                    handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 //                    page_cache->Release(handle);
 
-                    return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, root, level, cxt, coro_id);
+                    return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, level, cxt,
+                                                 coro_id);
                 }else{
 
 //                assert(false);
