@@ -3584,9 +3584,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 #ifndef ASYNC_UNLOCK
         assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
 #endif
-#ifndef NDEBUG
-        assert((*((uint64_t *)page_buffer->addr+1) << 8) > 0);
-#endif
+
         // TODO: if the starvation bit is on then we release and wait the lock.
         if ( (return_value >> 56) > 0  ){
 
@@ -3605,6 +3603,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             //Get the latest page version and make an invalidation message based on current version. (exact once)
             page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
             target_compute_node_id = ((return_value >> 56) - 1)*2;
+#ifndef NDEBUG
+            assert(return_value == *(uint64_t*) cas_buffer->addr);
+            assert((*((uint64_t *)page_buffer->addr+1) << 8) > 0);
+#endif
             goto retry;
         }
 
@@ -6549,6 +6551,9 @@ void RDMA_Manager::fs_deserilization(
             auto* page_mr = (ibv_mr*)handle->value;
             GlobalAddress lock_gptr = g_ptr;
             Header_Index<uint64_t>* header = (Header_Index<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
+            assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
+            assert(STRUCT_OFFSET(DataPage, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
+
             if (header->p_type != P_Internal){
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
 //                        printf("Leaf node page %p's global lock state is %lu\n", g_ptr, ((LeafPage*)(page_mr->addr))->global_lock);
