@@ -612,6 +612,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                     }else{
                         mr = new ibv_mr{};
                         rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
+                        printf("value mr is null for globale page nodeid %lu, offset %lu\n", page_addr.nodeID, page_addr.offset);
 
 //        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
 //               page_addr, mr->addr, HashSlice(page_id), level);

@@ -39,6 +39,7 @@ namespace DSMEngine {
 //                TODO: recover the assert below if we are testing the blind write operation.
                 LeafPage<uint64_t ,uint64_t>* page = ((LeafPage<uint64_t ,uint64_t>*)mr->addr);
 #ifndef NDEBUG
+                assert(STRUCT_OFFSET(InternalPage<uint64_t >, global_lock) == STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock));
                 if (page->hdr.p_type == P_Internal){
                     printf("Internal page is being destroyed %p\n", handle->gptr);
                 }
