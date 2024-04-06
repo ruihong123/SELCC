@@ -307,7 +307,7 @@ namespace DSMEngine {
             temp_mr = (ibv_mr*)temp_handle->value;
         }
         //TODO: Remove the code below if we are using the pessimistic way to gurantee the integraty of the fetched root page.
-        rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
+//        rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
 
         assert(((DataPage*)((ibv_mr*)temp_handle->value)->addr)->hdr.this_page_g_ptr == root_ptr);
         std::unique_lock<std::shared_mutex> lck(cached_root_handle_mtx);
