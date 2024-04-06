@@ -520,8 +520,8 @@ class RDMA_Manager {
 
     void global_Rlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
                                                  ibv_mr *cas_buffer, uint64_t tag = 0, CoroContext *cxt= nullptr, int coro_id = 0);
-    void global_Rlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
-                                                 ibv_mr *cas_buffer, uint64_t tag = 0, CoroContext *cxt= nullptr, int coro_id = 0);
+//    void global_Rlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
+//                                                 ibv_mr *cas_buffer, uint64_t tag = 0, CoroContext *cxt= nullptr, int coro_id = 0);
     void global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt = nullptr, int coro_id = 0,
                         bool async = false);
     //TODO: there is a potential lock upgrade deadlock, how to solve it?
@@ -537,12 +537,12 @@ class RDMA_Manager {
 
     void global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
                                                  ibv_mr *cas_buffer, uint64_t tag = 0, CoroContext *cxt= nullptr, int coro_id = 0);
-    void global_Wlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
-                                                 ibv_mr *cas_buffer, uint64_t tag = 0, CoroContext *cxt= nullptr, int coro_id = 0);
+//    void global_Wlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
+//                                                 ibv_mr *cas_buffer, uint64_t tag = 0, CoroContext *cxt= nullptr, int coro_id = 0);
     void global_Wlock_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
                                                  ibv_mr *cas_buffer, uint64_t tag = 0, CoroContext *cxt= nullptr, int coro_id = 0);
-    void global_Wlock_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
-                                   ibv_mr *cas_buffer, uint64_t tag = 0, CoroContext *cxt= nullptr, int coro_id = 0);
+//    void global_Wlock_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
+//                                   ibv_mr *cas_buffer, uint64_t tag = 0, CoroContext *cxt= nullptr, int coro_id = 0);
     void global_Wlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
                                                 ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt= nullptr, int coro_id = 0);
     // THis function acctually does not flush global lock words, otherwise the RDMA write will interfere with RDMA FAA making the CAS failed always

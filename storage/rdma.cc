@@ -3584,6 +3584,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 #ifndef ASYNC_UNLOCK
         assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
 #endif
+
         // TODO: if the starvation bit is on then we release and wait the lock.
         if ( (return_value >> 56) > 0  ){
 
@@ -3606,57 +3607,57 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         }
 
     }
-    void RDMA_Manager::global_Rlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
-                                                               GlobalAddress lock_addr, ibv_mr* cas_buffer, uint64_t tag, CoroContext *cxt,
-                                                               int coro_id) {
-        uint64_t add = (1ull << (RDMA_Manager::node_id/2 +1));
-        uint64_t substract = (~add) + 1;
-        uint64_t retry_cnt = 0;
-        uint64_t pre_tag = 0;
-        uint64_t conflict_tag = 0;
-        *(uint64_t *)cas_buffer->addr = 0;
-        uint8_t target_compute_node_id = 0;
-
-    retry:
-        struct ibv_send_wr sr[2];
-        struct ibv_sge sge[2];
-        //Only the second RDMA issue a completion,
-        // TODO: We may add a fence for the first request to avoid corruption of the async unlock.
-        // The async write back and unlock can result in corrupted data during the buffer recycle.
-        Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, add, 0, Regular_Page);
-        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Regular_Page);
-        sr[0].next = &sr[1];
-        *(uint64_t *)cas_buffer->addr = 0;
-        assert(page_addr.nodeID == lock_addr.nodeID);
-#ifdef GETANALYSIS
-        auto statistic_start = std::chrono::high_resolution_clock::now();
-#endif
-        Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-#ifdef GETANALYSIS
-        auto stop = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - statistic_start);
-        PrereadTotal.fetch_add(duration.count());
-        Prereadcounter.fetch_add(1);
-#endif
-        uint64_t return_value = *(uint64_t*) cas_buffer->addr;
-#ifndef ASYNC_UNLOCK
-        assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
-#endif
-        // TODO: if the starvation bit is on then we release and wait the lock.
-        if ((return_value >> 56) > 0){
-//            assert(false);
-//            assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1)))== 0);
-//            Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, -add, 0, Internal_and_Leaf);
-            //TODO: check the starvation bit to decide whether there is an immediate retry. If there is a starvation
-            // unlock the lock this time util see a write lock.
-
-            RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page);
-
-            target_compute_node_id = ((return_value >> 56) - 1)*2;
-            goto retry;
-        }
-
-    }
+//    void RDMA_Manager::global_Rlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+//                                                               GlobalAddress lock_addr, ibv_mr* cas_buffer, uint64_t tag, CoroContext *cxt,
+//                                                               int coro_id) {
+//        uint64_t add = (1ull << (RDMA_Manager::node_id/2 +1));
+//        uint64_t substract = (~add) + 1;
+//        uint64_t retry_cnt = 0;
+//        uint64_t pre_tag = 0;
+//        uint64_t conflict_tag = 0;
+//        *(uint64_t *)cas_buffer->addr = 0;
+//        uint8_t target_compute_node_id = 0;
+//
+//    retry:
+//        struct ibv_send_wr sr[2];
+//        struct ibv_sge sge[2];
+//        //Only the second RDMA issue a completion,
+//        // TODO: We may add a fence for the first request to avoid corruption of the async unlock.
+//        // The async write back and unlock can result in corrupted data during the buffer recycle.
+//        Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, add, 0, Regular_Page);
+//        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Regular_Page);
+//        sr[0].next = &sr[1];
+//        *(uint64_t *)cas_buffer->addr = 0;
+//        assert(page_addr.nodeID == lock_addr.nodeID);
+//#ifdef GETANALYSIS
+//        auto statistic_start = std::chrono::high_resolution_clock::now();
+//#endif
+//        Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+//#ifdef GETANALYSIS
+//        auto stop = std::chrono::high_resolution_clock::now();
+//        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - statistic_start);
+//        PrereadTotal.fetch_add(duration.count());
+//        Prereadcounter.fetch_add(1);
+//#endif
+//        uint64_t return_value = *(uint64_t*) cas_buffer->addr;
+//#ifndef ASYNC_UNLOCK
+//        assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
+//#endif
+//        // TODO: if the starvation bit is on then we release and wait the lock.
+//        if ((return_value >> 56) > 0){
+////            assert(false);
+////            assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1)))== 0);
+////            Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, -add, 0, Internal_and_Leaf);
+//            //TODO: check the starvation bit to decide whether there is an immediate retry. If there is a starvation
+//            // unlock the lock this time util see a write lock.
+//
+//            RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page);
+//
+//            target_compute_node_id = ((return_value >> 56) - 1)*2;
+//            goto retry;
+//        }
+//
+//    }
     bool RDMA_Manager::global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id) {
         uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
@@ -3935,6 +3936,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 #ifndef NDEBUG
         auto page = (LeafPage<uint64_t,uint64_t>*)(page_buffer->addr);
 //        assert(page_addr == page->hdr.this_page_g_ptr);
+        assert(*(uint64_t *)cas_buffer->addr == *((uint64_t *)page_buffer->addr+1));
 #endif
         if ((*(uint64_t*) cas_buffer->addr) != compare){
 //            assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
@@ -3986,59 +3988,59 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        printf("Acquire Write Lock at %lu\n", page_addr);
 //        assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
     }
-    void RDMA_Manager::global_Wlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
-                                                               GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
-                                                               int coro_id) {
-
-        uint64_t retry_cnt = 0;
-        uint64_t pre_tag = 0;
-        uint64_t conflict_tag = 0;
-        *(uint64_t *)cas_buffer->addr = 0;
-        std::vector<uint16_t> read_invalidation_targets;
-        uint16_t write_invalidation_target = 0-1;
-        int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
-#ifdef INVALIDATION_STATISTICS
-        bool invalidation_counted = false;
-#endif
-        retry:
-        retry_cnt++;
-        uint64_t compare = 0;
-        // We need a + 1 for the id, because id 0 conflict with the unlock bit
-        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
-        struct ibv_send_wr sr[2];
-        struct ibv_sge sge[2];
-        //Only the second RDMA issue a completion
-        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Regular_Page);
-        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Regular_Page);
-        sr[0].next = &sr[1];
-        *(uint64_t *)cas_buffer->addr = 0;
-        assert(page_addr.nodeID == lock_addr.nodeID);
-        std::string str("default");
-#ifndef NDEBUG
-        ibv_wc* wc = new ibv_wc[2]();
-
-        if (cq_data_default.at(page_addr.nodeID)->Get()!= nullptr){
-            assert(try_poll_completions(wc,1, str, true, page_addr.nodeID)==0);
-
-        }
-        delete [] wc;
-//        memset(page_buffer->addr,0,page_size);
-#endif
-        Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-//        printf("READ page %p from remote memory to local mr %p 2 thread_id is %d\n", page_addr, page_buffer->addr, thread_id);
-
-        invalidation_RPC_type = 0;
-        //When the program fail at the code below the remote buffer content (this_page_g_ptr) has already  be incosistent
-#ifndef NDEBUG
-        auto page = (LeafPage<uint64_t,uint64_t>*)(page_buffer->addr);
-//        assert(page_addr == page->hdr.this_page_g_ptr);
-#endif
-        if ((*(uint64_t*) cas_buffer->addr) != compare){
-            goto retry;
-        }
-        ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
-
-    }
+//    void RDMA_Manager::global_Wlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
+//                                                               GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
+//                                                               int coro_id) {
+//
+//        uint64_t retry_cnt = 0;
+//        uint64_t pre_tag = 0;
+//        uint64_t conflict_tag = 0;
+//        *(uint64_t *)cas_buffer->addr = 0;
+//        std::vector<uint16_t> read_invalidation_targets;
+//        uint16_t write_invalidation_target = 0-1;
+//        int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
+//#ifdef INVALIDATION_STATISTICS
+//        bool invalidation_counted = false;
+//#endif
+//        retry:
+//        retry_cnt++;
+//        uint64_t compare = 0;
+//        // We need a + 1 for the id, because id 0 conflict with the unlock bit
+//        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+//        struct ibv_send_wr sr[2];
+//        struct ibv_sge sge[2];
+//        //Only the second RDMA issue a completion
+//        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, 0, Regular_Page);
+//        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Regular_Page);
+//        sr[0].next = &sr[1];
+//        *(uint64_t *)cas_buffer->addr = 0;
+//        assert(page_addr.nodeID == lock_addr.nodeID);
+//        std::string str("default");
+//#ifndef NDEBUG
+//        ibv_wc* wc = new ibv_wc[2]();
+//
+//        if (cq_data_default.at(page_addr.nodeID)->Get()!= nullptr){
+//            assert(try_poll_completions(wc,1, str, true, page_addr.nodeID)==0);
+//
+//        }
+//        delete [] wc;
+////        memset(page_buffer->addr,0,page_size);
+//#endif
+//        Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+////        printf("READ page %p from remote memory to local mr %p 2 thread_id is %d\n", page_addr, page_buffer->addr, thread_id);
+//
+//        invalidation_RPC_type = 0;
+//        //When the program fail at the code below the remote buffer content (this_page_g_ptr) has already  be incosistent
+//#ifndef NDEBUG
+//        auto page = (LeafPage<uint64_t,uint64_t>*)(page_buffer->addr);
+////        assert(page_addr == page->hdr.this_page_g_ptr);
+//#endif
+//        if ((*(uint64_t*) cas_buffer->addr) != compare){
+//            goto retry;
+//        }
+//        ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
+//
+//    }
     void RDMA_Manager::global_Wlock_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
                                                                GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
                                                                int coro_id) {
@@ -4211,48 +4213,48 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        printf("Acquire Write Lock at %lu\n", page_addr);
 //        assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
     }
-    void RDMA_Manager::global_Wlock_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
-                                                 GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
-                                                 int coro_id) {
-
-        uint64_t retry_cnt = 0;
-        uint64_t pre_tag = 0;
-        uint64_t conflict_tag = 0;
-        *(uint64_t *)cas_buffer->addr = 0;
-        std::vector<uint16_t> read_invalidation_targets;
-        uint16_t write_invalidation_target = 0-1;
-        int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
-#ifdef INVALIDATION_STATISTICS
-        bool invalidation_counted = false;
-#endif
-
-    retry:
-        retry_cnt++;
-        uint64_t compare = 0;
-        // We need a + 1 for the id, because id 0 conflict with the unlock bit
-        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
-        struct ibv_send_wr sr[2];
-        struct ibv_sge sge[2];
-        //Only the second RDMA issue a completion
-        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, IBV_SEND_SIGNALED, Regular_Page);
-//        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
-        *(uint64_t *)cas_buffer->addr = 0;
-        assert(page_addr.nodeID == lock_addr.nodeID);
-        std::string str("default");
-        Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-        invalidation_RPC_type = 0;
-        //When the program fail at the code below the remote buffer content (this_page_g_ptr) has already  be incosistent
-#ifndef NDEBUG
-        auto page = (LeafPage<uint64_t,uint64_t>*)(page_buffer->addr);
-//        assert(page_addr == page->hdr.this_page_g_ptr);
-#endif
-        if ((*(uint64_t*) cas_buffer->addr) != compare){
-            goto retry;
-        }
-        ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
-//        printf("Acquire Write Lock at %lu\n", page_addr);
-//        assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
-    }
+//    void RDMA_Manager::global_Wlock_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
+//                                                 GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
+//                                                 int coro_id) {
+//
+//        uint64_t retry_cnt = 0;
+//        uint64_t pre_tag = 0;
+//        uint64_t conflict_tag = 0;
+//        *(uint64_t *)cas_buffer->addr = 0;
+//        std::vector<uint16_t> read_invalidation_targets;
+//        uint16_t write_invalidation_target = 0-1;
+//        int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
+//#ifdef INVALIDATION_STATISTICS
+//        bool invalidation_counted = false;
+//#endif
+//
+//    retry:
+//        retry_cnt++;
+//        uint64_t compare = 0;
+//        // We need a + 1 for the id, because id 0 conflict with the unlock bit
+//        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+//        struct ibv_send_wr sr[2];
+//        struct ibv_sge sge[2];
+//        //Only the second RDMA issue a completion
+//        Prepare_WR_CAS(sr[0], sge[0], lock_addr, cas_buffer, compare, swap, IBV_SEND_SIGNALED, Regular_Page);
+////        Prepare_WR_Read(sr[1], sge[1], page_addr, page_buffer, page_size, IBV_SEND_SIGNALED, Internal_and_Leaf);
+//        *(uint64_t *)cas_buffer->addr = 0;
+//        assert(page_addr.nodeID == lock_addr.nodeID);
+//        std::string str("default");
+//        Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+//        invalidation_RPC_type = 0;
+//        //When the program fail at the code below the remote buffer content (this_page_g_ptr) has already  be incosistent
+//#ifndef NDEBUG
+//        auto page = (LeafPage<uint64_t,uint64_t>*)(page_buffer->addr);
+////        assert(page_addr == page->hdr.this_page_g_ptr);
+//#endif
+//        if ((*(uint64_t*) cas_buffer->addr) != compare){
+//            goto retry;
+//        }
+//        ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
+////        printf("Acquire Write Lock at %lu\n", page_addr);
+////        assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
+//    }
     void RDMA_Manager::global_Wlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                                                GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
                                                                int coro_id) {
