@@ -1514,8 +1514,8 @@ namespace DSMEngine {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<Key COMMA Value>,global_lock);
-        Header_Index<Key> * header;
-        InternalPage<Key>* page;
+        Header_Index<Key> * header = nullptr;
+        InternalPage<Key>* page = nullptr;
         ibv_mr* mr;
 #ifdef PROCESSANALYSIS
         auto start = std::chrono::high_resolution_clock::now();
@@ -1591,6 +1591,10 @@ namespace DSMEngine {
             // Can be root if the original root ptr is invalid and this funciton is entered again bby the node fall back, because we do not have
             // page_hint this time.
             ddms_->PrePage_Read(page_buffer, page_addr, handle);
+            mr = (ibv_mr*)handle->value;
+            assert(page_buffer == mr->addr);
+            header = (Header_Index<Key> *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
+
             page = (InternalPage<Key> *)page_buffer;
 #ifndef NDEBUG
             if (level != -1){
