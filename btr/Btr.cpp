@@ -2314,29 +2314,7 @@ re_read:
             }
         }
         return true;
-//  if (!need_split)
-//    return;
-//// TODO: migrate the function outside.
-//  if (root == page_addr) { // update root
-//
-//    if (update_new_root(page_addr, split_key, sibling_addr, level + 1, root,
-//                        cxt, coro_id)) {
-//      return;
-//    }else{
-//        //CAS the root_ptr_ptr failed. need to re-insert.
-//    }
-//  }
-//
-//  auto up_level = path_stack[coro_id][level + 1];
-//    //TOTHINGK: What if the upper level has been splitted by other nodes.
-//  if (up_level != GlobalAddress::Null()) {
-//    internal_page_store(up_level, split_key, sibling_addr, root, level + 1, cxt,
-//                        coro_id);
-//  } else {
-//      // internal page store means that you are running insert_internal, and there
-//      // must be upper levels' node in the cache. so this path must be unreachable.
-//    assert(false);
-//  }
+
     }
 #ifdef CACHECOHERENCEPROTOCOL
     template <class Key, class Value>
