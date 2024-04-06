@@ -3584,7 +3584,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 #ifndef ASYNC_UNLOCK
         assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
 #endif
-
+#ifndef NDEBUG
+        assert(*(uint64_t *)cas_buffer->addr == *((uint64_t *)page_buffer->addr+1) - add);
+#endif
         // TODO: if the starvation bit is on then we release and wait the lock.
         if ( (return_value >> 56) > 0  ){
 
@@ -3936,7 +3938,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 #ifndef NDEBUG
         auto page = (LeafPage<uint64_t,uint64_t>*)(page_buffer->addr);
 //        assert(page_addr == page->hdr.this_page_g_ptr);
-        assert(*(uint64_t *)cas_buffer->addr == *((uint64_t *)page_buffer->addr+1));
 #endif
         if ((*(uint64_t*) cas_buffer->addr) != compare){
 //            assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
