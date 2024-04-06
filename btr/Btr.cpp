@@ -1085,11 +1085,14 @@ namespace DSMEngine {
                 p = result.slibing;
 
             }else if (result.next_level != GlobalAddress::Null()){
+                assert(result.next_level != p);
+
                 p = result.next_level;
                 level = result.level - 1;
 //                printf("move to the next level this level %d, next level %d, this gaddr node id %lu, offset %lu, next nodeid %lu offset %lu this nodeid is %lu\n",
 //                       result.level, result.level - 1, p.nodeID, p.offset, result.next_level.nodeID, result.next_level.offset, RDMA_Manager::node_id);
                 assert(result.next_level != GlobalAddress::Null());
+
                 assert(p != root);
             }else{
                 assert(tree_height == 0);
