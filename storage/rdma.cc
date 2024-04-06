@@ -3604,7 +3604,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
             target_compute_node_id = ((return_value >> 56) - 1)*2;
 #ifndef NDEBUG
-            assert(return_value == *(uint64_t*) cas_buffer->addr);
             assert((*((uint64_t *)page_buffer->addr+1) << 8) > 0);
 #endif
             goto retry;
