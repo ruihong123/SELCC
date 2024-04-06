@@ -126,6 +126,7 @@ namespace DSMEngine {
             Slice page_id((char *) &Gptr, sizeof(GlobalAddress));
             std::unique_lock<std::shared_mutex> lck(cached_root_handle_mtx);
             // Remember to release the handle when the root page has been changed.
+            assert((Gptr.offset % 1ULL*1024ULL*1024ULL*1024ULL)% kLeafPageSize == 0);
             cached_root_page_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
             auto mr = new ibv_mr{};
             rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
@@ -289,6 +290,7 @@ namespace DSMEngine {
         // after a new root is detected and the old root buffer can still be valid.
         // TODO: What if the assumption is not correct?
         ibv_mr* temp_mr = nullptr;
+        assert((root_ptr.offset % 1ULL*1024ULL*1024ULL*1024ULL)% kLeafPageSize == 0);
         // Remember to release the handle when the root page has been changed.
         Cache::Handle* temp_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
         // TODO: need to have some mechanisms to gurantee the integraty of fetched root page, either optimistic way or pessimistic way.
