@@ -35,8 +35,14 @@ namespace DSMEngine {
 //            printf("release the write lock at %lu and write back data during the handle destroy\n ", lock_gptr.offset);
 //            ibv_mr* local_mr = (ibv_mr*)value;
                 assert(mr->addr!= nullptr );
+
 //                TODO: recover the assert below if we are testing the blind write operation.
                 LeafPage<uint64_t ,uint64_t>* page = ((LeafPage<uint64_t ,uint64_t>*)mr->addr);
+#ifndef NDEBUG
+                if (page->hdr.p_type == P_Internal){
+                    printf("Internal page is being destroyed %p\n", handle->gptr);
+                }
+#endif
                 assert(page->hdr.this_page_g_ptr == handle->gptr);
                 assert(page->global_lock);
 //                assert(handle->gptr == ((LeafPage<uint64_t,uint64_t>*)mr->addr)->hdr.this_page_g_ptr);
