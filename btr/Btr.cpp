@@ -326,6 +326,7 @@ namespace DSMEngine {
         g_root_ptr.store(root_ptr);
 
         tree_height.store(height_temp);
+        assert(last_level <=  height_temp);
         printf("Get new root node id is %u, offset is %lu, tree id is %lu, this node_id is %hu, tree height is %hhu\n", g_root_ptr.load().nodeID, g_root_ptr.load().offset, tree_id, DSMEngine::RDMA_Manager::node_id, tree_height.load());
 //        if (last_level > 0){
 //            assert(last_level != tree_height.load());
