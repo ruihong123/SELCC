@@ -320,9 +320,14 @@ namespace DSMEngine {
 
             page_cache->Release(cached_root_page_handle.load());
         }
+        auto height_temp = ((InternalPage<Key>*) ((ibv_mr*)cached_root_page_handle.load()->value)->addr)->hdr.level;
+        if (root_ptr!= g_root_ptr.load()){
+            assert(height_temp > tree_height.load());
+        }
         cached_root_page_handle.store(temp_handle);
         g_root_ptr.store(root_ptr);
-        tree_height.store(((InternalPage<Key>*) ((ibv_mr*)cached_root_page_handle.load()->value)->addr)->hdr.level);
+
+        tree_height.store(height_temp);
         printf("Get new root node id is %u, offset is %lu, tree id is %lu, this node_id is %hu, tree height is %hhu\n", g_root_ptr.load().nodeID, g_root_ptr.load().offset, tree_id, DSMEngine::RDMA_Manager::node_id, tree_height.load());
 //        if (last_level > 0){
 //            assert(last_level != tree_height.load());
@@ -2579,7 +2584,7 @@ re_read:
                     lock_addr.offset = 0;
                     auto cas_buffer = rdma_mg->Get_local_CAS_mr();
                     //aquire the global lock
-                    acquire_global_lock:
+                acquire_global_lock:
                     *(uint64_t*)cas_buffer->addr = 0;
                     rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, 1, IBV_SEND_SIGNALED,1, LockTable);
                     if ((*(uint64_t*) cas_buffer->addr) != 0){
@@ -2599,6 +2604,7 @@ re_read:
 //                        page_cache->Release(handle);
                         return true;
                     }else{
+                        assert(height != level);
                         *(uint64_t *) cas_buffer->addr = 0;
 
 //                        rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
