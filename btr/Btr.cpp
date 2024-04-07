@@ -320,10 +320,8 @@ namespace DSMEngine {
 
             page_cache->Release(cached_root_page_handle.load());
         }
-        auto height_temp = ((InternalPage<Key>*) ((ibv_mr*)cached_root_page_handle.load()->value)->addr)->hdr.level;
-        if (root_ptr!= g_root_ptr.load()){
-            assert(height_temp > tree_height.load());
-        }
+        auto height_temp = ((InternalPage<Key>*) ((ibv_mr*)temp_handle->value)->addr)->hdr.level;
+        assert(height_temp >= tree_height.load());
         cached_root_page_handle.store(temp_handle);
         g_root_ptr.store(root_ptr);
 
