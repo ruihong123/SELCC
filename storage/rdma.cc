@@ -1146,6 +1146,8 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
         int buffer_position= 0;
         int miss_poll_counter= 0;
         while (true) {
+            assert(target_node_id != node_id);
+
 //      rdma_mg->poll_completion(wc, 1, client_ip, false, compute_node_id);
             // TODO: Event driven programming is better than polling.
                 if (try_poll_completions_xcompute(wc, 1, false, target_node_id, qp_num) == 0){
