@@ -1072,12 +1072,14 @@ namespace DSMEngine {
                 isroot = true;
                 p = get_root_ptr_protected(page_hint);
                 printf("revisit the root, this nodeid is %lu\n", RDMA_Manager::node_id);
+                fflush(stdout);
                 level = -1;
             }else{
                 // fall back to upper level
                 assert(level == result.level || level == -1);
 
                 printf("fall back to the upper level, this nodeid is %lu\n", RDMA_Manager::node_id);
+                fflush(stdout);
                 p = path_stack[coro_id][result.level +1];
                 if (p == root){
                     isroot = true;
@@ -1106,12 +1108,15 @@ namespace DSMEngine {
                 level = result.level - 1;
                 printf("move to the next level this level %d, next level %d, this gaddr node id %lu, offset %lu, next nodeid %lu offset %lu this nodeid is %lu\n",
                        result.level, result.level - 1, p.nodeID, p.offset, result.next_level.nodeID, result.next_level.offset, RDMA_Manager::node_id);
+                fflush(stdout);
+
                 assert(result.next_level != GlobalAddress::Null());
 
                 assert(p != root);
             }else{
                 assert(tree_height == 0);
                 printf("happens when there is only one level, tree height is %d\n", tree_height.load());
+                fflush(stdout);
             }
 
             if (level != 0){
@@ -1151,7 +1156,9 @@ namespace DSMEngine {
                     isroot = true;
                 }
                 level = 1;
-            printf("Fall back to the level 1\n");
+                printf("Fall back to the level 1\n");
+                fflush(stdout);
+
             }
             else{
 
@@ -1159,7 +1166,9 @@ namespace DSMEngine {
                 p = get_root_ptr_protected(page_hint);
                 isroot = true;
                 level = -1;
-            printf("Fall back to root\n");
+                printf("Fall back to root\n");
+                fflush(stdout);
+
 
             }
 #ifndef NDEBUG
