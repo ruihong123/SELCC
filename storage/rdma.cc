@@ -5632,6 +5632,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         asm volatile ("sfence\n" : : );
         asm volatile ("lfence\n" : : );
         asm volatile ("mfence\n" : : );
+        // TODO: this read invalidaiton messages reply shall be polled together
         poll_reply_buffer(receive_pointer); // poll the receive for 2 entires
 
         return true;

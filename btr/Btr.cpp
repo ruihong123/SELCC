@@ -128,7 +128,8 @@ namespace DSMEngine {
             std::unique_lock<std::shared_mutex> lck(cached_root_handle_mtx);
             // Remember to release the handle when the root page has been changed.
             assert((Gptr.offset % 1ULL*1024ULL*1024ULL*1024ULL)% kLeafPageSize == 0);
-            cached_root_page_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+            auto temp_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+            cached_root_page_handle.store(temp_handle);
             auto mr = new ibv_mr{};
             rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
             memset(mr->addr,0,rdma_mg->name_to_chunksize.at(Regular_Page));
@@ -315,9 +316,9 @@ namespace DSMEngine {
 
 //        assert(((DataPage*)((ibv_mr*)temp_handle->value)->addr)->hdr.this_page_g_ptr == root_ptr);
         std::unique_lock<std::shared_mutex> lck(cached_root_handle_mtx);
-        if (cached_root_page_handle != nullptr){
+        if (cached_root_page_handle.load() != nullptr){
 
-            page_cache->Release(cached_root_page_handle);
+            page_cache->Release(cached_root_page_handle.load());
         }
         cached_root_page_handle.store(temp_handle);
         g_root_ptr.store(root_ptr);
@@ -396,8 +397,8 @@ namespace DSMEngine {
             //Try to rebuild a local mr for the new root, the old root may
 //        temp_handle->value = page_buffer;
 
-        if (cached_root_page_handle != nullptr){
-            page_cache->Release(cached_root_page_handle);
+        if (cached_root_page_handle.load() != nullptr){
+            page_cache->Release(cached_root_page_handle.load());
         }
         cached_root_page_handle.store(temp_handle);
         // set local cache for root address
@@ -928,6 +929,7 @@ namespace DSMEngine {
         //TODO: You need to acquire a lock when you write a page
         Cache::Handle* page_hint = nullptr;
         auto root = get_root_ptr_protected(page_hint);
+        assert(target_level>=tree_height.load());
         SearchResult<Key, Value> result;
 
         GlobalAddress p = root;
