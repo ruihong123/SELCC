@@ -82,7 +82,7 @@ launch () {
     compute=${compute_nodes[$i]}
     echo "start worker: ssh ${ssh_opts} ${compute} '$script_compute -sn$compute -nid$((2*$i)) > ${output_file} 2>&1' &"
     ssh ${ssh_opts} ${compute} "echo '$core_dump_dir/core$compute' | sudo tee /proc/sys/kernel/core_pattern"
-    ssh ${ssh_opts} ${compute} "ulimit -S -c unlimited && $script_compute -sn$compute -nid$((2*$i)) | tee ${output_file}" &
+    ssh ${ssh_opts} ${compute} "ulimit -S -c unlimited && $script_compute -sn$compute -nid$((2*$i)) > ${output_file} 2>&1" &
     sleep 1
   done
 
