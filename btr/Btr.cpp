@@ -929,7 +929,7 @@ namespace DSMEngine {
         //TODO: You need to acquire a lock when you write a page
         Cache::Handle* page_hint = nullptr;
         auto root = get_root_ptr_protected(page_hint);
-        assert(target_level >= tree_height.load());
+        assert(target_level <= tree_height.load());
         SearchResult<Key, Value> result;
 
         GlobalAddress p = root;
