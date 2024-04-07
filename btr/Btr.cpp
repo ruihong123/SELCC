@@ -86,6 +86,7 @@ namespace DSMEngine {
         leaf_cardinality_ = (kLeafPageSize - STRUCT_OFFSET(LeafPage<Key COMMA Value>, data_[0])) / scheme_ptr->GetSchemaSize();
         print_verbose();
         assert(g_root_ptr.is_lock_free());
+        cached_root_page_handle.store(nullptr);
     }
     template <typename Key, typename Value>
     Btr<Key, Value>::Btr(DDSM *dsm, Cache *cache_ptr, RecordSchema *record_scheme_ptr, uint16_t Btr_id)
@@ -279,7 +280,7 @@ namespace DSMEngine {
         }
         assert(*(GlobalAddress*)local_mr->addr != GlobalAddress::Null());
         GlobalAddress root_ptr = *(GlobalAddress*)local_mr->addr;
-        if (cached_root_page_handle.load()!= nullptr &&
+        if (cached_root_page_handle.load() != nullptr &&
         root_ptr == cached_root_page_handle.load()->gptr){
             g_root_ptr.store(root_ptr);
             return;
