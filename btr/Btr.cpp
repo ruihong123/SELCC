@@ -945,7 +945,7 @@ namespace DSMEngine {
 
         next: // Internal_and_Leaf page search
         //TODO: What if the target_level is equal to the root level.
-        assert(target_level >= tree_height.load());
+        assert(target_level <= tree_height.load());
         if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
             if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
                 p = get_root_ptr_protected(page_hint);
