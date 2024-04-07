@@ -310,9 +310,11 @@ namespace DSMEngine {
         }else{
             temp_mr = (ibv_mr*)temp_handle->value;
         }
-        //TODO: Remove the code below if we are using the pessimistic way to gurantee the integraty of the fetched root page.
-        // It is possible that the cache is in dirty state locally already. (NOt possible)
-//        rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
+        //Read the tree height below
+        ibv_mr* local_buffer = rdma_mg->Get_local_CAS_mr();
+        GlobalAddress level_fetch_addr = root_ptr;
+        level_fetch_addr.offset = root_ptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, hdr.level);
+        rdma_mg->RDMA_Read(level_fetch_addr, local_buffer, sizeof(uint8_t), IBV_SEND_SIGNALED, 1, Regular_Page);
 
 //        assert(((DataPage*)((ibv_mr*)temp_handle->value)->addr)->hdr.this_page_g_ptr == root_ptr);
         std::unique_lock<std::shared_mutex> lck(root_handle_mtx);
@@ -320,7 +322,8 @@ namespace DSMEngine {
 
             page_cache->Release(cached_root_page_handle.load());
         }
-        auto height_temp = ((InternalPage<Key>*) ((ibv_mr*)temp_handle->value)->addr)->hdr.level;
+        // todo: how can we know current tree height if we do not read the page content.
+        auto height_temp = *(uint8_t*)local_buffer->addr;
         assert(height_temp >= tree_height.load());
         cached_root_page_handle.store(temp_handle);
         g_root_ptr.store(root_ptr);
