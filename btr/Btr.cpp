@@ -366,7 +366,7 @@ namespace DSMEngine {
                                          GlobalAddress old_root, CoroContext *cxt,
                                          int coro_id) {
 
-
+        assert(level > 0);
         auto cas_buffer = rdma_mg->Get_local_CAS_mr();
 
         // TODO: recycle the olde registered memory, but we need to make sure that there
@@ -929,7 +929,7 @@ namespace DSMEngine {
         //TODO: You need to acquire a lock when you write a page
         Cache::Handle* page_hint = nullptr;
         auto root = get_root_ptr_protected(page_hint);
-        assert(target_level>=tree_height.load());
+        assert(target_level >= tree_height.load());
         SearchResult<Key, Value> result;
 
         GlobalAddress p = root;
@@ -945,6 +945,7 @@ namespace DSMEngine {
 
         next: // Internal_and_Leaf page search
         //TODO: What if the target_level is equal to the root level.
+        assert(target_level >= tree_height.load());
         if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
             if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
                 p = get_root_ptr_protected(page_hint);
