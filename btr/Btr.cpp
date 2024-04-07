@@ -1109,17 +1109,17 @@ namespace DSMEngine {
 
                 p = result.next_level;
                 level = result.level - 1;
-                printf("move to the next level this level %d, next level %d, this gaddr node id %lu, offset %lu, next nodeid %lu offset %lu this nodeid is %lu\n",
-                       result.level, result.level - 1, p.nodeID, p.offset, result.next_level.nodeID, result.next_level.offset, RDMA_Manager::node_id);
-                fflush(stdout);
+//                printf("move to the next level this level %d, next level %d, this gaddr node id %lu, offset %lu, next nodeid %lu offset %lu this nodeid is %lu\n",
+//                       result.level, result.level - 1, p.nodeID, p.offset, result.next_level.nodeID, result.next_level.offset, RDMA_Manager::node_id);
+//                fflush(stdout);
 
                 assert(result.next_level != GlobalAddress::Null());
 
                 assert(p != root);
             }else{
                 assert(tree_height == 0);
-                printf("happens when there is only one level, tree height is %d\n", tree_height.load());
-                fflush(stdout);
+//                printf("happens when there is only one level, tree height is %d\n", tree_height.load());
+//                fflush(stdout);
             }
 
             if (level != 0){
