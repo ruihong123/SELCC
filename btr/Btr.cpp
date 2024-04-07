@@ -406,6 +406,7 @@ namespace DSMEngine {
         cached_root_page_handle.store(temp_handle);
         // set local cache for root address
         g_root_ptr.store(new_root_addr,std::memory_order_seq_cst);
+        assert(level>=tree_height.load());
         tree_height.store(level);
         assert(new_root->hdr.level == level);
         rdma_mg->RDMA_Write(new_root_addr, page_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
