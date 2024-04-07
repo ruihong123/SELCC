@@ -2230,6 +2230,7 @@ re_read:
                 Cache::Handle* dummy_mr;
                 p = get_root_ptr(dummy_mr);
                 uint8_t height = tree_height.load();
+                uint8_t old_height = tree_height.load();
 
                 if (path_stack[coro_id][level] == p && (int)height == level){
                     //Acquire global lock for the root update.
@@ -2246,7 +2247,6 @@ re_read:
                         printf("Two nodes are trying to modifying the same root for Btree \n");
                         goto acquire_global_lock;
                     }
-                    auto old_height = tree_height.load();
                     refetch_rootnode();
                     p = g_root_ptr.load();
                     height = tree_height.load();
