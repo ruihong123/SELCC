@@ -137,7 +137,7 @@ namespace DSMEngine {
         // will wait for the unfinished access on the old root handle, by checking the cached_root_handle_ref.
         std::atomic<Cache::Handle*> cached_root_page_handle;
 //        std::atomic<uint32_t> cached_root_handle_ref = 1;
-        std::shared_mutex cached_root_handle_mtx;
+        std::shared_mutex root_handle_mtx;
         //    InternalPage* cached_root_page_ptr;
         std::atomic<GlobalAddress> g_root_ptr = GlobalAddress::Null();
         std::atomic<uint8_t> tree_height = 0;

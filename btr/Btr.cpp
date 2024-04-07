@@ -125,7 +125,7 @@ namespace DSMEngine {
             void* root_page_buf = nullptr;
             GlobalAddress Gptr = g_root_ptr.load();
             Slice page_id((char *) &Gptr, sizeof(GlobalAddress));
-            std::unique_lock<std::shared_mutex> lck(cached_root_handle_mtx);
+            std::unique_lock<std::shared_mutex> lck(root_handle_mtx);
             // Remember to release the handle when the root page has been changed.
             assert((Gptr.offset % 1ULL*1024ULL*1024ULL*1024ULL)% kLeafPageSize == 0);
             auto temp_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
@@ -315,7 +315,7 @@ namespace DSMEngine {
 //        rdma_mg->RDMA_Read(root_ptr, temp_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
 
 //        assert(((DataPage*)((ibv_mr*)temp_handle->value)->addr)->hdr.this_page_g_ptr == root_ptr);
-        std::unique_lock<std::shared_mutex> lck(cached_root_handle_mtx);
+        std::unique_lock<std::shared_mutex> lck(root_handle_mtx);
         if (cached_root_page_handle.load() != nullptr){
 
             page_cache->Release(cached_root_page_handle.load());
@@ -1104,8 +1104,8 @@ namespace DSMEngine {
 
                 p = result.next_level;
                 level = result.level - 1;
-//                printf("move to the next level this level %d, next level %d, this gaddr node id %lu, offset %lu, next nodeid %lu offset %lu this nodeid is %lu\n",
-//                       result.level, result.level - 1, p.nodeID, p.offset, result.next_level.nodeID, result.next_level.offset, RDMA_Manager::node_id);
+                printf("move to the next level this level %d, next level %d, this gaddr node id %lu, offset %lu, next nodeid %lu offset %lu this nodeid is %lu\n",
+                       result.level, result.level - 1, p.nodeID, p.offset, result.next_level.nodeID, result.next_level.offset, RDMA_Manager::node_id);
                 assert(result.next_level != GlobalAddress::Null());
 
                 assert(p != root);
@@ -1151,7 +1151,7 @@ namespace DSMEngine {
                     isroot = true;
                 }
                 level = 1;
-//            printf("Fall back to the level 1\n");
+            printf("Fall back to the level 1\n");
             }
             else{
 
@@ -1159,7 +1159,7 @@ namespace DSMEngine {
                 p = get_root_ptr_protected(page_hint);
                 isroot = true;
                 level = -1;
-//            printf("Fall back to root\n");
+            printf("Fall back to root\n");
 
             }
 #ifndef NDEBUG
@@ -1540,7 +1540,7 @@ namespace DSMEngine {
         // the page. Also we need a mechanism to avoid the page being deallocate during the access. if a page
         // is pointer swizzled, we need to make sure it will not be evict from the cache.
         if (isroot) {
-            cached_root_handle_mtx.lock_shared();
+            root_handle_mtx.lock_shared();
             handle = cached_root_page_handle.load();
 
 
@@ -1579,12 +1579,12 @@ namespace DSMEngine {
                             g_root_ptr.store(GlobalAddress::Null());
                         }
                         handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-                        cached_root_handle_mtx.unlock_shared();
+                        root_handle_mtx.unlock_shared();
                         return false;
                     }
 
                     handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-                    cached_root_handle_mtx.unlock_shared();
+                    root_handle_mtx.unlock_shared();
                     return true;
                 }
                 assert(page->hdr.level < 100);
@@ -1596,7 +1596,7 @@ namespace DSMEngine {
 //                }
                 printf("page_addr node id %lu, offset is %lu, page_hint shows node id %lu, offset is %lu page_hit pointer is %p\n", page_addr.nodeID, page_addr.offset, header->this_page_g_ptr.nodeID, header->this_page_g_ptr.offset, handle);
 //                handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-                cached_root_handle_mtx.unlock_shared();
+                root_handle_mtx.unlock_shared();
                 return false;
             }
 
@@ -1681,7 +1681,7 @@ namespace DSMEngine {
                     ddms_->PostPage_Read(page_addr, handle);
                 }else{
                     handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-                    cached_root_handle_mtx.unlock_shared();
+                    root_handle_mtx.unlock_shared();
 
                 }
 
@@ -1695,7 +1695,7 @@ namespace DSMEngine {
                     ddms_->PostPage_Read(page_addr, handle);
                 }else{
                     handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-                    cached_root_handle_mtx.unlock_shared();
+                    root_handle_mtx.unlock_shared();
                 }
                 DEBUG_PRINT("retry over two times place 1\n");
                 return false;
@@ -1717,7 +1717,7 @@ namespace DSMEngine {
                 ddms_->PostPage_Read(page_addr, handle);
             }else{
                 handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-                cached_root_handle_mtx.unlock_shared();
+                root_handle_mtx.unlock_shared();
             }
             DEBUG_PRINT("retry place 2\n");
             return false;
@@ -1737,7 +1737,7 @@ namespace DSMEngine {
             ddms_->PostPage_Read(page_addr, handle);
         }else{
             handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-            cached_root_handle_mtx.unlock_shared();
+            root_handle_mtx.unlock_shared();
         }
 
 #ifdef PROCESSANALYSIS
