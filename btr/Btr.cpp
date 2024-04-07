@@ -1066,6 +1066,7 @@ namespace DSMEngine {
         if (!isroot){
             assert(p != root);
         }
+        assert(level <= tree_height.load());
         if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
             if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
                 isroot = true;
