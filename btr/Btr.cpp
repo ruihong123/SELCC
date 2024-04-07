@@ -2246,6 +2246,7 @@ re_read:
                         printf("Two nodes are trying to modifying the same root for Btree \n");
                         goto acquire_global_lock;
                     }
+                    auto old_height = tree_height.load();
                     refetch_rootnode();
                     p = g_root_ptr.load();
                     height = tree_height.load();
