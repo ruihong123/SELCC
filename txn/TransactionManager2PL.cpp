@@ -61,24 +61,26 @@ namespace DSMEngine {
     RecordSchema *schema_ptr = storage_manager_->tables_[table_id]->GetSchema();
     void*  page_buff;
     Cache::Handle* handle;
+    GlobalAddress page_addr = TOPAGE(tuple_gaddr);
       char* tuple_buffer;
       if (locked_handles_.find(g_addr) == locked_handles_.end()){
           if (access_type == READ_ONLY) {
               PROFILE_TIME_START(thread_id_, LOCK_READ);
-              default_gallocator->PrePage_Read(page_buff, TOPAGE(tuple_gaddr), handle);
+              default_gallocator->PrePage_Read(page_buff, page_addr, handle);
               assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
               tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
               locked_handles_[g_addr] = std::pair(handle,access_type);
-
+              printf("Acquire read lock for nodeid %d, offset %lu\n", page_addr.nodeID, page_addr.offset);
               PROFILE_TIME_END(thread_id_, LOCK_READ);
           }
           else {
               // DELETE_ONLY, READ_WRITE
               PROFILE_TIME_START(thread_id_, LOCK_WRITE);
-              default_gallocator->PrePage_Update(page_buff, TOPAGE(tuple_gaddr), handle);
+              default_gallocator->PrePage_Update(page_buff, page_addr, handle);
               assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
               tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
               locked_handles_[g_addr] = std::pair(handle,access_type);
+              printf("Acquire write lock for nodeid %d, offset %lu\n", page_addr.nodeID, page_addr.offset);
               PROFILE_TIME_END(thread_id_, LOCK_WRITE);
           }
       }else{
@@ -127,11 +129,16 @@ namespace DSMEngine {
            iter.second.second == DELETE_ONLY ||
            iter.second.second == INSERT_ONLY ||
            iter.second.second == READ_WRITE);
+        GlobalAddress page_addr = iter.second.first->gptr;
         if (iter.second.second == READ_ONLY){
             default_gallocator->PostPage_Read(iter.second.first->gptr, iter.second.first);
+            assert(iter.first == page_addr.val);
+            printf("Release read lock for nodeid %d, offset %lu\n", page_addr.nodeID, page_addr.offset);
         }
         else {
             default_gallocator->PostPage_UpdateOrWrite(iter.second.first->gptr, iter.second.first);
+            printf("Release write lock for nodeid %d, offset %lu\n", page_addr.nodeID, page_addr.offset);
+
         }
       // unlock
 //      this->UnLockRecord(access->access_addr_, record->GetSchemaSize());
