@@ -170,7 +170,6 @@ class NewOrderProcedure : public StoredProcedure {
       IndexKey stock_key = GetStockPrimaryKey(ol_i_id, ol_supply_w_id);
       Record *stock_record = nullptr;
       //DB_QUERY(SearchRecord(&context_, STOCK_TABLE_ID, stock_key, stock_record, READ_WRITE));
-
       DB_QUERY(
           SearchRecord(&context_, STOCK_TABLE_ID, stock_key, stock_record, (AccessType)new_order_param->stock_access_type_[i]));  // for testing
 
