@@ -56,39 +56,41 @@ namespace DSMEngine {
 //    printf(LOG_DEBUG, "thread_id=%u,table_id=%u,access_type=%u,data_addr=%lx, start SelectRecordCC",
 //        thread_id_, table_id, access_type, data_addr);
     PROFILE_TIME_START(thread_id_, CC_SELECT);
-    GlobalAddress g_addr = TOPAGE(tuple_gaddr);
-      assert(g_addr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
+    GlobalAddress page_gaddr = TOPAGE(tuple_gaddr);
+      assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
     RecordSchema *schema_ptr = storage_manager_->tables_[table_id]->GetSchema();
     void*  page_buff;
     Cache::Handle* handle;
-    GlobalAddress page_addr = TOPAGE(tuple_gaddr);
+//    GlobalAddress page_addr = TOPAGE(tuple_gaddr);
       char* tuple_buffer;
-      if (locked_handles_.find(g_addr) == locked_handles_.end()){
+      if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
           if (access_type == READ_ONLY) {
               PROFILE_TIME_START(thread_id_, LOCK_READ);
-              default_gallocator->PrePage_Read(page_buff, page_addr, handle);
+              default_gallocator->PrePage_Read(page_buff, page_gaddr, handle);
               assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
               tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
-              locked_handles_[g_addr] = std::pair(handle,access_type);
-              printf("Acquire read lock for nodeid %d, offset %lu\n", page_addr.nodeID, page_addr.offset);
+//              locked_handles_[page_gaddr] = std::pair(handle, access_type);
+              locked_handles_.insert({page_gaddr, {handle, access_type}});
+              printf("Threadid %zu Acquire read lock for nodeid %d, offset %lu\n", thread_id_, page_gaddr.nodeID, page_gaddr.offset);
               PROFILE_TIME_END(thread_id_, LOCK_READ);
           }
           else {
               // DELETE_ONLY, READ_WRITE
               PROFILE_TIME_START(thread_id_, LOCK_WRITE);
-              default_gallocator->PrePage_Update(page_buff, page_addr, handle);
+              default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
               assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
               tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
-              locked_handles_[g_addr] = std::pair(handle,access_type);
-              printf("Acquire write lock for nodeid %d, offset %lu\n", page_addr.nodeID, page_addr.offset);
+//              locked_handles_[page_gaddr] = std::pair(handle, access_type);
+              locked_handles_.insert({page_gaddr, {handle, access_type}});
+              printf("Threadid %zu Acquire write lock for nodeid %d, offset %lu\n", thread_id_, page_gaddr.nodeID, page_gaddr.offset);
               PROFILE_TIME_END(thread_id_, LOCK_WRITE);
           }
       }else{
-          handle = locked_handles_.at(g_addr).first;
+          handle = locked_handles_.at(page_gaddr).first;
           //TODO: update the hierachical lock atomically, if the lock is shared lock
-          if (access_type > READ_ONLY && locked_handles_[g_addr].second == READ_ONLY){
-              default_gallocator->PrePage_Upgrade(page_buff, g_addr, handle);
-              locked_handles_[g_addr].second = access_type;
+          if (access_type > READ_ONLY && locked_handles_[page_gaddr].second == READ_ONLY){
+              default_gallocator->PrePage_Upgrade(page_buff, page_gaddr, handle);
+              locked_handles_[page_gaddr].second = access_type;
           }
           page_buff = ((ibv_mr*)handle->value)->addr;
           tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
@@ -133,11 +135,11 @@ namespace DSMEngine {
         if (iter.second.second == READ_ONLY){
             default_gallocator->PostPage_Read(iter.second.first->gptr, iter.second.first);
             assert(iter.first == page_addr.val);
-            printf("Release read lock for nodeid %d, offset %lu\n", page_addr.nodeID, page_addr.offset);
+            printf("Threadid %zu Release read lock for nodeid %d, offset %lu\n", thread_id_, page_addr.nodeID, page_addr.offset);
         }
         else {
             default_gallocator->PostPage_UpdateOrWrite(iter.second.first->gptr, iter.second.first);
-            printf("Release write lock for nodeid %d, offset %lu\n", page_addr.nodeID, page_addr.offset);
+            printf("Threadid %zu Release write lock for nodeid %d, offset %lu\n", thread_id_, page_addr.nodeID, page_addr.offset);
 
         }
       // unlock
