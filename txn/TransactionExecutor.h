@@ -187,6 +187,7 @@ class TransactionExecutor {
     time_lock_.unlock();
     total_count_ += count;
     total_abort_count_ += abort_count;
+      printf("Thread %zu finished \n", thread_id);
     //txn_manager->CleanUp();
     return;
   }

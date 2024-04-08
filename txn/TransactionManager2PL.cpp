@@ -71,7 +71,7 @@ namespace DSMEngine {
               tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
 //              locked_handles_[page_gaddr] = std::pair(handle, access_type);
               locked_handles_.insert({page_gaddr, {handle, access_type}});
-              printf("Threadid %zu Acquire read lock for nodeid %d, offset %lu, lock handle number is %zu\n", thread_id_, page_gaddr.nodeID, page_gaddr.offset, locked_handles_.size());
+              printf("Threadid %zu Acquire read lock for nodeid %d, offset %lu --- %p, lock handle number is %zu\n", thread_id_, page_gaddr.nodeID, page_gaddr.offset, page_gaddr, locked_handles_.size());
               PROFILE_TIME_END(thread_id_, LOCK_READ);
           }
           else {
@@ -82,7 +82,7 @@ namespace DSMEngine {
               tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
 //              locked_handles_[page_gaddr] = std::pair(handle, access_type);
               locked_handles_.insert({page_gaddr, {handle, access_type}});
-              printf("Threadid %zu Acquire write lock for nodeid %d, offset %lu lock handle number is %zu\n", thread_id_, page_gaddr.nodeID, page_gaddr.offset, locked_handles_.size());
+              printf("Threadid %zu Acquire write lock for nodeid %d, offset %lu --- %p, lock handle number is %zu\n", thread_id_, page_gaddr.nodeID, page_gaddr.offset, page_gaddr, locked_handles_.size());
               PROFILE_TIME_END(thread_id_, LOCK_WRITE);
           }
       }else{
