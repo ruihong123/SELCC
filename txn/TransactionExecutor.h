@@ -131,6 +131,7 @@ class TransactionExecutor {
             total_abort_count_ += abort_count;
             PROFILE_TIME_END(thread_id, TXN_EXECUTE);
             //txn_manager->CleanUp();
+              assert(false);
             return;
           }PROFILE_TIME_START(thread_id, TXN_ABORT);
 #if defined(BACKOFF)						
@@ -177,7 +178,8 @@ class TransactionExecutor {
           total_count_ += count;
           total_abort_count_ += abort_count;
           //txn_manager->CleanUp();
-          return;
+            assert(false);
+            return;
         }
       }
     }
