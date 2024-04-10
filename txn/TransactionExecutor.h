@@ -127,8 +127,8 @@ class TransactionExecutor {
           ret.size_ = 0;
           ++abort_count;
           if (is_finish_ == true) {
-            total_count_ += count;
-            total_abort_count_ += abort_count;
+            total_count_.fetch_add(count);
+            total_abort_count_.fetch_add(abort_count);
             PROFILE_TIME_END(thread_id, TXN_EXECUTE);
             //txn_manager->CleanUp();
               assert(false);
@@ -151,10 +151,10 @@ class TransactionExecutor {
             ret.size_ = 0;
             ++abort_count;
             if (is_finish_ == true) {
-              total_count_ += count;
-              total_abort_count_ += abort_count;
-              PROFILE_TIME_END(thread_id, TXN_ABORT);PROFILE_TIME_END(
-                  thread_id, TXN_EXECUTE);
+                total_count_.fetch_add(count);
+                total_abort_count_.fetch_add(abort_count);
+              PROFILE_TIME_END(thread_id, TXN_ABORT);
+              PROFILE_TIME_END(thread_id, TXN_EXECUTE);
               //txn_manager->CleanUp();
               return;
             }

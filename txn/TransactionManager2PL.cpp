@@ -126,6 +126,8 @@ namespace DSMEngine {
       TxnParam* param, CharArray& ret_str) {
 //    epicLog(LOG_DEBUG, "thread_id=%u,txn_type=%d,commit", thread_id_, context->txn_type_);
     PROFILE_TIME_START(thread_id_, CC_COMMIT);
+//      assert(locked_handles_.size() == access_list_.access_count_);
+      assert(locked_handles_.size() >0);
     for (auto iter : locked_handles_){
         assert(iter.second.second == READ_ONLY ||
            iter.second.second == DELETE_ONLY ||
@@ -145,6 +147,7 @@ namespace DSMEngine {
       // unlock
 //      this->UnLockRecord(access->access_addr_, record->GetSchemaSize());
     }
+      printf("Threadid %zu commit\n", thread_id_);
     //GC
     for (size_t i = 0; i < access_list_.access_count_; ++i) {
       Access* access = access_list_.GetAccess(i);
