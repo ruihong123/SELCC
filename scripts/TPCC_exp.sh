@@ -26,7 +26,7 @@ conf_file="../connection.conf"
 
 # specify your directory for log files
 output_dir="/users/Ruihong/MemoryEngine/scripts/data"
-core_dump_dir="/proj/purduecs541f20-PG0/logs"
+core_dump_dir="/mnt/core_dump"
 # working environment
 proj_dir="/users/Ruihong/MemoryEngine"
 bin_dir="${proj_dir}/debug"
