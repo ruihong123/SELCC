@@ -124,6 +124,7 @@ class TransactionExecutor {
         PROFILE_TIME_START(thread_id, TXN_EXECUTE);
         ret.size_ = 0;
         if (procedures[tuple->type_]->Execute(tuple, ret) == false) {
+            assert(false);
           ret.size_ = 0;
           ++abort_count;
           if (is_finish_ == true) {
