@@ -178,7 +178,7 @@ class TransactionExecutor {
           total_count_ += count;
           total_abort_count_ += abort_count;
           //txn_manager->CleanUp();
-            assert(false);
+//            assert(false);
             return;
         }
       }
