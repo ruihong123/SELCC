@@ -187,7 +187,7 @@ class TransactionExecutor {
     }
     time_lock_.lock();
     end_timestamp_ = timer_.GetTimePoint();
-    is_finish_ = true;
+//    is_finish_ = true;
     time_lock_.unlock();
     total_count_ += count;
     total_abort_count_ += abort_count;
