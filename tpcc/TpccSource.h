@@ -207,7 +207,7 @@ class TpccSource : public BenchmarkSource {
     // generate abort here!
     //bool rollback = (TpccRandomGenerator::GenerateInteger(1, 100) == 1);
     bool rollback = false;
-    std::unordered_set<int> exist_items;
+    std::set<int> exist_items;
     for (size_t i = 0; i < param->ol_cnt_; ++i) {
       if (rollback && i == param->ol_cnt_ - 1) {
         param->i_ids_[i] = scale_params_->num_items_ + 1;
@@ -223,6 +223,7 @@ class TpccSource : public BenchmarkSource {
           }
         }
       }
+
       bool remote = (TpccRandomGenerator::GenerateInteger(1, 100)
           <= (int) dist_ratio_);
       if (scale_params_->num_warehouses_ > 1 && remote) {
@@ -234,6 +235,13 @@ class TpccSource : public BenchmarkSource {
       param->i_qtys_[i] = TpccRandomGenerator::GenerateInteger(1,
                                                                MAX_OL_QUANTITY);
     }
+    //Reorder the items to make the puchased item does not incur deadlock.
+      uint64_t j = 0;
+      assert(exist_items.size() == param->ol_cnt_);
+      for (auto iter: exist_items) {
+          param->i_ids_[j] = iter;
+          j++;
+      }
 
     // standard read/write
     for (size_t i = 0; i < param->ol_cnt_; ++i) {
