@@ -75,7 +75,7 @@ class SpinMutex {
   // private:
   std::atomic<bool> locked_;
 };
-
+// TODO: This read-write implementation may not 100% guarantee the atomicity, is it?
 // Implement a shared-exclusive spin lock with lock, try_lock, unlock, lock_shared, try_lock_shared, and unlock_shared.
 class RWSpinLock{
     std::atomic<int> readers_count{0};
@@ -96,29 +96,28 @@ public:
         thread_id = thread_ID + 1;
     }
     bool try_lock() {
-        auto currently_locked = write_now.load(std::memory_order_relaxed);
-        auto currently_readers = readers_count.load(std::memory_order_relaxed);
-        if (!currently_locked && currently_readers == 0){
-            return write_now.compare_exchange_strong(currently_locked, true,
+        auto currently_locked = false;
+
+//        auto currently_locked = write_now.load(std::memory_order_relaxed);
+//        auto currently_readers = readers_count.load(std::memory_order_relaxed);
+//        if (!currently_locked && currently_readers == 0){
+            if( write_now.compare_exchange_strong(currently_locked, true,
                                           std::memory_order_acquire,
-                                          std::memory_order_relaxed);
-        }else{
-            return false;
-        }
+                                          std::memory_order_relaxed)){
+                if (readers_count.load() == 0){
+                    return true;
+                }else{
+                    write_now.store(false);
+                    return false;
+                }
+            }else{
+                return false;
+            }
+//        }else{
+//            return false;
+//        }
 
     }
-
-    void unlock() {
-        thread_id = 0;
-        write_now.store(false, std::memory_order_release);
-    }
-    bool islocked(){
-        return write_now.load(std::memory_order_relaxed);
-    }
-    bool issharelocked(){
-        return readers_count.load(std::memory_order_relaxed) > 0;
-    }
-
     void lock_shared() {
         // unique_lock have priority
         while(true) {
@@ -138,6 +137,35 @@ public:
             }
         }
     }
+    bool try_shared_lock() {
+        auto currently_locked = write_now.load(std::memory_order_relaxed);
+//        auto currently_readers = readers_count.load(std::memory_order_relaxed);
+        if (!currently_locked){
+            readers_count.fetch_add(1);
+            if (write_now.load()){
+                readers_count.fetch_sub(1, std::memory_order_release);
+                return false;
+            }else{
+                return true;
+            }
+        }else{
+            return false;
+        }
+
+    }
+
+    void unlock() {
+        thread_id = 0;
+        write_now.store(false, std::memory_order_release);
+    }
+    bool islocked(){
+        return write_now.load(std::memory_order_relaxed);
+    }
+    bool issharelocked(){
+        return readers_count.load(std::memory_order_relaxed) > 0;
+    }
+
+
     void unlock_shared() {
         readers_count.fetch_sub(1, std::memory_order_release);
         assert(readers_count.load(std::memory_order_relaxed) >= 0);
