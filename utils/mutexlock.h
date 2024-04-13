@@ -95,7 +95,7 @@ public:
         }
         thread_id = thread_ID + 1;
     }
-    bool try_lock() {
+    bool try_lock(size_t thread_ID = 128) {
         auto currently_locked = false;
 
 //        auto currently_locked = write_now.load(std::memory_order_relaxed);
@@ -105,6 +105,7 @@ public:
                                           std::memory_order_acquire,
                                           std::memory_order_relaxed)){
                 if (readers_count.load() == 0){
+                    thread_id = 64+thread_ID;
                     return true;
                 }else{
                     write_now.store(false);
