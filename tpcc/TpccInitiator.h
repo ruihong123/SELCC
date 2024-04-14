@@ -78,6 +78,10 @@ protected:
     columns.push_back(new ColumnInfo("w_tax", ValueType::DOUBLE));
     columns.push_back(new ColumnInfo("w_ytd", ValueType::DOUBLE));
     columns.push_back(new ColumnInfo("meta", ValueType::META));
+    // The padding below is for the better concurrency.this can be generalized to other tables
+    // with a very small number of rows.
+    columns.push_back(
+              new ColumnInfo("padding", ValueType::VARCHAR, static_cast<size_t>(1024)));
 
     schema = new RecordSchema(WAREHOUSE_TABLE_ID);
     schema->InsertColumns(columns);
