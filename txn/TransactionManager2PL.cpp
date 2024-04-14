@@ -71,7 +71,7 @@ namespace DSMEngine {
               tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
 //              locked_handles_[page_gaddr] = std::pair(handle, access_type);
               locked_handles_.insert({page_gaddr, {handle, access_type}});
-              printf("Threadid %zu Acquire read lock for nodeid %d, offset %lu --- %p, lock handle number is %zu\n", thread_id_, page_gaddr.nodeID, page_gaddr.offset, page_gaddr, locked_handles_.size());
+//              printf("Threadid %zu Acquire read lock for nodeid %d, offset %lu --- %p, lock handle number is %zu\n", thread_id_, page_gaddr.nodeID, page_gaddr.offset, page_gaddr, locked_handles_.size());
               PROFILE_TIME_END(thread_id_, LOCK_READ);
           }
           else {
@@ -82,7 +82,7 @@ namespace DSMEngine {
               tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
 //              locked_handles_[page_gaddr] = std::pair(handle, access_type);
               locked_handles_.insert({page_gaddr, {handle, access_type}});
-              printf("Threadid %zu Acquire write lock for nodeid %d, offset %lu --- %p, lock handle number is %zu\n", thread_id_, page_gaddr.nodeID, page_gaddr.offset, page_gaddr, locked_handles_.size());
+//              printf("Threadid %zu Acquire write lock for nodeid %d, offset %lu --- %p, lock handle number is %zu\n", thread_id_, page_gaddr.nodeID, page_gaddr.offset, page_gaddr, locked_handles_.size());
               PROFILE_TIME_END(thread_id_, LOCK_WRITE);
           }
       }else{
@@ -137,17 +137,17 @@ namespace DSMEngine {
         if (iter.second.second == READ_ONLY){
             default_gallocator->PostPage_Read(iter.second.first->gptr, iter.second.first);
             assert(iter.first == page_addr.val);
-            printf("Threadid %zu Release read lock for nodeid %d, offset %lu lock handle number is %zu\n", thread_id_, page_addr.nodeID, page_addr.offset, locked_handles_.size());
+//            printf("Threadid %zu Release read lock for nodeid %d, offset %lu lock handle number is %zu\n", thread_id_, page_addr.nodeID, page_addr.offset, locked_handles_.size());
         }
         else {
             default_gallocator->PostPage_UpdateOrWrite(iter.second.first->gptr, iter.second.first);
-            printf("Threadid %zu Release write lock for nodeid %d, offset %lu lock handle number is %zu\n", thread_id_, page_addr.nodeID, page_addr.offset, locked_handles_.size());
+//            printf("Threadid %zu Release write lock for nodeid %d, offset %lu lock handle number is %zu\n", thread_id_, page_addr.nodeID, page_addr.offset, locked_handles_.size());
 
         }
       // unlock
 //      this->UnLockRecord(access->access_addr_, record->GetSchemaSize());
     }
-      printf("Threadid %zu commit\n", thread_id_);
+//      printf("Threadid %zu commit\n", thread_id_);
     //GC
     for (size_t i = 0; i < access_list_.access_count_; ++i) {
       Access* access = access_list_.GetAccess(i);
