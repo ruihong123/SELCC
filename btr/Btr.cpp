@@ -125,7 +125,7 @@ namespace DSMEngine {
             void* root_page_buf = nullptr;
             GlobalAddress Gptr = g_root_ptr.load();
             Slice page_id((char *) &Gptr, sizeof(GlobalAddress));
-            std::unique_lock<std::shared_mutex> lck(root_handle_mtx);
+            std::unique_lock<std::shared_mutex> lck(root_mtx);
             // Remember to release the handle when the root page has been changed.
             assert((Gptr.offset % 1ULL*1024ULL*1024ULL*1024ULL)% kLeafPageSize == 0);
             auto temp_handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
@@ -317,7 +317,7 @@ namespace DSMEngine {
         rdma_mg->RDMA_Read(level_fetch_addr, local_buffer, sizeof(uint8_t), IBV_SEND_SIGNALED, 1, Regular_Page);
 
 //        assert(((DataPage*)((ibv_mr*)temp_handle->value)->addr)->hdr.this_page_g_ptr == root_ptr);
-        std::unique_lock<std::shared_mutex> lck(root_handle_mtx);
+//        std::unique_lock<std::shared_mutex> lck(root_handle_mtx);
         if (cached_root_page_handle.load() != nullptr){
 
             page_cache->Release(cached_root_page_handle.load());
@@ -1550,7 +1550,7 @@ namespace DSMEngine {
         // the page. Also we need a mechanism to avoid the page being deallocate during the access. if a page
         // is pointer swizzled, we need to make sure it will not be evict from the cache.
         if (isroot) {
-            root_handle_mtx.lock_shared();
+            root_mtx.lock_shared();
             handle = cached_root_page_handle.load();
 
 
@@ -1584,17 +1584,18 @@ namespace DSMEngine {
                     // assert the page is a valid page.
 //                    assert(page->check_whether_globallock_is_unlocked());
                     if (k >= page->hdr.highest){
+                        root_mtx.unlock_shared();
                         std::unique_lock<std::shared_mutex> l(root_mtx);
                         if (page_addr == g_root_ptr.load()){
                             g_root_ptr.store(GlobalAddress::Null());
                         }
                         handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-                        root_handle_mtx.unlock_shared();
+//                        root_mtx.unlock_shared();
                         return false;
                     }
 
                     handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-                    root_handle_mtx.unlock_shared();
+                    root_mtx.unlock_shared();
                     return true;
                 }
                 assert(page->hdr.level < 100);
@@ -1606,7 +1607,7 @@ namespace DSMEngine {
 //                }
                 printf("page_addr node id %lu, offset is %lu, page_hint shows node id %lu, offset is %lu page_hit pointer is %p\n", page_addr.nodeID, page_addr.offset, header->this_page_g_ptr.nodeID, header->this_page_g_ptr.offset, handle);
 //                handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-                root_handle_mtx.unlock_shared();
+                root_mtx.unlock_shared();
                 return false;
             }
 
@@ -1635,6 +1636,7 @@ namespace DSMEngine {
             path_stack[coro_id][result.level] = page_addr;
             //If this is the leaf node, directly return let leaf page search to handle it.
             if (result.level == 0){
+                //THis path shall not happen
                 assert(false);
                 // if the root node is the leaf node this path will happen.
                 printf("root and leaf are the same 1, this tree id is %lu, this node id is %lu\n", tree_id, RDMA_Manager::node_id);
@@ -1666,11 +1668,18 @@ namespace DSMEngine {
             // Note that the root page is not stored in LRU cache.
             // (3) If other level, then the upper level page in the LRU cache should be invalidated.
             if (isroot || path_stack[coro_id][result.level+1] == GlobalAddress::Null()){
-                // invalidate the root. Maybe we can omit the mtx here?
-                std::unique_lock<std::shared_mutex> l(root_mtx);
-                if (page_addr == g_root_ptr.load()){
+                // only invalidate the upper layer if we did not acquire shared root_mtx.
+                //since the mtx below is just to avoid muliptle refreshes.
+                if (!skip_cache){
+                    // invalidate the root. Maybe we can omit the mtx here?
+                    std::unique_lock<std::shared_mutex> l(root_mtx);
+                    if (page_addr == g_root_ptr.load()){
+                        g_root_ptr.store(GlobalAddress::Null());
+                    }
+                }else{
                     g_root_ptr.store(GlobalAddress::Null());
                 }
+
 
             }
             //TODO: What if the Erased key is still in use by other threads? THis is very likely
@@ -1691,7 +1700,7 @@ namespace DSMEngine {
                     ddms_->PostPage_Read(page_addr, handle);
                 }else{
                     handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-                    root_handle_mtx.unlock_shared();
+                    root_mtx.unlock_shared();
 
                 }
 
@@ -1705,7 +1714,7 @@ namespace DSMEngine {
                     ddms_->PostPage_Read(page_addr, handle);
                 }else{
                     handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-                    root_handle_mtx.unlock_shared();
+                    root_mtx.unlock_shared();
                 }
                 DEBUG_PRINT("retry over two times place 1\n");
                 return false;
@@ -1715,11 +1724,16 @@ namespace DSMEngine {
 
         if (k < page->hdr.lowest) {
             if (isroot || path_stack[coro_id][result.level + 1] == GlobalAddress::Null()){
-                // invalidate the root.
-                std::unique_lock<std::shared_mutex> l(root_mtx);
-                if (page_addr == g_root_ptr.load()){
+                if (!skip_cache){
+                    // invalidate the root.
+                    std::unique_lock<std::shared_mutex> l(root_mtx);
+                    if (page_addr == g_root_ptr.load()){
+                        g_root_ptr.store(GlobalAddress::Null());
+                    }
+                }else{
                     g_root_ptr.store(GlobalAddress::Null());
                 }
+
             }
 
             nested_retry_counter = 0;
@@ -1727,7 +1741,7 @@ namespace DSMEngine {
                 ddms_->PostPage_Read(page_addr, handle);
             }else{
                 handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-                root_handle_mtx.unlock_shared();
+                root_mtx.unlock_shared();
             }
             DEBUG_PRINT("retry place 2\n");
             return false;
@@ -1747,7 +1761,7 @@ namespace DSMEngine {
             ddms_->PostPage_Read(page_addr, handle);
         }else{
             handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-            root_handle_mtx.unlock_shared();
+            root_mtx.unlock_shared();
         }
 
 #ifdef PROCESSANALYSIS

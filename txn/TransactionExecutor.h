@@ -124,7 +124,6 @@ class TransactionExecutor {
         PROFILE_TIME_START(thread_id, TXN_EXECUTE);
         ret.size_ = 0;
         if (procedures[tuple->type_]->Execute(tuple, ret) == false) {
-            assert(false);
           ret.size_ = 0;
           ++abort_count;
           if (is_finish_ == true) {
@@ -132,7 +131,6 @@ class TransactionExecutor {
             total_abort_count_.fetch_add(abort_count);
             PROFILE_TIME_END(thread_id, TXN_EXECUTE);
             //txn_manager->CleanUp();
-              assert(false);
             return;
           }PROFILE_TIME_START(thread_id, TXN_ABORT);
 #if defined(BACKOFF)						
@@ -180,14 +178,13 @@ class TransactionExecutor {
           total_count_ += count;
           total_abort_count_ += abort_count;
           //txn_manager->CleanUp();
-//            assert(false);
             return;
         }
       }
     }
     time_lock_.lock();
     end_timestamp_ = timer_.GetTimePoint();
-//    is_finish_ = true;
+    is_finish_ = true;
     time_lock_.unlock();
     total_count_ += count;
     total_abort_count_ += abort_count;
