@@ -33,7 +33,7 @@ class TransactionManager {
                     size_t key_num, Record *record, Cache::Handle* handle, const GlobalAddress tuple_gaddr);
 
   bool SearchRecord(TxnContext* context, size_t table_id,
-                    const IndexKey& primary_key, Record *&record,
+                    const IndexKey& primary_key, Record*& record,
                     AccessType access_type) {
     PROFILE_TIME_START(thread_id_, INDEX_READ);
     GlobalAddress data_addr = storage_manager_->tables_[table_id]->SearchPriIndex(

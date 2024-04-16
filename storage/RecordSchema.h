@@ -103,6 +103,7 @@ namespace DSMEngine {
             assert(column_id < column_count_);
             return *columns_[column_id];
         }
+        //TODO: implement get get column by column name.
 
         const size_t& GetSchemaSize()const{ return column_offset_; }
         const size_t& GetColumnCount()const{ return column_count_; }
@@ -259,6 +260,8 @@ namespace DSMEngine {
 
     private:
         size_t table_id_;
+        //TODO: Change columns into std::map. Is the cocurrent access to the map thread safe?
+        // Yes, the map is read only after the initialization.
         ColumnInfo **columns_;
         size_t column_count_;
         size_t column_offset_;
