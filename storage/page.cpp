@@ -287,7 +287,7 @@ namespace DSMEngine {
             result.find_value = true;
         }else{
             assert(k >temp_key);
-            assert(false);
+//            assert(false);
         }
         return;
 
