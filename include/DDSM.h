@@ -44,7 +44,7 @@ namespace DSMEngine {
                     printf("Internal page is being destroyed %p\n", handle->gptr);
                 }
 #endif
-                assert(page->hdr.this_page_g_ptr == handle->gptr);
+                assert(page->hdr.this_page_g_ptr == GlobalAddress::Null() || page->hdr.this_page_g_ptr == handle->gptr);
                 assert(page->global_lock);
 //                assert(handle->gptr == ((LeafPage<uint64_t,uint64_t>*)mr->addr)->hdr.this_page_g_ptr);
 
