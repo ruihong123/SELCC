@@ -134,7 +134,7 @@ static uint64_t  round_to_cacheline(uint64_t size) {
   uint64_t message_size = round_to_cacheline(std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)));
   Mempool_initialize(Message,
                      message_size, RECEIVE_OUTSTANDING_SIZE * message_size);
-  Mempool_initialize(Version_edit, 1024 * 1024, 32*1024*1024);
+  Mempool_initialize(BigPage, 1024, 32 * 1024 * 1024);
   Mempool_initialize(Regular_Page, kInternalPageSize, 256ull*1024ull*1024);
         printf("atomic uint8_t, uint16_t, uint32_t and uint64_t are, %lu %lu %lu %lu\n ", sizeof(std::atomic<uint8_t>), sizeof(std::atomic<uint16_t>), sizeof(std::atomic<uint32_t>), sizeof(std::atomic<uint64_t>));
 //    if(node_id%2 == 0){
@@ -3663,7 +3663,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        }
 //
 //    }
-    bool RDMA_Manager::global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id) {
+//TODO: current implementation can not guarantee the atomicity of lock upgrade if it return success. If there is another
+// node trying to acquire the lock, the lock upgrade can have a deadlock. THerefore, the lock upgarding will only try on time
+// of atomically upgrade the lock by CAS. If failed then it will fall back to relase the local one and refetch the exclusive latch.
+    bool
+    RDMA_Manager::global_Rlock_update(ibv_mr *local_mr, GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt,
+                                      int coro_id) {
         uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
@@ -3671,6 +3676,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
         uint64_t compare = (1ull << (RDMA_Manager::node_id/2 + 1));
         std::vector<uint16_t> read_invalidation_targets;
+        uint8_t starvation_level = 0;
+
+        uint64_t page_version = ((DataPage*) local_mr->addr)->hdr.p_version;
+
 //        int invalidation_RPC_type = 0;
         read_invalidation_targets.clear();
         retry:
@@ -3684,12 +3693,15 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            printf("Lock upgrade failed, release the lock, address is %p\n", lock_addr);
             return false;
         }
-        // No need for exponetial backoff.
         if (retry_cnt % 4 ==  2) {
 //            assert(compare%2 == 0);
+            int i = 0;
             for (auto iter: read_invalidation_targets) {
-                Writer_Invalidate_Shared_RPC(page_addr, iter, 0, 0);
+                //TODO: fill out the stavation level and the page version.
+                Writer_Invalidate_Shared_RPC(page_addr, iter, 0, page_version, i);
+                i++;
             }
+            Writer_Invalidate_Shared_RPC_Reply(i);
         }
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
@@ -3702,6 +3714,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         Batch_Submit_WRs(sr, 1, lock_addr.nodeID);
         uint64_t cas_value = (*(uint64_t*) cas_buffer->addr);
         if ((cas_value) != compare){
+//            page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
+
             //TODO: 1)If try one time, issue an RPC if try multiple times try to seperate the
             // upgrade into read release and acquire write lock.
             // 2) what if the other node also what to update the lock and this node's read lock
@@ -3852,6 +3866,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            printf("We need invalidation message\n");
             if (invalidation_RPC_type == 1){
                 assert(!read_invalidation_targets.empty());
+                int i = 0;
                 for (auto iter: read_invalidation_targets) {
                     if (iter != (RDMA_Manager::node_id)){
 #ifdef INVALIDATION_STATISTICS
@@ -3860,7 +3875,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                             cache_invalidation[RDMA_Manager::thread_id]++;
                         }
 #endif
-                        Writer_Invalidate_Shared_RPC(page_addr, iter, starvation_level, page_version);
+                        Writer_Invalidate_Shared_RPC(page_addr, iter, starvation_level, page_version, 0);
                     }else{
                         // This rare case is because under async read release, the cache mutex will be released before the read/write lock release.
                         // If there is another request comes in immediately for the same page before the lock release, this print
@@ -3868,7 +3883,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                         printf("read invalidation target is itself, this is rare case,, page_addr is %p, retry_cnt is %lu\n", page_addr, retry_cnt);
                         assert(false);
                     }
+                    i++;
                 }
+                Writer_Invalidate_Shared_RPC_Reply(i);
             }else if (invalidation_RPC_type == 2){
                 assert(write_invalidation_target != 0-1);
 //                assert(write_invalidation_target != node_id);
@@ -4057,6 +4074,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint16_t write_invalidation_target = 0-1;
         uint64_t last_CAS_return = 0;
         uint8_t starvation_level = 0;
+        uint64_t page_version = 0;
         int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
 #ifdef INVALIDATION_STATISTICS
         bool invalidation_counted = false;
@@ -4092,7 +4110,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }
 //            printf("We need invalidation message\n");
             if (invalidation_RPC_type == 1){
+                assert(false);
+
                 assert(!read_invalidation_targets.empty());
+                int i = 0;
                 for (auto iter: read_invalidation_targets) {
                     if (iter != (RDMA_Manager::node_id)){
 #ifdef INVALIDATION_STATISTICS
@@ -4101,15 +4122,19 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                             cache_invalidation[RDMA_Manager::thread_id]++;
                         }
 #endif
-                        Writer_Invalidate_Shared_RPC(page_addr, iter, starvation_level, 0);
+                        Writer_Invalidate_Shared_RPC(page_addr, iter, starvation_level, 0, 0);
                     }else{
                         // This rare case is because the cache mutex will be released before the read/write lock release.
                         // If there is another request comes in immediately for the same page before the lock release, this print
                         // below will happen.
                         printf(" read invalidation target is itself, this is rare case,, page_addr is %p, retry_cnt is %lu\n", page_addr, retry_cnt);
                     }
+                    i++;
                 }
+                Writer_Invalidate_Shared_RPC_Reply(i);
             }else if (invalidation_RPC_type == 2){
+                assert(false);
+
                 assert(write_invalidation_target != 0-1);
 //                assert(write_invalidation_target != node_id);
                 if (write_invalidation_target != (RDMA_Manager::node_id)){
@@ -4166,6 +4191,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        assert(page_addr == page->hdr.this_page_g_ptr);
 #endif
         if ((*(uint64_t*) cas_buffer->addr) != compare){
+            page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
+            assert(page_version == 0);
             //TODO: The return may shows that this lock permission has already handover by the previous latch holde,
             // in this case we can jump out of the loop and just use the read buffer.
             if ((*(uint64_t*) cas_buffer->addr) >> 56 == swap >> 56){
@@ -5598,23 +5625,25 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
     }
 
     bool RDMA_Manager::Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level,
-                                                    uint64_t page_version) {
+                                                    uint64_t page_version, uint8_t pos) {
+        assert(target_node_id!= node_id);
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
-        ibv_mr* recv_mr = Get_local_receive_message_mr();
+        ibv_mr* recv_mr = Get_local_read_mr();
+        assert(recv_mr->length >= sizeof(RDMA_ReplyXCompute)*56);
         send_pointer = (RDMA_Request*)send_mr->addr;
         send_pointer->command = writer_invalidate_shared;
         send_pointer->content.inv_message.page_addr = g_ptr;
         send_pointer->content.inv_message.starvation_level = starv_level;
         send_pointer->content.inv_message.p_version = page_version;
-        send_pointer->buffer = recv_mr->addr;
+        send_pointer->buffer = (char*)recv_mr->addr + pos*sizeof(RDMA_ReplyXCompute);
         send_pointer->rkey = recv_mr->rkey;
 //        RDMA_ReplyXCompute* receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
 //    send_pointer->buffer = receive_mr.addr;
 //    send_pointer->rkey = receive_mr.rkey;
 
     RDMA_ReplyXCompute* receive_pointer;
-    receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
+    receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr + pos*sizeof(RDMA_ReplyXCompute);
         //Clear the reply buffer for the polling.
     *receive_pointer = {};
 
@@ -5623,19 +5652,31 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         post_send_xcompute(send_mr, target_node_id, qp_id);
         ibv_wc wc[2] = {};
         assert(send_pointer->command!= create_qp_);
-
+        // Check the completion outside this function
 
 //        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
 //            fprintf(stderr, "failed to poll send for remote memory register\n");
 //            return false;
 //        }
-        asm volatile ("sfence\n" : : );
-        asm volatile ("lfence\n" : : );
-        asm volatile ("mfence\n" : : );
-        // TODO: this read invalidaiton messages reply shall be polled together
-        poll_reply_buffer(receive_pointer); // poll the receive for 2 entires
+//        asm volatile ("sfence\n" : : );
+//        asm volatile ("lfence\n" : : );
+//        asm volatile ("mfence\n" : : );
+//        // TODO: this read invalidaiton messages reply shall be polled together
+//        poll_reply_buffer(receive_pointer); // poll the receive for 2 entires
 
         return true;
+    }
+    bool RDMA_Manager::Writer_Invalidate_Shared_RPC_Reply(uint8_t num_of_poll){
+        ibv_mr* recv_mr = Get_local_read_mr();
+        RDMA_ReplyXCompute* receive_pointer;
+
+        for (int i = 0; i < num_of_poll; ++i) {
+            receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr + i*sizeof(RDMA_ReplyXCompute);
+            asm volatile ("sfence\n" : : );
+            asm volatile ("lfence\n" : : );
+            asm volatile ("mfence\n" : : );
+            poll_reply_buffer(receive_pointer); // poll the receive for 2 entires
+        }
     }
     bool RDMA_Manager::Send_heart_beat() {
         RDMA_Request* send_pointer;

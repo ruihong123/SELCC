@@ -766,7 +766,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             }else if (remote_lock_status == 1){
                 cache_miss[RDMA_Manager::thread_id][0]++;
 //                cache_hit_valid[RDMA_Manager::thread_id][0]++;
-                if (!global_Rlock_update(lock_addr, cas_mr)){
+                if (!global_Rlock_update(mr, lock_addr, cas_mr)){
                     remote_lock_status.store(0);
                     //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
                     // is problematice if we want to upgrade the lock during a transaction.
@@ -857,7 +857,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             }else if (remote_lock_status == 1){
                 cache_miss[RDMA_Manager::thread_id][0]++;
 //                cache_hit_valid[RDMA_Manager::thread_id][0]++;
-                if (!global_Rlock_update(lock_addr, cas_mr)){
+                if (!global_Rlock_update(mr, lock_addr, cas_mr)){
                     remote_lock_status.store(0);
                     //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
                     // is problematice if we want to upgrade the lock during a transaction.
@@ -975,7 +975,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 cache_miss[RDMA_Manager::thread_id][0]++;
 
 //                cache_hit_valid[RDMA_Manager::thread_id][0]++;
-                if (!global_Rlock_update(lock_addr, cas_mr)){
+                if (!global_Rlock_update(mr, lock_addr, cas_mr)){
 //
                     //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
                     // is problematice if we want to upgrade the lock during a transaction.
@@ -1001,9 +1001,10 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
     }
 
     bool
-    Cache::Handle::global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id) {
+    Cache::Handle::global_Rlock_update(ibv_mr * local_mr, GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt,
+                                       int coro_id) {
         assert(remote_lock_status.load() == 1);
-        bool succfully_updated = rdma_mg->global_Rlock_update(lock_addr,cas_buffer, cxt, coro_id);
+        bool succfully_updated = rdma_mg->global_Rlock_update(local_mr, lock_addr, cas_buffer, cxt, coro_id);
         if (succfully_updated){
             remote_lock_status.store(2);
 //            assert(gptr == (((LeafPage<uint64_t ,uint64_t>*)(((ibv_mr*)value)->addr))->hdr.this_page_g_ptr));

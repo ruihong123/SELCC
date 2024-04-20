@@ -568,7 +568,7 @@ int Memory_Node_Keeper::server_sock_connect(const char* servername, int port) {
     RDMA_Reply* send_pointer = (RDMA_Reply*)send_mr.addr;
     send_pointer->content.ive = {};
     ibv_mr edit_recv_mr;
-    rdma_mg->Allocate_Local_RDMA_Slot(edit_recv_mr, Version_edit);
+    rdma_mg->Allocate_Local_RDMA_Slot(edit_recv_mr, BigPage);
     send_pointer->buffer = edit_recv_mr.addr;
     send_pointer->rkey = edit_recv_mr.rkey;
     assert(request->content.ive.buffer_size < edit_recv_mr.length);

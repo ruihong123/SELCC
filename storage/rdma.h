@@ -72,7 +72,7 @@
 #define FILTER_BLOCK  (2*1024*1024)
 namespace DSMEngine {
 class Cache;
-enum Chunk_type {Regular_Page, LockTable, Message, Version_edit, IndexChunk, FilterChunk, FlushBuffer, DataChunk};
+enum Chunk_type {Regular_Page, LockTable, Message, BigPage, IndexChunk, FilterChunk, FlushBuffer, DataChunk};
 static const char * EnumStrings[] = { "Internal_and_Leaf", "LockTable", "Message", "Version_edit", "IndexChunk", "FilterChunk", "FlushBuffer", "DataChunk"};
 
 static char config_file_name[100] = "../connection.conf";
@@ -474,7 +474,8 @@ class RDMA_Manager {
     bool Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
                                         uint64_t page_version);
   bool Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level,
-                                    uint64_t page_version);
+                                    uint64_t page_version, uint8_t pos);
+    bool Writer_Invalidate_Shared_RPC_Reply(uint8_t num_of_poll);
   bool Send_heart_beat();
     bool Send_heart_beat_xcompute(uint16_t target_memory_node_id);
   int Remote_Memory_Deregister();
@@ -531,7 +532,8 @@ class RDMA_Manager {
 
     //Currently, we first invalidate other 's read lock and use CAS to upgrate the lock
     // Then here is the question, what if two node try to upgrade the lock at the same time.
-    bool global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt= nullptr, int coro_id = 0);
+    bool global_Rlock_update(ibv_mr *local_mr, GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt = nullptr,
+                             int coro_id = 0);
 
 
 
