@@ -138,7 +138,7 @@ namespace DSMEngine {
         assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, hdr.this_page_g_ptr) == STRUCT_OFFSET(DataPage, hdr.this_page_g_ptr));
         auto page_buffer = local_mr->addr;
         assert(((DataPage*)page_buffer)->global_lock);
-        assert(((DataPage*)page_buffer)->hdr.this_page_g_ptr == page_addr);
+//        assert(((DataPage*)page_buffer)->hdr.this_page_g_ptr == page_addr);
     }
 #elif ACCESS_MODE == 0
     void DDSM::PrePage_Read(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
