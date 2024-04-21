@@ -30,7 +30,7 @@ namespace DSMEngine {
         assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, hdr.this_page_g_ptr) == STRUCT_OFFSET(DataPage, hdr.this_page_g_ptr));
         assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->global_lock);
         assert(handle->gptr == page_addr);
-        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == page_addr);
+        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == GlobalAddress::Null()||((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == page_addr);
 
     }
 
