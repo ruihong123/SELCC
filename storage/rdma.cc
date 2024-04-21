@@ -5671,7 +5671,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         RDMA_ReplyXCompute* receive_pointer;
 
         for (int i = 0; i < num_of_poll; ++i) {
-            receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr + i*sizeof(RDMA_ReplyXCompute);
+            receive_pointer = (RDMA_ReplyXCompute*)((char*)recv_mr->addr + i*sizeof(RDMA_ReplyXCompute));
             asm volatile ("sfence\n" : : );
             asm volatile ("lfence\n" : : );
             asm volatile ("mfence\n" : : );
