@@ -4126,9 +4126,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                             cache_invalidation[RDMA_Manager::thread_id]++;
                         }
 #endif
-#ifdef PARALLEL_INVALIDATION
-                        Writer_Invalidate_Shared_RPC_Reply(i);
-#endif
+                        Writer_Invalidate_Shared_RPC(page_addr, iter, starvation_level, 0, i);
                     }else{
                         // This rare case is because the cache mutex will be released before the read/write lock release.
                         // If there is another request comes in immediately for the same page before the lock release, this print
@@ -4137,7 +4135,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                     }
                     i++;
                 }
+#ifdef PARALLEL_INVALIDATION
                 Writer_Invalidate_Shared_RPC_Reply(i);
+#endif
             }else if (invalidation_RPC_type == 2){
                 assert(false);
 
