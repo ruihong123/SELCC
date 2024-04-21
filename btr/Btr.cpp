@@ -1841,17 +1841,17 @@ namespace DSMEngine {
             // erase the upper level from the cache
             int last_level = 1;
             if (path_stack[coro_id][last_level] != GlobalAddress::Null()){
-//            DEBUG_arg("Erase the page 3 %p\n", path_stack[coro_id][last_level]);
-                Slice upper_node_page_id((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress));
-                // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
-                // the page to check whether the page has been evicted.
-                Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
-                if(upper_layer_handle){
-                    InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)upper_layer_handle->value)->addr;
-                    make_page_invalidated(upper_page);
-                    page_cache->Release(upper_layer_handle);
-
-                }
+////            DEBUG_arg("Erase the page 3 %p\n", path_stack[coro_id][last_level]);
+//                Slice upper_node_page_id((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress));
+//                // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+//                // the page to check whether the page has been evicted.
+//                Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+//                if(upper_layer_handle){
+//                    InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)upper_layer_handle->value)->addr;
+//                    make_page_invalidated(upper_page);
+//                    page_cache->Release(upper_layer_handle);
+//
+//                }
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
 
             }else{
@@ -1880,16 +1880,16 @@ namespace DSMEngine {
             if (path_stack[coro_id][last_level] != GlobalAddress::Null()){
                 //TODO(POTENTIAL bug): add a lock for the page when erase it. other wise other threads may
                 // modify the page based on a stale cached page.
-//            DEBUG_arg("Erase the page 4 %p\n", path_stack[coro_id][last_level]);
-                Slice upper_node_page_id((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress));
-                // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
-                // the page to check whether the page has been evicted.
-                Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
-                if(upper_layer_handle){
-                    InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)upper_layer_handle->value)->addr;
-                    make_page_invalidated(upper_page);
-                    page_cache->Release(upper_layer_handle);
-                }
+////            DEBUG_arg("Erase the page 4 %p\n", path_stack[coro_id][last_level]);
+//                Slice upper_node_page_id((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress));
+//                // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+//                // the page to check whether the page has been evicted.
+//                Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+//                if(upper_layer_handle){
+//                    InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)upper_layer_handle->value)->addr;
+//                    make_page_invalidated(upper_page);
+//                    page_cache->Release(upper_layer_handle);
+//                }
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
 
             }else{
@@ -2406,15 +2406,15 @@ re_read:
 //                this->unlock_addr(lock_addr, cxt, coro_id, false);
                 if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
 //                DEBUG_arg("Erase the page 5 %p\n", path_stack[coro_id][1]);
-                    Slice upper_node_page_id((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress));
-                    // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
-                    //  the page to check whether the page has been evicted.
-                    Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
-                    if(upper_layer_handle){
-                        InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)upper_layer_handle->value)->addr;
-                        make_page_invalidated(upper_page);
-                        page_cache->Release(upper_layer_handle);
-                    }
+//                    Slice upper_node_page_id((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress));
+//                    // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+//                    //  the page to check whether the page has been evicted.
+//                    Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+//                    if(upper_layer_handle){
+//                        InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)upper_layer_handle->value)->addr;
+//                        make_page_invalidated(upper_page);
+//                        page_cache->Release(upper_layer_handle);
+//                    }
 
 //                page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
                 }else{
@@ -2469,15 +2469,15 @@ re_read:
 
             if (path_stack[coro_id][level+1]!= GlobalAddress::Null()){
 //            DEBUG_arg("Erase the page 6 %p\n", path_stack[coro_id][1]);
-                Slice upper_node_page_id((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress));
-                // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
-                //  the page to check whether the page has been evicted.
-                Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
-                if(upper_layer_handle){
-                    InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)upper_layer_handle->value)->addr;
-                    make_page_invalidated(upper_page);
-                    page_cache->Release(upper_layer_handle);
-                }
+//                Slice upper_node_page_id((char*)&path_stack[coro_id][level+1], sizeof(GlobalAddress));
+//                // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
+//                //  the page to check whether the page has been evicted.
+//                Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
+//                if(upper_layer_handle){
+//                    InternalPage<Key>* upper_page = (InternalPage<Key>*)((ibv_mr*)upper_layer_handle->value)->addr;
+//                    make_page_invalidated(upper_page);
+//                    page_cache->Release(upper_layer_handle);
+//                }
 
 //            page_cache->Erase(Slice((char*)&path_stack[coro_id][1], sizeof(GlobalAddress)));
             }else{
@@ -3326,26 +3326,26 @@ re_read:
         unlock_lock(local_lock_meta);
 //        node.ticket_lock.fetch_add((1ull << 32));
     }
-    template <class Key, class Value>
-    void Btr<Key,Value>::make_page_invalidated(InternalPage<Key> *upper_page) {
-        //TODO invalidate page with version, may be reuse the current and issue version?
-        uint8_t expected = 0;
-        if(try_lock(&upper_page->local_lock_meta)){
-            // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
-            // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
-            // already set it.
-            assert(expected == 0);
-            __atomic_fetch_add(&upper_page->local_lock_meta.issued_ticket,1, mem_cst_seq);
-            if (upper_page->hdr.valid_page){
-                upper_page->hdr.valid_page = false;
-//            printf("Page invalidation %p\n", upper_page);
-            }
-
-            // keep the operation on the version.
-            upper_page->local_lock_meta.current_ticket++;
-            unlock_lock(&upper_page->local_lock_meta);
-        }
-    }
+//    template <class Key, class Value>
+//    void Btr<Key,Value>::make_page_invalidated(InternalPage<Key> *upper_page) {
+//        //TODO invalidate page with version, may be reuse the current and issue version?
+//        uint8_t expected = 0;
+//        if(try_lock(&upper_page->local_lock_meta)){
+//            // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
+//            // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
+//            // already set it.
+//            assert(expected == 0);
+//            __atomic_fetch_add(&upper_page->local_lock_meta.issued_ticket,1, mem_cst_seq);
+//            if (upper_page->hdr.valid_page){
+//                upper_page->hdr.valid_page = false;
+////            printf("Page invalidation %p\n", upper_page);
+//            }
+//
+//            // keep the operation on the version.
+//            upper_page->local_lock_meta.current_ticket++;
+//            unlock_lock(&upper_page->local_lock_meta);
+//        }
+//    }
     template <class Key, class Value>
     void Btr<Key,Value>::Initialize_page_invalidation(InternalPage<Key> *upper_page) {
         // TODO: cache invalidation RPC.

@@ -174,7 +174,7 @@ namespace DSMEngine{
     public:
         constexpr static int kInternalCardinality = (kInternalPageSize - sizeof(Header_Index<Key>) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) /
                                                     sizeof(InternalEntry<Key>);
-        Local_Meta local_lock_meta;
+//        Local_Meta local_lock_meta;
 //        std::atomic<uint8_t> front_version;
 //        uint8_t front_version;
         alignas(8) uint64_t global_lock;
@@ -194,7 +194,7 @@ namespace DSMEngine{
         InternalPage(GlobalAddress left, const Key &key, GlobalAddress right, GlobalAddress this_page_g_ptr,
                      uint32_t level = 0) {
             assert(level> 0);
-            assert(STRUCT_OFFSET(InternalPage<Key>, local_lock_meta) == 0);
+//            assert(STRUCT_OFFSET(InternalPage<Key>, local_lock_meta) == 0);
             hdr.p_type = P_Internal;
             hdr.leftmost_ptr = left;
             hdr.level = level;
@@ -208,7 +208,7 @@ namespace DSMEngine{
             hdr.last_index = 0;
             assert(this_page_g_ptr!= GlobalAddress::Null());
             hdr.this_page_g_ptr = this_page_g_ptr;
-            local_metadata_init();
+//            local_metadata_init();
 
         }
 
@@ -217,7 +217,7 @@ namespace DSMEngine{
             hdr.level = level;
 //            global_lock = 0;
             records[0].ptr = GlobalAddress::Null();
-            local_metadata_init();
+//            local_metadata_init();
             assert(this_page_g_ptr!= GlobalAddress::Null());
             hdr.this_page_g_ptr = this_page_g_ptr;
 //            front_version = 0;
@@ -234,69 +234,69 @@ namespace DSMEngine{
 //        CityHash32((char *)&front_version, (&rear_version) - (&front_version));
 //#endif
 //        }
-        void local_metadata_init(){
-            __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
-            local_lock_meta.current_ticket = 0;
-            local_lock_meta.issued_ticket = 0;
-
-            local_lock_meta.hand_over = 0;
-            local_lock_meta.hand_time = 0;
-        }
+//        void local_metadata_init(){
+//            __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
+//            local_lock_meta.current_ticket = 0;
+//            local_lock_meta.issued_ticket = 0;
+//
+//            local_lock_meta.hand_over = 0;
+//            local_lock_meta.hand_time = 0;
+//        }
         void set_global_address(GlobalAddress g_ptr){
 
         }
 
-        bool try_lock() {
-            auto currently_locked = __atomic_load_n(&local_lock_meta.local_lock_byte, __ATOMIC_RELAXED);
-            return !currently_locked &&
-                   __atomic_compare_exchange_n(&local_lock_meta.local_lock_byte, &currently_locked, 1, true, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED);
-        }
-        inline void  unlock_lock() {
-            __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
-        }
+//        bool try_lock() {
+//            auto currently_locked = __atomic_load_n(&local_lock_meta.local_lock_byte, __ATOMIC_RELAXED);
+//            return !currently_locked &&
+//                   __atomic_compare_exchange_n(&local_lock_meta.local_lock_byte, &currently_locked, 1, true, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED);
+//        }
+//        inline void  unlock_lock() {
+//            __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
+//        }
         // THe local concurrency control optimization to reduce RDMA bandwidth, is worthy of writing in the paper
 
-        void check_invalidation_and_refetch_outside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
-            uint8_t expected = 0;
-            assert(page_mr->addr == this);
-
-#ifndef NDEBUG
-            uint8_t lock_temp = __atomic_load_n(&local_lock_meta.local_lock_byte,mem_cst_seq);
-            uint8_t issued_temp = __atomic_load_n(&local_lock_meta.issued_ticket,mem_cst_seq);
-            uint16_t retry_counter = 0;
-#endif
-            if (!hdr.valid_page && try_lock()){
-                // when acquiring the lock, check the valid bit again, so that we can save unecessssary bandwidth.
-                if(!hdr.valid_page){
-//                printf("Page refetch %p\n", this);
-                    __atomic_fetch_add(&local_lock_meta.issued_ticket, 1, mem_cst_seq);
-                    ibv_mr temp_mr = *page_mr;
-                    GlobalAddress temp_page_add = page_addr;
-                    temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
-                    temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
-                    temp_mr.length = temp_mr.length - RDMA_OFFSET;
-//                printf("Internal page refresh\n");
-                    invalidation_reread:
-                    rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-RDMA_OFFSET, IBV_SEND_SIGNALED, 1, Regular_Page);
-                    assert(hdr.level < 100);
-                    // If the global lock is in use, then this read page should be in a inconsistent state.
-                    if (global_lock != 0){
-#ifndef NDEBUG
-                        assert(++retry_counter<1000000);
-#endif
-                        goto invalidation_reread;
-                    }
-                    // TODO: think whether we need to reset the global lock to 1 because the RDMA write need to make sure
-                    //  that the global lock is 1.
-                    //  Answer, we only need to reset it when we write back the data.
-
-                    hdr.valid_page = true;
-                    local_lock_meta.current_ticket++;
-
-                }
-                unlock_lock();
-            }
-        }
+//        void check_invalidation_and_refetch_outside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
+//            uint8_t expected = 0;
+//            assert(page_mr->addr == this);
+//
+//#ifndef NDEBUG
+//            uint8_t lock_temp = __atomic_load_n(&local_lock_meta.local_lock_byte,mem_cst_seq);
+//            uint8_t issued_temp = __atomic_load_n(&local_lock_meta.issued_ticket,mem_cst_seq);
+//            uint16_t retry_counter = 0;
+//#endif
+//            if (!hdr.valid_page && try_lock()){
+//                // when acquiring the lock, check the valid bit again, so that we can save unecessssary bandwidth.
+//                if(!hdr.valid_page){
+////                printf("Page refetch %p\n", this);
+//                    __atomic_fetch_add(&local_lock_meta.issued_ticket, 1, mem_cst_seq);
+//                    ibv_mr temp_mr = *page_mr;
+//                    GlobalAddress temp_page_add = page_addr;
+//                    temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
+//                    temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
+//                    temp_mr.length = temp_mr.length - RDMA_OFFSET;
+////                printf("Internal page refresh\n");
+//                    invalidation_reread:
+//                    rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-RDMA_OFFSET, IBV_SEND_SIGNALED, 1, Regular_Page);
+//                    assert(hdr.level < 100);
+//                    // If the global lock is in use, then this read page should be in a inconsistent state.
+//                    if (global_lock != 0){
+//#ifndef NDEBUG
+//                        assert(++retry_counter<1000000);
+//#endif
+//                        goto invalidation_reread;
+//                    }
+//                    // TODO: think whether we need to reset the global lock to 1 because the RDMA write need to make sure
+//                    //  that the global lock is 1.
+//                    //  Answer, we only need to reset it when we write back the data.
+//
+//                    hdr.valid_page = true;
+//                    local_lock_meta.current_ticket++;
+//
+//                }
+//                unlock_lock();
+//            }
+//        }
 
 
         void check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
@@ -359,7 +359,7 @@ namespace DSMEngine{
     class LeafPage {
     public:
 //        constexpr static int kLeafCardinality = (kLeafPageSize - sizeof(Header<TKey>) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) / sizeof(LeafEntry<TKey, Value>);
-        Local_Meta local_lock_meta;
+//        Local_Meta local_lock_meta;
         // if busy we will not cache it in cache, switch back to the Naive
         alignas(8) uint64_t global_lock;
 //        uint8_t busy;
@@ -388,22 +388,22 @@ namespace DSMEngine{
 
 //            front_version = 0;
 //            rear_version = 0;
-            local_lock_meta.local_lock_byte = 0;
-            local_lock_meta.current_ticket = 0;
-            local_lock_meta.issued_ticket = 0;
-            local_lock_meta.hand_over = 0;
-            local_lock_meta.hand_time = 0;
+//            local_lock_meta.local_lock_byte = 0;
+//            local_lock_meta.current_ticket = 0;
+//            local_lock_meta.issued_ticket = 0;
+//            local_lock_meta.hand_over = 0;
+//            local_lock_meta.hand_time = 0;
 
 //            embedding_lock = 1;
         }
 
         void local_metadata_init(){
-            __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
-            local_lock_meta.current_ticket = 0;
-            local_lock_meta.issued_ticket = 0;
-
-            local_lock_meta.hand_over = 0;
-            local_lock_meta.hand_time = 0;
+//            __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
+//            local_lock_meta.current_ticket = 0;
+//            local_lock_meta.issued_ticket = 0;
+//
+//            local_lock_meta.hand_over = 0;
+//            local_lock_meta.hand_time = 0;
         }
 
         void leaf_page_search(const TKey &k, SearchResult<TKey, Value> &result, GlobalAddress g_page_ptr,
@@ -432,7 +432,7 @@ namespace DSMEngine{
     class DataPage {
     public:
 //        constexpr static int kLeafCardinality = (kLeafPageSize - sizeof(Header<TKey>) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) / sizeof(LeafEntry<TKey, Value>);
-        Local_Meta local_lock_meta;
+//        Local_Meta local_lock_meta;
         // if busy we will not cache it in cache, switch back to the Naive
         alignas(8) uint64_t global_lock;
 //        uint8_t busy;
@@ -459,23 +459,23 @@ namespace DSMEngine{
 
 //            front_version = 0;
 //            rear_version = 0;
-            local_lock_meta.local_lock_byte = 0;
-            local_lock_meta.current_ticket = 0;
-            local_lock_meta.issued_ticket = 0;
-            local_lock_meta.hand_over = 0;
-            local_lock_meta.hand_time = 0;
+//            local_lock_meta.local_lock_byte = 0;
+//            local_lock_meta.current_ticket = 0;
+//            local_lock_meta.issued_ticket = 0;
+//            local_lock_meta.hand_over = 0;
+//            local_lock_meta.hand_time = 0;
 
 //            embedding_lock = 1;
         }
 
-        void local_metadata_init(){
-            __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
-            local_lock_meta.current_ticket = 0;
-            local_lock_meta.issued_ticket = 0;
-
-            local_lock_meta.hand_over = 0;
-            local_lock_meta.hand_time = 0;
-        }
+//        void local_metadata_init(){
+//            __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
+//            local_lock_meta.current_ticket = 0;
+//            local_lock_meta.issued_ticket = 0;
+//
+//            local_lock_meta.hand_over = 0;
+//            local_lock_meta.hand_time = 0;
+//        }
 
 //        void Data_page_search(const TKey &k, SearchResult <TKey, Value> &result, ibv_mr local_mr_copied,
 //                              GlobalAddress g_page_ptr, RecordSchema *record_scheme);

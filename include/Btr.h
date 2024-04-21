@@ -275,7 +275,7 @@ namespace DSMEngine {
 
         void releases_local_optimistic_lock(Local_Meta *local_lock_meta);
 
-        void make_page_invalidated(InternalPage<Key> *upper_page);
+//        void make_page_invalidated(InternalPage<Key> *upper_page);
 //        void cache_root_handle_ref(){
 //            loop_back:
 //            uint32_t root_handle_ref = 0;
