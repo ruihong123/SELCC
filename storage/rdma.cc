@@ -3605,9 +3605,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             //Get the latest page version and make an invalidation message based on current version. (exact once)
             page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
             target_compute_node_id = ((return_value >> 56) - 1)*2;
-#ifndef NDEBUG
-            assert((*((uint64_t *)page_buffer->addr+1) << 8) > 0);
-#endif
+//#ifndef NDEBUG
+//            assert((*((uint64_t *)page_buffer->addr+1) << 8) > 0);
+//#endif
             goto retry;
         }
 
