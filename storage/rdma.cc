@@ -3701,7 +3701,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 Writer_Invalidate_Shared_RPC(page_addr, iter, 0, page_version, i);
                 i++;
             }
+#ifdef PARALLEL_INVALIDATION
             Writer_Invalidate_Shared_RPC_Reply(i);
+#endif
         }
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
@@ -3885,7 +3887,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                     }
                     i++;
                 }
+#ifdef PARALLEL_INVALIDATION
                 Writer_Invalidate_Shared_RPC_Reply(i);
+#endif
             }else if (invalidation_RPC_type == 2){
                 assert(write_invalidation_target != 0-1);
 //                assert(write_invalidation_target != node_id);
@@ -4122,7 +4126,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                             cache_invalidation[RDMA_Manager::thread_id]++;
                         }
 #endif
-                        Writer_Invalidate_Shared_RPC(page_addr, iter, starvation_level, 0, i);
+#ifdef PARALLEL_INVALIDATION
+                        Writer_Invalidate_Shared_RPC_Reply(i);
+#endif
                     }else{
                         // This rare case is because the cache mutex will be released before the read/write lock release.
                         // If there is another request comes in immediately for the same page before the lock release, this print
@@ -5653,17 +5659,17 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         ibv_wc wc[2] = {};
         assert(send_pointer->command!= create_qp_);
         // Check the completion outside this function
-
+#ifndef PARALLEL_INVALIDATION
 //        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
 //            fprintf(stderr, "failed to poll send for remote memory register\n");
 //            return false;
 //        }
-//        asm volatile ("sfence\n" : : );
-//        asm volatile ("lfence\n" : : );
-//        asm volatile ("mfence\n" : : );
-//        // TODO: this read invalidaiton messages reply shall be polled together
-//        poll_reply_buffer(receive_pointer); // poll the receive for 2 entires
-
+        asm volatile ("sfence\n" : : );
+        asm volatile ("lfence\n" : : );
+        asm volatile ("mfence\n" : : );
+        // TODO: this read invalidaiton messages reply shall be polled together
+        poll_reply_buffer(receive_pointer); // poll the receive for 2 entires
+#endif
         return true;
     }
     bool RDMA_Manager::Writer_Invalidate_Shared_RPC_Reply(uint8_t num_of_poll){
