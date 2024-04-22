@@ -120,7 +120,7 @@ extern bool Show_Me_The_Print;
 #define ACCESS_MODE 1 // 0 No cache no sharding, 1 cache with CC protocol, 2 sharding.
 #define SYNC_XALL_OFFSET (16384*2)
 #define GLOBAL_HANDOVER
-//#define PARALLEL_INVALIDATION
+#define PARALLEL_INVALIDATION
 #include "port/thread_annotations.h"
 
 namespace DSMEngine {
