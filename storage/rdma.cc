@@ -5649,7 +5649,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
 //    send_pointer->rkey = receive_mr.rkey;
 
     RDMA_ReplyXCompute* receive_pointer;
-    receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr + pos*sizeof(RDMA_ReplyXCompute);
+    receive_pointer = (RDMA_ReplyXCompute*)((char*)recv_mr->addr + pos*sizeof(RDMA_ReplyXCompute));
         //Clear the reply buffer for the polling.
     *receive_pointer = {};
 
