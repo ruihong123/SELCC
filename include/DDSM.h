@@ -16,7 +16,7 @@ namespace DSMEngine {
 //    Key
         // Do we need the lock during this deleter? Answer: Probably not, because it is guaratee to have only on thread comes here.
         auto mr = (ibv_mr*) handle->value;
-        if (handle->strategy == 1){
+//        if (handle->strategy == 1){
             GlobalAddress lock_gptr = handle->gptr;
             //TODO: Figure out Leafpage or internal page?
             lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
@@ -56,11 +56,11 @@ namespace DSMEngine {
             }else{
                 //An invalidated page, do nothing
             }
-        }else{
-            //TODO: delete the  asserts below when you implement the strategy 2.
-
-            assert(false);
-        }
+//        }else{
+//            //TODO: delete the  asserts below when you implement the strategy 2.
+//
+//            assert(false);
+//        }
 //    printf("Deallocate mr for %lu\n", g_ptr.offset);
         if (!handle->keep_the_mr){
             rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Regular_Page);
@@ -89,10 +89,15 @@ namespace DSMEngine {
             disconnectMemcached();
         }
         void PrePage_Read(void*& page_buffer, GlobalAddress page_addr, Cache::Handle*& handle);
+        bool TryPrePage_Read(void*& page_buffer, GlobalAddress page_addr, Cache::Handle*& handle);
         void PostPage_Read(GlobalAddress page_addr, Cache::Handle *&handle);
         void PrePage_Write(void*& page_buffer, GlobalAddress page_addr, Cache::Handle *&handle);
+//        bool TryPrePage_Write(void*& page_buffer, GlobalAddress page_addr, Cache::Handle *&handle);
+
         void PostPage_Write(GlobalAddress page_addr, Cache::Handle *&handle);
         void PrePage_Update(void*& page_buffer, GlobalAddress page_addr, Cache::Handle *&handle);
+        bool TryPrePage_Update(void*& page_buffer, GlobalAddress page_addr, Cache::Handle *&handle);
+
         // Handle should be not nullptr
         //TODO: make the hierachical lock upgrade atomaticlly, currently we release and then acquire the lock.
         void PrePage_Upgrade(void*& page_buffer, GlobalAddress page_addr, Cache::Handle* handle);

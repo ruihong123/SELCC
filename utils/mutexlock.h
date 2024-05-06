@@ -156,6 +156,7 @@ public:
     }
 
     void unlock() {
+        assert(write_now.load(std::memory_order_relaxed) == true);
         thread_id = 0;
         write_now.store(false, std::memory_order_release);
     }
@@ -168,8 +169,8 @@ public:
 
 
     void unlock_shared() {
+        assert(readers_count.load(std::memory_order_relaxed) > 0);
         readers_count.fetch_sub(1, std::memory_order_release);
-        assert(readers_count.load(std::memory_order_relaxed) >= 0);
     }
 };
 

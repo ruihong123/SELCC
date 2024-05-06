@@ -34,6 +34,29 @@ namespace DSMEngine {
 
     }
 
+    bool DDSM::TryPrePage_Read(void *& page_buffer, GlobalAddress page_addr, Cache::Handle *& handle) {
+        assert((page_addr.offset % 1ULL*1024ULL*1024ULL*1024ULL)% kLeafPageSize == 0);
+        GlobalAddress lock_addr;
+        lock_addr.nodeID = page_addr.nodeID;
+
+        lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
+        ibv_mr *mr = nullptr;
+        Slice page_id((char *) &page_addr, sizeof(GlobalAddress));
+
+        handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+        assert(handle != nullptr);
+        bool success = handle->try_reader_pre_access(page_addr, kLeafPageSize, lock_addr, mr);
+        if (success){
+            page_buffer = mr->addr;
+            assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, hdr.this_page_g_ptr) == STRUCT_OFFSET(DataPage, hdr.this_page_g_ptr));
+            assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->global_lock);
+            assert(handle->gptr == page_addr);
+            assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == GlobalAddress::Null()||((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == page_addr);
+        }
+
+        return success;
+    }
+
     void DDSM::PostPage_Read(GlobalAddress page_addr, Cache::Handle *&handle) {
         assert((page_addr.offset % 1ULL*1024ULL*1024ULL*1024ULL)% kLeafPageSize == 0);
         GlobalAddress lock_addr;
@@ -66,8 +89,31 @@ namespace DSMEngine {
 //        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->global_lock);
 //        assert(handle->gptr == page_addr);
 //        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == page_addr);
-
     }
+//    bool DDSM::TryPrePage_Write(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *& handle) {
+////        printf("PRE Write page node %d, offset %lu, THIS NODE IS %u\n", page_addr.nodeID, page_addr.offset,RDMA_Manager::node_id);
+//        assert(TOPAGE(page_addr) == page_addr);
+//        GlobalAddress lock_addr;
+//        lock_addr.nodeID = page_addr.nodeID;
+//
+//        lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
+//        ibv_mr *mr = nullptr;
+//        Slice page_id((char *) &page_addr, sizeof(GlobalAddress));
+//
+//        handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+//        assert(handle != nullptr);
+//        bool success = handle->try_writer_pre_access(page_addr, kLeafPageSize, lock_addr, mr);
+//        if (success){
+//            page_buffer = mr->addr;
+//            // reset the local buffer beyond the lock word.
+//            memset((char*)page_buffer + 16,0, kLeafPageSize - 16);
+//        }
+//        return success;
+////        assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, hdr.this_page_g_ptr) == STRUCT_OFFSET(DataPage, hdr.this_page_g_ptr));
+////        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->global_lock);
+////        assert(handle->gptr == page_addr);
+////        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == page_addr);
+//    }
 
     void DDSM::PostPage_Write(GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
@@ -100,6 +146,31 @@ namespace DSMEngine {
 //        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == page_addr);
 
     }
+    bool DDSM::TryPrePage_Update(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
+//        printf("PRE Update page node %d, offset %lu, THIS NODE IS %u\n", page_addr.nodeID, page_addr.offset,RDMA_Manager::node_id);
+        assert(TOPAGE(page_addr) == page_addr);
+        GlobalAddress lock_addr;
+        lock_addr.nodeID = page_addr.nodeID;
+
+        lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
+        ibv_mr *mr = nullptr;
+        Slice page_id((char *) &page_addr, sizeof(GlobalAddress));
+
+        handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+        assert(handle != nullptr);
+        //TODO: unwarp the updater_pre_access.
+        bool success = handle->try_updater_pre_access(page_addr, kLeafPageSize, lock_addr, mr);
+        if (success){
+            page_buffer = mr->addr;
+        }
+        return success;
+        //        assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, hdr.this_page_g_ptr) == STRUCT_OFFSET(DataPage, hdr.this_page_g_ptr));
+//        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->global_lock);
+//        assert(handle->gptr == page_addr);
+//        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == page_addr);
+
+    }
+
     void DDSM::PrePage_Upgrade(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *handle) {
         assert(handle->remote_lock_status == 1);
         assert(handle->rw_mtx.issharelocked());

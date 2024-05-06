@@ -3488,8 +3488,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        printf("Release lock for %lu", lock_addr.offset-8);
     }
 #else
-    void RDMA_Manager::global_Rlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
-                                                               GlobalAddress lock_addr, ibv_mr* cas_buffer, uint64_t tag, CoroContext *cxt,
+    bool RDMA_Manager::global_Rlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+                                                               GlobalAddress lock_addr, ibv_mr* cas_buffer, int r_times, CoroContext *cxt,
                                                                int coro_id) {
         uint64_t add = (1ull << (RDMA_Manager::node_id/2 +1));
         uint64_t substract = (~add) + 1;
@@ -3511,6 +3511,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
 //        printf("global read lock at %p \n", page_addr);
         retry:
+        if (r_times >0 && retry_cnt >= r_times){
+            return false;
+        }
 //        retry_cnt++;
         if (retry_cnt++ % INVALIDATION_INTERVAL ==  1) {
 //            assert(compare%2 == 0);
@@ -3586,8 +3589,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 #ifndef ASYNC_UNLOCK
         assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
 #endif
-
-        // TODO: if the starvation bit is on then we release and wait the lock.
+        //Note that the read latch can not be global hand-overed, because read latch FAA can overflow the read bitmap.
         if ( (return_value >> 56) > 0  ){
 
             if (last_atomic_return >> 56 != return_value >> 56){
@@ -3598,8 +3600,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            assert(false);
 //            assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1)))== 0);
 //            Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, -add, 0, Internal_and_Leaf);
-            //TODO: check the starvation bit to decide whether there is an immediate retry. If there is a starvation
-            // unlock the lock this time util see a write lock.
 
             RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page);
             //Get the latest page version and make an invalidation message based on current version. (exact once)
@@ -3610,7 +3610,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //#endif
             goto retry;
         }
-
+        return true;
     }
 //    void RDMA_Manager::global_Rlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
 //                                                               GlobalAddress lock_addr, ibv_mr* cas_buffer, uint64_t tag, CoroContext *cxt,
@@ -3821,8 +3821,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        printf("Release read lock for %lu\n", lock_addr.offset-8);
     }
 #endif
-    void RDMA_Manager::global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
-                                                               GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt,
+    bool RDMA_Manager::global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
+                                                               GlobalAddress lock_addr, ibv_mr *cas_buffer, int r_times, CoroContext *cxt,
                                                                int coro_id) {
         uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
@@ -3838,7 +3838,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         bool invalidation_counted = false;
 #endif
     retry:
-//        retry_cnt++;
+        if (r_times >0 && retry_cnt >= r_times){
+            return false;
+        }
         uint64_t compare = 0;
         // We need a + 1 for the id, because id 0 conflict with the unlock bit
         uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
@@ -3970,7 +3972,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 //Other computen node handover for me
 //                printf("Global latch handover received at %p, this node is %u\n", page_addr, RDMA_Manager::node_id);
                 fflush(stdout);
-                return;
+                return true;
             }
             if (last_CAS_return != (*(uint64_t*) cas_buffer->addr)){
                 // someone else have acquire the latch, immediately issue a invalidation in the next loop.
@@ -4009,7 +4011,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }
         }
         ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
-
+        return true;
 //        printf("Acquire Write Lock at %lu\n", page_addr);
 //        assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
     }

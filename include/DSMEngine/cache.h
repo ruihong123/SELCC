@@ -88,7 +88,7 @@ class DSMEngine_EXPORT Cache {
         std::atomic<uint8_t > next_holder_id = 0;
         std::atomic<uint8_t > starvation_priority = 0;
 //        std::atomic<uint8_t > remote_xlock_next = 0;
-        std::atomic<uint8_t> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
+//        std::atomic<uint8_t> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
         bool keep_the_mr = false;
 //        std::shared_mutex rw_mtx;
         static RDMA_Manager* rdma_mg;
@@ -111,12 +111,16 @@ class DSMEngine_EXPORT Cache {
             next_holder_id.store(Invalid_Node_ID);
             starvation_priority.store(0);
 //            remote_xlock_next.store(0);
-            strategy.store(1);
+//            strategy.store(1);
 //            state_mtx.unlock();
         }
         void reader_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
+        bool try_reader_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
+
         void reader_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *mr);
         void updater_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
+        bool try_updater_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
+
         void upgrade_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
 
         void updater_writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);

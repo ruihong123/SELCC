@@ -209,8 +209,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
 
         e->value = value;
         e->remote_lock_status = 0;
-        e->remote_lock_urged = false;
-        e->strategy = 1;
+        e->remote_lock_urged = 0;
         e->gptr = *(GlobalAddress*)key.data();
 
         e->deleter = deleter;
@@ -301,8 +300,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
 //      reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));
 
     e->remote_lock_status = 0;
-    e->remote_lock_urged = false;
-    e->strategy = 1;
+    e->remote_lock_urged = 0;
     e->gptr = *(GlobalAddress*)key.data();
 
   e->value = value;
@@ -567,7 +565,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         }else{
             rw_mtx.lock_shared();
         }
-
+//TODO: (OPTIMIZATION) we can first check what state is the cache in if it is invalid, we can
+// directly acquire the write local lock.
 
 #ifdef LOCAL_LOCK_DEBUG
         {
@@ -575,9 +574,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             holder_ids.insert(RDMA_Manager::thread_id);
         }
 #endif
-        // First check whether the strategy is 1 and read or write lock is on, if so do nothing. If not, fetch the page
-        // and read lock the page
-        if(strategy.load() == 1){
+
             //TODO: make the leaf_node_search the same as leaf_node_store?
             // No, because the read here has a optimiaziton for the double check locking
 
@@ -606,7 +603,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
                 }
 #endif
-                if (strategy.load() == 1 && remote_lock_status.load() == 0){
+                if (remote_lock_status.load() == 0){
                     if(value) {
                         mr = (ibv_mr*)value;
                     }else{
@@ -651,25 +648,135 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             mr = (ibv_mr*)value;
 
 
-        }else{
-            // Currently we do not support the second strategy.
-            assert(false) ;
-            assert(strategy.load() == 2);
-            cache_miss[RDMA_Manager::thread_id][0]++;
-            // TODO: acquire the lock and read to local buffer and remeber to release in the end.
-            mr = rdma_mg->Get_local_read_mr();
-            //
+
+    }
+    bool Cache::Handle::try_reader_pre_access(GlobalAddress page_addr, size_t page_size,
+                                          GlobalAddress lock_addr, ibv_mr*& mr) {
+        assert(page_addr == gptr);
+        if (rdma_mg == nullptr){
+            rdma_mg = RDMA_Manager::Get_Instance(nullptr);
         }
+
+        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+        if (remote_lock_urged.load() > 0){
+            lock_pending_num.fetch_add(1);
+            uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
+            while (handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
+                //wait here by no ops
+                handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
+                asm volatile("pause\n": : :"memory");
+            }
+            if (!rw_mtx.try_shared_lock()){
+                lock_pending_num.fetch_sub(1);
+                return false;
+            }
+            lock_pending_num.fetch_sub(1);
+//            read_lock_holder_num.fetch_add(1);
+            read_lock_counter.fetch_add(1);
+        }else{
+            if (!rw_mtx.try_shared_lock()){
+                return false;
+            }
+        }
+
+
+#ifdef LOCAL_LOCK_DEBUG
+        {
+            std::unique_lock<std::mutex> lck(holder_id_mtx);
+            holder_ids.insert(RDMA_Manager::thread_id);
+        }
+#endif
+
+            //TODO: make the leaf_node_search the same as leaf_node_store?
+            // No, because the read here has a optimiaziton for the double check locking
+
+            if (remote_lock_status.load() == 0){
+                cache_miss[RDMA_Manager::thread_id][0]++;
+                // upgrade the lock the write lock.
+                //Can we use the std::call_once here?
+#ifdef LOCAL_LOCK_DEBUG
+                {
+                    std::unique_lock<std::mutex> lck(holder_id_mtx);
+                    holder_ids.erase(RDMA_Manager::thread_id);
+
+                }
+#endif
+                rw_mtx.unlock_shared();
+                asm volatile ("sfence\n" : : );
+                asm volatile ("lfence\n" : : );
+                asm volatile ("mfence\n" : : );
+//                std::unique_lock<std::shared_mutex> w_l(rw_mtx);
+                if (!rw_mtx.try_lock()){
+
+                    return false;
+                }
+//                rw_mtx.lock(RDMA_Manager::thread_id+384);
+#ifdef LOCAL_LOCK_DEBUG
+
+                {
+                    std::unique_lock<std::mutex> lck(holder_id_mtx);
+                    holder_ids.insert(RDMA_Manager::thread_id);
+
+                }
+#endif
+                if ( remote_lock_status.load() == 0){
+                    if(value) {
+                        mr = (ibv_mr*)value;
+                    }else{
+                        mr = new ibv_mr{};
+                        rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
+//                        printf("value mr is null for globale page nodeid %lu, offset %lu\n", page_addr.nodeID, page_addr.offset);
+
+//        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
+//               page_addr, mr->addr, HashSlice(page_id), level);
+
+                        //TODO: this is not guarantted to be atomic, mulitple reader can cause memory leak
+                        value = mr;
+
+                    }
+                    if (!rdma_mg->global_Rlock_and_read_page_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr,5)){
+                        rw_mtx.unlock();
+                        return false;
+                    }
+                    remote_lock_status.store(1);
+                }
+#ifdef LOCAL_LOCK_DEBUG
+
+                {
+                    std::unique_lock<std::mutex> lck(holder_id_mtx);
+                    holder_ids.erase(RDMA_Manager::thread_id);
+
+                }
+#endif
+//                w_l.unlock();
+                rw_mtx.unlock();
+                asm volatile ("sfence\n" : : );
+                asm volatile ("lfence\n" : : );
+                asm volatile ("mfence\n" : : );
+                if (!rw_mtx.try_shared_lock()){
+
+                    return false;
+                }
+//                rw_mtx.lock_shared();
+#ifdef LOCAL_LOCK_DEBUG
+                {
+                    std::unique_lock<std::mutex> lck(holder_id_mtx);
+                    holder_ids.insert(RDMA_Manager::thread_id);
+                }
+#endif
+
+            }else{
+                cache_hit_valid[RDMA_Manager::thread_id][0]++;
+            }
+            mr = (ibv_mr*)value;
+
+        return true;
     }
 
     void Cache::Handle::reader_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *mr) {
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
 
-        if (strategy == 2){
-            rdma_mg->global_RUnlock(lock_addr, cas_mr);
-            //TODO: No need to change the remote lock status. delete the line below.
-            remote_lock_status.store(0);
-        }
+
 //        assert(handle->refs.load() == 2);
 #ifdef LOCAL_LOCK_DEBUG
         {
@@ -729,7 +836,6 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             holder_ids.insert(RDMA_Manager::thread_id);
         }
 #endif
-        if(strategy.load() == 1){
 #ifndef NDEBUG
             bool hint_of_existence = false;
 #endif
@@ -782,13 +888,102 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 cache_hit_valid[RDMA_Manager::thread_id][0]++;
 
             }
-        }else{
-            assert(strategy == 2);
-            // if the strategy is 2 then the page actually should not cached in the page.
-            assert(!value);
-            //TODO: access it over thread local mr and do not cache it.
-            assert(false);
+
+    }
+    bool Cache::Handle::try_updater_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
+
+        if (rdma_mg == nullptr){
+            rdma_mg = RDMA_Manager::Get_Instance(nullptr);
         }
+        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+        if (remote_lock_urged.load() > 0){
+            lock_pending_num.fetch_add(1);
+            uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
+            while (handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
+                //wait here by no ops
+                handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
+                asm volatile("pause\n": : :"memory");
+            }
+            if (!rw_mtx.try_lock()){
+                lock_pending_num.fetch_sub(1);
+                return false;
+            }
+//            rw_mtx.lock(RDMA_Manager::thread_id+512);
+            lock_pending_num.fetch_sub(1);
+            write_lock_counter.fetch_add(1);
+        }else{
+            if (!rw_mtx.try_lock()){
+                return false;
+            }
+//            rw_mtx.lock(RDMA_Manager::thread_id+512);
+        }
+//        lock_pending_num.fetch_add(1);
+//        rw_mtx.lock();
+#ifdef LOCAL_LOCK_DEBUG
+        {
+            std::unique_lock<std::mutex> lck(holder_id_mtx);
+            holder_ids.insert(RDMA_Manager::thread_id);
+        }
+#endif
+#ifndef NDEBUG
+            bool hint_of_existence = false;
+#endif
+            if(value)
+            {
+#ifndef NDEBUG
+                hint_of_existence = true;
+#endif
+                // This means the page has already be in the cache.
+                mr = (ibv_mr*)value;
+                //TODO: delete the line below.
+//                assert(handle->remote_lock_status != 0);
+            }else{
+#ifndef NDEBUG
+                hint_of_existence = false;
+#endif
+                // This means the page was not in the cache before
+                mr = new ibv_mr{};
+                rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
+                assert(remote_lock_status == 0);
+
+//        printf("Allocate slot for page 1, the page global pointer is %p , local pointer is  %p, hash value is %lu level is %d\n",
+//               page_addr, mr->addr, HashSlice(page_id), level);
+                value = mr;
+
+            }
+            // If the remote read lock is not on, lock it
+            if (remote_lock_status == 0){
+                cache_miss[RDMA_Manager::thread_id][0]++;
+                if (!rdma_mg->global_Wlock_and_read_page_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr, 5)){
+                    rw_mtx.unlock();
+                    return false;
+                }
+                remote_lock_status.store(2);
+//                handle->remote_lock_status.store(2);
+
+            }else if (remote_lock_status == 1){
+                cache_miss[RDMA_Manager::thread_id][0]++;
+//                cache_hit_valid[RDMA_Manager::thread_id][0]++;
+                if (!global_Rlock_update(mr, lock_addr, cas_mr)){
+                    rw_mtx.unlock();
+                    remote_lock_status.store(0);
+                    return false;
+                    //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
+                    // is problematice if we want to upgrade the lock during a transaction.
+                    // May be we can take advantage of the lock starvation bit to solve this problem.
+                    //the Read lock has been released, we can directly acquire the write lock
+                    rdma_mg->global_Wlock_and_read_page_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr);
+                    remote_lock_status.store(2);
+                }else{
+
+                    assert( remote_lock_status.load() == 2);
+
+                }
+            }else{
+                cache_hit_valid[RDMA_Manager::thread_id][0]++;
+
+            }
+        return true;
     }
     void Cache::Handle::upgrade_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
         assert(rw_mtx.issharelocked());
@@ -820,7 +1015,6 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             holder_ids.insert(RDMA_Manager::thread_id);
         }
 #endif
-        if(strategy.load() == 1){
 #ifndef NDEBUG
             bool hint_of_existence = false;
 #endif
@@ -873,21 +1067,11 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 cache_hit_valid[RDMA_Manager::thread_id][0]++;
 
             }
-        }else{
-            assert(strategy == 2);
-            // if the strategy is 2 then the page actually should not cached in the page.
-            assert(!value);
-            //TODO: access it over thread local mr and do not cache it.
-            assert(false);
-        }
+
     }
 
     void Cache::Handle::updater_writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
-        if (strategy == 2){
-            rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
-            remote_lock_status.store(0);
 
-        }
 //        if (strategy == 1){
 #ifdef LOCAL_LOCK_DEBUG
         {
@@ -937,7 +1121,6 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             holder_ids.insert(RDMA_Manager::thread_id);
         }
 #endif
-        if(strategy.load() == 1){
 #ifndef NDEBUG
             bool hint_of_existence = false;
 #endif
@@ -991,13 +1174,6 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             }else{
                 cache_hit_valid[RDMA_Manager::thread_id][0]++;
             }
-        }else{
-            assert(strategy == 2);
-            // if the strategy is 2 then the page actually should not cached in the page.
-            assert(!value);
-            //TODO: access it over thread local mr and do not cache it.
-            assert(false);
-        }
     }
 
     bool
@@ -1020,13 +1196,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
     Cache::Handle::writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
         assert(false);
 
-        // Same as updater_post_access
-        if (strategy == 2){
-            rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
-            remote_lock_status.store(0);
 
-        }
-//        if (strategy == 1){
+
 #ifdef LOCAL_LOCK_DEBUG
         {
             std::unique_lock<std::mutex> lck(holder_id_mtx);
