@@ -119,6 +119,8 @@ class DSMEngine_EXPORT Cache {
 
         void reader_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *mr);
         void updater_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
+        bool try_upgrade_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
+
         bool try_updater_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
 
         void upgrade_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);

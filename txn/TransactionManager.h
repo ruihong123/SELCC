@@ -47,7 +47,9 @@ class TransactionManager {
     } else {
       printf("table_id=%d cannot find the record with  key=%lx",
           table_id, primary_key);
-      return false;
+      //Not found return true, and let the caller to handle check whetehr record is still null to figure out
+      // whether the tuple is found or not.
+      return true;
     }
   }
 

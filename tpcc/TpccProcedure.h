@@ -37,14 +37,15 @@ class DeliveryProcedure : public StoredProcedure {
                                                      delivery_param->w_id_);
       //todo: Remember to delete the record.
       Record *new_order_record = nullptr;
-      if (transaction_manager_->SearchRecord(&context_, NEW_ORDER_TABLE_ID,
-                                             new_order_key, new_order_record,
-                                             READ_ONLY)) {
+        DB_QUERY(SearchRecord(&context_, NEW_ORDER_TABLE_ID,
+                              new_order_key, new_order_record,
+                              READ_ONLY))
+      if (new_order_record) {
         no_o_ids[no_d_id - 1] = no_o_id;
         int next_o_id = no_o_id + 1;
         district_new_order_record->SetColumn(2, &next_o_id);
       } else {
-        // when cannot find any no_o_id, let next_o_id wrap around again
+        // when cannot find any no_o_id, let next_o_id wrap around again and drop this order delivery
         // TODO: this place should be modified after implementing an efficient index.
 
           no_o_ids[no_d_id - 1] = -1;
@@ -140,14 +141,16 @@ class NewOrderProcedure : public StoredProcedure {
       // "getItemInfo": "SELECT I_PRICE, I_NAME, I_DATA FROM ITEM WHERE I_ID = ?"
       IndexKey item_key = GetItemPrimaryKey(item_id, new_order_param->w_id_);
       Record *item_record = nullptr;
-      if (transaction_manager_->SearchRecord(
-          &context_, ITEM_TABLE_ID, item_key, item_record,
-          (AccessType) new_order_param->item_access_type_[i]) == false) {
-        // currently disable application-level abort, impossible to return false
-        assert(false);
-        transaction_manager_->AbortTransaction();
-        return false;
-      }
+        DB_QUERY(SearchRecord(
+                &context_, ITEM_TABLE_ID, item_key, item_record,
+                (AccessType) new_order_param->item_access_type_[i]))
+//      if (transaction_manager_->SearchRecord(
+//          &context_, ITEM_TABLE_ID, item_key, item_record,
+//          (AccessType) new_order_param->item_access_type_[i]) == false) {
+////        assert(false);
+////        transaction_manager_->AbortTransaction();
+//        return false;
+//      }
       double price = 0;
       item_record->GetColumn(3, &price);
       ret.Memcpy(ret.size_, (char*) (&item_id), sizeof(item_id));

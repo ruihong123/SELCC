@@ -6,7 +6,10 @@ namespace DSMEngine {
     bool TransactionManager::AllocateNewRecord(TxnContext *context, size_t table_id,
                                            Cache::Handle* &handle, GlobalAddress &tuple_gaddr, char* &tuple_buffer) {
         Table* table = storage_manager_->tables_[table_id];
-        table->AllocateNewTuple(tuple_buffer, tuple_gaddr, handle, default_gallocator, &locked_handles_);
+        if (!table->AllocateNewTuple(tuple_buffer, tuple_gaddr, handle, default_gallocator, &locked_handles_)){
+            this->AbortTransaction();
+            return false;
+        }
 //        GlobalAddress* g_addr = table->GetOpenedBlock();
 //        if ( g_addr == nullptr){
 //            g_addr = new GlobalAddress();
@@ -27,7 +30,7 @@ namespace DSMEngine {
 
 
 //        default_gallocator->PrePage_Write(page_buffer, g_addr, handle);
-
+        return true;
     }
     //The hierachy lock shall be acquired outside of this function.
   bool TransactionManager::InsertRecord(TxnContext* context, 
@@ -66,7 +69,11 @@ namespace DSMEngine {
       if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
           if (access_type == READ_ONLY) {
               PROFILE_TIME_START(thread_id_, LOCK_READ);
-              default_gallocator->PrePage_Read(page_buff, page_gaddr, handle);
+//              default_gallocator->PrePage_Read(page_buff, page_gaddr, handle);
+                if (!default_gallocator->TryPrePage_Read(page_buff, page_gaddr, handle)){
+                    this->AbortTransaction();
+                    return false;
+                }
               assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
               tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
 //              locked_handles_[page_gaddr] = std::pair(handle, access_type);
@@ -77,7 +84,11 @@ namespace DSMEngine {
           else {
               // DELETE_ONLY, READ_WRITE
               PROFILE_TIME_START(thread_id_, LOCK_WRITE);
-              default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
+//              default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
+              if (!default_gallocator->TryPrePage_Update(page_buff, page_gaddr, handle)){
+                  this->AbortTransaction();
+                  return false;
+              }
               assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
               tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
 //              locked_handles_[page_gaddr] = std::pair(handle, access_type);
@@ -144,10 +155,8 @@ namespace DSMEngine {
 //            printf("Threadid %zu Release write lock for nodeid %d, offset %lu lock handle number is %zu\n", thread_id_, page_addr.nodeID, page_addr.offset, locked_handles_.size());
 
         }
-      // unlock
-//      this->UnLockRecord(access->access_addr_, record->GetSchemaSize());
+
     }
-//      printf("Threadid %zu commit\n", thread_id_);
     //GC
     for (size_t i = 0; i < access_list_.access_count_; ++i) {
       Access* access = access_list_.GetAccess(i);
@@ -181,7 +190,6 @@ namespace DSMEngine {
               default_gallocator->PostPage_UpdateOrWrite(iter.second.first->gptr, iter.second.first);
           }
           // unlock
-//      this->UnLockRecord(access->access_addr_, record->GetSchemaSize());
       }
     //GC
     for (size_t i = 0; i < access_list_.access_count_; ++i) {

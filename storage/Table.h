@@ -152,7 +152,7 @@ public:
   }
   //Allocate the tuple from new page, if there is a cached handles list, we need to consider whether the latch has already been
   // acquired.
-  void AllocateNewTuple(char *&tuple_data_, GlobalAddress &tuple_gaddr, Cache::Handle *&handle, DDSM *gallocator,
+  bool AllocateNewTuple(char *&tuple_data_, GlobalAddress &tuple_gaddr, Cache::Handle *&handle, DDSM *gallocator,
                         std::unordered_map<uint64_t, std::pair<Cache::Handle *, AccessType>>* locked_handles_) {
         void* page_buffer;
         GlobalAddress* g_addr = GetOpenedBlock();
@@ -160,7 +160,10 @@ public:
       if (locked_handles_!= nullptr && g_addr != nullptr){
           GlobalAddress cacheline_g_addr = *g_addr;
           if (locked_handles_->find(cacheline_g_addr) == locked_handles_->end()){
-              gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+//              gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+              if (!gallocator->TryPrePage_Update(page_buffer, *g_addr, handle)){
+                  return false;
+              }
               assert(((DataPage*)page_buffer)->hdr.table_id == table_id_);
               (*locked_handles_)[cacheline_g_addr] = std::pair(handle, INSERT_ONLY);
               page = reinterpret_cast<DataPage*>(page_buffer);
@@ -169,7 +172,10 @@ public:
               handle = locked_handles_->at(cacheline_g_addr).first;
               //TODO: update the hierachical lock atomically, if the lock is shared lock
               if (locked_handles_->at(cacheline_g_addr).second == READ_ONLY){
-                  default_gallocator->PrePage_Upgrade(page_buffer, cacheline_g_addr, handle);
+//                  default_gallocator->PrePage_Upgrade(page_buffer, cacheline_g_addr, handle);
+                  if (!default_gallocator->PrePage_Upgrade(page_buffer, cacheline_g_addr, handle)){
+                        return false;
+                  }
               }
               (*locked_handles_)[cacheline_g_addr].second = INSERT_ONLY;
               page_buffer = ((ibv_mr*)handle->value)->addr;
@@ -177,14 +183,20 @@ public:
 
           }
       }else if(locked_handles_== nullptr && g_addr != nullptr){
-          gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+//          gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+          if (!gallocator->TryPrePage_Update(page_buffer, *g_addr, handle)){
+              return false;
+          }
           assert(((DataPage*)page_buffer)->hdr.table_id == table_id_);
           page = reinterpret_cast<DataPage*>(page_buffer);
       }else if (locked_handles_!= nullptr && g_addr == nullptr){
           g_addr = new GlobalAddress();
           *g_addr = gallocator->Allocate_Remote(Regular_Page);
           SetOpenedBlock(g_addr);
-          gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+//          gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+          if (!gallocator->TryPrePage_Update(page_buffer, *g_addr, handle)){
+              return false;
+          }
           uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*schema_ptr_->GetSchemaSize() +1);
           page = new(page_buffer) DataPage(*g_addr, cardinality, table_id_);
           (*locked_handles_)[*g_addr] = std::pair(handle, INSERT_ONLY);
@@ -194,7 +206,10 @@ public:
           g_addr = new GlobalAddress();
           *g_addr = gallocator->Allocate_Remote(Regular_Page);
           SetOpenedBlock(g_addr);
-          gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+//          gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+          if (!gallocator->TryPrePage_Update(page_buffer, *g_addr, handle)){
+              return false;
+          }
           uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*schema_ptr_->GetSchemaSize() +1);
           page = new(page_buffer) DataPage(*g_addr, cardinality, table_id_);
       }
@@ -214,6 +229,7 @@ public:
             delete g_addr;
             SetOpenedBlock(nullptr);
         }
+      return true;
   }
 
  private:

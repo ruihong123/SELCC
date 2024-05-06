@@ -119,6 +119,28 @@ public:
 //        }
 
     }
+
+    // Try atomic upgrade to exclusive latch, if failed, then return false and still hold the shared latch.
+    bool try_upgrade(){
+        auto currently_locked = false;
+        assert(readers_count.load() > 0);
+        if (write_now.compare_exchange_strong(currently_locked, true,
+                                              std::memory_order_acquire,
+                                              std::memory_order_relaxed)){
+            if (readers_count.load() == 1){
+                readers_count.fetch_sub(1, std::memory_order_release);
+                return true;
+            }else{
+                write_now.store(false, std::memory_order_release);
+//                readers_count.fetch_sub(1, std::memory_order_release);
+                return false;
+            }
+
+        }else{
+//            readers_count.fetch_sub(1, std::memory_order_release);
+            return false;
+        }
+    }
     void lock_shared() {
         // unique_lock have priority
         while(true) {
