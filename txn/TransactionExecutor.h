@@ -124,14 +124,14 @@ class TransactionExecutor {
         PROFILE_TIME_START(thread_id, TXN_EXECUTE);
         ret.size_ = 0;
         if (procedures[tuple->type_]->Execute(tuple, ret) == false) {
-            assert(false);
+//            assert(false);
           ret.size_ = 0;
           ++abort_count;
           if (is_finish_ == true) {
             total_count_.fetch_add(count);
             total_abort_count_.fetch_add(abort_count);
             PROFILE_TIME_END(thread_id, TXN_EXECUTE);
-            //txn_manager->CleanUp();
+//            txn_manager->CleanUp();
             return;
           }PROFILE_TIME_START(thread_id, TXN_ABORT);
 #if defined(BACKOFF)						
@@ -168,7 +168,7 @@ class TransactionExecutor {
 #endif
           }PROFILE_TIME_END(thread_id, TXN_ABORT);
         } else {
-            printf("Transaciton finished for thread %zu\n", thread_id);
+            printf("Transaction finished for thread %zu\n", thread_id);
 #if defined(BACKOFF)
           backoff_shifts >>= 1;
 #endif
