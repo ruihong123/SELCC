@@ -279,6 +279,7 @@ class NewOrderProcedure : public StoredProcedure {
 //      GAddr order_addr = gallocators[thread_id_]->Malloc(
 //        transaction_manager_->storage_manager_->
 //        tables_[ORDER_TABLE_ID]->GetSchemaSize());
+      printf("Insert new order order id %d, d_id %d, w_id %d\n", d_next_o_id, new_order_param->d_id_, new_order_param->w_id_);
     Record *order_record = new Record(
         transaction_manager_->storage_manager_->
         tables_[ORDER_TABLE_ID]->GetSchema(), order_buffer);
@@ -521,7 +522,7 @@ class StockLevelProcedure : public StoredProcedure {
      int d_next_o_id = 0;
      district_record->GetColumn(10, &d_next_o_id);
      assert(d_next_o_id != 0);
-
+    //TODO: In stock level query, line 526-534it seems that the order key some times can not find a valid record according to the primary index
      size_t count = 0;
      for (int o_id = d_next_o_id - 5; o_id < d_next_o_id; ++o_id){
      	// "getStockCount": "SELECT COUNT(DISTINCT(OL_I_ID)) FROM ORDER_LINE, STOCK WHERE OL_W_ID = ? AND OL_D_ID = ? AND OL_O_ID < ? AND OL_O_ID >= ? AND S_W_ID = ? AND S_I_ID = OL_I_ID AND S_QUANTITY < ?"
