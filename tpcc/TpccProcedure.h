@@ -245,7 +245,7 @@ class NewOrderProcedure : public StoredProcedure {
     GlobalAddress new_order_gaddr = GlobalAddress::Null();
     // TODO: need to allocate a allocation in the transaction manager, and make sure that the access_handle for the same
     // cache line was not locked muliple time.
-    transaction_manager_->AllocateNewRecord(&context_, NEW_ORDER_TABLE_ID, new_order_handle, new_order_gaddr, new_order_buffer);
+      DB_QUERY(AllocateNewRecord(&context_, NEW_ORDER_TABLE_ID, new_order_handle, new_order_gaddr, new_order_buffer))
 //      printf("Pointer of new_order_buffer: %p, all local this stack is around %p\n", new_order_buffer, &new_order_buffer);
 //      fflush(stdout);
       //    ->storage_manager_->tables_[NEW_ORDER_TABLE_ID]->AllocateNewTuple(
@@ -274,7 +274,7 @@ class NewOrderProcedure : public StoredProcedure {
       Cache::Handle *order_handle = nullptr;
       char* order_buffer = nullptr;
       GlobalAddress order_gaddr = GlobalAddress::Null();
-      transaction_manager_->AllocateNewRecord(&context_, ORDER_TABLE_ID, order_handle, order_gaddr, order_buffer);
+      DB_QUERY(AllocateNewRecord(&context_, ORDER_TABLE_ID, order_handle, order_gaddr, order_buffer))
 
 //      GAddr order_addr = gallocators[thread_id_]->Malloc(
 //        transaction_manager_->storage_manager_->
@@ -309,7 +309,7 @@ class NewOrderProcedure : public StoredProcedure {
         Cache::Handle *order_line_handle = nullptr;
         GlobalAddress order_line_gaddr = GlobalAddress::Null();
         char* order_line_buffer = nullptr;
-        transaction_manager_->AllocateNewRecord(&context_, ORDER_LINE_TABLE_ID, order_line_handle, order_line_gaddr, order_line_buffer);
+        DB_QUERY(AllocateNewRecord(&context_, ORDER_LINE_TABLE_ID, order_line_handle, order_line_gaddr, order_line_buffer))
 
       Record *order_line_record = new Record(
           transaction_manager_->storage_manager_->
@@ -423,7 +423,7 @@ class PaymentProcedure : public StoredProcedure {
       Cache::Handle *history_handle = nullptr;
       char* history_buffer = nullptr;
       GlobalAddress history_gaddr;
-      transaction_manager_->AllocateNewRecord(&context_, HISTORY_TABLE_ID, history_handle, history_gaddr, history_buffer);
+      DB_QUERY(AllocateNewRecord(&context_, HISTORY_TABLE_ID, history_handle, history_gaddr, history_buffer))
 
     Record *history_record = new Record(
         transaction_manager_->storage_manager_->
