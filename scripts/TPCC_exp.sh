@@ -110,7 +110,7 @@ vary_read_ratios () {
 
 vary_thread_number () {
   #read_ratios=(0 30 50 70 90 100)
-  thread_number=(1 8 16 32)
+  thread_number=(8 16 32)
   for thread_n in ${thread_number[@]}; do
     compute_ARGS="-p$port -sf64 -sf1 -c$thread_n -t200000 -f../connection.conf"
     run_tpcc
