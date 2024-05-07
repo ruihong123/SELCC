@@ -95,31 +95,26 @@ public:
         }
         thread_id = thread_ID + 1;
     }
-    bool try_lock(size_t thread_ID = 128) {
-        auto currently_locked = false;
 
-//        auto currently_locked = write_now.load(std::memory_order_relaxed);
-//        auto currently_readers = readers_count.load(std::memory_order_relaxed);
-//        if (!currently_locked && currently_readers == 0){
-            if( write_now.compare_exchange_strong(currently_locked, true,
-                                          std::memory_order_acquire,
-                                          std::memory_order_relaxed)){
-                if (readers_count.load() == 0){
-                    thread_id = 64+thread_ID;
-                    return true;
-                }else{
-                    write_now.store(false);
-                    return false;
-                }
-            }else{
-                return false;
+    void lock_shared() {
+        // unique_lock have priority
+        while(true) {
+            while (write_now) {     // wait for unlock
+                port::AsmVolatilePause();
+                std::this_thread::yield();
             }
-//        }else{
-//            return false;
-//        }
 
+            readers_count.fetch_add(1, std::memory_order_acquire);
+
+            if (write_now){
+                // locked while transaction? Fallback. Go another round
+                readers_count.fetch_sub(1, std::memory_order_release);
+            } else {
+                // all ok
+                return;
+            }
+        }
     }
-
     // Try atomic upgrade to exclusive latch, if failed, then return false and still hold the shared latch.
     bool try_upgrade(){
         auto currently_locked = false;
@@ -141,24 +136,29 @@ public:
             return false;
         }
     }
-    void lock_shared() {
-        // unique_lock have priority
-        while(true) {
-            while (write_now) {     // wait for unlock
-                port::AsmVolatilePause();
-                std::this_thread::yield();
-            }
+    bool try_lock(size_t thread_ID = 128) {
+        auto currently_locked = false;
 
-            readers_count.fetch_add(1, std::memory_order_acquire);
-
-            if (write_now){
-                // locked while transaction? Fallback. Go another round
-                readers_count.fetch_sub(1, std::memory_order_release);
-            } else {
-                // all ok
-                return;
+//        auto currently_locked = write_now.load(std::memory_order_relaxed);
+//        auto currently_readers = readers_count.load(std::memory_order_relaxed);
+//        if (!currently_locked && currently_readers == 0){
+        if( write_now.compare_exchange_strong(currently_locked, true,
+                                              std::memory_order_acquire,
+                                              std::memory_order_relaxed)){
+            if (readers_count.load() == 0){
+                thread_id = 64+thread_ID;
+                return true;
+            }else{
+                write_now.store(false);
+                return false;
             }
+        }else{
+            return false;
         }
+//        }else{
+//            return false;
+//        }
+
     }
     bool try_shared_lock() {
         auto currently_locked = write_now.load(std::memory_order_relaxed);

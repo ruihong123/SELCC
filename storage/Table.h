@@ -59,8 +59,7 @@ public:
 //    primary_index_->Init(kHashIndexBucketHeaderNum, gallocator);
   }
 
-  // return false if the key exists in primary index already
-  //TODO: rename it
+  // TODO: return false if the key exists in primary index already
   bool InsertPriIndex(const IndexKey* keys, size_t key_num, GlobalAddress tuple_gaddr) {
       assert(TOPAGE(tuple_gaddr).offset != tuple_gaddr.offset);
     assert(key_num == secondary_count_ + 1);

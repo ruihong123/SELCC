@@ -100,6 +100,7 @@ namespace DSMEngine {
           handle = locked_handles_.at(page_gaddr).first;
           //TODO: update the hierachical lock atomically, if the lock is shared lock
           if (access_type > READ_ONLY && locked_handles_[page_gaddr].second == READ_ONLY){
+              assert(false);
               default_gallocator->PrePage_Upgrade(page_buff, page_gaddr, handle);
               locked_handles_[page_gaddr].second = access_type;
           }
