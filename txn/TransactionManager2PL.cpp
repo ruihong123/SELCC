@@ -41,7 +41,7 @@ namespace DSMEngine {
     record->SetVisible(true);
     Access* access = access_list_.NewAccess();
     access->access_type_ = INSERT_ONLY;
-    access->access_record_ = record;
+    access->access_global_record_ = record;
 //    access->access_handle_ = hadndle;
     access->access_addr_ = tuple_gaddr;
     PROFILE_TIME_START(thread_id_, INDEX_INSERT);
@@ -83,6 +83,8 @@ namespace DSMEngine {
           }
           else {
               // DELETE_ONLY, READ_WRITE
+
+
               PROFILE_TIME_START(thread_id_, LOCK_WRITE);
 //              default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
               if (!default_gallocator->TryPrePage_Update(page_buff, page_gaddr, handle)){
@@ -95,6 +97,21 @@ namespace DSMEngine {
               locked_handles_.insert({page_gaddr, {handle, access_type}});
 //              printf("Threadid %zu Acquire write lock for nodeid %d, offset %lu --- %p, lock handle number is %zu\n", thread_id_, page_gaddr.nodeID, page_gaddr.offset, page_gaddr, locked_handles_.size());
               PROFILE_TIME_END(thread_id_, LOCK_WRITE);
+          }
+          record = new Record(schema_ptr, tuple_buffer);
+          Access* access = access_list_.NewAccess();
+          access->access_type_ = access_type;
+          access->access_global_record_ = record;
+          access->access_addr_ = tuple_gaddr;
+          if (access_type == DELETE_ONLY) {
+              record->SetVisible(false);
+          }
+          if (access_type == READ_WRITE) {
+              //TODO: roll back according to via the undo log segment
+              Record* local_tuple = new Record(schema_ptr);
+              local_tuple->CopyFrom(record);
+
+              access->txn_local_tuple_ = local_tuple;
           }
       }else{
           handle = locked_handles_.at(page_gaddr).first;
@@ -111,17 +128,8 @@ namespace DSMEngine {
       }
 
 
-//    if (lock_success) {
-      record = new Record(schema_ptr, tuple_buffer);
-//      record->Deserialize(data_addr, gallocators[thread_id_]);
-      Access* access = access_list_.NewAccess();
-      access->access_type_ = access_type;
-      access->access_record_ = record;
-//      access->access_handle_ = handlde;
-      access->access_addr_ = tuple_gaddr;
-      if (access_type == DELETE_ONLY) {
-        record->SetVisible(false);
-      }
+
+
       PROFILE_TIME_END(thread_id_, CC_SELECT);
       return true;
 //    }
@@ -166,9 +174,13 @@ namespace DSMEngine {
 //        gallocators[thread_id_]->Free(access->access_addr_);
 //        access->access_addr_ = Gnullptr;
       }
-      delete access->access_record_;
-      access->access_record_ = nullptr;
+      delete access->access_global_record_;
+      access->access_global_record_ = nullptr;
       access->access_addr_ = GlobalAddress::Null();
+      if (access->txn_local_tuple_!= nullptr){
+            assert(access->access_type_ == READ_WRITE);
+            delete access->txn_local_tuple_;
+      }
     }
     access_list_.Clear();
     locked_handles_.clear();
@@ -179,6 +191,25 @@ namespace DSMEngine {
   void TransactionManager::AbortTransaction() {
 //    epicLog(LOG_DEBUG, "thread_id=%u,abort", thread_id_);
     PROFILE_TIME_START(thread_id_, CC_ABORT);
+
+      //TODO: roll back the data changes.
+    //GC
+    for (size_t i = 0; i < access_list_.access_count_; ++i) {
+      Access* access = access_list_.GetAccess(i);
+        if (access->access_type_ == INSERT_ONLY) {
+            access->access_global_record_->SetVisible(false);
+            //todo: Deallcoate the space of inserted tuples.
+        }
+        else if (access->access_type_ == READ_WRITE){
+            assert(access->txn_local_tuple_ != nullptr);
+            access->access_global_record_->CopyFrom(access->txn_local_tuple_);
+            delete access->txn_local_tuple_;
+        }
+      delete access->access_global_record_;
+      access->access_global_record_ = nullptr;
+      access->access_addr_ = GlobalAddress::Null();
+    }
+
       for (auto iter : locked_handles_){
           assert(iter.second.second == READ_ONLY ||
                  iter.second.second == DELETE_ONLY ||
@@ -192,19 +223,9 @@ namespace DSMEngine {
           }
           // unlock
       }
-    //GC
-    for (size_t i = 0; i < access_list_.access_count_; ++i) {
-      Access* access = access_list_.GetAccess(i);
-        if (access->access_type_ == INSERT_ONLY) {
-            access->access_record_->SetVisible(false);
-            //todo: Deallcoate the space of inserted tuples.
-        }
-      delete access->access_record_;
-      access->access_record_ = nullptr;
-      access->access_addr_ = GlobalAddress::Null();
-    }
     access_list_.Clear();
     locked_handles_.clear();
+
     PROFILE_TIME_END(thread_id_, CC_ABORT);
   }
 
