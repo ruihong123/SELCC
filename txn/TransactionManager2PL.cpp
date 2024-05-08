@@ -3,13 +3,22 @@
 #include "TransactionManager.h"
 
 namespace DSMEngine {
-    bool TransactionManager::AllocateNewRecord(TxnContext *context, size_t table_id,
-                                           Cache::Handle* &handle, GlobalAddress &tuple_gaddr, char* &tuple_buffer) {
+    bool TransactionManager::AllocateNewRecord(TxnContext *context, size_t table_id, Cache::Handle *&handle,
+                                               GlobalAddress &tuple_gaddr, Record *tuple) {
+        char* tuple_buffer;
         Table* table = storage_manager_->tables_[table_id];
         if (!table->AllocateNewTuple(tuple_buffer, tuple_gaddr, handle, default_gallocator, &locked_handles_)){
             this->AbortTransaction();
             return false;
         }
+        RecordSchema *schema_ptr = storage_manager_->tables_[table_id]->GetSchema();
+        tuple = new Record(schema_ptr, tuple_buffer);
+        Access* access = access_list_.NewAccess();
+        access->access_type_ = INSERT_ONLY;
+        access->access_global_record_ = tuple;
+        access->access_addr_ = tuple_gaddr;
+        return true;
+
 //        GlobalAddress* g_addr = table->GetOpenedBlock();
 //        if ( g_addr == nullptr){
 //            g_addr = new GlobalAddress();
@@ -30,7 +39,6 @@ namespace DSMEngine {
 
 
 //        default_gallocator->PrePage_Write(page_buffer, g_addr, handle);
-        return true;
     }
     //The hierachy lock shall be acquired outside of this function.
   bool TransactionManager::InsertRecord(TxnContext* context, 
@@ -98,20 +106,7 @@ namespace DSMEngine {
 //              printf("Threadid %zu Acquire write lock for nodeid %d, offset %lu --- %p, lock handle number is %zu\n", thread_id_, page_gaddr.nodeID, page_gaddr.offset, page_gaddr, locked_handles_.size());
               PROFILE_TIME_END(thread_id_, LOCK_WRITE);
           }
-          record = new Record(schema_ptr, tuple_buffer);
-          Access* access = access_list_.NewAccess();
-          access->access_type_ = access_type;
-          access->access_global_record_ = record;
-          access->access_addr_ = tuple_gaddr;
-          if (access_type == DELETE_ONLY) {
-              record->SetVisible(false);
-          }
-          if (access_type == READ_WRITE) {
-              //TODO: roll back according to via the undo log segment
-              Record* local_tuple = new Record(schema_ptr);
-              local_tuple->CopyFrom(record);
-              access->txn_local_tuple_ = local_tuple;
-          }
+
       }else{
           handle = locked_handles_.at(page_gaddr).first;
           //TODO: update the hierachical lock atomically, if the lock is shared lock
@@ -126,9 +121,20 @@ namespace DSMEngine {
 
       }
 
-
-
-
+      record = new Record(schema_ptr, tuple_buffer);
+      Access* access = access_list_.NewAccess();
+      access->access_type_ = access_type;
+      access->access_global_record_ = record;
+      access->access_addr_ = tuple_gaddr;
+      if (access_type == DELETE_ONLY) {
+          record->SetVisible(false);
+      }
+      if (access_type == READ_WRITE) {
+          //TODO: roll back according to via the undo log segment
+          Record* local_tuple = new Record(schema_ptr);
+          local_tuple->CopyFrom(record);
+          access->txn_local_tuple_ = local_tuple;
+      }
       PROFILE_TIME_END(thread_id_, CC_SELECT);
       return true;
 //    }

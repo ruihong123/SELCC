@@ -245,13 +245,16 @@ class NewOrderProcedure : public StoredProcedure {
     GlobalAddress new_order_gaddr = GlobalAddress::Null();
     // TODO: need to allocate a allocation in the transaction manager, and make sure that the access_handle for the same
     // cache line was not locked muliple time.
-      DB_QUERY(AllocateNewRecord(&context_, NEW_ORDER_TABLE_ID, new_order_handle, new_order_gaddr, new_order_buffer))
+      Record *new_order_record;
+//      = new Record(
+//              transaction_manager_->storage_manager_->tables_[NEW_ORDER_TABLE_ID]->GetSchema(), new_order_buffer);
+      DB_QUERY(AllocateNewRecord(&context_, NEW_ORDER_TABLE_ID, new_order_handle, new_order_gaddr,
+                                 new_order_record))
 //      printf("Pointer of new_order_buffer: %p, all local this stack is around %p\n", new_order_buffer, &new_order_buffer);
 //      fflush(stdout);
       //    ->storage_manager_->tables_[NEW_ORDER_TABLE_ID]->AllocateNewTuple(
 //            new_order_buffer, new_order_gaddr, new_order_handle, gallocators[thread_id_]);
-    Record *new_order_record = new Record(
-        transaction_manager_->storage_manager_->tables_[NEW_ORDER_TABLE_ID]->GetSchema(), new_order_buffer);
+
     new_order_record->SetColumn(0, (char*) (&d_next_o_id));
     new_order_record->SetColumn(1, (char*) (&new_order_param->d_id_));
     new_order_record->SetColumn(2, (char*) (&new_order_param->w_id_));
@@ -274,15 +277,17 @@ class NewOrderProcedure : public StoredProcedure {
       Cache::Handle *order_handle = nullptr;
       char* order_buffer = nullptr;
       GlobalAddress order_gaddr = GlobalAddress::Null();
-      DB_QUERY(AllocateNewRecord(&context_, ORDER_TABLE_ID, order_handle, order_gaddr, order_buffer))
+      Record *order_record;
+//      = new Record(
+//              transaction_manager_->storage_manager_->
+//                      tables_[ORDER_TABLE_ID]->GetSchema(), order_buffer);
+      DB_QUERY(AllocateNewRecord(&context_, ORDER_TABLE_ID, order_handle, order_gaddr, order_record))
 
 //      GAddr order_addr = gallocators[thread_id_]->Malloc(
 //        transaction_manager_->storage_manager_->
 //        tables_[ORDER_TABLE_ID]->GetSchemaSize());
       printf("Insert new order order id %d, d_id %d, w_id %d\n", d_next_o_id, new_order_param->d_id_, new_order_param->w_id_);
-    Record *order_record = new Record(
-        transaction_manager_->storage_manager_->
-        tables_[ORDER_TABLE_ID]->GetSchema(), order_buffer);
+
     order_record->SetColumn(0, (char*) (&d_next_o_id));
     order_record->SetColumn(1, (char*) (&new_order_param->c_id_));
     order_record->SetColumn(2, (char*) (&new_order_param->d_id_));
@@ -310,12 +315,13 @@ class NewOrderProcedure : public StoredProcedure {
         Cache::Handle *order_line_handle = nullptr;
         GlobalAddress order_line_gaddr = GlobalAddress::Null();
         char* order_line_buffer = nullptr;
-        DB_QUERY(AllocateNewRecord(&context_, ORDER_LINE_TABLE_ID, order_line_handle, order_line_gaddr, order_line_buffer))
+        Record *order_line_record;
+//        = new Record(
+//                transaction_manager_->storage_manager_->
+//                        tables_[ORDER_LINE_TABLE_ID]->GetSchema(), order_line_buffer);
+        DB_QUERY(AllocateNewRecord(&context_, ORDER_LINE_TABLE_ID, order_line_handle, order_line_gaddr, order_line_record))
 
-      Record *order_line_record = new Record(
-          transaction_manager_->storage_manager_->
-          tables_[ORDER_LINE_TABLE_ID]->GetSchema(), order_line_buffer
-          );
+
       order_line_record->SetColumn(0, (char*) (&d_next_o_id));
       order_line_record->SetColumn(1, (char*) (&new_order_param->d_id_));
       order_line_record->SetColumn(2, (char*) (&new_order_param->w_id_));
@@ -424,12 +430,13 @@ class PaymentProcedure : public StoredProcedure {
       Cache::Handle *history_handle = nullptr;
       char* history_buffer = nullptr;
       GlobalAddress history_gaddr;
-      DB_QUERY(AllocateNewRecord(&context_, HISTORY_TABLE_ID, history_handle, history_gaddr, history_buffer))
+      Record *history_record;
+//      = new Record(
+//              transaction_manager_->storage_manager_->
+//                      tables_[HISTORY_TABLE_ID]->GetSchema(), history_buffer);
+      DB_QUERY(AllocateNewRecord(&context_, HISTORY_TABLE_ID, history_handle, history_gaddr, history_record))
 
-    Record *history_record = new Record(
-        transaction_manager_->storage_manager_->
-        tables_[HISTORY_TABLE_ID]->GetSchema(), history_buffer
-        );
+
     history_record->SetColumn(0, (char*) (&payment_param->c_id_));
     history_record->SetColumn(1, (char*) (&payment_param->c_d_id_));
     history_record->SetColumn(2, (char*) (&payment_param->c_w_id_));
