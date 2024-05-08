@@ -28,7 +28,7 @@ class TransactionManager {
   ~TransactionManager() {
   }
     bool AllocateNewRecord(TxnContext *context, size_t table_id, Cache::Handle *&handle,
-                           GlobalAddress &data_addr, Record *tuple);
+                           GlobalAddress &data_addr, Record*& tuple);
 
   bool InsertRecord(TxnContext* context, size_t table_id, const IndexKey* keys,
                     size_t key_num, Record *record, Cache::Handle* handle, const GlobalAddress tuple_gaddr);

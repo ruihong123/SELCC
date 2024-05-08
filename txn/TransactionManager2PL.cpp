@@ -4,7 +4,7 @@
 
 namespace DSMEngine {
     bool TransactionManager::AllocateNewRecord(TxnContext *context, size_t table_id, Cache::Handle *&handle,
-                                               GlobalAddress &tuple_gaddr, Record *tuple) {
+                                               GlobalAddress &tuple_gaddr, Record*& tuple) {
         char* tuple_buffer;
         Table* table = storage_manager_->tables_[table_id];
         if (!table->AllocateNewTuple(tuple_buffer, tuple_gaddr, handle, default_gallocator, &locked_handles_)){
