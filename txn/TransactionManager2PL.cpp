@@ -110,7 +110,6 @@ namespace DSMEngine {
               //TODO: roll back according to via the undo log segment
               Record* local_tuple = new Record(schema_ptr);
               local_tuple->CopyFrom(record);
-
               access->txn_local_tuple_ = local_tuple;
           }
       }else{
@@ -189,7 +188,7 @@ namespace DSMEngine {
   }
 
   void TransactionManager::AbortTransaction() {
-//    epicLog(LOG_DEBUG, "thread_id=%u,abort", thread_id_);
+    printf( "thread_id=%zu,abort\n", thread_id_);
     PROFILE_TIME_START(thread_id_, CC_ABORT);
 
       //TODO: roll back the data changes.
@@ -204,6 +203,8 @@ namespace DSMEngine {
             assert(access->txn_local_tuple_ != nullptr);
             access->access_global_record_->CopyFrom(access->txn_local_tuple_);
             delete access->txn_local_tuple_;
+        } else if (access->access_type_ == DELETE_ONLY){
+            access->access_global_record_->SetVisible(true);
         }
       delete access->access_global_record_;
       access->access_global_record_ = nullptr;

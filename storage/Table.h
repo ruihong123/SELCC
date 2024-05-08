@@ -221,7 +221,7 @@ public:
         bool ret = page->AllocateRecord(cnt, GetSchema() , tuple_gaddr, tuple_data_);
         assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
         assert((char*)tuple_data_ - (char*)page_buffer > STRUCT_OFFSET(DataPage, data_));
-      assert(((DataPage*)page_buffer)->hdr.this_page_g_ptr != GlobalAddress::Null());
+        assert(((DataPage*)page_buffer)->hdr.this_page_g_ptr != GlobalAddress::Null());
         assert(ret);
         // if this page is full, close it and  create a new cache line next time.
         if(cnt == page->hdr.kDataCardinality){
