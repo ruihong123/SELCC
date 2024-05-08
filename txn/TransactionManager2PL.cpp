@@ -194,7 +194,7 @@ namespace DSMEngine {
   }
 
   void TransactionManager::AbortTransaction() {
-    printf( "thread_id=%zu,abort\n", thread_id_);
+//    printf( "thread_id=%zu,abort\n", thread_id_);
     PROFILE_TIME_START(thread_id_, CC_ABORT);
 
       //TODO: roll back the data changes.
