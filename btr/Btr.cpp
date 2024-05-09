@@ -50,18 +50,18 @@ namespace DSMEngine {
 //thread_local Timer timer;
 //    thread_local std::queue<uint16_t> hot_wait_queue;
 //thread_local std::priority_queue<CoroDeadline> deadline_queue;
-    static void Deallocate_MR(Cache::Handle *handle) {
-        assert(handle->refs.load() == 0);
-        auto rdma_mg = RDMA_Manager::Get_Instance(nullptr);
-        auto mr = (ibv_mr*) handle->value;
-        if (!handle->keep_the_mr){
-            rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Regular_Page);
-            delete mr;
-        }
-        assert(handle->refs.load() == 0);
-
-
-    }
+//    static void Deallocate_MR(Cache::Handle *handle) {
+//        assert(handle->refs.load() == 0);
+//        auto rdma_mg = RDMA_Manager::Get_Instance(nullptr);
+//        auto mr = (ibv_mr*) handle->value;
+//        if (!handle->keep_the_mr){
+//            rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Regular_Page);
+//            delete mr;
+//        }
+//        assert(handle->refs.load() == 0);
+//
+//
+//    }
 //TODO: make the function set cache handle as an argument, and we need to modify the remote lock status
 // when unlocking the remote lock.
     template <typename Key, typename Value>
@@ -2225,7 +2225,7 @@ re_read:
             //The code below is optional.
             Slice sibling_page_id((char*)&sibling_addr, sizeof(GlobalAddress));
             assert(page_mr!= nullptr);
-            auto sib_handle = page_cache->Insert(sibling_page_id, sibling_mr, kInternalPageSize, Deallocate_MR);
+            auto sib_handle = page_cache->Insert(sibling_page_id, sibling_mr, kInternalPageSize, Deallocate_MR_WITH_CCP);
             page_cache->Release(sib_handle);
 //          rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
 //          delete sibling_mr;
