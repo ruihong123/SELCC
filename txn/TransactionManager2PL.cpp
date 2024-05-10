@@ -178,9 +178,9 @@ namespace DSMEngine {
 //        gallocators[thread_id_]->Free(access->access_addr_);
 //        access->access_addr_ = Gnullptr;
       }
-        printf("this access index is %zu",i);
+        printf("this access index is %zu\n",i);
         fflush(stdout);
-      delete access->access_global_record_;
+//      delete access->access_global_record_;
       access->access_global_record_ = nullptr;
       access->access_addr_ = GlobalAddress::Null();
       if (access->txn_local_tuple_!= nullptr){
