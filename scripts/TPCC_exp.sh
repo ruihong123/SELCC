@@ -76,14 +76,14 @@ launch () {
   ssh ${ssh_opts} ${master_host} "echo '$core_dump_dir/core$master_host' | sudo tee /proc/sys/kernel/core_pattern"
 
   ssh ${ssh_opts} ${master_host} "ulimit -S -c unlimited && $script_compute -sn$master_host -nid0 > ${output_file} 2>&1" &
-  sleep 3
+#  sleep 1
 
   for ((i=1;i<${#compute_nodes[@]};i++)); do
     compute=${compute_nodes[$i]}
     echo "start worker: ssh ${ssh_opts} ${compute} '$script_compute -sn$compute -nid$((2*$i)) > ${output_file} 2>&1' &"
     ssh ${ssh_opts} ${compute} "echo '$core_dump_dir/core$compute' | sudo tee /proc/sys/kernel/core_pattern"
-    ssh ${ssh_opts} ${compute} "ulimit -S -c unlimited && $script_compute -sn$compute -nid$((2*$i)) | tee ${output_file}" &
-    sleep 1
+    ssh ${ssh_opts} ${compute} "ulimit -S -c unlimited && $script_compute -sn$compute -nid$((2*$i))" &
+#    sleep 1
   done
 
   wait
@@ -110,7 +110,7 @@ vary_read_ratios () {
 
 vary_thread_number () {
   #read_ratios=(0 30 50 70 90 100)
-  thread_number=(8 16 32)
+  thread_number=(1 8 16 32)
   for thread_n in ${thread_number[@]}; do
     compute_ARGS="-p$port -sf1024 -sf1 -c$thread_n -t200000 -f../connection.conf"
     run_tpcc
