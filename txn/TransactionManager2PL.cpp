@@ -91,8 +91,6 @@ namespace DSMEngine {
           }
           else {
               // DELETE_ONLY, READ_WRITE
-
-
               PROFILE_TIME_START(thread_id_, LOCK_WRITE);
 //              default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
               if (!default_gallocator->TryPrePage_Update(page_buff, page_gaddr, handle)){
