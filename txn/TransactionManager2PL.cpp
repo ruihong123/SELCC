@@ -172,11 +172,14 @@ namespace DSMEngine {
     //GC
     for (size_t i = 0; i < access_list_.access_count_; ++i) {
       Access* access = access_list_.GetAccess(i);
+
       if (access->access_type_ == DELETE_ONLY) {
           //TODO: implement the delete function.
 //        gallocators[thread_id_]->Free(access->access_addr_);
 //        access->access_addr_ = Gnullptr;
       }
+        printf("this access index is %zu",i);
+        fflush(stdout);
       delete access->access_global_record_;
       access->access_global_record_ = nullptr;
       access->access_addr_ = GlobalAddress::Null();
