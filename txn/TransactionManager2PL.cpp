@@ -17,6 +17,10 @@ namespace DSMEngine {
         access->access_type_ = INSERT_ONLY;
         access->access_global_record_ = tuple;
         access->access_addr_ = tuple_gaddr;
+        assert(locked_handles_.find(TOPAGE(tuple_gaddr)) != locked_handles_.end());
+        printf("AllocateNewRecord: thread_id=%zu,table_id=%zu,access_type=%u,data_addr=%lx, start SelectRecordCC\n",
+               thread_id_, table_id, INSERT_ONLY, tuple_gaddr.val);
+        fflush(stdout);
         return true;
 
 //        GlobalAddress* g_addr = table->GetOpenedBlock();
