@@ -108,7 +108,7 @@ namespace DSMEngine {
 //              locked_handles_[page_gaddr] = std::pair(handle, access_type);
               locked_handles_.insert({page_gaddr, {handle, access_type}});
               assert(page_gaddr!=GlobalAddress::Null());
-              assert(access_type < READ_WRITE);
+              assert(access_type <= READ_WRITE);
 //              printf("Threadid %zu Acquire write lock for nodeid %d, offset %lu --- %p, lock handle number is %zu\n", thread_id_, page_gaddr.nodeID, page_gaddr.offset, page_gaddr, locked_handles_.size());
               PROFILE_TIME_END(thread_id_, LOCK_WRITE);
           }
@@ -124,7 +124,7 @@ namespace DSMEngine {
           page_buff = ((ibv_mr*)handle->value)->addr;
           tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
           assert(page_gaddr!=GlobalAddress::Null());
-          assert(access_type < READ_WRITE);
+          assert(access_type <= READ_WRITE);
 
       }
 
