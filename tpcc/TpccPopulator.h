@@ -359,7 +359,7 @@ class TpccPopulator : public BenchmarkPopulator {
     memcpy(record->h_data_, data.c_str(), data.size());
   }
 
-  DistrictNewOrderRecord* GenerateDistrictNewOrderRecord(
+  void GenerateDistrictNewOrderRecord(
       const int &w_id, const int &d_id, const int &o_id,
       DistrictNewOrderRecord* record) const {
     record->w_id_ = w_id;
