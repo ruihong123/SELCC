@@ -180,7 +180,7 @@ namespace DSMEngine {
       }
         printf("this access index is %zu\n",i);
         fflush(stdout);
-//      delete access->access_global_record_;
+      delete access->access_global_record_;
       access->access_global_record_ = nullptr;
       access->access_addr_ = GlobalAddress::Null();
       if (access->txn_local_tuple_!= nullptr){
@@ -213,7 +213,7 @@ namespace DSMEngine {
         } else if (access->access_type_ == DELETE_ONLY){
             access->access_global_record_->SetVisible(true);
         }
-      delete access->access_global_record_;
+//      delete access->access_global_record_;
       access->access_global_record_ = nullptr;
       access->access_addr_ = GlobalAddress::Null();
     }
