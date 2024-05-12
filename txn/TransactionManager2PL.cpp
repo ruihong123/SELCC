@@ -51,11 +51,11 @@ namespace DSMEngine {
     PROFILE_TIME_START(thread_id_, CC_INSERT);
 //    RecordSchema *schema_ptr = storage_manager_->tables_[table_id]->GetSchema();
     record->SetVisible(true);
-    Access* access = access_list_.NewAccess();
-    access->access_type_ = INSERT_ONLY;
-    access->access_global_record_ = record;
-//    access->access_handle_ = hadndle;
-    access->access_addr_ = tuple_gaddr;
+//    Access* access = access_list_.NewAccess();
+//    access->access_type_ = INSERT_ONLY;
+//    access->access_global_record_ = record;
+////    access->access_handle_ = hadndle;
+//    access->access_addr_ = tuple_gaddr;
     PROFILE_TIME_START(thread_id_, INDEX_INSERT);
     bool ret = storage_manager_->tables_[table_id]->InsertPriIndex(keys, key_num, tuple_gaddr);
     PROFILE_TIME_END(thread_id_, INDEX_INSERT);
