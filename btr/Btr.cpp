@@ -1579,8 +1579,10 @@ namespace DSMEngine {
                 path_stack[coro_id][result.level] = page_addr;
                 //If this is the leaf node, directly return let leaf page search to handle it.
                 if (result.level == 0){
+#ifndef NDEBUG
                     // if the root node is the leaf node this path will happen.
                     printf("root and leaf are the same 1, this tree id is %lu, this node id is %lu\n", tree_id, RDMA_Manager::node_id);
+#endif
                     // assert the page is a valid page.
 //                    assert(page->check_whether_globallock_is_unlocked());
                     if (k >= page->hdr.highest){
@@ -1639,8 +1641,9 @@ namespace DSMEngine {
                 //THis path shall not happen
                 assert(false);
                 // if the root node is the leaf node this path will happen.
+#ifndef NDEBUG
                 printf("root and leaf are the same 1, this tree id is %lu, this node id is %lu\n", tree_id, RDMA_Manager::node_id);
-                // assert the page is a valid page.
+#endif                // assert the page is a valid page.
 //                    assert(page->check_whether_globallock_is_unlocked());
                 if (k >= page->hdr.highest){
                     std::unique_lock<std::shared_mutex> l(root_mtx);

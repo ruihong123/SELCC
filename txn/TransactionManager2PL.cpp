@@ -195,6 +195,7 @@ namespace DSMEngine {
       if (access->txn_local_tuple_!= nullptr){
             assert(access->access_type_ == READ_WRITE);
             delete access->txn_local_tuple_;
+            access->txn_local_tuple_ = nullptr;
       }
     }
     access_list_.Clear();
