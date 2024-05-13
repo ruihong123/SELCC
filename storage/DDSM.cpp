@@ -215,6 +215,15 @@ namespace DSMEngine {
 //        assert(((DataPage*)page_buffer)->hdr.this_page_g_ptr == page_addr);
     }
 #elif ACCESS_MODE == 0
+    bool DDSM::TryPrePage_Read(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
+        return false;
+    }
+    bool DDSM::TryPrePage_Update(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
+        return false;
+    }
+    bool DDSM::PrePage_Upgrade(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *handle) {
+        return false;
+    }
     void DDSM::PrePage_Read(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
@@ -276,7 +285,7 @@ namespace DSMEngine {
         page_buffer = mr->addr;
     }
 
-    void DDSM::PostPage_Update(GlobalAddress page_addr, Cache::Handle *&handle) {
+    void DDSM::PostPage_UpdateOrWrite(GlobalAddress page_addr, Cache::Handle *&handle){
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
@@ -407,4 +416,8 @@ namespace DSMEngine {
 
         return ret;
     }
+
+
+
+
 }
