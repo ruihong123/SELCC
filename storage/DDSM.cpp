@@ -392,4 +392,19 @@ namespace DSMEngine {
             return GlobalAddress::Null();
         }
     }
+
+    uint64_t DDSM::ClusterSum(const std::string &sum_key, uint64_t value) {
+        std::string key_prefix = std::string("sum-") + sum_key;
+
+        std::string key = key_prefix + std::to_string(this->GetID());
+        memSet(key.c_str(), key.size(), (char *)&value, sizeof(value));
+
+        uint64_t ret = 0;
+        for (int i = 0; i < this->rdma_mg->GetComputeNodeNum(); ++i) {
+            key = key_prefix + std::to_string(i);
+            ret += *(uint64_t *)memGet(key.c_str(), key.size());
+        }
+
+        return ret;
+    }
 }

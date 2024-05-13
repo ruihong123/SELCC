@@ -108,6 +108,7 @@ namespace DSMEngine {
         void memSet(const char *key, uint32_t klen, const char *val, uint32_t vlen);
         //blocking function.
         char *memGet(const char *key, uint32_t klen, size_t *v_size = nullptr);
+        uint64_t ClusterSum(const std::string &sum_key, uint64_t value);
         uint64_t memFetchAndAdd(const char *key, uint32_t klen);
         GlobalAddress Allocate_Remote(Chunk_type pool_name);
         uint16_t GetID(){

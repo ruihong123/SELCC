@@ -71,18 +71,19 @@ launch () {
         ssh ${ssh_opts} ${memory} " $script_memory" &
         sleep 1
   done
-  script_compute="cd ${bin_dir} && ./btree_bench  ${compute_ARGS} -d${dist_ratio}"
-  echo "start master: ssh ${ssh_opts} ${master_host} '$script_compute -sn$master_host  -nid0 > ${output_file} 2>&1 "
+  i=0
+  script_compute="cd ${bin_dir} && ./btree_bench  ${compute_ARGS}"
+  echo "start master: ssh ${ssh_opts} ${master_host} '$script_compute $((2*$i))  $port > ${output_file} 2>&1 "
   ssh ${ssh_opts} ${master_host} "echo '$core_dump_dir/core$master_host' | sudo tee /proc/sys/kernel/core_pattern"
 
-  ssh ${ssh_opts} ${master_host} "ulimit -S -c unlimited && $script_compute -sn$master_host -nid0 > ${output_file} 2>&1" &
+  ssh ${ssh_opts} ${master_host} "ulimit -S -c unlimited && $script_compute $((2*$i)) $port > ${output_file} 2>&1" &
 #  sleep 1
 
   for ((i=1;i<${#compute_nodes[@]};i++)); do
     compute=${compute_nodes[$i]}
-    echo "start worker: ssh ${ssh_opts} ${compute} '$script_compute -sn$compute -nid$((2*$i)) > ${output_file} 2>&1' &"
+    echo "start worker: ssh ${ssh_opts} ${compute} '$script_compute $((2*$i)) $port > ${output_file} 2>&1' &"
     ssh ${ssh_opts} ${compute} "echo '$core_dump_dir/core$compute' | sudo tee /proc/sys/kernel/core_pattern"
-    ssh ${ssh_opts} ${compute} "ulimit -S -c unlimited && $script_compute -sn$compute -nid$((2*$i))" &
+    ssh ${ssh_opts} ${compute} "ulimit -S -c unlimited && $script_compute $((2*$i)) $port" &
 #    sleep 1
   done
 
@@ -97,17 +98,17 @@ run_tpcc () {
   done
 }
 
-vary_read_ratios () {
-  #read_ratios=(0 30 50 70 90 100)
-  read_ratios=(0)
-  for read_ratio in ${read_ratios[@]}; do
-    old_user_args=${compute_ARGS}
-    compute_ARGS="${compute_ARGS} -r${read_ratio}"
-    run_tpcc
-    compute_ARGS=${old_user_args}
-  done
-}
-
+#vary_read_ratios () {
+#  #read_ratios=(0 30 50 70 90 100)
+#  read_ratios=(0)
+#  for read_ratio in ${read_ratios[@]}; do
+#    old_user_args=${compute_ARGS}
+#    compute_ARGS="${compute_ARGS} -r${read_ratio}"
+#    run_tpcc
+#    compute_ARGS=${old_user_args}
+#  done
+#}
+#
 vary_thread_number () {
   #read_ratios=(0 30 50 70 90 100)
   thread_number=(1 8 16 32)
