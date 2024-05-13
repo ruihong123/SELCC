@@ -216,13 +216,52 @@ namespace DSMEngine {
     }
 #elif ACCESS_MODE == 0
     bool DDSM::TryPrePage_Read(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
-        return false;
+        GlobalAddress lock_addr;
+        lock_addr.nodeID = page_addr.nodeID;
+        lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
+        if (rdma_mg == nullptr){
+            rdma_mg = RDMA_Manager::Get_Instance(nullptr);
+        }
+        ibv_mr *mr = rdma_mg->Get_local_read_mr();
+
+        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+
+        if(!rdma_mg->global_Rlock_and_read_page_without_INVALID(mr, page_addr, kLeafPageSize, lock_addr, cas_mr, 5)){
+            page_buffer = nullptr;
+            return false;
+        }
+
+        //TODO: maybe we need to copy it to a new buffer to avoid overwrite. or we let the implementation outside this function to handle it
+        page_buffer = mr->addr;
+        return true;
     }
     bool DDSM::TryPrePage_Update(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
-        return false;
+        GlobalAddress lock_addr;
+        lock_addr.nodeID = page_addr.nodeID;
+
+        lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
+        if (rdma_mg == nullptr){
+            rdma_mg = RDMA_Manager::Get_Instance(nullptr);
+        }
+        ibv_mr *mr = rdma_mg->Get_local_read_mr();
+        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+        if(!rdma_mg->global_Wlock_and_read_page_without_INVALID(mr, page_addr, kLeafPageSize, lock_addr, cas_mr, 5)){
+            return false;
+        }
+        page_buffer = mr->addr;
+        return true;
     }
     bool DDSM::PrePage_Upgrade(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *handle) {
-        return false;
+        GlobalAddress lock_addr;
+        lock_addr.nodeID = page_addr.nodeID;
+
+        lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
+        ibv_mr *mr = rdma_mg->Get_local_read_mr();
+        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+        if (!rdma_mg->global_Rlock_update(mr,  lock_addr, cas_mr)){
+            return false;
+        }
+        return true;
     }
     void DDSM::PrePage_Read(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
@@ -254,8 +293,10 @@ namespace DSMEngine {
     void DDSM::PrePage_Write(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
-
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
+        if (rdma_mg == nullptr){
+            rdma_mg = RDMA_Manager::Get_Instance(nullptr);
+        }
         ibv_mr *mr = rdma_mg->Get_local_read_mr();
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
 
@@ -277,8 +318,10 @@ namespace DSMEngine {
     void DDSM::PrePage_Update(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
-
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
+        if (rdma_mg == nullptr){
+            rdma_mg = RDMA_Manager::Get_Instance(nullptr);
+        }
         ibv_mr *mr = rdma_mg->Get_local_read_mr();
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
         rdma_mg->global_Wlock_and_read_page_without_INVALID(mr, page_addr, kLeafPageSize, lock_addr, cas_mr);

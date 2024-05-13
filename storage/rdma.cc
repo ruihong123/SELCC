@@ -3624,7 +3624,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         *(uint64_t *)cas_buffer->addr = 0;
         uint8_t target_compute_node_id = 0;
     retry:
-        if (r_time >0 && retry_cnt > r_time){
+        if (r_time >0 && retry_cnt >= r_time){
             return false;
         }
         retry_cnt++;
@@ -4312,7 +4312,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t conflict_tag = 0;
         *(uint64_t *)cas_buffer->addr = 0;
     retry:
-        if (retry_cnt >0 && retry_cnt > r_time){
+        if (retry_cnt >0 && retry_cnt >= r_time){
             return false;
         }
         retry_cnt++;
