@@ -451,7 +451,7 @@ int main(int argc, char *argv[]) {
     }
 
     double per_node_tp = cap * 1.0 / microseconds;
-    uint64_t cluster_tp = ddsm->sum((uint64_t)(per_node_tp * 1000));
+    uint64_t cluster_tp = ddsm.ClusterSum("ttt",(uint64_t)(per_node_tp * 1000));
 //    uint64_t cluster_tp = rdma_mg->sum((uint64_t)(per_node_tp * 1000));
 
     // uint64_t cluster_we = rdma_mg->sum((uint64_t)(hot_count));
@@ -459,14 +459,14 @@ int main(int argc, char *argv[]) {
 
     printf("%d, throughput %.4f\n", DSMEngine::RDMA_Manager::node_id, per_node_tp);
 
-    if (rdma_mg->getMyNodeID() == 0) {
+    if (ddsm.GetID() == 0) {
       printf("cluster throughput %.3f\n", cluster_tp / 1000.0);
 
-       printf("WE %.3f HO %.3f\n", cluster_we * 1000000ull / 1.0 /
-       microseconds,
-              cluster_ho * 1000000ull / 1.0 / microseconds);
-       //  this is the real cache hit ratge
-      printf("cache hit rate: %lf\n", hit * 1.0 / all);
+//       printf("WE %.3f HO %.3f\n", cluster_we * 1000000ull / 1.0 /
+//       microseconds,
+//              cluster_ho * 1000000ull / 1.0 / microseconds);
+//       //  this is the real cache hit ratge
+//      printf("cache hit rate: %lf\n", hit * 1.0 / all);
 //       printf("ACCESS PATTERN");
 //       for (int i = 0; i < 8; ++i) {
 //         printf("\t%ld", pp[i]);
