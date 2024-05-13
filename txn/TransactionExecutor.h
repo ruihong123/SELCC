@@ -168,7 +168,7 @@ class TransactionExecutor {
 #endif
           }PROFILE_TIME_END(thread_id, TXN_ABORT);
         } else {
-            printf("Transaction finished for thread %zu\n", thread_id);
+//            printf("Transaction finished for thread %zu\n", thread_id);
 #if defined(BACKOFF)
           backoff_shifts >>= 1;
 #endif

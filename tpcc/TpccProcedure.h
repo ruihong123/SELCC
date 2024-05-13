@@ -286,7 +286,7 @@ class NewOrderProcedure : public StoredProcedure {
 //      GAddr order_addr = gallocators[thread_id_]->Malloc(
 //        transaction_manager_->storage_manager_->
 //        tables_[ORDER_TABLE_ID]->GetSchemaSize());
-      printf("Insert new order order id %d, d_id %d, w_id %d\n", d_next_o_id, new_order_param->d_id_, new_order_param->w_id_);
+//      printf("Insert new order order id %d, d_id %d, w_id %d\n", d_next_o_id, new_order_param->d_id_, new_order_param->w_id_);
 
     order_record->SetColumn(0, (char*) (&d_next_o_id));
     order_record->SetColumn(1, (char*) (&new_order_param->c_id_));
