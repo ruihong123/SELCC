@@ -32,11 +32,11 @@ enum TableType
   HISTORY_TABLE_ID,
   kTableCount
 };
-const int FREQUENCY_DELIVERY = 20;  //0 0
-const int FREQUENCY_PAYMENT = 20; // 43
-const int FREQUENCY_NEW_ORDER = 20; // 45
-const int FREQUENCY_ORDER_STATUS = 20;  //0
-const int FREQUENCY_STOCK_LEVEL = 20;  //0
+const int FREQUENCY_DELIVERY = 0;  //0 0
+const int FREQUENCY_PAYMENT = 43; // 43
+const int FREQUENCY_NEW_ORDER = 45; // 45
+const int FREQUENCY_ORDER_STATUS = 0;  //0
+const int FREQUENCY_STOCK_LEVEL = 0;  //0
 
 /********** generate HashKey ************************/
 const size_t kWarehouseBits = 48;
