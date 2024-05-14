@@ -637,7 +637,7 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
 
   }else{
       //If this node is a compute node, allocate the memory on demanding.
-      printf("Note: Allocate memory from OS, not allocate from the preallocated pool.\n");
+//      printf("Note: Allocate memory from OS, not allocate from the preallocated pool.\n");
       if (node_id%2 == 1 && pool_name == Regular_Page){
           printf( "Allocate Registered Memory outside the preallocated pool is wrong, the base pointer has been changed\n");
           assert(false);

@@ -1647,12 +1647,11 @@ namespace DSMEngine {
 #endif                // assert the page is a valid page.
 //                    assert(page->check_whether_globallock_is_unlocked());
                 if (k >= page->hdr.highest){
+                    ddms_->PostPage_Read(page_addr, handle);
                     std::unique_lock<std::shared_mutex> l(root_mtx);
                     if (page_addr == g_root_ptr.load()){
                         g_root_ptr.store(GlobalAddress::Null());
                     }
-                    ddms_->PostPage_Read(page_addr, handle);
-
                     return false;
                 }
                 ddms_->PostPage_Read(page_addr, handle);
@@ -1671,9 +1670,19 @@ namespace DSMEngine {
             // (2) if this node is from the level = (the root level) - 1 then the cached root page should be invalidated.
             // Note that the root page is not stored in LRU cache.
             // (3) If other level, then the upper level page in the LRU cache should be invalidated.
+
+            if(!skip_cache){
+                ddms_->PostPage_Read(page_addr, handle);
+            }else{
+                handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
+                root_mtx.unlock_shared();
+
+            }
             if (isroot || path_stack[coro_id][result.level+1] == GlobalAddress::Null()){
                 // only invalidate the upper layer if we did not acquire shared root_mtx.
                 //since the mtx below is just to avoid muliptle refreshes.
+
+
                 if (!skip_cache){
                     // invalidate the root. Maybe we can omit the mtx here?
                     std::unique_lock<std::shared_mutex> l(root_mtx);
@@ -1686,6 +1695,8 @@ namespace DSMEngine {
 
 
             }
+
+
             //TODO: What if the Erased key is still in use by other threads? THis is very likely
             // for the upper level nodes.
             //          if (path_stack[coro_id][result.level+1] != GlobalAddress::Null()){
@@ -1700,26 +1711,12 @@ namespace DSMEngine {
                 // The release should always happen in the end of the function, other wise the
                 // page will be overwrittened. When you run release, this means the page buffer will
                 // sooner be overwritten.
-                if(!skip_cache){
-                    ddms_->PostPage_Read(page_addr, handle);
-                }else{
-                    handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-                    root_mtx.unlock_shared();
-
-                }
-
                 isroot = false;
                 handle = nullptr;
 //                printf("Right turn from Page nodeid %lu, offset %lu\n", page_addr.nodeID, page_addr.offset);
                 return internal_page_search(sib_ptr, k, result, level, isroot, handle, cxt, coro_id);
             }else{
                 nested_retry_counter = 0;
-                if(!skip_cache){
-                    ddms_->PostPage_Read(page_addr, handle);
-                }else{
-                    handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-                    root_mtx.unlock_shared();
-                }
                 DEBUG_PRINT("retry over two times place 1\n");
                 return false;
             }
@@ -1727,6 +1724,12 @@ namespace DSMEngine {
         }
 
         if (k < page->hdr.lowest) {
+            if(!skip_cache){
+                ddms_->PostPage_Read(page_addr, handle);
+            }else{
+                handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
+                root_mtx.unlock_shared();
+            }
             if (isroot || path_stack[coro_id][result.level + 1] == GlobalAddress::Null()){
                 if (!skip_cache){
                     // invalidate the root.
@@ -1741,12 +1744,7 @@ namespace DSMEngine {
             }
 
             nested_retry_counter = 0;
-            if(!skip_cache){
-                ddms_->PostPage_Read(page_addr, handle);
-            }else{
-                handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-                root_mtx.unlock_shared();
-            }
+
             DEBUG_PRINT("retry place 2\n");
             return false;
         }
@@ -2100,6 +2098,12 @@ re_read:
         // Not sure whether this will still work if we have node merge
         // Why this node can not be the right most node
         if (k >= page->hdr.highest ) {
+
+            if (!skip_cache){
+                ddms_->PostPage_UpdateOrWrite(page_addr, handle);
+            }else{
+                assert(false);
+            }
             // TODO: No need for node invalidation when inserting things because the tree tranversing is enough for invalidation (Erase)
             if(UNLIKELY(level == tree_height.load()) || path_stack[coro_id][level+1]== GlobalAddress::Null()){
                 std::unique_lock<std::shared_mutex> l(root_mtx);
@@ -2125,17 +2129,19 @@ re_read:
 
             }
 
-            if (!skip_cache){
-                ddms_->PostPage_UpdateOrWrite(page_addr, handle);
-            }else{
-                assert(false);
-            }
+
 
             return insert_success;
 
         }
         nested_retry_counter = 0;
         if (k < page->hdr.lowest ) {
+
+            if (!skip_cache){
+                ddms_->PostPage_UpdateOrWrite(page_addr, handle);
+            }else{
+                assert(false);
+            }
             // if key is smaller than the lower bound, the insert has to be restart from the
             // upper level. because the sibling pointer only points to larger one.
             if(UNLIKELY(level == tree_height.load()) || path_stack[coro_id][level+1]== GlobalAddress::Null()){
@@ -2146,11 +2152,7 @@ re_read:
             }
             insert_success = false;
             DEBUG_PRINT_CONDITION("retry place 6\n");
-            if (!skip_cache){
-                ddms_->PostPage_UpdateOrWrite(page_addr, handle);
-            }else{
-                assert(false);
-            }
+
             return insert_success;// result in fall back search on the higher level.
         }
         Key split_key;
