@@ -387,7 +387,7 @@ int main(int argc, char *argv[]) {
     }
     uint64_t cap = all_tp - pre_tp;
     pre_tp = all_tp;
-      printf("cap is %lu\n", cap);
+    printf("cap is %lu\n", cap);
 
     for (int i = 0; i < kThreadCount; ++i) {
       auto val = tp[i][0];

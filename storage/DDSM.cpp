@@ -453,7 +453,7 @@ namespace DSMEngine {
 
         uint64_t ret = 0;
         for (int i = 0; i < this->rdma_mg->GetComputeNodeNum(); ++i) {
-            key = key_prefix + std::to_string(i);
+            key = key_prefix + std::to_string(2*i);
             ret += *(uint64_t *)memGet(key.c_str(), key.size());
         }
 
