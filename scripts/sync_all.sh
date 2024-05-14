@@ -88,6 +88,8 @@ function run_bench() {
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server_term"
     ssh -o StrictHostKeyChecking=no $node "pkill -f tpcc"
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server_tpcc"
+    ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server"
+    ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench"
     ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*"
 #    ssh -o StrictHostKeyChecking=no $node "echo '/proj/purduedb-PG0/logs/core$node' | sudo tee /proc/sys/kernel/core_pattern"
   done
@@ -101,6 +103,8 @@ function run_bench() {
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server_term"
     ssh -o StrictHostKeyChecking=no $node "pkill -f tpcc"
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server_tpcc"
+    ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server"
+    ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench"
     ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*"
 
 #    ssh -o StrictHostKeyChecking=no $node "echo '/proj/purduedb-PG0/logs/core$node' | sudo tee /proc/sys/kernel/core_pattern"
