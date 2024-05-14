@@ -115,8 +115,8 @@ vary_thread_number () {
   read_ratio=(0)
   for thread_n in ${thread_number[@]}; do
     for read_r in ${read_ratio[@]}; do
-    compute_ARGS="$read_r $thread_n 0"
-    run_tpcc
+      compute_ARGS="$read_r $thread_n 0"
+      run_tpcc
     done
   done
 }
