@@ -458,7 +458,7 @@ int main(int argc, char *argv[]) {
     // uint64_t cluster_ho = rdma_mg->sum((uint64_t)(ho_count));
 
     printf("%d, throughput %.4f\n", DSMEngine::RDMA_Manager::node_id, per_node_tp);
-
+      fflush(stdout);
     if (ddsm.GetID() == 0) {
       printf("cluster throughput %.3f\n", cluster_tp / 1000.0);
 
