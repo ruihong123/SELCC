@@ -1709,7 +1709,7 @@ namespace DSMEngine {
 
                 isroot = false;
                 handle = nullptr;
-                printf("Right turn from Page nodeid %lu, offset %lu\n", page_addr.nodeID, page_addr.offset);
+//                printf("Right turn from Page nodeid %lu, offset %lu\n", page_addr.nodeID, page_addr.offset);
                 return internal_page_search(sib_ptr, k, result, level, isroot, handle, cxt, coro_id);
             }else{
                 nested_retry_counter = 0;
