@@ -37,7 +37,7 @@ bool table_scan = false;
 bool use_range_query = true;
 
 //uint64_t kKeySpace = 64 * define::MB;
-uint64_t kKeySpace = 50ull*1024ull*1024ull; // bigdata
+uint64_t kKeySpace = 512ull*1024ull*1024ull; // bigdata
 //uint64_t kKeySpace = 50*1024*1024; //cloudlab
 double kWarmRatio = 0.8;
 
@@ -327,7 +327,7 @@ int main(int argc, char *argv[]) {
     DSMEngine::RecordSchema* schema_ptr = new DSMEngine::RecordSchema(0);
     std::vector<DSMEngine::ColumnInfo*> columns;
     columns.push_back(new DSMEngine::ColumnInfo("c_id", DSMEngine::ValueType::UINT64));
-    columns.push_back(new DSMEngine::ColumnInfo("c_first", DSMEngine::ValueType::VARCHAR, static_cast<size_t>(416)));
+    columns.push_back(new DSMEngine::ColumnInfo("c_first", DSMEngine::ValueType::VARCHAR, static_cast<size_t>(8)));
     schema_ptr->InsertColumns(columns);
     size_t column_ids[1] = {0};
     schema_ptr->SetPrimaryColumns(column_ids,1);
