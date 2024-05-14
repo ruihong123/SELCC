@@ -181,7 +181,7 @@ public:
         assert(write_now.load(std::memory_order_relaxed) == true);
 //        assert(readers_count.load(std::memory_order_relaxed) == 0);
         thread_id = 0;
-        write_now.store(false, std::memory_order_release);
+        write_now.store(false, std::memory_order_seq_cst);
     }
     bool islocked(){
         return write_now.load(std::memory_order_relaxed);

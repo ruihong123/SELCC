@@ -1550,6 +1550,7 @@ namespace DSMEngine {
         // the page. Also we need a mechanism to avoid the page being deallocate during the access. if a page
         // is pointer swizzled, we need to make sure it will not be evict from the cache.
         if (isroot) {
+            //TODO: there is deadlock for root_mtx and the rw_mtx in the cached handle.
             root_mtx.lock_shared();
             handle = cached_root_page_handle.load();
 
@@ -1587,11 +1588,11 @@ namespace DSMEngine {
 //                    assert(page->check_whether_globallock_is_unlocked());
                     if (k >= page->hdr.highest){
                         root_mtx.unlock_shared();
+                        handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
                         std::unique_lock<std::shared_mutex> l(root_mtx);
                         if (page_addr == g_root_ptr.load()){
                             g_root_ptr.store(GlobalAddress::Null());
                         }
-                        handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
 //                        root_mtx.unlock_shared();
                         return false;
                     }
