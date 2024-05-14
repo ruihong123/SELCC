@@ -1607,7 +1607,7 @@ namespace DSMEngine {
 //                if (page_addr == g_root_ptr.load()){
 //                    g_root_ptr.store(GlobalAddress::Null());
 //                }
-                printf("page_addr node id %lu, offset is %lu, page_hint shows node id %lu, offset is %lu page_hit pointer is %p\n", page_addr.nodeID, page_addr.offset, header->this_page_g_ptr.nodeID, header->this_page_g_ptr.offset, handle);
+                printf("page_addr node id %lu, offset is %lu, cache handles shows node id %lu, offset is %lu\n", page_addr.nodeID, page_addr.offset, handle->gptr.nodeID, handle->gptr.offset);
 //                handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
                 root_mtx.unlock_shared();
                 return false;
