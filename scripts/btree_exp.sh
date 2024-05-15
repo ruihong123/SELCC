@@ -76,14 +76,14 @@ launch () {
   echo "start master: ssh ${ssh_opts} ${master_host} '$script_compute $((2*$i))  $port > ${output_file} 2>&1 "
   ssh ${ssh_opts} ${master_host} "echo '$core_dump_dir/core$master_host' | sudo tee /proc/sys/kernel/core_pattern"
 
-  ssh ${ssh_opts} ${master_host} "ulimit -S -c unlimited && $script_compute $((2*$i)) $port > ${output_file} 2>&1" &
+  ssh ${ssh_opts} ${master_host} "ulimit -S -c unlimited && $script_compute $((2*$i)) $port | tee -a ${output_file}" &
 #  sleep 1
 
   for ((i=1;i<${#compute_nodes[@]};i++)); do
     compute=${compute_nodes[$i]}
     echo "start worker: ssh ${ssh_opts} ${compute} '$script_compute $((2*$i)) $port > ${output_file} 2>&1' &"
     ssh ${ssh_opts} ${compute} "echo '$core_dump_dir/core$compute' | sudo tee /proc/sys/kernel/core_pattern"
-    ssh ${ssh_opts} ${compute} "ulimit -S -c unlimited && $script_compute $((2*$i)) $port" &
+    ssh ${ssh_opts} ${compute} "ulimit -S -c unlimited && $script_compute $((2*$i)) $port | tee -a ${output_file}" &
 #    sleep 1
   done
 
