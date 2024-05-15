@@ -427,23 +427,23 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    uint64_t hot_count = 0;
-    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-      hot_count += hot_filter_count[i][0];
-      hot_filter_count[i][0] = 0;
-    }
-
-    uint64_t hier_count = 0;
-    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-      hier_count += hierarchy_lock[i][0];
-      hierarchy_lock[i][0] = 0;
-    }
-
-    uint64_t ho_count = 0;
-    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-      ho_count += handover_count[i][0];
-      handover_count[i][0] = 0;
-    }
+//    uint64_t hot_count = 0;
+//    for (int i = 0; i < MAX_APP_THREAD; ++i) {
+//      hot_count += hot_filter_count[i][0];
+//      hot_filter_count[i][0] = 0;
+//    }
+//
+//    uint64_t hier_count = 0;
+//    for (int i = 0; i < MAX_APP_THREAD; ++i) {
+//      hier_count += hierarchy_lock[i][0];
+//      hierarchy_lock[i][0] = 0;
+//    }
+//
+//    uint64_t ho_count = 0;
+//    for (int i = 0; i < MAX_APP_THREAD; ++i) {
+//      ho_count += handover_count[i][0];
+//      handover_count[i][0] = 0;
+//    }
 
     clock_gettime(CLOCK_REALTIME, &s);
 
@@ -467,7 +467,7 @@ int main(int argc, char *argv[]) {
 //       microseconds,
 //              cluster_ho * 1000000ull / 1.0 / microseconds);
 //       //  this is the real cache hit ratge
-//      printf("cache hit rate: %lf\n", hit * 1.0 / all);
+      printf("cache hit rate: %lf\n", hit * 1.0 / all);
 //       printf("ACCESS PATTERN");
 //       for (int i = 0; i < 8; ++i) {
 //         printf("\t%ld", pp[i]);
