@@ -42,7 +42,8 @@ uint64_t kKeySpace = 512ull*1024ull*1024ull;
 //uint64_t kKeySpace = 50*1024*1024; //cloudlab
 double kWarmRatio = 0.8;
 
-double zipfan = 0;
+bool use_zipf = true;
+double zipfan =0.99;
 
 std::thread th[kMaxThread];
 uint64_t tp[kMaxThread][8];
@@ -186,7 +187,12 @@ void thread_run(int id) {
     }
     // the dis range is [0, 64M]
 //    uint64_t dis = mehcached_zipf_next(&state);
-    key = rand.Next()%(kKeySpace);
+
+    if(use_zipf){
+          key = mehcached_zipf_next(&state);
+    } else{
+        key = rand.Next()%(kKeySpace);
+    }
 //    uint64_t key = to_key(dis);
 
 //      uint64_t v;
@@ -224,7 +230,8 @@ void thread_run(int id) {
 //        printf("Get one key");
       tree->search(key, tuple_slice);
 
-    } else {
+    }
+    else {
       value = 12;
       tree->insert(key, tuple_slice);
     }
