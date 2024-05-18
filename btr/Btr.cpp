@@ -1546,6 +1546,7 @@ namespace DSMEngine {
         auto start = std::chrono::high_resolution_clock::now();
 #endif
         bool skip_cache = false;
+#if ACCESS_MODE == 1
         //TODO: For the pointer swizzling, we need to clear the hdr.this_page_g_ptr when we deallocate
         // the page. Also we need a mechanism to avoid the page being deallocate during the access. if a page
         // is pointer swizzled, we need to make sure it will not be evict from the cache.
@@ -1615,6 +1616,7 @@ namespace DSMEngine {
             }
 
         }
+#endif
 
         if(!skip_cache){
             // Can be root if the original root ptr is invalid and this funciton is entered again bby the node fall back, because we do not have
