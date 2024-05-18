@@ -4323,7 +4323,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // Check whether the invalidation is write type or read type. If it is a read type
         // we need to broadcast the message to multiple destination.
 
-        if (retry_cnt > 180) {
+        if (retry_cnt > 180000) {
             std::cout << "Deadlock for write lock " << lock_addr << std::endl;
 
             std::cout << GetMemoryNodeNum() << ", "
