@@ -11,7 +11,7 @@ SRC_HOME=$bin/..
 # hosts_file specify a list of host names and port numbers, with the host names in the first column
 #Compute_file="../tpcc/compute.txt"
 #Memory_file="../tpcc/memory.txt"
-conf_file_all=$bin/../connection_cloudlab.conf
+#conf_file_all=$bin/../connection_cloudlab.conf
 conf_file="../connection.conf"
 
 #awk -v pos="$node" -F' ' '{
