@@ -73,7 +73,7 @@ int time_locality = 10;  //0..100 (how probable it is to re-visit the current po
 int read_ratio = 10;  //0..100
 int op_type = 1;  //0: read/write; 1: rlock/wlock; 2: rlock+read/wlock+write
 int workload = 0;  //0: random; 1: zipfian 2: multi-hotspot
-double zipfian_alpha = 1;
+double zipfian_theta = 1;
 //int total_spot_num = 0; // used when workload == 2
 
 int compute_num = 0;
@@ -366,10 +366,10 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 #ifdef EXCLUSIVE_HOTSPOT
         workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha, *seedp, ddsm->GetID()/2, compute_num);
 #else
-        workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_alpha, *seedp);
+        workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_theta, *seedp);
 #endif
     } else if (workload > 1){
-        workload_gen = new MultiHotSpotGenerator(STEPS, zipfian_alpha, *seedp, workload);
+        workload_gen = new MultiHotSpotGenerator(STEPS, zipfian_theta, *seedp, workload);
     }
 
 
@@ -851,7 +851,7 @@ int main(int argc, char* argv[]) {
         } else if (strcmp(argv[i], "--workload") == 0) {
             workload = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--zipfian_alpha") == 0) {
-            zipfian_alpha = atof(argv[++i]);
+            zipfian_theta = atof(argv[++i]);
         } else if (strcmp(argv[i], "--result_file") == 0) {
             result_file = argv[++i];  //0..100
         } else if (strcmp(argv[i], "--item_size") == 0) {
@@ -924,7 +924,7 @@ int main(int argc, char* argv[]) {
     SYNC_KEY = NUMOFBLOCKS;
     STEPS = NUMOFBLOCKS/((no_thread - 1)*(100-shared_ratio)/100.00L + 1);
     printf("number of steps is %lu\n", STEPS);
-    printf("workload is %d, zipfian_alpha is %f", workload, zipfian_alpha);
+    printf("workload is %d, zipfian_alpha is %f", workload, zipfian_theta);
     ITERATION = ITERATION_TOTAL/no_thread;
     sleep(1);
     //sync with all the other workers
@@ -981,7 +981,7 @@ int main(int argc, char* argv[]) {
     }
     printf(
             "results for  node_id %d: workload: %d, zipfian_alpha: %f total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld， operation need cache invalidation %lu, operation cache hit and valid is %lu,  total operation executed %ld\n\n",
-            node_id, workload, zipfian_alpha, t_thr, a_thr, a_lat, invalidation_num, hit_valid_num, ITERATION_TOTAL);
+            node_id, workload, zipfian_theta, t_thr, a_thr, a_lat, invalidation_num, hit_valid_num, ITERATION_TOTAL);
 
     //sync with all the other workers
     //check all the benchmark are completed
@@ -1026,8 +1026,8 @@ int main(int argc, char* argv[]) {
                 "compute_num: %d, workload: %d, zipfian_alpha: %f no_thread: %d, shared_ratio: %d, read_ratio: %d, space_locality: %d, "
                 "time_locality: %d, op_type = %d, memory_type = %d, item_size = %d, "
                 "operation with cache invalidation message accounts for %f percents, average cache valid hit percents %f total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld, \n\n",
-                compute_num, workload, zipfian_alpha, no_thread, shared_ratio, read_ratio,
-                space_locality, time_locality, op_type, memory_type, item_size, static_cast<double>(invalidation_num) / ITERATION_TOTAL, static_cast<double>(hit_valid_num) / ITERATION_TOTAL,t_thr,
+                compute_num, workload, zipfian_theta, no_thread, shared_ratio, read_ratio,
+                space_locality, time_locality, op_type, memory_type, item_size, static_cast<double>(invalidation_num) / ITERATION_TOTAL, static_cast<double>(hit_valid_num) / ITERATION_TOTAL, t_thr,
                 a_thr, a_lat);
 #ifdef GETANALYSIS
         if (Prereadcounter.load() != 0){
