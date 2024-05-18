@@ -4322,14 +4322,33 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //TODO: send an RPC to the destination every 4 retries.
         // Check whether the invalidation is write type or read type. If it is a read type
         // we need to broadcast the message to multiple destination.
-
+//        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1 ) {
+////            assert(compare%2 == 0);
+//            if (retry_cnt < 20) {
+////                port::AsmVolatilePause();
+//                //do nothing
+//            } else if (retry_cnt < 40) {
+//                spin_wait_us(1);
+//
+//            } else if (retry_cnt < 80) {
+//                spin_wait_us(8);
+//            } else if (retry_cnt < 160) {
+//                spin_wait_us(32);
+//            } else if (retry_cnt < 200) {
+//                usleep(256);
+//            } else if (retry_cnt < 1000) {
+//                usleep(1024);
+//            } else {
+//                sleep(1);
+//            }
+//        }
         if (retry_cnt > 180000) {
             std::cout << "Deadlock for write lock " << lock_addr << std::endl;
 
             std::cout << GetMemoryNodeNum() << ", "
                       << " locked by node  " << (conflict_tag) << std::endl;
             assert(false);
-            exit(0);
+//            exit(0);
         }
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
