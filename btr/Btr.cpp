@@ -1642,7 +1642,9 @@ namespace DSMEngine {
             //If this is the leaf node, directly return let leaf page search to handle it.
             if (result.level == 0){
                 //THis path shall not happen
+#if ACCESS_MODE == 1 || ACCESS_MODE == 2
                 assert(false);
+#endif
                 // if the root node is the leaf node this path will happen.
 #ifndef NDEBUG
                 printf("root and leaf are the same 1, this tree id is %lu, this node id is %lu\n", tree_id, RDMA_Manager::node_id);
