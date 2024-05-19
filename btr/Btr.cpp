@@ -1712,7 +1712,7 @@ namespace DSMEngine {
 //                result.slibing = page->hdr.sibling_ptr;
                 assert(page->hdr.sibling_ptr != GlobalAddress::Null());
                 GlobalAddress sib_ptr = page->hdr.sibling_ptr;
-                // The release should always happen in the end of the function, other wise the
+                // The release should always happen in the end of the function, otherwise the
                 // page will be overwrittened. When you run release, this means the page buffer will
                 // sooner be overwritten.
                 isroot = false;
@@ -1721,7 +1721,7 @@ namespace DSMEngine {
                 return internal_page_search(sib_ptr, k, result, level, isroot, handle, cxt, coro_id);
             }else{
                 nested_retry_counter = 0;
-                DEBUG_PRINT("retry over two times place 1\n");
+                printf("retry over two times place 1, key is %d, highest is %d\n", k, page->hdr.highest);
                 return false;
             }
 
