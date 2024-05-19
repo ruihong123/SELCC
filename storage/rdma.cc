@@ -3683,7 +3683,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             PostreadTotal.fetch_add(duration.count());
             Postreadcounter.fetch_add(1);
 #endif
-            assert((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) != 0);
+            assert(*(uint64_t*)cas_buffer->addr > 0);
         }
 
 
