@@ -1721,7 +1721,7 @@ namespace DSMEngine {
                 return internal_page_search(sib_ptr, k, result, level, isroot, handle, cxt, coro_id);
             }else{
                 nested_retry_counter = 0;
-                printf("retry over two times place 1, key is %d, highest is %d\n", k, page->hdr.highest);
+                printf("retry over two times place 1, key is %d, highest is %d, this level is %d\n", k, page->hdr.highest, level);
                 return false;
             }
 
