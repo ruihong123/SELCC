@@ -1063,7 +1063,7 @@ namespace DSMEngine {
             }
             assert(false);
         }
-        usleep(next_times/2*tree_height.load());
+        spin_wait_us(next_times/2*tree_height.load());
 
 //#endif
 
