@@ -3487,7 +3487,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
     bool RDMA_Manager::global_Rlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                                                   GlobalAddress lock_addr, ibv_mr* cas_buffer, int r_time, CoroContext *cxt,
                                                                   int coro_id) {
-        uint64_t add = 1;
+        uint64_t add = 1ull;
         uint64_t substract = (~add) + 1;
         uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
@@ -4247,6 +4247,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         *(uint64_t *)cas_buffer->addr = 0;
         std::vector<uint16_t> read_invalidation_targets;
         uint16_t write_invalidation_target = 0-1;
+        uint64_t compare = 0;
+        // We need a + 1 for the id, because id 0 conflict with the unlock bit
+        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
         int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
 #ifdef INVALIDATION_STATISTICS
         bool invalidation_counted = false;
@@ -4257,9 +4260,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             return false;
         }
         retry_cnt++;
-        uint64_t compare = 0;
-        // We need a + 1 for the id, because id 0 conflict with the unlock bit
-        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
         //Only the second RDMA issue a completion
