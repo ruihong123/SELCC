@@ -1063,7 +1063,10 @@ namespace DSMEngine {
             }
             assert(false);
         }
-        spin_wait_us(next_times/(2*tree_height.load()));
+        uint8_t tree_h = this->tree_height.load();
+        if (tree_h > 0){
+            spin_wait_us(next_times/(2*tree_h));
+        }
 
 //#endif
 
