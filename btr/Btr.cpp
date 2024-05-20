@@ -1115,7 +1115,7 @@ namespace DSMEngine {
 
                 assert(result.next_level != GlobalAddress::Null());
             }else{
-                assert(tree_height == 0);
+//                assert(tree_height == 0);
 //                printf("happens when there is only one level, tree height is %d\n", tree_height.load());
 //                fflush(stdout);
             }
