@@ -1063,6 +1063,7 @@ namespace DSMEngine {
             }
             assert(false);
         }
+        usleep(next_times/2*tree_height.load());
 
 //#endif
 
