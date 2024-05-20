@@ -29,7 +29,7 @@ output_dir="/users/Ruihong/MemoryEngine/scripts/data"
 core_dump_dir="/mnt/core_dump"
 # working environment
 proj_dir="/users/Ruihong/MemoryEngine"
-bin_dir="${proj_dir}/debug"
+bin_dir="${proj_dir}/release"
 script_dir="${proj_dir}/database/scripts"
 ssh_opts="-o StrictHostKeyChecking=no"
 
@@ -111,7 +111,7 @@ run_tpcc () {
 #
 vary_thread_number () {
   #read_ratios=(0 30 50 70 90 100)
-  thread_number=(8)
+  thread_number=(16)
   read_ratio=(0)
   for thread_n in ${thread_number[@]}; do
     for read_r in ${read_ratio[@]}; do
