@@ -3142,6 +3142,9 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
         if (rc) {
             assert(false);
             fprintf(stderr, "failed to post SR, return is %d\n", rc);
+            fprintf(stdout, "failed to post SR, return is %d\n", rc);
+            fflush(stdout);
+            exit(0);
         }
 
         if (poll_num != 0) {
