@@ -135,7 +135,7 @@ namespace DSMEngine {
         // The btree fetch the root handle from the cache (with handle refs ++ implicitly), when the cached_root_handle is invalid,
         // the cache root handle will not immediately be replaced with handle's refs --. Instead, the invaliding thread
         // will wait for the unfinished access on the old root handle, by checking the cached_root_handle_ref.
-        std::atomic<Cache::Handle*> cached_root_page_handle;
+        std::atomic<Cache::Handle*> cached_root_page_handle = nullptr;
 //        std::atomic<uint32_t> cached_root_handle_ref = 1;
 //        std::shared_mutex root_handle_mtx;
         //    InternalPage* cached_root_page_ptr;
