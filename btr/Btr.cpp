@@ -1084,8 +1084,9 @@ namespace DSMEngine {
             }else{
                 // fall back to upper level
                 assert(level == result.level || level == -1);
-
+#ifndef NDEBUG
                 printf("fall back to the upper level, this nodeid is %lu, this thread is %d, This gptr %p, upper gptr is %p\n", RDMA_Manager::node_id, RDMA_Manager::thread_id, p, path_stack[coro_id][result.level +1]);
+#endif
                 fflush(stdout);
                 p = path_stack[coro_id][result.level +1];
                 if (p == root){
@@ -1725,7 +1726,9 @@ namespace DSMEngine {
                 return internal_page_search(sib_ptr, k, result, level, isroot, handle, cxt, coro_id);
             }else{
                 nested_retry_counter = 0;
+#ifndef NDEBUG
                 printf("retry over two times place 1, key is %d, highest is %d, this level is %d\n", k, page->hdr.highest, level);
+#endif
                 return false;
             }
 
