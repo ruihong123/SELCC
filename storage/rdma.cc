@@ -3499,6 +3499,26 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             return false;
         }
         retry_cnt++;
+        if (retry_cnt % INVALIDATION_INTERVAL ==  1 ) {
+//            assert(compare%2 == 0);
+            if (retry_cnt < 20) {
+//                port::AsmVolatilePause();
+                //do nothing
+            } else if (retry_cnt < 40) {
+                spin_wait_us(1);
+
+            } else if (retry_cnt < 80) {
+                spin_wait_us(8);
+            } else if (retry_cnt < 160) {
+                spin_wait_us(32);
+            } else if (retry_cnt < 200) {
+                usleep(256);
+            } else if (retry_cnt < 1000) {
+                usleep(1024);
+            } else {
+                sleep(1);
+            }
+        }
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
         //Only the second RDMA issue a completion,
@@ -4295,33 +4315,34 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         if (retry_cnt >0 && retry_cnt >= r_time){
             return false;
         }
-        retry_cnt++;
         uint64_t compare = 0;
         // We need a + 1 for the id, because id 0 conflict with the unlock bit
         uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
         //TODO: send an RPC to the destination every 4 retries.
         // Check whether the invalidation is write type or read type. If it is a read type
         // we need to broadcast the message to multiple destination.
-//        if (retry_cnt++ % INVALIDATION_INTERVAL ==  1 ) {
-////            assert(compare%2 == 0);
-//            if (retry_cnt < 20) {
-////                port::AsmVolatilePause();
-//                //do nothing
-//            } else if (retry_cnt < 40) {
-//                spin_wait_us(1);
-//
-//            } else if (retry_cnt < 80) {
-//                spin_wait_us(8);
-//            } else if (retry_cnt < 160) {
-//                spin_wait_us(32);
-//            } else if (retry_cnt < 200) {
-//                usleep(256);
-//            } else if (retry_cnt < 1000) {
-//                usleep(1024);
-//            } else {
-//                sleep(1);
-//            }
-//        }
+        retry_cnt++;
+
+        if (retry_cnt % INVALIDATION_INTERVAL ==  1 ) {
+//            assert(compare%2 == 0);
+            if (retry_cnt < 20) {
+//                port::AsmVolatilePause();
+                //do nothing
+            } else if (retry_cnt < 40) {
+                spin_wait_us(1);
+
+            } else if (retry_cnt < 80) {
+                spin_wait_us(8);
+            } else if (retry_cnt < 160) {
+                spin_wait_us(32);
+            } else if (retry_cnt < 200) {
+                usleep(256);
+            } else if (retry_cnt < 1000) {
+                usleep(1024);
+            } else {
+                sleep(1);
+            }
+        }
 //        if (retry_cnt > 180000) {
 //            std::cout << "Deadlock for write lock " << lock_addr << std::endl;
 //
