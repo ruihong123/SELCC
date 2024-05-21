@@ -808,7 +808,7 @@ void RDMA_Manager::Client_Set_Up_Resources() {
   }
     while (memory_connection_counter.load() != memory_nodes.size())
         ;
-
+#if ACCESS_MODE == 1 || ACCESS_MODE == 2
     for(int i = 0; i < compute_nodes.size(); i++){
 
         uint16_t target_node_id =  2*i;
@@ -819,6 +819,7 @@ void RDMA_Manager::Client_Set_Up_Resources() {
 
 
     }
+#endif
 
   while (compute_connection_counter.load() != compute_nodes.size()-1);
   // check whether all the compute nodes are ready.
