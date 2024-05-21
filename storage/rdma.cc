@@ -819,9 +819,10 @@ void RDMA_Manager::Client_Set_Up_Resources() {
 
 
     }
+      while (compute_connection_counter.load() != compute_nodes.size()-1);
+
 #endif
 
-  while (compute_connection_counter.load() != compute_nodes.size()-1);
   // check whether all the compute nodes are ready.
         sync_with_computes_Cside();
     // connect with the compute nodes below.
