@@ -3506,13 +3506,13 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         retry_cnt++;
         if (retry_cnt % INVALIDATION_INTERVAL ==  1 ) {
 //            assert(compare%2 == 0);
-            if (retry_cnt < 20) {
+            if (retry_cnt < 10) {
 //                port::AsmVolatilePause();
                 //do nothing
-            } else if (retry_cnt < 40) {
-                spin_wait_us(1);
+            } else if (retry_cnt < 20) {
+                spin_wait_us(2);
 
-            } else if (retry_cnt < 80) {
+            } else if (retry_cnt < 40) {
                 spin_wait_us(8);
             } else if (retry_cnt < 160) {
                 spin_wait_us(32);
@@ -4330,13 +4330,13 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
         if (retry_cnt % INVALIDATION_INTERVAL ==  1 ) {
 //            assert(compare%2 == 0);
-            if (retry_cnt < 20) {
+            if (retry_cnt < 10) {
 //                port::AsmVolatilePause();
                 //do nothing
-            } else if (retry_cnt < 40) {
-                spin_wait_us(1);
+            } else if (retry_cnt < 20) {
+                spin_wait_us(2);
 
-            } else if (retry_cnt < 80) {
+            } else if (retry_cnt < 40) {
                 spin_wait_us(8);
             } else if (retry_cnt < 160) {
                 spin_wait_us(32);
