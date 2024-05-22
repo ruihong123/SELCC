@@ -1528,8 +1528,8 @@ ibv_qp* RDMA_Manager::create_qp_Mside(bool seperated_cq,
     qp_init_attr.recv_cq = cq1;
   qp_init_attr.cap.max_send_wr = 8;
   qp_init_attr.cap.max_recv_wr = 8;
-  qp_init_attr.cap.max_send_sge = 30;
-  qp_init_attr.cap.max_recv_sge = 30;
+  qp_init_attr.cap.max_send_sge = 5;
+  qp_init_attr.cap.max_recv_sge = 5;
   //  qp_init_attr.cap.max_inline_data = -1;
   ibv_qp* qp = ibv_create_qp(res->pd, &qp_init_attr);
   if (!qp) {
@@ -1596,8 +1596,8 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
     qp_init_attr.recv_cq = cq1;
   qp_init_attr.cap.max_send_wr = send_outstanding_num;
   qp_init_attr.cap.max_recv_wr = recv_outstanding_num;
-  qp_init_attr.cap.max_send_sge = 30;
-  qp_init_attr.cap.max_recv_sge = 30;
+  qp_init_attr.cap.max_send_sge = 5;
+  qp_init_attr.cap.max_recv_sge = 5;
   //  qp_init_attr.cap.max_inline_data = -1;
   ibv_qp* qp = ibv_create_qp(res->pd, &qp_init_attr);
   if (!qp) {
