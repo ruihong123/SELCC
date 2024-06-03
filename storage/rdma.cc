@@ -3534,9 +3534,23 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                     cache_invalidation[RDMA_Manager::thread_id]++;
                 }
 #endif
+//#ifdef RDMAPROCESSANALYSIS
+//#endif
+#ifdef TIMEPRINT
+            auto start = std::chrono::high_resolution_clock::now();
+#endif
                 //TODO: change the function below to Reader_Invalidate_Modified_RPC.
                 Reader_Invalidate_Modified_RPC(page_addr, target_compute_node_id, starvation_level, page_version);
-
+#ifdef TIMEPRINT
+            if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+                auto stop = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+                printf("RDMA write combined round trip uses (%ld) ns\n", duration.count());
+                TimePrintCounter[RDMA_Manager::thread_id] = 0;
+            }else{
+                TimePrintCounter[RDMA_Manager::thread_id]++;
+            }
+#endif
             }else{
                 // THis could happen if we enable async write unlock. one thread unlock and another thread acqurie the lock.
                 printf("Write invalidation target compute node is itself1, page_addr is %p\n", page_addr);
