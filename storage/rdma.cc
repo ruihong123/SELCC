@@ -1044,7 +1044,7 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
 //    Send_heart_beat();
 
 
-  if (sock_sync_data(res->sock_map[target_node_id], 3 * sizeof(ibv_mr), temp_send,
+  if (sock_sync_data(res->sock_map[target_node_id], 4 * sizeof(ibv_mr), temp_send,
                      temp_receive)) /* just send a dummy char back and forth */
     {
     fprintf(stderr, "sync error after QPs are were moved to RTS\n");
