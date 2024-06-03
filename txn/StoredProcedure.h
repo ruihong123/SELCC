@@ -44,6 +44,7 @@ class StoredProcedure {
   TxnContext context_;
   TransactionManager *transaction_manager_;
   size_t thread_id_;
+  Cache::Handle* held_handle_;
 };
 }
 

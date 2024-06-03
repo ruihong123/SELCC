@@ -33,7 +33,7 @@ namespace DSMEngine {
         assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == GlobalAddress::Null()||((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == page_addr);
 
     }
-
+    //TODO: local TRY multiple times for local latch
     bool DDSM::TryPrePage_Read(void *& page_buffer, GlobalAddress page_addr, Cache::Handle *& handle) {
         assert((page_addr.offset % 1ULL*1024ULL*1024ULL*1024ULL)% kLeafPageSize == 0);
         GlobalAddress lock_addr;
@@ -233,6 +233,9 @@ namespace DSMEngine {
 
         //TODO: maybe we need to copy it to a new buffer to avoid overwrite. or we let the implementation outside this function to handle it
         page_buffer = mr->addr;
+        handle = new Cache::Handle();
+        handle->value = mr;
+        handle->gptr = page_addr;
         return true;
     }
     bool DDSM::TryPrePage_Update(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
@@ -249,9 +252,13 @@ namespace DSMEngine {
             return false;
         }
         page_buffer = mr->addr;
+        handle = new Cache::Handle();
+        handle->value = mr;
+        handle->gptr = page_addr;
         return true;
     }
     bool DDSM::PrePage_Upgrade(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *handle) {
+        assert(handle);
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
 
@@ -277,6 +284,7 @@ namespace DSMEngine {
         //Create a fake handle
         handle = new Cache::Handle();
         handle->value = mr;
+        handle->gptr = page_addr;
     }
 
     void DDSM::PostPage_Read(GlobalAddress page_addr, Cache::Handle *&handle) {
@@ -302,6 +310,8 @@ namespace DSMEngine {
         //Create a fake handle
         handle = new Cache::Handle();
         handle->value = mr;
+        handle->gptr = page_addr;
+
     }
 
     void DDSM::PostPage_Write(GlobalAddress page_addr, Cache::Handle *&handle) {
@@ -328,6 +338,8 @@ namespace DSMEngine {
         //Create a fake handle
         handle = new Cache::Handle();
         handle->value = mr;
+        handle->gptr = page_addr;
+
     }
 
     void DDSM::PostPage_UpdateOrWrite(GlobalAddress page_addr, Cache::Handle *&handle){

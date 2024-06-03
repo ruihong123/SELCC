@@ -123,12 +123,12 @@ vary_thread_number () {
 
 
 
-auto_fill_params () {
-  # so that users don't need to specify parameters for themselves
-  compute_ARGS="-p$port -sf512 -sf1 -c4 -t200000 -f../connection.conf"
-}
+#auto_fill_params () {
+#  # so that users don't need to specify parameters for themselves
+#  compute_ARGS="-p$port -sf512 -sf1 -c4 -t200000 -f../connection.conf"
+#}
 
-auto_fill_params
+#auto_fill_params
 # run standard tpcc
 #run_tpcc
 vary_thread_number

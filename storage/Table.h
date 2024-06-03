@@ -182,10 +182,10 @@ public:
 
           }
       }else if(locked_handles_== nullptr && g_addr != nullptr){
-//          gallocator->PrePage_Update(page_buffer, *g_addr, handle);
-          if (!gallocator->TryPrePage_Update(page_buffer, *g_addr, handle)){
-              return false;
-          }
+          gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+//          if (!gallocator->TryPrePage_Update(page_buffer, *g_addr, handle)){
+//              return false;
+//          }
           assert(((DataPage*)page_buffer)->hdr.table_id == table_id_);
           page = reinterpret_cast<DataPage*>(page_buffer);
       }else if (locked_handles_!= nullptr && g_addr == nullptr){
@@ -205,10 +205,10 @@ public:
           g_addr = new GlobalAddress();
           *g_addr = gallocator->Allocate_Remote(Regular_Page);
           SetOpenedBlock(g_addr);
-//          gallocator->PrePage_Update(page_buffer, *g_addr, handle);
-          if (!gallocator->TryPrePage_Update(page_buffer, *g_addr, handle)){
-              return false;
-          }
+          gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+//          if (!gallocator->TryPrePage_Update(page_buffer, *g_addr, handle)){
+//              return false;
+//          }
           uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*schema_ptr_->GetSchemaSize() +1);
           page = new(page_buffer) DataPage(*g_addr, cardinality, table_id_);
       }

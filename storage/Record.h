@@ -6,6 +6,7 @@
 //#include "CharArray.h"
 //#include "Meta.h"
 #include "RecordSchema.h"
+//#include "Cache.h"
 
 namespace DSMEngine {
 class Record {
@@ -26,6 +27,7 @@ public:
           data_ptr_ = NULL;
       }
   }
+
     size_t GetTableId() const{
         return schema_ptr_->GetTableId();
     }
@@ -43,11 +45,16 @@ public:
         data_ptr_ = src_record->data_ptr_;
         src_record->data_ptr_ = tmp_ptr;
     }
-
+    void * Get_Handle(){
+        return handle_;
+    }
+    void Set_Handle(void * handle){
+        handle_ = handle;
+    }
     // set column. type can be any type.
     void SetColumn(const size_t &column_id, void *data){
 //        printf("Memcpy to %p from %p size %lu\n", data_ptr_ + schema_ptr_->GetColumnOffset(column_id), data, schema_ptr_->GetColumnSize(column_id));
-        fflush(stdout);
+//        fflush(stdout);
         memcpy(data_ptr_ + schema_ptr_->GetColumnOffset(column_id), data, schema_ptr_->GetColumnSize(column_id));
     }
 
@@ -61,6 +68,7 @@ public:
         assert(schema_ptr_->GetColumnType(column_id) == ValueType::VARCHAR && schema_ptr_->GetColumnSize(column_id) >= size);
         memcpy(data_ptr_ + schema_ptr_->GetColumnOffset(column_id), data, size);
     }
+
 
 //    // set column. type must be varchar.
 //    void SetColumn(const size_t &column_id, void *data_str, const size_t &data_size){
@@ -76,6 +84,11 @@ public:
     void ReSetRecord(const char* &data, size_t size){
         assert(schema_ptr_->GetSchemaSize() >= size);
         memcpy(data_ptr_, data, size);
+    }
+    void ReSetRecordBuff(char* data, size_t size, bool need_delete){
+        assert(schema_ptr_->GetSchemaSize() == size);
+        data_ptr_ = data;
+        need_delete_ = need_delete;
     }
 
     // reference
@@ -178,6 +191,37 @@ public:
             GetColumn(meta_col_id, &meta_col);
             return meta_col.is_visible_;
         }
+
+#if defined(TO)
+        [[nodiscard]] uint64_t GetRTS() const {
+            size_t meta_col_id = schema_ptr_->GetMetaColumnId();
+            MetaColumn meta_col;
+            GetColumn(meta_col_id, &meta_col);
+            return meta_col.Rts_;
+        }
+        void PutRTS(uint64_t rts) {
+            const size_t meta_col_id = schema_ptr_->GetMetaColumnId();
+            MetaColumn meta_col;
+            GetColumn(meta_col_id, &meta_col);
+            meta_col.Rts_ = rts;
+            SetColumn(meta_col_id, &meta_col);
+        }
+#endif
+#if defined(TO) || defined(OCC)
+        [[nodiscard]] uint64_t GetWTS() const {
+            size_t meta_col_id = schema_ptr_->GetMetaColumnId();
+            MetaColumn meta_col;
+            GetColumn(meta_col_id, &meta_col);
+            return meta_col.Wts_;
+        }
+        void PutWTS(uint64_t wts) {
+            const size_t meta_col_id = schema_ptr_->GetMetaColumnId();
+            MetaColumn meta_col;
+            GetColumn(meta_col_id, &meta_col);
+            meta_col.Wts_ = wts;
+            SetColumn(meta_col_id, &meta_col);
+        }
+#endif
         void SetVisible(bool val) {
             size_t meta_col_id = schema_ptr_->GetMetaColumnId();
             MetaColumn meta_col;
@@ -197,6 +241,7 @@ public:
   bool need_delete_;
   size_t data_size_;
     bool is_visible_;
+    void * handle_ = nullptr;
 };
 
 

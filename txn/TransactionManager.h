@@ -32,7 +32,10 @@ class TransactionManager {
 
   bool InsertRecord(TxnContext* context, size_t table_id, const IndexKey* keys,
                     size_t key_num, Record *record, Cache::Handle* handle, const GlobalAddress tuple_gaddr);
-
+  // Merge the Latch and unlatch request for tuples within the same global cache line.
+  bool AcquireSLatchForTuple(char*& tuple_buffer,GlobalAddress tuple_gaddr, AccessType access_type);
+  bool AcquireXLatchForTuple(GlobalAddress tuple_addr);
+  bool ReleaseLatchForTuple(GlobalAddress tuple_addr);
   bool SearchRecord(TxnContext* context, size_t table_id,
                     const IndexKey& primary_key, Record*& record,
                     AccessType access_type) {
@@ -116,10 +119,17 @@ class TransactionManager {
   size_t thread_count_;
 
   AccessList<kMaxAccessLimit> access_list_;
-
-  //TODO: the transaction manager is actually thread local why there will be a contention on the locke handles.
+  uint64_t start_timestamp_;
+  bool is_first_access_;
+  // lock handles shall also be used for non-lock based algorithm to avoid acquire the same latch twice during the execution.
+#if defined(LOCK)
   std::unordered_map<uint64_t , std::pair<Cache::Handle*, AccessType>> locked_handles_;
-};
+
+#endif
+#if defined(TO)
+std::unordered_map<uint64_t , std::pair<Cache::Handle*, int>> locked_handles_;
+#endif
+    };
 }
 
 #endif

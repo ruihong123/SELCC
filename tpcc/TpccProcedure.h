@@ -32,7 +32,11 @@ class DeliveryProcedure : public StoredProcedure {
       int no_o_id = 0;
       district_new_order_record->GetColumn(2, &no_o_id);
       assert(no_o_id != 0);
-
+#if defined(TO)
+      held_handle_ = ((Cache::Handle*)district_new_order_record->Get_Handle());
+        assert(held_handle_->gptr!=GlobalAddress::Null());
+        gallocators[thread_id_]->PostPage_UpdateOrWrite(held_handle_->gptr, held_handle_);
+#endif
       IndexKey new_order_key = GetNewOrderPrimaryKey(no_o_id, no_d_id,
                                                      delivery_param->w_id_);
       //todo: Remember to delete the record.

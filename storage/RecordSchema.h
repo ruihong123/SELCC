@@ -253,6 +253,13 @@ namespace DSMEngine {
         const size_t GetMetaColumnId() const {
             return column_count_ - 1;
         }
+        const size_t GetWTSColumnId() const {
+            return column_count_ - 2;
+        }
+        const size_t GetRTSColumnId() const {
+            return column_count_ - 3;
+        }
+
 
     private:
         RecordSchema(const RecordSchema &);

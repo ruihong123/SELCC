@@ -91,8 +91,8 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
                                                  int socket_fd) {
     printf("A new shared memory thread start\n");
     printf("checkpoint1");
-    char temp_receive[3*sizeof(ibv_mr)];
-    char temp_send[3*sizeof(ibv_mr)] = "Q";
+    char temp_receive[4*sizeof(ibv_mr)];
+    char temp_send[4*sizeof(ibv_mr)] = "Q";
     int rc = 0;
     uint16_t compute_node_id;
     rdma_mg->ConnectQPThroughSocket(client_ip, socket_fd, compute_node_id);
@@ -148,6 +148,9 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
       if (rdma_mg->node_id == 1){
           rdma_mg->global_index_table = rdma_mg->create_index_table();
           memcpy(temp_send+ 2*sizeof(ibv_mr), rdma_mg->global_index_table, sizeof(ibv_mr));
+          rdma_mg->timestamp_oracle = rdma_mg->create_timestamp_oracle();
+          memcpy(temp_send+ 3*sizeof(ibv_mr), rdma_mg->timestamp_oracle, sizeof(ibv_mr));
+
       }
 
 

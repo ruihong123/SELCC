@@ -57,6 +57,7 @@ namespace DSMEngine {
 ////    access->access_handle_ = hadndle;
 //    access->access_addr_ = tuple_gaddr;
     PROFILE_TIME_START(thread_id_, INDEX_INSERT);
+    //TODO: comment the index insertion for a fair comparision
     bool ret = storage_manager_->tables_[table_id]->InsertPriIndex(keys, key_num, tuple_gaddr);
     PROFILE_TIME_END(thread_id_, INDEX_INSERT);
     PROFILE_TIME_END(thread_id_, CC_INSERT);

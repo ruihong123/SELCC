@@ -401,6 +401,7 @@ class RDMA_Manager {
    */
   size_t GetMemoryNodeNum();
     size_t GetComputeNodeNum();
+    uint64_t GetNextTimestamp();
   /**
    * RDMA set up create all the resources, and create one query pair for RDMA send & Receive.
    */
@@ -436,6 +437,7 @@ class RDMA_Manager {
   void broadcast_to_computes_through_socket();
   ibv_mr* create_index_table();
   ibv_mr* create_lock_table();
+    ibv_mr* create_timestamp_oracle();
   // client function to retrieve serialized data.
   //  bool client_retrieve_serialized_data(const std::string& db_name, char*& buff,
   //                                       size_t& buff_size, ibv_mr*& local_data_mr,
@@ -509,6 +511,9 @@ class RDMA_Manager {
                  Chunk_type pool_name, std::string qp_type = "default");
   int RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare, uint64_t swap, size_t send_flag, int poll_num,
                uint16_t target_node_id, std::string qp_type = "default");
+    int RDMA_FAA(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t add, uint16_t target_node_id, size_t send_flag,
+                 int poll_num, std::string qp_type = "default");
+
     /**
        * | write lock holder id 1 byte | read holder number 1byte| reader holder bitmap 47 bit| starving preventer|
        * @param received_state
@@ -708,6 +713,7 @@ class RDMA_Manager {
   std::mutex global_resources_mtx;
   ibv_mr* global_index_table = nullptr;
   ibv_mr* global_lock_table = nullptr;
+  ibv_mr* timestamp_oracle = nullptr;
 
 
 #ifdef PROCESSANALYSIS

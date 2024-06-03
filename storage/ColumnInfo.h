@@ -22,9 +22,14 @@ enum ValueType
 };
 
 struct MetaColumn {
-  bool is_visible_;
-  // uint64_t timestamp_;
-};
+#if defined(TO)
+   uint64_t Rts_;
+#endif
+#if defined(TO) || defined(OCC)
+    uint64_t Wts_;
+#endif
+    bool is_visible_;
+} __attribute__((packed));
 
 const size_t kIntSize = sizeof(int);
 const size_t kInt8Size = sizeof(int8_t);
