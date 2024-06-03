@@ -145,10 +145,11 @@ void thread_run(int id) {
     while (warmup_cnt.load() != kThreadCount)
       ;
     printf("node %d finish\n", rdma_mg->node_id);
+      uint64_t ns = bench_timer.end();
+      printf("warmup time %lds\n", ns / 1000 / 1000 / 1000);
       rdma_mg->sync_with_computes_Cside();
 
-    uint64_t ns = bench_timer.end();
-    printf("warmup time %lds\n", ns / 1000 / 1000 / 1000);
+
 
 //    tree->index_cache_statistics();
     tree->clear_statistics();
