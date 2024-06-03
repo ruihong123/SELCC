@@ -807,7 +807,8 @@ class RDMA_Manager {
 //    else {
 //      fprintf(stdout, "Send Request was posted\n");
 //    }
-    return rc;}
+    return rc;
+  }
 
   // three variables below are from rdma file system.
   //  std::string* db_name_;
