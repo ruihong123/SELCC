@@ -113,6 +113,20 @@ namespace DSMEngine {
         uint64_t GetRecordCount(){
             return num_of_record;
         }
+        uint64_t GetRootRecordCount(){
+            // This function is just for debugging purpose.
+            Cache::Handle* handle = cached_root_page_handle.load();
+            void* page_buffer;
+            Header_Index<Key> * header = nullptr;
+            InternalPage<Key>* page = nullptr;
+            ibv_mr* mr;
+            assert(mr == (ibv_mr*)handle->value);
+            page_buffer = mr->addr;
+            header = (Header_Index<Key> *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
+            // if is root, then we should always bypass the cache.
+            page = (InternalPage<Key> *)page_buffer;
+            return header->last_index + 1;
+        }
 //    static RDMA_Manager * rdma_mg;
         // TODO: potential bug, if mulitple btrees shared the same retry counter, will it be a problem?
         //  used for the retry counter for nested function call such as sibling pointer access.
@@ -124,7 +138,7 @@ namespace DSMEngine {
 
 
     private:
-        std::shared_mutex root_mtx;// in case of contention in the root cache
+        RWSpinLock root_mtx;// in case of contention in the root cache
         uint64_t tree_id;
 
         // The cached_root_handle_ref is to keep track of the number of reference to the root page handle.

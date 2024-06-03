@@ -469,7 +469,7 @@ int main(int argc, char *argv[]) {
       fflush(stdout);
     if (ddsm.GetID() == 0) {
       printf("cluster throughput %.3f\n", cluster_tp / 1000.0);
-
+        printf("btree root record number is %lu", tree->GetRootRecordCount());
 //       printf("WE %.3f HO %.3f\n", cluster_we * 1000000ull / 1.0 /
 //       microseconds,
 //              cluster_ho * 1000000ull / 1.0 / microseconds);
