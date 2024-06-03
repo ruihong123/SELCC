@@ -118,13 +118,13 @@ namespace DSMEngine {
             Cache::Handle* handle = cached_root_page_handle.load();
             void* page_buffer;
             Header_Index<Key> * header = nullptr;
-            InternalPage<Key>* page = nullptr;
-            ibv_mr* mr;
-            assert(mr == (ibv_mr*)handle->value);
+//            InternalPage<Key>* page = nullptr;
+            ibv_mr* mr = (ibv_mr*)handle->value;
+//            assert(mr == (ibv_mr*)handle->value);
             page_buffer = mr->addr;
             header = (Header_Index<Key> *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
             // if is root, then we should always bypass the cache.
-            page = (InternalPage<Key> *)page_buffer;
+//            page = (InternalPage<Key> *)page_buffer;
             return header->last_index + 1;
         }
 //    static RDMA_Manager * rdma_mg;
