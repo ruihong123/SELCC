@@ -19,10 +19,10 @@
 
 // DO not enable the two at the same time otherwise there will be a bug.
 #define BUFFER_HANDOVER
+#define EARLY_LOCK_RELEASE
 #define PARALLEL_DEGREE 16
 #define STARVATION_THRESHOLD 16
 #define STARV_SPIN_BASE 8
-//#define EARLY_LOCK_RELEASE
 uint64_t cache_miss[MAX_APP_THREAD][8];
 uint64_t cache_hit_valid[MAX_APP_THREAD][8];
 uint64_t invalid_counter[MAX_APP_THREAD][8];
@@ -234,11 +234,11 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
             // next is read by key() in an assert, so it must be initialized
             e->next = nullptr;
         }
-#ifdef EARLY_LOCK_RELEASE
-        if (!l.check_own()){
-            l.Lock();
-        }
-#endif
+//#ifdef EARLY_LOCK_RELEASE
+//        if (!l.check_own()){
+//            l.Lock();
+//        }
+//#endif
         assert(usage_ <= capacity_ + kLeafPageSize + kInternalPageSize);
         // This will remove some entry from LRU if the table_cache over size.
 #ifdef BUFFER_HANDOVER
@@ -265,11 +265,11 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
             }
 #endif
             bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
-#ifdef EARLY_LOCK_RELEASE
-            if (!l.check_own()){
-                l.Lock();
-            }
-#endif
+//#ifdef EARLY_LOCK_RELEASE
+//            if (!l.check_own()){
+//                l.Lock();
+//            }
+//#endif
             if (!erased) {  // to avoid unused variable when compiled NDEBUG
                 assert(erased);
             }
@@ -323,12 +323,12 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
     // next is read by key() in an assert, so it must be initialized
     e->next = nullptr;
   }
-#ifdef EARLY_LOCK_RELEASE
-
-    if (!l.check_own()){
-        l.Lock();
-    }
-#endif
+//#ifdef EARLY_LOCK_RELEASE
+//
+//    if (!l.check_own()){
+//        l.Lock();
+//    }
+//#endif
         assert(usage_ <= capacity_ + kLeafPageSize + kInternalPageSize);
   // This will remove some entry from LRU if the table_cache over size.
 #ifdef BUFFER_HANDOVER
@@ -351,11 +351,11 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
     bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
     //some times the finsih Erase will release the spinlock to let other threads working during the RDMA lock releasing.
     //We need to regain the lock here in case that there is another cache entry eviction.
-#ifdef EARLY_LOCK_RELEASE
-      if (!l.check_own()){
-          l.Lock();
-      }
-#endif
+//#ifdef EARLY_LOCK_RELEASE
+//      if (!l.check_own()){
+//          l.Lock();
+//      }
+//#endif
     if (!erased) {  // to avoid unused variable when compiled NDEBUG
       assert(erased);
     }
