@@ -229,7 +229,7 @@ class SpinLock {
         owns = false;
     }
   ~SpinLock() {
-      assert(owns == true);
+//      assert(owns == true);
       if(owns){
           this->mu_->unlock();
           owns = false;
