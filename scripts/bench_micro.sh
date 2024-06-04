@@ -501,7 +501,7 @@ for remote_ratio in $remote_range
 do
 for shared_ratio in $shared_range
 do
-  if [ $shared_ratio != 100 && $size_grow=1]; then
+  if [[ $shared_ratio != 100 && $size_grow=1]]; then
       exit
   fi
 for op_type in $op_range
