@@ -214,18 +214,22 @@ class SpinLock {
         this->mu_->lock();
         owns = true;
     }
-    //THis logic is not correct. if you want to use this you need to make sure there is only one spinmutex hold at the same time.
+    //THis logic for checking whether lockis on is not correct. if you want to use this you need to make sure there is only one spinmutex hold at the same time.
     bool check_own(){
 //        if (owns == false){
 //            printf("break here.");
 //        }
         return owns;
     }
+    //THis logic for checking whether lockis on is not correct. if you want to use this you need to make sure there is only one spinmutex hold at the same time.
     void Unlock(){
+        assert(owns == true);
+
         this->mu_->unlock();
         owns = false;
     }
   ~SpinLock() {
+      assert(owns == true);
       if(owns){
           this->mu_->unlock();
           owns = false;

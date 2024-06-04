@@ -266,6 +266,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
                 already_foward_the_mr = true;
             }
 #endif
+            assert(l.check_own());
             bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
 //#ifdef EARLY_LOCK_RELEASE
 //            if (!l.check_own()){
