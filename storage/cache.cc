@@ -412,7 +412,7 @@ void LRUCache::Prune() {
 
 
 
-static const int kNumShardBits = 7;
+static const int kNumShardBits = 8;
 static const int kNumShards = 1 << kNumShardBits;
 
 class ShardedLRUCache : public Cache {
