@@ -300,6 +300,8 @@ public:
             *ptr = result->next_hash;// ptr is the "next_hash" in the handle previous to the result
             --elems_;
             assert(erased_num == 1);
+        }else{
+            assert(false);
         }
         return result;
     }
