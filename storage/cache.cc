@@ -234,11 +234,13 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
             // next is read by key() in an assert, so it must be initialized
             e->next = nullptr;
         }
-//#ifdef EARLY_LOCK_RELEASE
-//        if (!l.check_own()){
-//            l.Lock();
-//        }
-//#endif
+#ifdef EARLY_LOCK_RELEASE
+        //In case that insert a handle which has already exisit, the old handle need to be deallocated
+        if (!l.check_own()){
+            assert(false);
+            l.Lock();
+        }
+#endif
         assert(usage_ <= capacity_ + kLeafPageSize + kInternalPageSize);
         // This will remove some entry from LRU if the table_cache over size.
 #ifdef BUFFER_HANDOVER
