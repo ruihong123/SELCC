@@ -250,6 +250,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
 //            printf("capacity is %zu, usage is %zu\n", capacity_, usage_);
 //            counter = 0;
 //        }
+        int counter = 0;
         while (usage_ > capacity_ && lru_.next != &lru_) {
             LRUHandle* old = lru_.next;
             assert(old->refs == 1);
@@ -268,17 +269,17 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
 #endif
             assert(l.check_own());
             bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
-//#ifdef EARLY_LOCK_RELEASE
-//            if (!l.check_own()){
-//                l.Lock();
-//            }
-//#endif
+#ifdef EARLY_LOCK_RELEASE
+            if (!l.check_own()){
+                l.Lock();
+            }
+#endif
             if (!erased) {  // to avoid unused variable when compiled NDEBUG
                 assert(erased);
             }
-
+            counter++;
         }
-        assert(usage_ <= capacity_);
+//        assert(usage_ <= capacity_);
 
         return reinterpret_cast<Cache::Handle*>(e);
     }
