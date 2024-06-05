@@ -189,6 +189,7 @@ Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
 }
 Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash, void *value, size_t charge,
                                                  void (*deleter)(Cache::Handle* handle)) {
+    assert(!SpinLock::check_own());
     SpinLock l(&mutex_);
     //TOTHINK(ruihong): shoul we update the lru list after look up a key?
     //  Answer: Ref will refer this key and later, the outer function has to call
@@ -252,6 +253,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
 //        }
         int counter = 0;
         while (usage_ > capacity_ && lru_.next != &lru_) {
+            assert(counter == 0);
             LRUHandle* old = lru_.next;
             assert(old->refs == 1);
 //#ifndef NDEBUG
