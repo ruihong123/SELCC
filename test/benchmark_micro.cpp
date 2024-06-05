@@ -481,7 +481,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
 //                        cache_line_offset += sizeof(uint64_t);
 //                    }
                     alloc->PrePage_Read(page_buffer, target_cache_line, handle);
-                    memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
+                    memcpy(buf, (char*)page_buffer + (to_access.offset - target_cache_line.offset), item_size);
                     alloc->PostPage_Read(target_cache_line, handle);
 
                 } else {
@@ -519,7 +519,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
 //                    Prereadcounter.fetch_add(1);
                     auto statistic_start = std::chrono::high_resolution_clock::now();
 #endif
-                    memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
+                    memcpy(buf, (char*)page_buffer + (to_access.offset - target_cache_line.offset), item_size);
 #ifdef GETANALYSIS
                     auto stop = std::chrono::high_resolution_clock::now();
                     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - statistic_start);
@@ -550,6 +550,13 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                         cache_line_offset += STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, data_[0]);
                     }
                     alloc->PrePage_Update(page_buffer, target_cache_line, handle);
+#ifndef NDEBUG
+                    if (((DataPage*)page_buffer)->hdr.this_page_g_ptr == GlobalAddress::Null()){
+                        ((DataPage*)page_buffer)->hdr.this_page_g_ptr = target_cache_line;
+                    } else{
+                        assert(((DataPage*)page_buffer)->hdr.this_page_g_ptr == target_cache_line);
+                    }
+#endif
                     // Can not write to random place because we can not hurt the metadata in the page.
                     memcpy((char*)page_buffer + (cache_line_offset), buf, item_size);
                     alloc->PostPage_UpdateOrWrite(target_cache_line, handle);
@@ -563,7 +570,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     Cache::Handle* handle;
                     GlobalAddress target_cache_line = TOPAGE(to_access);
                     alloc->PrePage_Read(page_buffer, target_cache_line, handle);
-                    memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
+                    memcpy(buf, (char*)page_buffer + (to_access.offset - target_cache_line.offset), item_size);
                     alloc->PostPage_Read(target_cache_line, handle);
                 } else {
                     void* page_buffer;
@@ -588,7 +595,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     Cache::Handle* handle;
                     GlobalAddress target_cache_line = TOPAGE(to_access);
                     alloc->PrePage_Read(page_buffer, target_cache_line, handle);
-                    memcpy(buf, (char*)page_buffer + (to_access.offset % kLeafPageSize), item_size);
+                    memcpy(buf, (char*)page_buffer + (to_access.offset - target_cache_line.offset), item_size);
                     alloc->PostPage_Read(target_cache_line, handle);
                 } else {
                     void* page_buffer;
