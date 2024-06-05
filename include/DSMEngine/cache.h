@@ -61,7 +61,8 @@ class DSMEngine_EXPORT Cache;
 // Create a new table_cache with a fixed size capacity.  This implementation
 // of Cache uses a least-recently-used eviction policy.
 DSMEngine_EXPORT Cache* NewLRUCache(size_t capacity);
-
+#define BUFFER_HANDOVER
+#define EARLY_LOCK_RELEASE
 constexpr uint8_t Invalid_Node_ID = 255;
 class DSMEngine_EXPORT Cache {
  public:
@@ -90,6 +91,9 @@ class DSMEngine_EXPORT Cache {
 //        std::atomic<uint8_t > remote_xlock_next = 0;
 //        std::atomic<uint8_t> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
         bool keep_the_mr = false;
+//#ifdef EARLY_LOCK_RELEASE
+//        bool mr_in_use = false;
+//#endif
 //        std::shared_mutex rw_mtx;
         static RDMA_Manager* rdma_mg;
 #ifdef LOCAL_LOCK_DEBUG
@@ -110,6 +114,9 @@ class DSMEngine_EXPORT Cache {
             remote_lock_urged.store(0);
             next_holder_id.store(Invalid_Node_ID);
             starvation_priority.store(0);
+//#ifdef EARLY_LOCK_RELEASE
+//            mr_in_use = false;
+//#endif
 //            remote_xlock_next.store(0);
 //            strategy.store(1);
 //            state_mtx.unlock();

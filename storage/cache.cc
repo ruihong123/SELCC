@@ -18,8 +18,7 @@
 #include "storage/page.h"
 
 // DO not enable the two at the same time otherwise there will be a bug.
-#define BUFFER_HANDOVER
-#define EARLY_LOCK_RELEASE
+
 #define PARALLEL_DEGREE 16
 #define STARVATION_THRESHOLD 16
 #define STARV_SPIN_BASE 8
@@ -268,10 +267,16 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
                 e->value = old->value;
                 already_foward_the_mr = true;
             }
+            //If there is early lock release, then the handle may be accessed by other threads,
+            // before the mr has been dirty flushed. We need to make sure the following accessor,
+            // can not access the mr before we finish the old mr deallocating (flush the dirty page)
+            e->rw_mtx.lock();
+            //TODO: ACQUIRE THE READ-write LATCH IN the cache handle
 #endif
             assert(l.check_own());
             bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
 #ifdef EARLY_LOCK_RELEASE
+            e->rw_mtx.unlock();
             if (!l.check_own()){
                 l.Lock();
             }
