@@ -334,12 +334,12 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
     // next is read by key() in an assert, so it must be initialized
     e->next = nullptr;
   }
-//#ifdef EARLY_LOCK_RELEASE
-//
-//    if (!l.check_own()){
-//        l.Lock();
-//    }
-//#endif
+#ifdef EARLY_LOCK_RELEASE
+
+    if (!l.check_own()){
+        l.Lock();
+    }
+#endif
         assert(usage_ <= capacity_ + kLeafPageSize + kInternalPageSize);
   // This will remove some entry from LRU if the table_cache over size.
 #ifdef BUFFER_HANDOVER
@@ -356,17 +356,19 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
           e->value = old->value;
           assert(((ibv_mr*)e->value)->addr != nullptr);
           already_foward_the_mr = true;
+          e->rw_mtx.lock();
       }
 #endif
         assert(l.check_own());
     bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
     //some times the finsih Erase will release the spinlock to let other threads working during the RDMA lock releasing.
     //We need to regain the lock here in case that there is another cache entry eviction.
-//#ifdef EARLY_LOCK_RELEASE
-//      if (!l.check_own()){
-//          l.Lock();
-//      }
-//#endif
+#ifdef EARLY_LOCK_RELEASE
+        e->rw_mtx.unlock();
+      if (!l.check_own()){
+          l.Lock();
+      }
+#endif
     if (!erased) {  // to avoid unused variable when compiled NDEBUG
       assert(erased);
     }
