@@ -1063,10 +1063,12 @@ namespace DSMEngine {
             }
             assert(false);
         }
+#if ACCESS_MODE == 0
         uint8_t tree_h = this->tree_height.load();
         if (tree_h > 0){
             spin_wait_us(next_times/(2*tree_h));
         }
+#endif
 
 //#endif
 
