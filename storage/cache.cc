@@ -262,21 +262,25 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
 //#endif
             // Directly reuse the mr if the evicted cache entry is the same size as the new inserted on.
 #ifdef BUFFER_HANDOVER
+            bool rw_locked = false;
+
             if (value == nullptr && !already_foward_the_mr && ((ibv_mr*)old->value)->length == charge){
                 old->keep_the_mr = true;
                 e->value = old->value;
                 already_foward_the_mr = true;
+                e->rw_mtx.lock();
             }
             //If there is early lock release, then the handle may be accessed by other threads,
             // before the mr has been dirty flushed. We need to make sure the following accessor,
             // can not access the mr before we finish the old mr deallocating (flush the dirty page)
-            e->rw_mtx.lock();
             //TODO: ACQUIRE THE READ-write LATCH IN the cache handle
 #endif
             assert(l.check_own());
             bool erased = FinishErase(table_.Remove(old->key(), old->hash), &l);
 #ifdef EARLY_LOCK_RELEASE
-            e->rw_mtx.unlock();
+            if (rw_locked){
+                e->rw_mtx.unlock();
+            }
             if (!l.check_own()){
                 l.Lock();
             }
@@ -351,12 +355,14 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
     LRUHandle* old = lru_.next;
     assert(old->refs == 1);
 #ifdef BUFFER_HANDOVER
+    bool rw_locked = false;
       if (value == nullptr && !already_foward_the_mr && ((ibv_mr*)old->value)->length == charge){
           old->keep_the_mr = true;
           e->value = old->value;
           assert(((ibv_mr*)e->value)->addr != nullptr);
           already_foward_the_mr = true;
           e->rw_mtx.lock();
+          rw_locked = true;
       }
 #endif
         assert(l.check_own());
@@ -364,7 +370,9 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
     //some times the finsih Erase will release the spinlock to let other threads working during the RDMA lock releasing.
     //We need to regain the lock here in case that there is another cache entry eviction.
 #ifdef EARLY_LOCK_RELEASE
-        e->rw_mtx.unlock();
+        if (rw_locked){
+            e->rw_mtx.unlock();
+        }
       if (!l.check_own()){
           l.Lock();
       }
