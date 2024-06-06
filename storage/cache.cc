@@ -269,6 +269,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
                 e->value = old->value;
                 already_foward_the_mr = true;
                 e->rw_mtx.lock();
+                rw_locked = true;
             }
             //If there is early lock release, then the handle may be accessed by other threads,
             // before the mr has been dirty flushed. We need to make sure the following accessor,
