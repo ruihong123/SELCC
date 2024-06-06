@@ -84,7 +84,7 @@ protected:
     columns.push_back(new ColumnInfo("w_ytd", ValueType::DOUBLE));
 
       columns.push_back(
-              new ColumnInfo("padding", ValueType::VARCHAR, static_cast<size_t>(1024)));
+              new ColumnInfo("padding", ValueType::VARCHAR, static_cast<size_t>(512)));
 #if defined(TO)
       columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
 #endif
