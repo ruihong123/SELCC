@@ -4622,6 +4622,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
     void RDMA_Manager::global_write_page_and_WHandover(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, uint8_t next_holder_id,
                                                      GlobalAddress remote_lock_addr, bool async) {
 
+        if (next_holder_id >16){
+            throw std::invalid_argument( "received wrong handover target node id" );
+        }
         //TODO: If we want to use async unlock, we need to enlarge the max outstand work request that the queue pair support.
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
