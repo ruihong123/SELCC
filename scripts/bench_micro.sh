@@ -486,16 +486,16 @@ remote_range="100"
 shared_range="100"
 size_grow=0 # 0 not grow, 1 grow with node number
 read_range="0 50 95 100"
-space_range="50"
+space_range="0"
 time_range="0"
-workload_range="0" # 0 uniform, 1 single zipfian, n >1 multispot zipfian.
-zipfian_alpha_range="0.99" #make sure workload = 1 if we want to test zipfian.
+workload_range="8" # 0 uniform, 1 single zipfian, n >1 multispot zipfian.
+zipfian_theta_range="0.99" #make sure workload = 1 if we want to test zipfian.
 #
 op_range="1" # use 1
 #cache_th=0.5
 for workload in $workload_range
 do
-for zipfian_alpha in $zipfian_alpha_range
+for zipfian_alpha in $zipfian_theta_range
 do
 for remote_ratio in $remote_range
 do
