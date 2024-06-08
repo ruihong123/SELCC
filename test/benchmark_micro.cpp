@@ -35,6 +35,8 @@
 
 //2516582ull =  48*1024*1024*1024/(2*1024)
 #define MEMSET_GRANULARITY (64*1024)
+#define EXCLUSIVE_HOTSPOT // exclusive hotspot per compute. workload == 1.
+
 uint64_t NUMOFBLOCKS = 0;
 uint64_t SYNC_KEY = 0;
 uint64_t cache_size = 0;
