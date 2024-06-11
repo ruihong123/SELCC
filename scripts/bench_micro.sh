@@ -123,7 +123,7 @@ run() {
           echo ""
           echo "memory = $memory, ip = $ip, port = $port"
           echo "$BIN_HOME/memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee -a $log_file.$ip"
-          ssh -o StrictHostKeyChecking=no $ip	"ulimit -c 2000000 && cd $BIN_HOME && numactl --physcpubind=31 ./memory_server_term  $port $(($remote_mem_size+10)) $((2*$i +1)) $remote_mem_size | tee -a $log_file.$ip " &
+          ssh -o StrictHostKeyChecking=no $ip	"ulimit -c 2000000 && cd $BIN_HOME && numactl --physcpubind=31 ./memory_server_term  $port $(($remote_mem_size+5)) $((2*$i +1)) $remote_mem_size | tee -a $log_file.$ip " &
           sleep 1
           i=$((i+1))
 #        	if [ "$i" = "$node" ]; then
@@ -480,15 +480,15 @@ run_node_test() {
 # node test
 echo "**************************run node test****************************"
 result_file=$bin/results/node
-node_range="1 2 4 8"
-thread_range="8 16"
+node_range="8"
+thread_range="16"
 remote_range="100"
 shared_range="100"
 size_grow=0 # 0 not grow, 1 grow with node number
 read_range="100"
 space_range="0"
 time_range="0"
-workload_range="8" # 0 uniform, 1 single zipfian, n >1 multispot zipfian.
+workload_range="0" # 0 uniform, 1 single zipfian, n >1 multispot zipfian.
 zipfian_theta_range="0.99" #make sure workload = 1 if we want to test zipfian.
 #
 op_range="1" # use 1

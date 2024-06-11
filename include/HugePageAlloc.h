@@ -17,13 +17,20 @@ namespace DSMEngine{
          * (see HugePages_Free in /proc/meminfo), or mmap will fail. (https://stackoverflow.com/questions/30470972/using-mmap-and-madvise-for-huge-pages)
          */
         void *res = nullptr;
+        int ret = 0;
         if (is_mmap_work){
-            res = mmap(NULL, size, PROT_READ | PROT_WRITE,
-                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+//            res = mmap(NULL, size, PROT_READ | PROT_WRITE,
+//                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+            void *ptr;
+            ret = posix_memalign(&res, 1 << 21, size);
+            if (ret != 0) {
+                printf("Posix alignment failed\n");
+            }
+            madvise(res, size, MADV_HUGEPAGE);
 
         }
 
-        if (res == MAP_FAILED || res == nullptr) {
+        if (ret !=0 || res == MAP_FAILED || res == nullptr) {
 //            assert(is_mmap_work == true);
             printf("mmap failed!\n");
             is_mmap_work = false;
