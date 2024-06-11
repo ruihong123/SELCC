@@ -534,6 +534,11 @@ class ShardedLRUCache : public Cache {
 //      printf("release handle %p\n", handle);
     shard_[Shard(h->hash)].Release(handle);
   }
+    void Release_Inv(Handle* handle) override {
+        LRUHandle* h = reinterpret_cast<LRUHandle*>(handle);
+//      printf("release handle %p\n", handle);
+        shard_[Shard(h->hash)].Release_Inv(handle);
+    }
   void Erase(const Slice& key) override {
     const uint32_t hash = HashSlice(key);
     shard_[Shard(hash)].Erase(key, hash);

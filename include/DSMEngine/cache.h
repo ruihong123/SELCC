@@ -182,7 +182,7 @@ class DSMEngine_EXPORT Cache {
   // REQUIRES: handle must not have been released yet.
   // REQUIRES: handle must have been returned by a method on *this.
   virtual void Release(Handle* handle) = 0;
-
+    virtual void Release_Inv(Handle* handle) = 0;
   // Return the value encapsulated in a handle returned by a
   // successful Lookup().
   // REQUIRES: handle must not have been released yet.
