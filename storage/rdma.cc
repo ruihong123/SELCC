@@ -6745,7 +6745,7 @@ void RDMA_Manager::fs_deserilization(
 //            else{
 //                printf("Writer_Inv_Shared_handler Handle already invlaidated\n");
 //            }
-            page_cache_->Release_Inv(handle);
+            page_cache_->Release(handle);
         }else {
 //                    printf("Writer_Inv_Shared_handler Handle not found\n");
         }
@@ -6822,7 +6822,7 @@ void RDMA_Manager::fs_deserilization(
 
                 }
             }
-            page_cache_->Release_Inv(handle);
+            page_cache_->Release(handle);
         }else{
 //                    printf("Release write lock Handle not found\n");
         }
@@ -6910,7 +6910,7 @@ void RDMA_Manager::fs_deserilization(
                     handle->state_mtx.unlock();
                 }
             }
-            page_cache_->Release_Inv(handle);
+            page_cache_->Release(handle);
         }else{
 //                    printf("Release write lock Handle not found\n");
         }
