@@ -106,6 +106,25 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
     LRU_Append(&lru_, e);
   }
 }
+
+    void LRUCache::Unref_Inv(LRUHandle *e) {
+        assert(e->refs > 0);
+        e->refs--;
+        if (e->refs == 0) {  // Deallocate.
+
+            assert(false);
+            assert(!e->in_cache);
+            (*e->deleter)(e);
+            delete e;
+
+        } else if (e->in_cache && e->refs == 1) {
+
+            // No longer in use; move to lru_ list.
+            LRU_Remove(e);// remove from in_use list move to LRU list.
+            LRU_Append(lru_.next, e);
+        }
+    }
+
 //void DSMEngine::LRUCache::Unref_WithoutLock(LRUHandle *e) {
 //    assert(e->refs > 0);
 ////    e->refs--;
@@ -304,6 +323,11 @@ void LRUCache::Release(Cache::Handle* handle) {
   SpinLock l(&mutex_);
     Unref(reinterpret_cast<LRUHandle *>(handle), &l);
 //    assert(reinterpret_cast<LRUHandle*>(handle)->refs != 0);
+}
+void LRUCache::Release_Inv(Cache::Handle* handle) {
+
+    SpinLock l(&mutex_);
+    Unref_Inv(reinterpret_cast<LRUHandle *>(handle));
 }
 //If the inserted key has already existed, then the old LRU handle will be removed from
 // the cache, but it may not garbage-collected right away.

@@ -390,6 +390,7 @@ public:
                                 void (*deleter)(Cache::Handle* handle));
     //TODO: make the release not acquire the cache lock.
     void Release(Cache::Handle* handle);
+    void Release_Inv(Cache::Handle* handle);
     void Erase(const Slice& key, uint32_t hash);
     void Prune();
     size_t TotalCharge() const {
@@ -405,6 +406,7 @@ private:
     void Ref(LRUHandle* e);
 //    void Ref_in_LookUp(LRUHandle* e);
     void Unref(LRUHandle *e, SpinLock *spin_l);
+    void Unref_Inv(LRUHandle *e);
 //    void Unref_WithoutLock(LRUHandle* e);
     bool FinishErase(LRUHandle *e, SpinLock *spin_l) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
