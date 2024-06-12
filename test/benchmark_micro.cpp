@@ -21,6 +21,7 @@
 #include "storage/rdma.h"
 #include "DDSM.h"
 #include "Common.h"
+#include "zipf.h"
 
 //#define PERF_GET
 //#define PERF_MALLOC
@@ -32,6 +33,7 @@
 //TODO: shall be adjusted according to the no_thread and
 //#define NUMOFBLOCKS (2516582ull) //around 48GB totally, local cache is 8GB per node. (25165824ull)
 //#define SYNC_KEY NUMOFBLOCKS
+#define CMU_ZIPF
 
 //2516582ull =  48*1024*1024*1024/(2*1024)
 #define MEMSET_GRANULARITY (64*1024)
@@ -75,7 +77,7 @@ int time_locality = 10;  //0..100 (how probable it is to re-visit the current po
 int read_ratio = 10;  //0..100
 int op_type = 1;  //0: read/write; 1: rlock/wlock; 2: rlock+read/wlock+write
 int workload = 0;  //0: random; 1: zipfian 2: multi-hotspot
-double zipfian_theta = 1;
+double zipfian_param = 1;
 //int total_spot_num = 0; // used when workload == 2
 
 int compute_num = 0;
@@ -363,15 +365,25 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
   gen_accesses.insert(TOBLOCK(access[0]));
   stat_lock.unlock();
 #endif
-    WorkloadGenerator* workload_gen;
+
+    struct zipf_gen_state state;
+
+    WorkloadGenerator* workload_gen = nullptr;
+
     if (workload == 1){
 #ifdef EXCLUSIVE_HOTSPOT
-        workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_theta, *seedp, ddsm->GetID()/2, compute_num);
+        workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_param, *seedp, ddsm->GetID()/2, compute_num);
 #else
-        workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_theta, *seedp);
+
+#ifdef CMU_ZIPF
+        mehcached_zipf_init(&state, STEPS, zipfian_param,
+                            (rdtsc() & (0x0000ffffffffffffull)) ^ id);
+#else
+        workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_param, *seedp);
+#endif
 #endif
     } else if (workload > 1){
-        workload_gen = new MultiHotSpotGenerator(STEPS, zipfian_theta, *seedp, workload);
+        workload_gen = new MultiHotSpotGenerator(STEPS, zipfian_param, *seedp, workload);
     }
 
 
@@ -393,7 +405,13 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 //                }
                 next = GADD(n, GetRandom(0, items_per_block, seedp) * item_size);
             } else if (workload > 0){
+#ifdef CMU_ZIPF
+                uint64_t pos = mehcached_zipf_next(&state);
+
+#else
                 uint64_t pos = workload_gen->getValue();
+
+#endif
                 GlobalAddress n = data[pos];
 //                while (TOPAGE(n) == TOPAGE(access[i - 1])) {
 //                    pos = workload_gen->getValue();
@@ -417,7 +435,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 #endif
     }
     printf("end init\n");
-    if (workload >= 1){
+    if (workload_gen){
         delete workload_gen;
     }
 }
@@ -860,7 +878,7 @@ int main(int argc, char* argv[]) {
         } else if (strcmp(argv[i], "--workload") == 0) {
             workload = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--zipfian_alpha") == 0) {
-            zipfian_theta = atof(argv[++i]);
+            zipfian_param = atof(argv[++i]);
         } else if (strcmp(argv[i], "--result_file") == 0) {
             result_file = argv[++i];  //0..100
         } else if (strcmp(argv[i], "--item_size") == 0) {
@@ -933,7 +951,7 @@ int main(int argc, char* argv[]) {
     SYNC_KEY = NUMOFBLOCKS;
     STEPS = NUMOFBLOCKS/((no_thread - 1)*(100-shared_ratio)/100.00L + 1);
     printf("number of steps is %lu\n", STEPS);
-    printf("workload is %d, zipfian_alpha is %f", workload, zipfian_theta);
+    printf("workload is %d, zipfian_alpha is %f", workload, zipfian_param);
     ITERATION = ITERATION_TOTAL/no_thread;
     sleep(1);
     //sync with all the other workers
@@ -990,7 +1008,7 @@ int main(int argc, char* argv[]) {
     }
     printf(
             "results for  node_id %d: workload: %d, zipfian_alpha: %f total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld， operation need cache invalidation %lu, operation cache hit and valid is %lu,  total operation executed %ld\n\n",
-            node_id, workload, zipfian_theta, t_thr, a_thr, a_lat, invalidation_num, hit_valid_num, ITERATION_TOTAL);
+            node_id, workload, zipfian_param, t_thr, a_thr, a_lat, invalidation_num, hit_valid_num, ITERATION_TOTAL);
 
     //sync with all the other workers
     //check all the benchmark are completed
@@ -1035,7 +1053,7 @@ int main(int argc, char* argv[]) {
                 "compute_num: %d, workload: %d, zipfian_alpha: %f no_thread: %d, shared_ratio: %d, read_ratio: %d, space_locality: %d, "
                 "time_locality: %d, op_type = %d, memory_type = %d, item_size = %d, "
                 "operation with cache invalidation message accounts for %f percents, average cache valid hit percents %f total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld, \n\n",
-                compute_num, workload, zipfian_theta, no_thread, shared_ratio, read_ratio,
+                compute_num, workload, zipfian_param, no_thread, shared_ratio, read_ratio,
                 space_locality, time_locality, op_type, memory_type, item_size, static_cast<double>(invalidation_num) / ITERATION_TOTAL, static_cast<double>(hit_valid_num) / ITERATION_TOTAL, t_thr,
                 a_thr, a_lat);
 #ifdef GETANALYSIS

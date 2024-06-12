@@ -5,7 +5,7 @@ SRC_HOME=$bin/..
 BIN_HOME=$bin/../release
 conf_file_all=$bin/../connection_cloudlab.conf
 conf_file=$bin/../connection.conf
-
+# alpha = 1/(1-theta)
 #compute_nodes=$bin/compute_nodes
 #memory_nodes=$bin/memory_nodes
 log_file=$bin/log
@@ -489,13 +489,13 @@ read_range="0 50 95 100"
 space_range="0"
 time_range="0"
 workload_range="1" # 0 uniform, 1 single zipfian, n >1 multispot zipfian.
-zipfian_theta_range="0.5 0.99 2" #make sure workload = 1 if we want to test zipfian.
+zipfian_alpha_range="0.9 0.99" #make sure workload = 1 if we want to test zipfian.
 #
 op_range="1" # use 1
 #cache_th=0.5
 for workload in $workload_range
 do
-for zipfian_alpha in $zipfian_theta_range
+for zipfian_alpha in $zipfian_alpha_range
 do
 for remote_ratio in $remote_range
 do
