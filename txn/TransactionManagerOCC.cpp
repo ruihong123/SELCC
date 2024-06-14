@@ -1,225 +1,272 @@
 #if defined(OCC)
 #include "TransactionManager.h"
+#include "GlobalTimestamp.h"
+namespace DSMEngine{
+        bool TransactionManager::AllocateNewRecord(TxnContext *context, size_t table_id, Cache::Handle *&handle,
+                                                   GlobalAddress &tuple_gaddr, Record*& tuple) {
+            char* tuple_buffer;
+            Table* table = storage_manager_->tables_[table_id];
+            //TODO: need to remember the latch, so that the latch can be released when the transaction abort.
+            // besides, the allocatenew tuple function shall be implemented seperated to the one in the table.
+            // The table one is for loading wiithout concurrency control considering.
+            // here we shall
+            void* page_buffer;
+            GlobalAddress* gcl_addr = table->GetOpenedBlock();
+            DataPage *page = nullptr;
+            DDSM* gallocator = gallocators[thread_id_];
+            if (gcl_addr){
+                GlobalAddress cacheline_g_addr = *gcl_addr;
+                gallocator->PrePage_Update(page_buffer, *gcl_addr, handle);
+//                    if (!gallocator->TryPrePage_Update(page_buffer, *gcl_addr, handle)){
+//                        return false;
+//                    }
+                assert(((DataPage*)page_buffer)->hdr.table_id == table_id);
+                page = reinterpret_cast<DataPage*>(page_buffer);
 
-namespace Cavalia {
-	namespace Database {
-		bool TransactionManager::InsertRecord(TxnContext *context, const size_t &table_id, const std::string &primary_key, SchemaRecord *record) {
-			BEGIN_PHASE_MEASURE(thread_id_, INSERT_PHASE);
-			// insert with visibility bit set to false.
+            }else{
+                gcl_addr = new GlobalAddress();
+                *gcl_addr = gallocator->Allocate_Remote(Regular_Page);
+                table->SetOpenedBlock(gcl_addr);
+                gallocator->PrePage_Update(page_buffer, *gcl_addr, handle);
+
+                uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*table->GetSchemaSize() +1);
+                page = new(page_buffer) DataPage(*gcl_addr, cardinality, table_id);
+            }
+            RecordSchema *schema_ptr = storage_manager_->tables_[table_id]->GetSchema();
+            int cnt = 0;
+            bool ret = page->AllocateRecord(cnt, schema_ptr , tuple_gaddr, tuple_buffer);
+            assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
+            assert((char*)tuple_buffer - (char*)page_buffer > STRUCT_OFFSET(DataPage, data_));
+            assert(((DataPage*)page_buffer)->hdr.this_page_g_ptr != GlobalAddress::Null());
+            assert(ret);
+            if(cnt == page->hdr.kDataCardinality){
+                delete gcl_addr;
+                table->SetOpenedBlock(nullptr);
+            }
+//           table->Allo/cateNewTuple(tuple_buffer, tuple_gaddr, handle, default_gallocator, nullptr);
+            Record* global_record = new Record(schema_ptr, tuple_buffer);
+            //Reset the tuple timestamp.
+            global_record->PutWTS(0);
+            Access* access = access_list_.NewAccess();
+            access->access_type_ = INSERT_ONLY;
+            access->access_global_record_ = global_record;
+            Record* local_tuple = new Record(schema_ptr);
+            local_tuple->CopyFrom(global_record);
+            access->txn_local_tuple_ = local_tuple;
+            tuple = local_tuple;
+            access->access_addr_ = tuple_gaddr;
+            gallocator->PostPage_UpdateOrWrite(*gcl_addr, handle);
+
+//        printf("AllocateNewRecord: thread_id=%zu,table_id=%zu,access_type=%u,data_addr=%lx, start SelectRecordCC\n",
+//               thread_id_, table_id, INSERT_ONLY, tuple_gaddr.val);
+//            fflush(stdout);
+            return true;
+
+//        GlobalAddress* gcl_addr = table->GetOpenedBlock();
+//        if ( gcl_addr == nullptr){
+//            gcl_addr = new GlobalAddress();
+//            *gcl_addr = default_gallocator->Allocate_Remote(Regular_Page);
+//            table->SetOpenedBlock(gcl_addr);
+//        }
+//        assert(handle != nullptr);
+//        assert(page_buffer != nullptr);
+//        uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*table->GetSchema()->GetSchemaSize() +1);
+//        auto* page = new(page_buffer) DataPage(*gcl_addr, cardinality, table_id);
+//        int cnt = 0;
+//        bool ret = page->AllocateRecord(cnt, table->GetSchema() , tuple_gaddr, tuple_buffer);
+//        assert(ret);
+//        // if the cache line is full, set the thread local ptr as null, and allocate a new page next time.
+//        if(cnt == page->hdr.kDataCardinality){
+//            table->SetOpenedBlock(nullptr);
+//        }
+
+
+//        default_gallocator->PrePage_Write(page_buffer, gcl_addr, handle);
+        }
+		bool TransactionManager::InsertRecord(TxnContext* context,
+                                              size_t table_id, const IndexKey* keys,
+                                              size_t key_num, Record *record, Cache::Handle* handle, const GlobalAddress tuple_gaddr){
+
 			record->is_visible_ = false;
-			TableRecord *tb_record = new TableRecord(record);
-			// the to-be-inserted record may have already existed.
-			//if (storage_manager_->tables_[table_id]->InsertRecord(primary_key, tb_record) == true){
-				Access *access = access_list_.NewAccess();
-				access->access_type_ = INSERT_ONLY;
-				access->access_record_ = tb_record;
-				access->local_record_ = NULL;
-				access->table_id_ = table_id;
-				access->timestamp_ = 0;
-				END_PHASE_MEASURE(thread_id_, INSERT_PHASE);
-				return true;
-			/*}
-			else{
-				// if the record has already existed, then we need to lock the original record.
-				END_PHASE_MEASURE(thread_id_, INSERT_PHASE);
-				return true;
-			}*/
+            PROFILE_TIME_START(thread_id_, INDEX_INSERT);
+            bool ret = storage_manager_->tables_[table_id]->InsertPriIndex(keys, key_num, tuple_gaddr);
+            PROFILE_TIME_END(thread_id_, INDEX_INSERT);
+            PROFILE_TIME_END(thread_id_, CC_INSERT);
+            gallocators[thread_id_]->PostPage_UpdateOrWrite(TOPAGE(handle->gptr), handle);
+            return true;
+			//}
+			//else{
+			//	// if the record has already existed, then we need to lock the original record.
+			//	END_PHASE_MEASURE(thread_id_, INSERT_PHASE);
+			//	return true;
+			//}
 		}
 
-		bool TransactionManager::SelectRecordCC(TxnContext *context, const size_t &table_id, TableRecord *t_record, SchemaRecord *&s_record, const AccessType access_type) {
-			if (access_type == READ_ONLY) {
-				Access *access = access_list_.NewAccess();
-				access->access_type_ = READ_ONLY;
-				access->access_record_ = t_record;
-				access->local_record_ = NULL;
-				access->table_id_ = table_id;
-				access->timestamp_ = t_record->content_.GetTimestamp();
-				s_record = t_record->record_;
-				return true;
-			}
-			else if (access_type == READ_WRITE) {
-				Access *access = access_list_.NewAccess();
-				access->access_type_ = READ_WRITE;
-				access->access_record_ = t_record;
-				// copy data
-				BEGIN_CC_MEM_ALLOC_TIME_MEASURE(thread_id_);
-				const RecordSchema *schema_ptr = t_record->record_->schema_ptr_;
-				char *local_data = MemAllocator::Alloc(schema_ptr->GetSchemaSize());
-				SchemaRecord *local_record = (SchemaRecord*)MemAllocator::Alloc(sizeof(SchemaRecord));
-				new(local_record)SchemaRecord(schema_ptr, local_data);
-				END_CC_MEM_ALLOC_TIME_MEASURE(thread_id_);
-				access->timestamp_ = t_record->content_.GetTimestamp();
-				COMPILER_MEMORY_FENCE;
-				local_record->CopyFrom(t_record->record_);
-				access->local_record_ = local_record;
-				access->table_id_ = table_id;
-				// reset returned record.
-				s_record = local_record;
-				return true;
-			}
-			// we just need to set the visibility bit on the record. so no need to create local copy.
-			else if (access_type == DELETE_ONLY){
-				Access *access = access_list_.NewAccess();
-				access->access_type_ = DELETE_ONLY;
-				access->access_record_ = t_record;
-				access->local_record_ = NULL;
-				access->table_id_ = table_id;
-				access->timestamp_ = t_record->content_.GetTimestamp();
-				s_record = t_record->record_;
-				return true;
-			}
-			else{
-				assert(false);
-				return true;
-			}
-		}
+    // Assert that there is no latch still hold in the before the transaction abort. makesure that txn release the last tuple's,
+    // latch access the next one. Never let a transaction holding two latch at the same time!!!!
+    bool TransactionManager::SelectRecordCC(TxnContext* context, size_t table_id,
+            Record *&record, const GlobalAddress &tuple_gaddr, AccessType access_type) {
 
-		bool TransactionManager::CommitTransaction(TxnContext *context, TxnParam *param, CharArray &ret_str){
-			BEGIN_PHASE_MEASURE(thread_id_, COMMIT_PHASE);
-			// step 1: acquire lock and validate
-			size_t lock_count = 0;
-			bool is_success = true;
-			access_list_.Sort();
-			for (size_t i = 0; i < access_list_.access_count_; ++i) {
-				++lock_count;
-				Access *access_ptr = access_list_.GetAccess(i);
-				auto &content_ref = access_ptr->access_record_->content_;
-				if (access_ptr->access_type_ == READ_ONLY) {
-					// acquire read lock
-					content_ref.AcquireReadLock();
-					// whether someone has changed the tuple after my read
-					if (content_ref.GetTimestamp() != access_ptr->timestamp_) {
-						UPDATE_CC_ABORT_COUNT(thread_id_, context->txn_type_, access_ptr->table_id_);
-						is_success = false;
-						break;
-					}
-				}
-				else if (access_ptr->access_type_ == READ_WRITE) {
-					// acquire write lock
-					content_ref.AcquireWriteLock();
-					// whether someone has changed the tuple after my read
-					if (content_ref.GetTimestamp() != access_ptr->timestamp_) {
-						UPDATE_CC_ABORT_COUNT(thread_id_, context->txn_type_, access_ptr->table_id_);
-						is_success = false;
-						break;
-					}
-				}
-				else {
-					// insert_only or delete_only
-					content_ref.AcquireWriteLock();
-				}
-			}
+            PROFILE_TIME_START(thread_id_, CC_SELECT);
+            GlobalAddress page_gaddr = TOPAGE(tuple_gaddr);
+            assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
+            RecordSchema *schema_ptr = storage_manager_->tables_[table_id]->GetSchema();
+            void*  page_buff;
+            Cache::Handle* handle;
+            char* tuple_buffer;
+            //TODO: need to remember the latch, so that the latch can be released when the transaction abort.
+            if (access_type == READ_ONLY) {
+                uint64_t wts = record->GetWTS();
+                default_gallocator->PrePage_Read(page_buff, page_gaddr, handle);
 
-			// step 2: if success, then overwrite and commit
-			if (is_success == true) {
-				BEGIN_CC_TS_ALLOC_TIME_MEASURE(thread_id_);
-				uint64_t curr_epoch = Epoch::GetEpoch();
-#if defined(SCALABLE_TIMESTAMP)
-				uint64_t max_rw_ts = 0;
-				for (size_t i = 0; i < access_list_.access_count_; ++i){
-					Access *access_ptr = access_list_.GetAccess(i);
-					if (access_ptr->timestamp_ > max_rw_ts){
-						max_rw_ts = access_ptr->timestamp_;
-					}
-				}
-				uint64_t commit_ts = GenerateScalableTimestamp(curr_epoch, max_rw_ts);
-#else
-				uint64_t commit_ts = GenerateMonotoneTimestamp(curr_epoch, GlobalTimestamp::GetMonotoneTimestamp());
-#endif
-				END_CC_TS_ALLOC_TIME_MEASURE(thread_id_);
+            } else  {
+                //Read_Write, Delete_Only, Insert_Only
+                default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
 
-				for (size_t i = 0; i < access_list_.access_count_; ++i) {
-					Access *access_ptr = access_list_.GetAccess(i);
-					SchemaRecord *global_record_ptr = access_ptr->access_record_->record_;
-					SchemaRecord *local_record_ptr = access_ptr->local_record_;
-					auto &content_ref = access_ptr->access_record_->content_;
-					if (access_ptr->access_type_ == READ_WRITE) {
-						assert(commit_ts > access_ptr->timestamp_);
-						global_record_ptr->CopyFrom(local_record_ptr);
-						COMPILER_MEMORY_FENCE;
-						content_ref.SetTimestamp(commit_ts);
-					}
-					else if (access_ptr->access_type_ == INSERT_ONLY) {
-						assert(commit_ts > access_ptr->timestamp_);
-						global_record_ptr->is_visible_ = true;
-						COMPILER_MEMORY_FENCE;
-						content_ref.SetTimestamp(commit_ts);
-					}
-					else if (access_ptr->access_type_ == DELETE_ONLY) {
-						assert(commit_ts > access_ptr->timestamp_);
-						global_record_ptr->is_visible_ = false;
-						COMPILER_MEMORY_FENCE;
-						content_ref.SetTimestamp(commit_ts);
-					}
-				}
-				// commit.
-#if defined(VALUE_LOGGING)
-				logger_->CommitTransaction(this->thread_id_, curr_epoch, commit_ts, access_list_);
-#elif defined(COMMAND_LOGGING)
-				if (context->is_adhoc_ == true){
-					logger_->CommitTransaction(this->thread_id_, curr_epoch, commit_ts, access_list_);
-				}
-				logger_->CommitTransaction(this->thread_id_, curr_epoch, commit_ts, context->txn_type_, param);
-#endif
+            }
+        assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
+        tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
 
-				// step 3: release locks and clean up.
-				for (size_t i = 0; i < access_list_.access_count_; ++i) {
-					Access *access_ptr = access_list_.GetAccess(i);
-					if (access_ptr->access_type_ == READ_ONLY) {
-						access_ptr->access_record_->content_.ReleaseReadLock();
-					}
-					else if (access_ptr->access_type_ == READ_WRITE) {
-						access_ptr->access_record_->content_.ReleaseWriteLock();
-						BEGIN_CC_MEM_ALLOC_TIME_MEASURE(thread_id_);
-						SchemaRecord *local_record_ptr = access_ptr->local_record_;
-						MemAllocator::Free(local_record_ptr->data_ptr_);
-						local_record_ptr->~SchemaRecord();
-						MemAllocator::Free((char*)local_record_ptr);
-						END_CC_MEM_ALLOC_TIME_MEASURE(thread_id_);
-					}
-					else{
-						// insert_only or delete_only
-						access_ptr->access_record_->content_.ReleaseWriteLock();
-					}
-				}
-			}
-			// if failed.
-			else {
-				// step 3: release locks and clean up.
-				for (size_t i = 0; i < access_list_.access_count_; ++i) {
-					Access *access_ptr = access_list_.GetAccess(i);
-					if (access_ptr->access_type_ == READ_ONLY) {
-						access_ptr->access_record_->content_.ReleaseReadLock();
-					}
-					else if (access_ptr->access_type_ == READ_WRITE) {
-						SchemaRecord *local_record_ptr = access_ptr->local_record_;
-						access_ptr->access_record_->content_.ReleaseWriteLock();
-						BEGIN_CC_MEM_ALLOC_TIME_MEASURE(thread_id_);
-						MemAllocator::Free(local_record_ptr->data_ptr_);
-						local_record_ptr->~SchemaRecord();
-						MemAllocator::Free((char*)local_record_ptr);
-						END_CC_MEM_ALLOC_TIME_MEASURE(thread_id_);
-					}
-					else{
-						// insert_only or delete_only
-						access_ptr->access_record_->content_.ReleaseWriteLock();
-					}
-					--lock_count;
-					if (lock_count == 0) {
-						break;
-					}
-				}
-			}
-			assert(access_list_.access_count_ <= kMaxAccessNum);
-			access_list_.Clear();
-			END_PHASE_MEASURE(thread_id_, COMMIT_PHASE);
-			return is_success;
+        record = new Record(schema_ptr, tuple_buffer);
+        record->Set_Handle(handle);
+
+        Access* access = access_list_.NewAccess();
+        access->access_type_ = access_type;
+        access->access_global_record_ = record;
+        access->access_addr_ = tuple_gaddr;
+        if (access_type == DELETE_ONLY) {
+            record->SetVisible(false);
+        }
+        if (access_type == READ_WRITE) {
+            // local tuple servers as the roll back tuple, in TO transaction concurrency control.
+            Record* local_tuple = new Record(schema_ptr);
+            local_tuple->CopyFrom(record);
+            access->txn_local_tuple_ = local_tuple;
+        }
+        PROFILE_TIME_END(thread_id_, CC_SELECT);
+        return true;
+    }
+
+    bool TransactionManager::CommitTransaction(TxnContext* context,
+                                               TxnParam* param, CharArray& ret_str) {
+        PROFILE_TIME_START(thread_id_, CC_COMMIT);
+        for (size_t i = 0; i < access_list_.access_count_; ++i) {
+            Access* access = access_list_.GetAccess(i);
+            //TODO: check the l
+            if (access->access_type_ == DELETE_ONLY) {
+            //todo: check whether the record version now is larger than the local record, if so,
+            // abort the transaction.
+//        gallocators[thread_id_]->Free(access->access_addr_);
+//        access->access_addr_ = Gnullptr;
+            }
+//        printf("this access index is %zu\n",i);
+//            fflush(stdout);
+            delete access->access_global_record_;
+            access->access_global_record_ = nullptr;
+            access->access_addr_ = GlobalAddress::Null();
+            if (access->txn_local_tuple_!= nullptr){
+                assert(access->access_type_ == READ_WRITE);
+                delete access->txn_local_tuple_;
+                access->txn_local_tuple_ = nullptr;
+            }
+        }
+        access_list_.Clear();
+//        is_first_access_ = true;
+        PROFILE_TIME_END(thread_id_, CC_COMMIT);
+        return true;
 		}
 
 		void TransactionManager::AbortTransaction() {
-			assert(false);
-		}
-	}
+            PROFILE_TIME_START(thread_id_, CC_ABORT);
+
+            for (size_t i = 0; i < access_list_.access_count_; ++i) {
+                Access* access = access_list_.GetAccess(i);
+                GlobalAddress page_gaddr;
+                Cache::Handle* handle;
+                char* tuple_buffer;
+                if (access->access_type_ != READ_ONLY){
+                    //Refetch the tuple.
+                    GlobalAddress &tuple_gaddr = access->access_addr_;
+                    page_gaddr = TOPAGE(tuple_gaddr);
+                    assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
+                    RecordSchema *schema_ptr = storage_manager_->tables_[access->access_global_record_->GetTableId()]->GetSchema();                    void*  page_buff;
+
+                    //No matter write or read we need acquire exclusive latch.
+                    default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
+                    assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
+                    tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+                    access->access_global_record_->ReSetRecordBuff(tuple_buffer, access->access_global_record_->GetRecordSize(), false);
+                }
+                if (access->access_type_ == INSERT_ONLY) {
+
+                    access->access_global_record_->SetVisible(false);
+                    delete access->access_global_record_;
+                    access->access_global_record_ = nullptr;
+
+                    //todo: Deallcoate the space of inserted tuples.
+                }
+                else if (access->access_type_ == READ_WRITE){
+                    assert(access->txn_local_tuple_ != nullptr);
+                    //TODO: we need to reacquire the exclusive latch of the global record.
+                    access->access_global_record_->CopyFrom(access->txn_local_tuple_);
+                    delete access->txn_local_tuple_;
+                } else if (access->access_type_ == DELETE_ONLY){
+                    access->access_global_record_->SetVisible(true);
+                }
+                default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
+
+                delete access->access_global_record_;
+                access->access_global_record_ = nullptr;
+                access->access_addr_ = GlobalAddress::Null();
+            }
+			access_list_.Clear();
+            PROFILE_TIME_END(thread_id_, CC_ABORT);
+
+        }
+
+    bool TransactionManager::AcquireSLatchForTuple(char*& tuple_buffer,GlobalAddress tuple_gaddr, AccessType access_type){
+            GlobalAddress page_gaddr = TOPAGE(tuple_gaddr);
+            assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
+            void*  page_buff;
+            Cache::Handle* handle;
+            assert(false);
+//            if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
+//                if (access_type == READ_ONLY) {
+//                    PROFILE_TIME_START(thread_id_, LOCK_READ);
+//                    default_gallocator->PrePage_Read(page_buff, page_gaddr, handle);
+//                    assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
+//                    tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+//                    locked_handles_.insert({page_gaddr, {handle, access_type}});
+//                    assert(page_gaddr!=GlobalAddress::Null());
+//                    assert(access_type < READ_WRITE);
+//                    PROFILE_TIME_END(thread_id_, LOCK_READ);
+//                }
+//                else {
+//                    // DELETE_ONLY, READ_WRITE
+//                    PROFILE_TIME_START(thread_id_, LOCK_WRITE);
+//                    default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
+//                    assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
+//                    tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+//                    locked_handles_.insert({page_gaddr, {handle, access_type}});
+//                    assert(page_gaddr!=GlobalAddress::Null());
+//                    assert(access_type <= READ_WRITE);
+//                    PROFILE_TIME_END(thread_id_, LOCK_WRITE);
+//                }
+//
+//            }else{
+//                handle = locked_handles_.at(page_gaddr).first;
+//                //TODO: update the hierachical lock atomically, if the lock is shared lock
+//                if (access_type > READ_ONLY && locked_handles_[page_gaddr].second == READ_ONLY){
+//                    assert(false);
+//                    default_gallocator->PrePage_Upgrade(page_buff, page_gaddr, handle);
+//                    locked_handles_[page_gaddr].second = access_type;
+//                }
+//                page_buff = ((ibv_mr*)handle->value)->addr;
+//                tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+//                assert(page_gaddr!=GlobalAddress::Null());
+//                assert(access_type <= READ_WRITE);
+//            }
+    }
 }
 
 #endif
