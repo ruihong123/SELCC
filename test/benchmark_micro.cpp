@@ -34,7 +34,7 @@
 //#define NUMOFBLOCKS (2516582ull) //around 48GB totally, local cache is 8GB per node. (25165824ull)
 //#define SYNC_KEY NUMOFBLOCKS
 #define CMU_ZIPF
-
+#define FULLY_SHARED_WITHIN_NODE
 //2516582ull =  48*1024*1024*1024/(2*1024)
 #define MEMSET_GRANULARITY (64*1024)
 //#define EXCLUSIVE_HOTSPOT // exclusive hotspot per compute. workload == 1.
@@ -252,7 +252,7 @@ double Revise(double orig, int remaining, bool positive) {
     }
 }
 
-
+volatile bool data_array_is_ready = false;
 
 void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[], int id,
           unsigned int* seedp) {
@@ -312,7 +312,11 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
       }
 #endif
         }
+        data_array_is_ready = true;
     } else {
+#ifdef FULLY_SHARED_WITHIN_NODE
+        while (!data_array_is_ready){};
+#else
         for (int i = 0; i < STEPS; i++) {
             if(UNLIKELY(shared_ratio > 0 && i == (STEPS/MEMSET_GRANULARITY)*MEMSET_GRANULARITY)){
                 if (memget_buffer){
@@ -342,21 +346,17 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                 //revise the l_remote_ratio accordingly if we get the shared addr violate the remote probability
                 shared[i] = true;
             } else {
-#ifdef LOCAL_MEMORY
-                int ret = posix_memalign((void **)&data[i], BLOCK_SIZE, BLOCK_SIZE);
-        epicAssert(data[i] % BLOCK_SIZE == 0);
-#else
-//        if (TrueOrFalse(remote_ratio, seedp)) {
+
                 data[i] = ddsm->Allocate_Remote(Regular_Page);
                 assert(data[i].offset <= 64ull*1024ull*1024*1024);
 
-//        } else {
-//          data[i] = alloc->AlignedMalloc(BLOCK_SIZE);
-//        }
-#endif
+
+
                 shared[i] = false;
             }
         }
+#endif
+
     }
     //access[0] = data[0];
     access[0] = data[GetRandom(0, STEPS, seedp)];
@@ -694,7 +694,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
     }
 }
 
-void Benchmark(int id, DDSM* alloc) {
+void Benchmark(int id, DDSM* alloc, GlobalAddress *data) {
 
     unsigned int seedp = no_thread * alloc->GetID() + id;
     printf("seedp = %d\n", seedp);
@@ -750,7 +750,7 @@ void Benchmark(int id, DDSM* alloc) {
 //			duration / it);
 #endif
 
-    GlobalAddress *data = (GlobalAddress*) malloc(sizeof(GlobalAddress) * STEPS);
+//    GlobalAddress *data = (GlobalAddress*) malloc(sizeof(GlobalAddress) * STEPS);
     std::unordered_map<uint64_t , int> addr_to_pos;
 //	GAddr** ldata =(GAddr**)malloc(sizeof(GAddr*)*STEPS);
 //	//init local data arrays
@@ -949,7 +949,11 @@ int main(int argc, char* argv[]) {
     NUMOFBLOCKS = allocated_mem_size/(kLeafPageSize);
     printf("number of blocks is %lu\n", NUMOFBLOCKS);
     SYNC_KEY = NUMOFBLOCKS;
+#ifdef FULLY_SHARED_WITHIN_NODE
+    STEPS = NUMOFBLOCKS;
+#else
     STEPS = NUMOFBLOCKS/((no_thread - 1)*(100-shared_ratio)/100.00L + 1);
+#endif
 //    STEPS = NUMOFBLOCKS/((no_thread*compute_num - 1)*(100-shared_ratio)/100.00L + 1);
 
     printf("number of steps is %lu\n", STEPS);
@@ -983,10 +987,11 @@ int main(int argc, char* argv[]) {
       (double )it / ((double )duration / 1000 / 1000 / 1000),
       duration / it);
 #endif
+    GlobalAddress *data = (GlobalAddress*) malloc(sizeof(GlobalAddress) * STEPS);
 
     std::thread* ths[no_thread];
     for (int i = 0; i < no_thread; i++) {
-        ths[i] = new std::thread(Benchmark, i, &ddsm);
+        ths[i] = new std::thread(Benchmark, i, &ddsm, data);
     }
     for (int i = 0; i < no_thread; i++) {
         ths[i]->join();
