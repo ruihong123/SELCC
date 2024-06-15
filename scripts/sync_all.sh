@@ -91,7 +91,7 @@ function run_bench() {
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server" &
     ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench" &
     ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*" &
-    ssh -o StrictHostKeyChecking=no $node  "sudo mount /dev/sda4 /mnt/core_dump" &
+#    ssh -o StrictHostKeyChecking=no $node  "sudo mount /dev/sda4 /mnt/core_dump" &
 
 #    ssh -o StrictHostKeyChecking=no $node "sudo /etc/init.d/openibd restart"
 #    ssh -o StrictHostKeyChecking=no $node "sudo mst start"
@@ -110,7 +110,7 @@ function run_bench() {
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server" &
     ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench" &
     ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*" &
-    ssh -o StrictHostKeyChecking=no $node  "sudo mount /dev/sda4 /mnt/core_dump" &
+#    ssh -o StrictHostKeyChecking=no $node  "sudo mount /dev/sda4 /mnt/core_dump" &
 
 #    ssh -o StrictHostKeyChecking=no $node "sudo /etc/init.d/openibd restart"
 #    ssh -o StrictHostKeyChecking=no $node "sudo mst start"
