@@ -315,7 +315,49 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
         data_array_is_ready = true;
     } else {
 #ifdef FULLY_SHARED_WITHIN_NODE
-        while (!data_array_is_ready){};
+        if (!is_master && id == 0){
+            for (int i = 0; i < STEPS; i++) {
+                if(shared_ratio > 0 && i == (STEPS/MEMSET_GRANULARITY)*MEMSET_GRANULARITY){
+                    if (memget_buffer){
+                        delete memget_buffer;
+                    }
+                    size_t v_size;
+                    int key =  STEPS - 1;
+                    memget_buffer = (GlobalAddress*)ddsm->memGet((const char*)&key, sizeof(key),  &v_size);
+                    assert(v_size == sizeof(GlobalAddress) * MEMSET_GRANULARITY);
+                }else if (UNLIKELY(shared_ratio > 0 && i % MEMSET_GRANULARITY == 0 )) {
+                    if (memget_buffer){
+                        delete memget_buffer;
+                    }
+                    size_t v_size;
+                    int key =  i + MEMSET_GRANULARITY - 1;
+                    memget_buffer = (GlobalAddress*)ddsm->memGet((const char*)&key, sizeof(key),  &v_size);
+                    assert(v_size == sizeof(GlobalAddress) * MEMSET_GRANULARITY);
+                }
+
+                //we prioritize the shared ratio over other parameters
+                if (i <= STEPS*l_shared_ratio/100) {
+                    GlobalAddress addr;
+                    size_t v_size;
+
+                    data[i] = memget_buffer[i%MEMSET_GRANULARITY];
+                    assert(data[i].offset <= 64ull*1024ull*1024*1024);
+                    //revise the l_remote_ratio accordingly if we get the shared addr violate the remote probability
+                    shared[i] = true;
+                } else {
+
+                    data[i] = ddsm->Allocate_Remote(Regular_Page);
+                    assert(data[i].offset <= 64ull*1024ull*1024*1024);
+
+
+
+                    shared[i] = false;
+                }
+            }
+            data_array_is_ready = true;
+        }else{
+            while (!data_array_is_ready){};
+        }
 #else
         for (int i = 0; i < STEPS; i++) {
             if(UNLIKELY(shared_ratio > 0 && i == (STEPS/MEMSET_GRANULARITY)*MEMSET_GRANULARITY)){
