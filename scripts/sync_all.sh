@@ -91,6 +91,8 @@ function run_bench() {
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server"
     ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench"
     ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*"
+    ssh -o StrictHostKeyChecking=no ${memcached_node[0]} "sudo /etc/init.d/openibd restart"
+    ssh -o StrictHostKeyChecking=no ${memcached_node[0]} "sudo mst start"
 #    ssh -o StrictHostKeyChecking=no $node "echo '/proj/purduedb-PG0/logs/core$node' | sudo tee /proc/sys/kernel/core_pattern"
   done
   for node in ${compute_shard[@]}
@@ -106,7 +108,8 @@ function run_bench() {
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server"
     ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench"
     ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*"
-
+    ssh -o StrictHostKeyChecking=no ${memcached_node[0]} "sudo /etc/init.d/openibd restart"
+    ssh -o StrictHostKeyChecking=no ${memcached_node[0]} "sudo mst start"
 #    ssh -o StrictHostKeyChecking=no $node "echo '/proj/purduedb-PG0/logs/core$node' | sudo tee /proc/sys/kernel/core_pattern"
 
 
@@ -114,7 +117,11 @@ function run_bench() {
   read -r -a memcached_node <<< $(head -n 1 $SRC_HOME/memcached_ip.conf)
   echo "restart memcached on ${memcached_node[0]}"
   ssh -o StrictHostKeyChecking=no ${memcached_node[0]} "sudo service memcached restart"
+
+
 #  systemctl status opensmd.service
+    sudo /etc/init.d/openibd restart
+    sudo mst start
 
 
 	}
