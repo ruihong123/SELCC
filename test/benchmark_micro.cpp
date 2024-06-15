@@ -949,7 +949,9 @@ int main(int argc, char* argv[]) {
     NUMOFBLOCKS = allocated_mem_size/(kLeafPageSize);
     printf("number of blocks is %lu\n", NUMOFBLOCKS);
     SYNC_KEY = NUMOFBLOCKS;
-    STEPS = NUMOFBLOCKS/((no_thread - 1)*(100-shared_ratio)/100.00L + 1);
+//    STEPS = NUMOFBLOCKS/((no_thread - 1)*(100-shared_ratio)/100.00L + 1);
+    STEPS = NUMOFBLOCKS/((no_thread*compute_num - 1)*(100-shared_ratio)/100.00L + 1);
+
     printf("number of steps is %lu\n", STEPS);
     printf("workload is %d, zipfian_alpha is %f", workload, zipfian_param);
     ITERATION = ITERATION_TOTAL/no_thread;
