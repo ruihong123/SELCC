@@ -84,13 +84,15 @@ function run_bench() {
 #    ssh -o StrictHostKeyChecking=no $node "sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev libboost-all-dev" &
     rsync -a $home_dir $node:$home_dir
 #    ssh -o StrictHostKeyChecking=no $node "killall micro_bench memory_server_term > /dev/null 2>&1"
-    ssh -o StrictHostKeyChecking=no $node "pkill -f micro_bench"
-    ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server_term"
-    ssh -o StrictHostKeyChecking=no $node "pkill -f tpcc"
-    ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server_tpcc"
-    ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server"
-    ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench"
-    ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*"
+    ssh -o StrictHostKeyChecking=no $node "pkill -f micro_bench" &
+    ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server_term" &
+    ssh -o StrictHostKeyChecking=no $node "pkill -f tpcc" &
+    ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server_tpcc" &
+    ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server" &
+    ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench" &
+    ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*" &
+    ssh -o StrictHostKeyChecking=no $node  "sudo mount /dev/sda4 /mnt/core_dump" &
+
 #    ssh -o StrictHostKeyChecking=no $node "sudo /etc/init.d/openibd restart"
 #    ssh -o StrictHostKeyChecking=no $node "sudo mst start"
 #    ssh -o StrictHostKeyChecking=no $node "echo '/proj/purduedb-PG0/logs/core$node' | sudo tee /proc/sys/kernel/core_pattern"
@@ -101,13 +103,15 @@ function run_bench() {
 #    ssh -o StrictHostKeyChecking=no $node "sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev libboost-all-dev" &
     rsync -a $home_dir $node:$home_dir
 #    ssh -o StrictHostKeyChecking=no $node "killall micro_bench memory_server_term > /dev/null 2>&1"
-    ssh -o StrictHostKeyChecking=no $node "pkill -f micro_bench"
-    ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server_term"
-    ssh -o StrictHostKeyChecking=no $node "pkill -f tpcc"
-    ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server_tpcc"
-    ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server"
-    ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench"
-    ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*"
+    ssh -o StrictHostKeyChecking=no $node "pkill -f micro_bench" &
+    ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server_term" &
+    ssh -o StrictHostKeyChecking=no $node "pkill -f tpcc" &
+    ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server_tpcc" &
+    ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server" &
+    ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench" &
+    ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*" &
+    ssh -o StrictHostKeyChecking=no $node  "sudo mount /dev/sda4 /mnt/core_dump" &
+
 #    ssh -o StrictHostKeyChecking=no $node "sudo /etc/init.d/openibd restart"
 #    ssh -o StrictHostKeyChecking=no $node "sudo mst start"
 #    ssh -o StrictHostKeyChecking=no $node "echo '/proj/purduedb-PG0/logs/core$node' | sudo tee /proc/sys/kernel/core_pattern"
@@ -120,8 +124,8 @@ function run_bench() {
 
 
 #  systemctl status opensmd.service
-    sudo /etc/init.d/openibd restart
-    sudo mst start
+#    sudo /etc/init.d/openibd restart
+#    sudo mst start
 
 
 	}
