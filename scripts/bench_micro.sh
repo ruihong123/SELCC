@@ -110,6 +110,7 @@ run() {
   	read -r -a memcached_node <<< $(head -n 1 $SRC_HOME/memcached_ip.conf)
   	echo "restart memcached on ${memcached_node[0]}"
     ssh -o StrictHostKeyChecking=no ${memcached_node[0]} "sudo service memcached restart"
+
     if [ $size_grow = 1  ]; then
       remote_mem_size=$(($remote_mem_size_base*$compute_num))
     else
