@@ -336,7 +336,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                 }
 
                 //we prioritize the shared ratio over other parameters
-                if (i <= STEPS*l_shared_ratio/100) {
+                if (i < STEPS*l_shared_ratio/100) {
                     GlobalAddress addr;
                     size_t v_size;
 
