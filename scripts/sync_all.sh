@@ -91,8 +91,8 @@ function run_bench() {
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server"
     ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench"
     ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*"
-    ssh -o StrictHostKeyChecking=no ${memcached_node[0]} "sudo /etc/init.d/openibd restart"
-    ssh -o StrictHostKeyChecking=no ${memcached_node[0]} "sudo mst start"
+    ssh -o StrictHostKeyChecking=no $node "sudo /etc/init.d/openibd restart"
+    ssh -o StrictHostKeyChecking=no $node "sudo mst start"
 #    ssh -o StrictHostKeyChecking=no $node "echo '/proj/purduedb-PG0/logs/core$node' | sudo tee /proc/sys/kernel/core_pattern"
   done
   for node in ${compute_shard[@]}
@@ -108,8 +108,8 @@ function run_bench() {
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server"
     ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench"
     ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*"
-    ssh -o StrictHostKeyChecking=no ${memcached_node[0]} "sudo /etc/init.d/openibd restart"
-    ssh -o StrictHostKeyChecking=no ${memcached_node[0]} "sudo mst start"
+    ssh -o StrictHostKeyChecking=no $node "sudo /etc/init.d/openibd restart"
+    ssh -o StrictHostKeyChecking=no $node "sudo mst start"
 #    ssh -o StrictHostKeyChecking=no $node "echo '/proj/purduedb-PG0/logs/core$node' | sudo tee /proc/sys/kernel/core_pattern"
 
 
