@@ -10,6 +10,7 @@ bin=`dirname "$0"`
 bin=`cd "$bin"; pwd`
 SRC_HOME=$bin/..
 BIN_HOME=$bin/../release
+core_dump_dir="/mnt/core_dump"
 github_repo="https://github.com/ruihong123/MemoryEngine"
 gitbranch="reserved_branch1"
 function run_bench() {
@@ -91,6 +92,8 @@ function run_bench() {
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server" &
     ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench" &
     ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*" &
+    ssh ${ssh_opts} $node "echo '$core_dump_dir/core$compute' | sudo tee /proc/sys/kernel/core_pattern" &
+
 #    ssh -o StrictHostKeyChecking=no $node  "sudo mount /dev/sda4 /mnt/core_dump" &
 
 #    ssh -o StrictHostKeyChecking=no $node "sudo /etc/init.d/openibd restart"
@@ -110,6 +113,8 @@ function run_bench() {
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server" &
     ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench" &
     ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*" &
+    ssh ${ssh_opts} $node "echo '$core_dump_dir/core$compute' | sudo tee /proc/sys/kernel/core_pattern" &
+
 #    ssh -o StrictHostKeyChecking=no $node  "sudo mount /dev/sda4 /mnt/core_dump" &
 
 #    ssh -o StrictHostKeyChecking=no $node "sudo /etc/init.d/openibd restart"
