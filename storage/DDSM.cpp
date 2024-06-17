@@ -29,7 +29,6 @@ namespace DSMEngine {
 #endif
         handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
 #ifdef TIMEPRINT
-
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
             cache_lookup_total[RDMA_Manager::thread_id] += duration.count();
@@ -142,8 +141,16 @@ namespace DSMEngine {
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
         ibv_mr *mr = nullptr;
         Slice page_id((char *) &page_addr, sizeof(GlobalAddress));
-
+#ifdef TIMEPRINT
+        auto start = std::chrono::high_resolution_clock::now();
+#endif
         handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
+#ifdef TIMEPRINT
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+        cache_lookup_total[RDMA_Manager::thread_id] += duration.count();
+        cache_lookup_times[RDMA_Manager::thread_id]++;
+#endif
         assert(handle != nullptr);
         //TODO: unwarp the updater_pre_access.
         handle->updater_pre_access(page_addr, kLeafPageSize, lock_addr, mr);
