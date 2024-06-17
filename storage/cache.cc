@@ -632,7 +632,6 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             // No, because the read here has a optimiaziton for the double check locking
 
             if (remote_lock_status.load() == 0){
-                cache_miss[RDMA_Manager::thread_id][0]++;
                 // upgrade the lock the write lock.
                 //Can we use the std::call_once here?
 #ifdef LOCAL_LOCK_DEBUG
@@ -657,6 +656,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 }
 #endif
                 if (remote_lock_status.load() == 0){
+                    cache_miss[RDMA_Manager::thread_id][0]++;
                     if(value) {
                         mr = (ibv_mr*)value;
                     }else{
@@ -673,6 +673,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                     }
                     rdma_mg->global_Rlock_and_read_page_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr);
                     remote_lock_status.store(1);
+                }else{
+                    cache_hit_valid[RDMA_Manager::thread_id][0]++;
                 }
 #ifdef LOCAL_LOCK_DEBUG
 
