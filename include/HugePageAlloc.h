@@ -19,14 +19,14 @@ namespace DSMEngine{
         void *res = nullptr;
         int ret = 0;
         if (is_mmap_work){
-            res = mmap(NULL, size, PROT_READ | PROT_WRITE,
-                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
-//            void *ptr;
-//            ret = posix_memalign(&res, 1 << 21, size);
-//            if (ret != 0) {
-//                printf("Posix alignment failed\n");
-//            }
-//            madvise(res, size, MADV_HUGEPAGE);
+//            res = mmap(NULL, size, PROT_READ | PROT_WRITE,
+//                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+            void *ptr;
+            ret = posix_memalign(&res, 1 << 21, size);
+            if (ret != 0) {
+                printf("Posix alignment failed\n");
+            }
+            madvise(res, size, MADV_HUGEPAGE);
 
         }
 
