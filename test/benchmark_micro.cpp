@@ -850,6 +850,9 @@ void Benchmark(int id, DDSM* alloc, GlobalAddress *data) {
     WholeopTotal = 0;
     Wholeopcounter = 0;
 #endif
+#ifdef TIMEPRINT
+    Reset_cache_counters();
+#endif
     uint64_t SYNC_RUN_BASE = SYNC_KEY + compute_num * 2;
     int sync_id = SYNC_RUN_BASE + compute_num * node_id + id;
     if (id!= 0){
@@ -1041,7 +1044,9 @@ int main(int argc, char* argv[]) {
 
     // print cache statistics
 //    ddsm->ReportCacheStatistics();
-
+#ifdef TIMEPRINT
+    printf("The average cache look up time elapse is %lu\n", Calculate_cache_counters());
+#endif
     long t_thr = total_throughput;
     long a_thr = total_throughput;
     a_thr /= no_thread;

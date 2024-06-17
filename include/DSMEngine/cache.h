@@ -28,7 +28,10 @@
 
 #include "Config.h"
 #include "storage/rdma.h"
-
+#ifdef TIMEPRINT
+void Reset_cache_counters();
+uint64_t Calculate_cache_counters();
+#endif
 namespace DSMEngine {
 //class RDMA_Manager;
 //class ibv_mr;
@@ -65,6 +68,9 @@ DSMEngine_EXPORT Cache* NewLRUCache(size_t capacity);
 //#define EARLY_LOCK_RELEASE
 //TODO: Early lock release still buggy, the latch sometime will be released twice.
 constexpr uint8_t Invalid_Node_ID = 255;
+
+
+
 class DSMEngine_EXPORT Cache {
  public:
   Cache() = default;

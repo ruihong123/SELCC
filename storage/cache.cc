@@ -25,6 +25,7 @@
 uint64_t cache_miss[MAX_APP_THREAD][8];
 uint64_t cache_hit_valid[MAX_APP_THREAD][8];
 uint64_t invalid_counter[MAX_APP_THREAD][8];
+
 uint64_t lock_fail[MAX_APP_THREAD][8];
 uint64_t pattern[MAX_APP_THREAD][8];
 uint64_t hierarchy_lock[MAX_APP_THREAD][8];
@@ -32,12 +33,33 @@ uint64_t handover_count[MAX_APP_THREAD][8];
 uint64_t hot_filter_count[MAX_APP_THREAD][8];
 uint64_t latency[MAX_APP_THREAD][LATENCY_WINDOWS];
 extern bool Show_Me_The_Print;
+#ifdef TIMEPRINT
+uint64_t cache_lookup_total[MAX_APP_THREAD] = {0};
+uint64_t cache_lookup_times[MAX_APP_THREAD] = {0};
+void Reset_cache_counters(){
+    for (int i = 0; i < MAX_APP_THREAD; ++i) {
+        cache_lookup_total[i] = 0;
+        cache_lookup_times[i] = 0;
+    }
+
+}
+
+uint64_t Calculate_cache_counters(){
+    uint64_t sum = 0;
+    uint64_t times = 0;
+    for (int i = 0; i < MAX_APP_THREAD; ++i) {
+        sum += cache_lookup_total[i];
+        times += cache_lookup_times[i];
+    }
+    return sum/times;
+
+}
+#endif
 int TimePrintCounter[MAX_APP_THREAD];
 namespace DSMEngine {
 //std::atomic<uint64_t> LRUCache::counter = 0;
 RDMA_Manager* Cache::Handle::rdma_mg = nullptr;
 Cache::~Cache() {}
-
 
 
 
