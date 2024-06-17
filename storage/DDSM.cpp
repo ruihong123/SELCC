@@ -33,7 +33,7 @@ namespace DSMEngine {
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
             cache_lookup_total[RDMA_Manager::thread_id] += duration.count();
-            cache_lookup_total[RDMA_Manager::thread_id]++;
+            cache_lookup_times[RDMA_Manager::thread_id]++;
 #endif
         assert(handle != nullptr);
         handle->reader_pre_access(page_addr, kLeafPageSize, lock_addr, mr);
