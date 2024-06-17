@@ -486,8 +486,8 @@ thread_range="1 16"
 remote_range="100"
 shared_range="100"
 size_grow=0 # 0 not grow, 1 grow with node number
-read_range="100"
-space_range="0"
+read_range="0"
+space_range="50"
 time_range="0"
 workload_range="0" # 0 uniform, 1 single zipfian, n >1 multispot zipfian.
 zipfian_alpha_range="0.99" #make sure workload = 1 if we want to test zipfian.
