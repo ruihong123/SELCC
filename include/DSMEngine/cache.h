@@ -62,7 +62,8 @@ class DSMEngine_EXPORT Cache;
 // of Cache uses a least-recently-used eviction policy.
 DSMEngine_EXPORT Cache* NewLRUCache(size_t capacity);
 #define BUFFER_HANDOVER
-#define EARLY_LOCK_RELEASE
+//#define EARLY_LOCK_RELEASE
+//TODO: Early lock release still buggy, the latch sometime will be released twice.
 constexpr uint8_t Invalid_Node_ID = 255;
 class DSMEngine_EXPORT Cache {
  public:
