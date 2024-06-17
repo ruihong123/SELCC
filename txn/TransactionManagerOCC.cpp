@@ -150,14 +150,74 @@ namespace DSMEngine{
     bool TransactionManager::CommitTransaction(TxnContext* context,
                                                TxnParam* param, CharArray& ret_str) {
         PROFILE_TIME_START(thread_id_, CC_COMMIT);
+        uint64_t commit_ts = GlobalTimestamp::GetMonotoneTimestamp();
+
         for (size_t i = 0; i < access_list_.access_count_; ++i) {
             Access* access = access_list_.GetAccess(i);
+            void*  page_buff;
+            Cache::Handle* handle;
+            char* tuple_buffer;
+            GlobalAddress page_gaddr;
+            GlobalAddress &tuple_gaddr = access->access_addr_;
+            page_gaddr = TOPAGE(tuple_gaddr);
+            AccessType access_type = access->access_type_;
+            RecordSchema *schema_ptr = storage_manager_->tables_[access->access_global_record_->GetTableId()]->GetSchema();
+
             //TODO: check the l
-            if (access->access_type_ == DELETE_ONLY) {
+            if (access_type == DELETE_ONLY) {
             //todo: check whether the record version now is larger than the local record, if so,
             // abort the transaction.
-//        gallocators[thread_id_]->Free(access->access_addr_);
-//        access->access_addr_ = Gnullptr;
+
+            }else if (access_type == READ_WRITE || access_type == INSERT_ONLY){
+
+                if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
+                    //No matter write or read we need acquire exclusive latch.
+                    assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
+                    default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
+                    assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
+                    tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+                    access->access_global_record_->ReSetRecordBuff(tuple_buffer, access->access_global_record_->GetRecordSize(), false);
+                    locked_handles_.insert({page_gaddr, {handle, access_type}});
+                }else{
+                    handle = locked_handles_.at(page_gaddr).first;
+                    //TODO: update the hierachical lock atomically, if the lock is shared lock
+                    if (locked_handles_[page_gaddr].second == READ_ONLY){
+                        assert(false);
+                        default_gallocator->PrePage_Upgrade(page_buff, page_gaddr, handle);
+                        locked_handles_[page_gaddr].second = access_type;
+                    }
+                    page_buff = ((ibv_mr*)handle->value)->addr;
+                    tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+                    assert(page_gaddr!=GlobalAddress::Null());
+                    assert(access_type <= READ_WRITE);
+                    access->access_global_record_->ReSetRecordBuff(tuple_buffer, access->access_global_record_->GetRecordSize(), false);
+
+                }
+
+            }else {
+                if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
+                    //No matter write or read we need acquire exclusive latch.
+                    assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
+                    default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
+                    assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
+                    tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+                    access->access_global_record_->ReSetRecordBuff(tuple_buffer, access->access_global_record_->GetRecordSize(), false);
+                    locked_handles_.insert({page_gaddr, {handle, access_type}});
+                }else{
+                    handle = locked_handles_.at(page_gaddr).first;
+                    //TODO: update the hierachical lock atomically, if the lock is shared lock
+                    if (locked_handles_[page_gaddr].second == READ_ONLY){
+                        assert(false);
+                        default_gallocator->PrePage_Upgrade(page_buff, page_gaddr, handle);
+                        locked_handles_[page_gaddr].second = access_type;
+                    }
+                    page_buff = ((ibv_mr*)handle->value)->addr;
+                    tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+                    assert(page_gaddr!=GlobalAddress::Null());
+                    assert(access_type <= READ_WRITE);
+                    access->access_global_record_->ReSetRecordBuff(tuple_buffer, access->access_global_record_->GetRecordSize(), false);
+
+                }
             }
 //        printf("this access index is %zu\n",i);
 //            fflush(stdout);
@@ -171,6 +231,19 @@ namespace DSMEngine{
             }
         }
         access_list_.Clear();
+        for (auto iter : locked_handles_){
+            assert(iter.second.second == READ_ONLY ||
+                   iter.second.second == DELETE_ONLY ||
+                   iter.second.second == INSERT_ONLY ||
+                   iter.second.second == READ_WRITE);
+            if (iter.second.second == READ_ONLY){
+                default_gallocator->PostPage_Read(iter.second.first->gptr, iter.second.first);
+            }
+            else {
+                default_gallocator->PostPage_UpdateOrWrite(iter.second.first->gptr, iter.second.first);
+            }
+            // unlock
+        }
 //        is_first_access_ = true;
         PROFILE_TIME_END(thread_id_, CC_COMMIT);
         return true;

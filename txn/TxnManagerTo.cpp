@@ -5,6 +5,18 @@
 namespace DSMEngine{
         bool TransactionManager::AllocateNewRecord(TxnContext *context, size_t table_id, Cache::Handle *&handle,
                                                    GlobalAddress &tuple_gaddr, Record*& tuple) {
+                if (is_first_access_ == true){
+#if defined(BATCH_TIMESTAMP)
+				if (!batch_ts_.IsAvailable()){
+					batch_ts_.InitTimestamp(GlobalTimestamp::GetBatchMonotoneTimestamp());
+				}
+				start_timestamp_ = batch_ts_.GetTimestamp();
+#else
+				start_timestamp_ = GlobalTimestamp::GetMonotoneTimestamp();
+#endif
+				is_first_access_ = false;
+			}
+
             char* tuple_buffer;
             Table* table = storage_manager_->tables_[table_id];
             //TODO: need to remember the latch, so that the latch can be released when the transaction abort.
@@ -58,6 +70,7 @@ namespace DSMEngine{
             }
             //todo: update the write time stamp here, get the txn timestamp in this function as well.
             tuple = new Record(schema_ptr, tuple_buffer);
+            tuple->PutWTS(start_timestamp_)
             Access* access = access_list_.NewAccess();
             access->access_type_ = INSERT_ONLY;
             access->access_global_record_ = tuple;
@@ -220,7 +233,8 @@ namespace DSMEngine{
                     GlobalAddress &tuple_gaddr = access->access_addr_;
                     page_gaddr = TOPAGE(tuple_gaddr);
                     assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
-                    RecordSchema *schema_ptr = storage_manager_->tables_[access->access_global_record_->GetTableId()]->GetSchema();                    void*  page_buff;
+                    RecordSchema *schema_ptr = storage_manager_->tables_[access->access_global_record_->GetTableId()]->GetSchema();
+                    void*  page_buff;
 
                     //No matter write or read we need acquire exclusive latch.
                     default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);

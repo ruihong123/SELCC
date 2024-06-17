@@ -74,6 +74,9 @@ target_sources(DSMEngine
         "utils/thread_local.cc"
         "utils/thread_local.h"
         "utils/status.cc"
+        "utils/env_posix.h"
+        "utils/env_posix.cc"
+        "utils/status.h"
         "test/zipf.h"
 
         # Only CMake 3.3+ supports PUBLIC sources in targets exported by "install".

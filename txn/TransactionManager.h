@@ -125,7 +125,7 @@ class TransactionManager {
   std::unordered_map<uint64_t , std::pair<Cache::Handle*, int>> locked_handles_;
 #endif
   // lock handles shall also be used for non-lock based algorithm to avoid acquire the same latch twice during the execution.
-#if defined(LOCK)
+#if defined(LOCK) || defined(OCC)
   std::unordered_map<uint64_t , std::pair<Cache::Handle*, AccessType>> locked_handles_;
 
 #endif
