@@ -121,6 +121,7 @@ extern bool Show_Me_The_Print;
 #define SYNC_XALL_OFFSET (16384*2)
 #define GLOBAL_HANDOVER
 #define PARALLEL_INVALIDATION
+//#define OPS_TIMER
 #include "port/thread_annotations.h"
 
 namespace DSMEngine {

@@ -153,6 +153,8 @@ namespace DSMEngine{
             tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
             //TODO: need to remember the latch, so that the latch can be released when the transaction abort.
             if (access_type == READ_ONLY) {
+
+                //TODO: totally rewrite the code below it's totally wrong.
                 uint64_t wts = record->GetWTS();
                 if (wts > start_timestamp_) {
                     default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);

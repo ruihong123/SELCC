@@ -197,9 +197,9 @@ void thread_run(int id) {
 //    uint64_t key = to_key(dis);
 
 //      uint64_t v;
-
+#ifdef OPS_TIMER
     timer.begin();
-
+#endif
 #ifdef BENCH_LOCK
     if (rdma_mg->getMyNodeID() == 0) {
       while (true)
@@ -246,16 +246,18 @@ void thread_run(int id) {
 //          printf("the generated distributed key is %d\n", dis);
 //      }
 #endif
+#ifdef OPS_TIMER
     auto us_10 = timer.end() / 100;
     if (us_10 >= LATENCY_WINDOWS) {
       us_10 = LATENCY_WINDOWS - 1;
     }
     latency[id][us_10]++;
-      if (table_scan&&use_range_query){
-          tp[id][0] += 1000*1000;
-      }else{
-          tp[id][0]++;
-      }
+#endif
+  if (table_scan&&use_range_query){
+      tp[id][0] += 1000*1000;
+  }else{
+      tp[id][0]++;
+  }
 
   }
 
