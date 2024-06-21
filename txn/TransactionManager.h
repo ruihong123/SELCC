@@ -33,8 +33,9 @@ class TransactionManager {
   bool InsertRecord(TxnContext* context, size_t table_id, const IndexKey* keys,
                     size_t key_num, Record *record, Cache::Handle* handle, const GlobalAddress tuple_gaddr);
   // Merge the Latch and unlatch request for tuples within the same global cache line.
-  bool AcquireSLatchForTuple(char*& tuple_buffer,GlobalAddress tuple_gaddr, AccessType access_type);
-  bool AcquireXLatchForTuple(GlobalAddress tuple_addr);
+  bool AcquireLatchForTuple(char*& tuple_buffer,GlobalAddress tuple_gaddr, AccessType access_type);
+  bool AcquireXLatchForTuple(char *&tuple_buffer, GlobalAddress tuple_gaddr, Cache::Handle*& handle);
+  bool AcquireSLatchForTuple(char*& tuple_buffer,GlobalAddress tuple_gaddr,  Cache::Handle*& handle);
   bool ReleaseLatchForTuple(GlobalAddress tuple_addr);
   bool SearchRecord(TxnContext* context, size_t table_id,
                     const IndexKey& primary_key, Record*& record,

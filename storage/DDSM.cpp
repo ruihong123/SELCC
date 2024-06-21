@@ -132,7 +132,7 @@ namespace DSMEngine {
         handle = nullptr;
     }
 
-    void DDSM::PrePage_Update(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
+    void DDSM::PrePage_Update(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *& handle) {
 //        printf("PRE Update page node %d, offset %lu, THIS NODE IS %u\n", page_addr.nodeID, page_addr.offset,RDMA_Manager::node_id);
         assert(TOPAGE(page_addr) == page_addr);
         GlobalAddress lock_addr;

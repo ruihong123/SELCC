@@ -3,6 +3,92 @@
 #include "GlobalTimestamp.h"
 
 namespace DSMEngine{
+    bool TransactionManager::AcquireLatchForTuple(char*& tuple_buffer,GlobalAddress tuple_gaddr, AccessType access_type){
+        GlobalAddress page_gaddr = TOPAGE(tuple_gaddr);
+        assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
+        void*  page_buff;
+        Cache::Handle* handle;
+        if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
+            if (access_type == READ_ONLY) {
+                PROFILE_TIME_START(thread_id_, LOCK_READ);
+                default_gallocator->PrePage_Read(page_buff, page_gaddr, handle);
+                assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
+                tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+                locked_handles_.insert({page_gaddr, {handle, access_type}});
+                assert(page_gaddr!=GlobalAddress::Null());
+                assert(access_type < READ_WRITE);
+                PROFILE_TIME_END(thread_id_, LOCK_READ);
+            }
+            else {
+                // DELETE_ONLY, READ_WRITE
+                PROFILE_TIME_START(thread_id_, LOCK_WRITE);
+                default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
+                assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
+                tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+                locked_handles_.insert({page_gaddr, {handle, access_type}});
+                assert(page_gaddr!=GlobalAddress::Null());
+                assert(access_type <= READ_WRITE);
+                PROFILE_TIME_END(thread_id_, LOCK_WRITE);
+            }
+
+        }else{
+            handle = locked_handles_.at(page_gaddr).first;
+            //TODO: update the hierachical lock atomically, if the lock is shared lock
+            if (access_type > READ_ONLY && locked_handles_[page_gaddr].second == READ_ONLY){
+                assert(false);
+                default_gallocator->PrePage_Upgrade(page_buff, page_gaddr, handle);
+                locked_handles_[page_gaddr].second = access_type;
+            }
+            page_buff = ((ibv_mr*)handle->value)->addr;
+            tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+            assert(page_gaddr!=GlobalAddress::Null());
+            assert(access_type <= READ_WRITE);
+        }
+    }
+
+    bool
+    TransactionManager::AcquireXLatchForTuple(char *&tuple_buffer, GlobalAddress tuple_gaddr, Cache::Handle *&handle) {
+        GlobalAddress page_gaddr = TOPAGE(tuple_gaddr);
+        assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
+        void*  page_buff;
+//        Cache::Handle* handle;
+        PROFILE_TIME_START(thread_id_, LOCK_WRITE);
+
+        if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
+
+                default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
+                assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
+                tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+                locked_handles_.insert({page_gaddr, {handle, 1}});
+                assert(page_gaddr!=GlobalAddress::Null());
+        }else{
+            handle = locked_handles_.at(page_gaddr).first;
+            (locked_handles_)[page_gaddr].second += 1;
+            page_buff = ((ibv_mr*)handle->value)->addr;
+            tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+            assert(page_gaddr!=GlobalAddress::Null());
+        }
+        PROFILE_TIME_END(thread_id_, LOCK_WRITE);
+        return true;
+    }
+
+    bool TransactionManager::ReleaseLatchForTuple(GlobalAddress tuple_addr){
+        GlobalAddress page_gaddr = TOPAGE(tuple_addr);
+        assert(page_gaddr.offset - tuple_addr.offset > STRUCT_OFFSET(DataPage, data_));
+        void*  page_buff;
+        Cache::Handle* handle;
+        if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
+            if ((locked_handles_)[page_gaddr].second == 1){
+                // for TO rules, the latch is always acquired in exclusive mode.
+                default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
+                locked_handles_.erase(page_gaddr);
+            }else{
+                (locked_handles_)[page_gaddr].second -= 1;
+            }
+        }else{
+            assert(false);
+        }
+    }
         bool TransactionManager::AllocateNewRecord(TxnContext *context, size_t table_id, Cache::Handle *&handle,
                                                    GlobalAddress &tuple_gaddr, Record*& tuple) {
             if (is_first_access_ == true){
@@ -132,50 +218,54 @@ namespace DSMEngine{
     // Assert that there is no latch still hold in the before the transaction abort. makesure that txn release the last tuple's,
     // latch access the next one. Never let a transaction holding two latch at the same time!!!!
     bool TransactionManager::SelectRecordCC(TxnContext* context, size_t table_id,
-            Record *&record, const GlobalAddress &tuple_gaddr, AccessType access_type) {
-            if (is_first_access_ == true){
+        Record *&record, const GlobalAddress &tuple_gaddr, AccessType access_type) {
+        if (is_first_access_ == true){
 
-				start_timestamp_ = GlobalTimestamp::GetMonotoneTimestamp();
+            start_timestamp_ = GlobalTimestamp::GetMonotoneTimestamp();
 
-				is_first_access_ = false;
-			}
-            PROFILE_TIME_START(thread_id_, CC_SELECT);
-            GlobalAddress page_gaddr = TOPAGE(tuple_gaddr);
-            assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
-            RecordSchema *schema_ptr = storage_manager_->tables_[table_id]->GetSchema();
-            void*  page_buff;
-            Cache::Handle* handle;
-            char* tuple_buffer;
-            //No matter write or read we need acquire exclusive latch.
-            default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
-            assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
-            tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
-            //TODO: need to remember the latch, so that the latch can be released when the transaction abort.
-            if (access_type == READ_ONLY) {
-
-                //TODO: totally rewrite the code below it's totally wrong.
-                uint64_t wts = record->GetWTS();
-                if (wts > start_timestamp_) {
-                    default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
-
-                    this->AbortTransaction();
-                } else {
-                    record->PutRTS(start_timestamp_);
-                }
-            } else  {
-                //Read_Write, Delete_Only, Insert_Only
-                uint64_t rts = record->GetRTS();
-                uint64_t wts = record->GetWTS();
-                if (rts > start_timestamp_ || wts > start_timestamp_) {
-                    default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
-                    this->AbortTransaction();
-                } else {
-                    record->PutWTS(start_timestamp_);
-                }
-            }
+            is_first_access_ = false;
+        }
+        PROFILE_TIME_START(thread_id_, CC_SELECT);
+        GlobalAddress page_gaddr = TOPAGE(tuple_gaddr);
+        assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
+        RecordSchema *schema_ptr = storage_manager_->tables_[table_id]->GetSchema();
+        void*  page_buff;
+        Cache::Handle* handle;
+        char* tuple_buffer;
+        //No matter write or read we need acquire exclusive latch.
+//            default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
+        AcquireXLatchForTuple(tuple_buffer, tuple_gaddr, handle);
+        assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
+        tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
         record = new Record(schema_ptr, tuple_buffer);
         record->Set_Handle(handle);
 
+
+
+        //TODO: need to remember the latch, so that the latch can be released when the transaction abort.
+        if (access_type == READ_ONLY) {
+
+
+            //TODO: totally rewrite the code below it's totally wrong.
+            uint64_t wts = record->GetWTS();
+            if (wts > start_timestamp_) {
+                default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
+
+                this->AbortTransaction();
+            } else {
+                record->PutRTS(start_timestamp_);
+            }
+        } else  {
+            //Read_Write, Delete_Only, Insert_Only
+            uint64_t rts = record->GetRTS();
+            uint64_t wts = record->GetWTS();
+            if (rts > start_timestamp_ || wts > start_timestamp_) {
+                default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
+                this->AbortTransaction();
+            } else {
+                record->PutWTS(start_timestamp_);
+            }
+        }
         Access* access = access_list_.NewAccess();
         access->access_type_ = access_type;
         access->access_global_record_ = record;
@@ -223,7 +313,7 @@ namespace DSMEngine{
 
 		void TransactionManager::AbortTransaction() {
             PROFILE_TIME_START(thread_id_, CC_ABORT);
-
+            //TODO: use AcquireXLatchForTuple to acquire the latch for roll back and release it altogether in the end.
             for (size_t i = 0; i < access_list_.access_count_; ++i) {
                 Access* access = access_list_.GetAccess(i);
                 GlobalAddress page_gaddr;
@@ -271,48 +361,7 @@ namespace DSMEngine{
 
         }
 
-    bool TransactionManager::AcquireSLatchForTuple(char*& tuple_buffer,GlobalAddress tuple_gaddr, AccessType access_type){
-            GlobalAddress page_gaddr = TOPAGE(tuple_gaddr);
-            assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
-            void*  page_buff;
-            Cache::Handle* handle;
-            if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
-                if (access_type == READ_ONLY) {
-                    PROFILE_TIME_START(thread_id_, LOCK_READ);
-                    default_gallocator->PrePage_Read(page_buff, page_gaddr, handle);
-                    assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
-                    tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
-                    locked_handles_.insert({page_gaddr, {handle, access_type}});
-                    assert(page_gaddr!=GlobalAddress::Null());
-                    assert(access_type < READ_WRITE);
-                    PROFILE_TIME_END(thread_id_, LOCK_READ);
-                }
-                else {
-                    // DELETE_ONLY, READ_WRITE
-                    PROFILE_TIME_START(thread_id_, LOCK_WRITE);
-                    default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
-                    assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
-                    tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
-                    locked_handles_.insert({page_gaddr, {handle, access_type}});
-                    assert(page_gaddr!=GlobalAddress::Null());
-                    assert(access_type <= READ_WRITE);
-                    PROFILE_TIME_END(thread_id_, LOCK_WRITE);
-                }
 
-            }else{
-                handle = locked_handles_.at(page_gaddr).first;
-                //TODO: update the hierachical lock atomically, if the lock is shared lock
-                if (access_type > READ_ONLY && locked_handles_[page_gaddr].second == READ_ONLY){
-                    assert(false);
-                    default_gallocator->PrePage_Upgrade(page_buff, page_gaddr, handle);
-                    locked_handles_[page_gaddr].second = access_type;
-                }
-                page_buff = ((ibv_mr*)handle->value)->addr;
-                tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
-                assert(page_gaddr!=GlobalAddress::Null());
-                assert(access_type <= READ_WRITE);
-            }
-    }
 }
 
 #endif
