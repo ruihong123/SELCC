@@ -116,7 +116,7 @@ namespace DSMEngine{
             char* tuple_buffer;
             //TODO: need to remember the latch, so that the latch can be released when the transaction abort.
             if (access_type == READ_ONLY) {
-                uint64_t wts = record->GetWTS();
+//                uint64_t wts = record->GetWTS();
                 default_gallocator->PrePage_Read(page_buff, page_gaddr, handle);
 
             } else  {
@@ -127,21 +127,17 @@ namespace DSMEngine{
         assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
         tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
 
-        record = new Record(schema_ptr, tuple_buffer);
-        record->Set_Handle(handle);
+//        record->Set_Handle(handle);
 
         Access* access = access_list_.NewAccess();
         access->access_type_ = access_type;
-        access->access_global_record_ = record;
+        access->access_global_record_ = new Record(schema_ptr, tuple_buffer);
+        record = new Record(schema_ptr);
+        record->CopyFrom(access->access_global_record_);
+        access->txn_local_tuple_ = record;
         access->access_addr_ = tuple_gaddr;
         if (access_type == DELETE_ONLY) {
             record->SetVisible(false);
-        }
-        if (access_type == READ_WRITE) {
-            // local tuple servers as the roll back tuple, in TO transaction concurrency control.
-            Record* local_tuple = new Record(schema_ptr);
-            local_tuple->CopyFrom(record);
-            access->txn_local_tuple_ = local_tuple;
         }
         PROFILE_TIME_END(thread_id_, CC_SELECT);
         return true;
@@ -151,7 +147,7 @@ namespace DSMEngine{
                                                TxnParam* param, CharArray& ret_str) {
         PROFILE_TIME_START(thread_id_, CC_COMMIT);
         uint64_t commit_ts = GlobalTimestamp::GetMonotoneTimestamp();
-
+        // First let us check whether the transaciton need to abort. (validate stage)
         for (size_t i = 0; i < access_list_.access_count_; ++i) {
             Access* access = access_list_.GetAccess(i);
             void*  page_buff;
@@ -177,7 +173,13 @@ namespace DSMEngine{
                     assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
                     tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
                     access->access_global_record_->ReSetRecordBuff(tuple_buffer, access->access_global_record_->GetRecordSize(), false);
+//                    access->access_global_record_->CopyFrom(access->txn_local_tuple_);
+//                    access->access_global_record_->PutWTS(commit_ts);
                     locked_handles_.insert({page_gaddr, {handle, access_type}});
+                    if (access->access_global_record_->GetWTS() > access->txn_local_tuple_->GetWTS()){
+                        AbortTransaction();
+                        return false;
+                    }
                 }else{
                     handle = locked_handles_.at(page_gaddr).first;
                     //TODO: update the hierachical lock atomically, if the lock is shared lock
@@ -191,6 +193,10 @@ namespace DSMEngine{
                     assert(page_gaddr!=GlobalAddress::Null());
                     assert(access_type <= READ_WRITE);
                     access->access_global_record_->ReSetRecordBuff(tuple_buffer, access->access_global_record_->GetRecordSize(), false);
+                    if (access->access_global_record_->GetWTS() > access->txn_local_tuple_->GetWTS()){
+                        AbortTransaction();
+                        return false;
+                    }
 
                 }
 
@@ -203,6 +209,10 @@ namespace DSMEngine{
                     tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
                     access->access_global_record_->ReSetRecordBuff(tuple_buffer, access->access_global_record_->GetRecordSize(), false);
                     locked_handles_.insert({page_gaddr, {handle, access_type}});
+                    if (access->access_global_record_->GetWTS() > access->txn_local_tuple_->GetWTS()){
+                        AbortTransaction();
+                        return false;
+                    }
                 }else{
                     handle = locked_handles_.at(page_gaddr).first;
                     //TODO: update the hierachical lock atomically, if the lock is shared lock
@@ -216,11 +226,22 @@ namespace DSMEngine{
                     assert(page_gaddr!=GlobalAddress::Null());
                     assert(access_type <= READ_WRITE);
                     access->access_global_record_->ReSetRecordBuff(tuple_buffer, access->access_global_record_->GetRecordSize(), false);
-
+                    if (access->access_global_record_->GetWTS() > access->txn_local_tuple_->GetWTS()){
+                        AbortTransaction();
+                        return false;
+                    }
                 }
             }
-//        printf("this access index is %zu\n",i);
-//            fflush(stdout);
+
+        }
+        // Then let us write the data and commit. (commit stage)
+        for (size_t i = 0; i < access_list_.access_count_; ++i) {
+            Access* access = access_list_.GetAccess(i);
+            AccessType access_type = access->access_type_;
+            if (access_type == READ_WRITE || access_type == INSERT_ONLY) {
+                access->access_global_record_->CopyFrom(access->txn_local_tuple_);
+                access->access_global_record_->PutWTS(commit_ts);
+            }
             delete access->access_global_record_;
             access->access_global_record_ = nullptr;
             access->access_addr_ = GlobalAddress::Null();
@@ -251,48 +272,29 @@ namespace DSMEngine{
 
 		void TransactionManager::AbortTransaction() {
             PROFILE_TIME_START(thread_id_, CC_ABORT);
-
             for (size_t i = 0; i < access_list_.access_count_; ++i) {
                 Access* access = access_list_.GetAccess(i);
-                GlobalAddress page_gaddr;
-                Cache::Handle* handle;
-                char* tuple_buffer;
-                if (access->access_type_ != READ_ONLY){
-                    //Refetch the tuple.
-                    GlobalAddress &tuple_gaddr = access->access_addr_;
-                    page_gaddr = TOPAGE(tuple_gaddr);
-                    assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
-                    RecordSchema *schema_ptr = storage_manager_->tables_[access->access_global_record_->GetTableId()]->GetSchema();                    void*  page_buff;
-
-                    //No matter write or read we need acquire exclusive latch.
-                    default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
-                    assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
-                    tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
-                    access->access_global_record_->ReSetRecordBuff(tuple_buffer, access->access_global_record_->GetRecordSize(), false);
-                }
-                if (access->access_type_ == INSERT_ONLY) {
-
-                    access->access_global_record_->SetVisible(false);
-                    delete access->access_global_record_;
-                    access->access_global_record_ = nullptr;
-
-                    //todo: Deallcoate the space of inserted tuples.
-                }
-                else if (access->access_type_ == READ_WRITE){
-                    assert(access->txn_local_tuple_ != nullptr);
-                    //TODO: we need to reacquire the exclusive latch of the global record.
-                    access->access_global_record_->CopyFrom(access->txn_local_tuple_);
-                    delete access->txn_local_tuple_;
-                } else if (access->access_type_ == DELETE_ONLY){
-                    access->access_global_record_->SetVisible(true);
-                }
-                default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
-
+                delete access->txn_local_tuple_;
+                access->txn_local_tuple_ = nullptr;
                 delete access->access_global_record_;
                 access->access_global_record_ = nullptr;
                 access->access_addr_ = GlobalAddress::Null();
             }
 			access_list_.Clear();
+            // Clear the grabbed SELCC latch.
+            for (auto iter : locked_handles_){
+                assert(iter.second.second == READ_ONLY ||
+                       iter.second.second == DELETE_ONLY ||
+                       iter.second.second == INSERT_ONLY ||
+                       iter.second.second == READ_WRITE);
+                if (iter.second.second == READ_ONLY){
+                    default_gallocator->PostPage_Read(iter.second.first->gptr, iter.second.first);
+                }
+                else {
+                    default_gallocator->PostPage_UpdateOrWrite(iter.second.first->gptr, iter.second.first);
+                }
+                // unlock
+            }
             PROFILE_TIME_END(thread_id_, CC_ABORT);
 
         }
