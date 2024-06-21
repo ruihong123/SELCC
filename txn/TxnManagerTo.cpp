@@ -22,7 +22,6 @@ namespace DSMEngine{
             //TODO: need to remember the latch, so that the latch can be released when the transaction abort.
             // besides, the allocatenew tuple function shall be implemented seperated to the one in the table.
             // The table one is for loading wiithout concurrency control considering.
-            // here we shall
             void* page_buffer;
             GlobalAddress* gcl_addr = table->GetOpenedBlock();
             DataPage *page = nullptr;
