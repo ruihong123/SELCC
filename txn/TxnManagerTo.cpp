@@ -5,7 +5,7 @@
 namespace DSMEngine{
         bool TransactionManager::AllocateNewRecord(TxnContext *context, size_t table_id, Cache::Handle *&handle,
                                                    GlobalAddress &tuple_gaddr, Record*& tuple) {
-                if (is_first_access_ == true){
+            if (is_first_access_ == true){
 #if defined(BATCH_TIMESTAMP)
 				if (!batch_ts_.IsAvailable()){
 					batch_ts_.InitTimestamp(GlobalTimestamp::GetBatchMonotoneTimestamp());
@@ -24,13 +24,13 @@ namespace DSMEngine{
             // The table one is for loading wiithout concurrency control considering.
             // here we shall
             void* page_buffer;
-            GlobalAddress* g_addr = table->GetOpenedBlock();
+            GlobalAddress* gcl_addr = table->GetOpenedBlock();
             DataPage *page = nullptr;
             DDSM* gallocator = gallocators[thread_id_];
-            if (g_addr){
-                GlobalAddress cacheline_g_addr = *g_addr;
+            if (gcl_addr){
+                GlobalAddress cacheline_g_addr = *gcl_addr;
                 if (locked_handles_.find(cacheline_g_addr) == locked_handles_.end()){
-                    gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+                    gallocator->PrePage_Update(page_buffer, *gcl_addr, handle);
 //                    if (!gallocator->TryPrePage_Update(page_buffer, *g_addr, handle)){
 //                        return false;
 //                    }
@@ -47,14 +47,14 @@ namespace DSMEngine{
 
                 }
             }else{
-                g_addr = new GlobalAddress();
-                *g_addr = gallocator->Allocate_Remote(Regular_Page);
-                table->SetOpenedBlock(g_addr);
-                gallocator->PrePage_Update(page_buffer, *g_addr, handle);
+                gcl_addr = new GlobalAddress();
+                *gcl_addr = gallocator->Allocate_Remote(Regular_Page);
+                table->SetOpenedBlock(gcl_addr);
+                gallocator->PrePage_Update(page_buffer, *gcl_addr, handle);
 
                 uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*table->GetSchemaSize() +1);
-                page = new(page_buffer) DataPage(*g_addr, cardinality, table_id);
-                (locked_handles_)[*g_addr] = std::pair(handle, 1);
+                page = new(page_buffer) DataPage(*gcl_addr, cardinality, table_id);
+                (locked_handles_)[*gcl_addr] = std::pair(handle, 1);
             }
 //           table->Allo/cateNewTuple(tuple_buffer, tuple_gaddr, handle, default_gallocator, nullptr);
             RecordSchema *schema_ptr = storage_manager_->tables_[table_id]->GetSchema();
@@ -70,7 +70,7 @@ namespace DSMEngine{
             }
             //todo: update the write time stamp here, get the txn timestamp in this function as well.
             tuple = new Record(schema_ptr, tuple_buffer);
-            tuple->PutWTS(start_timestamp_)
+            tuple->PutWTS(start_timestamp_);
             Access* access = access_list_.NewAccess();
             access->access_type_ = INSERT_ONLY;
             access->access_global_record_ = tuple;
