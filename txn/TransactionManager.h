@@ -37,6 +37,8 @@ class TransactionManager {
   bool AcquireXLatchForTuple(char *&tuple_buffer, GlobalAddress tuple_gaddr, Cache::Handle*& handle);
   bool AcquireSLatchForTuple(char*& tuple_buffer,GlobalAddress tuple_gaddr,  Cache::Handle*& handle);
   bool ReleaseLatchForTuple(GlobalAddress tuple_addr);
+    bool ReleaseLatchForGCL(GlobalAddress page_gaddr);
+    bool ClearAllLatches();
   bool SearchRecord(TxnContext* context, size_t table_id,
                     const IndexKey& primary_key, Record*& record,
                     AccessType access_type) {

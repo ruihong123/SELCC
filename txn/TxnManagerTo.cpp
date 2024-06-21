@@ -89,6 +89,33 @@ namespace DSMEngine{
             assert(false);
         }
     }
+
+    bool TransactionManager::ReleaseLatchForGCL(GlobalAddress page_gaddr){
+        void*  page_buff;
+        Cache::Handle* handle;
+        if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
+            if ((locked_handles_)[page_gaddr].second == 1){
+                // for TO rules, the latch is always acquired in exclusive mode.
+                default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
+                locked_handles_.erase(page_gaddr);
+            }else{
+                (locked_handles_)[page_gaddr].second -= 1;
+            }
+        }else{
+            assert(false);
+        }
+    }
+    bool TransactionManager::ClearAllLatches(){
+        for (auto iter : locked_handles_){
+//            if (iter.second.second == READ_ONLY){
+//                default_gallocator->PostPage_Read(iter.second.first->gptr, iter.second.first);
+//            }
+//            else {
+                default_gallocator->PostPage_UpdateOrWrite(iter.second.first->gptr, iter.second.first);
+//            }
+            // unlock
+        }
+    }
         bool TransactionManager::AllocateNewRecord(TxnContext *context, size_t table_id, Cache::Handle *&handle,
                                                    GlobalAddress &tuple_gaddr, Record*& tuple) {
             if (is_first_access_ == true){
@@ -205,7 +232,8 @@ namespace DSMEngine{
             bool ret = storage_manager_->tables_[table_id]->InsertPriIndex(keys, key_num, tuple_gaddr);
             PROFILE_TIME_END(thread_id_, INDEX_INSERT);
             PROFILE_TIME_END(thread_id_, CC_INSERT);
-            gallocators[thread_id_]->PostPage_UpdateOrWrite(TOPAGE(handle->gptr), handle);
+//            gallocators[thread_id_]->PostPage_UpdateOrWrite(TOPAGE(handle->gptr), handle);
+            ReleaseLatchForGCL(handle->gptr);
             return true;
 			//}
 			//else{
@@ -249,7 +277,7 @@ namespace DSMEngine{
             //TODO: totally rewrite the code below it's totally wrong.
             uint64_t wts = record->GetWTS();
             if (wts > start_timestamp_) {
-                default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
+//                default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
 
                 this->AbortTransaction();
             } else {
@@ -260,7 +288,7 @@ namespace DSMEngine{
             uint64_t rts = record->GetRTS();
             uint64_t wts = record->GetWTS();
             if (rts > start_timestamp_ || wts > start_timestamp_) {
-                default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
+//                default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
                 this->AbortTransaction();
             } else {
                 record->PutWTS(start_timestamp_);
@@ -306,6 +334,7 @@ namespace DSMEngine{
             }
         }
         access_list_.Clear();
+        ClearAllLatches();
         is_first_access_ = true;
         PROFILE_TIME_END(thread_id_, CC_COMMIT);
         return true;
@@ -325,12 +354,13 @@ namespace DSMEngine{
                     page_gaddr = TOPAGE(tuple_gaddr);
                     assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
                     RecordSchema *schema_ptr = storage_manager_->tables_[access->access_global_record_->GetTableId()]->GetSchema();
-                    void*  page_buff;
+//                    void*  page_buff;
 
                     //No matter write or read we need acquire exclusive latch.
-                    default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
-                    assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
-                    tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+//                    default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
+                    AcquireXLatchForTuple(tuple_buffer, tuple_gaddr, handle);
+//                    assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
+//                    tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
                     access->access_global_record_->ReSetRecordBuff(tuple_buffer, access->access_global_record_->GetRecordSize(), false);
                 }
                 if (access->access_type_ == INSERT_ONLY) {
@@ -349,14 +379,15 @@ namespace DSMEngine{
                 } else if (access->access_type_ == DELETE_ONLY){
                     access->access_global_record_->SetVisible(true);
                 }
-                default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
+//                default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
 
                 delete access->access_global_record_;
                 access->access_global_record_ = nullptr;
                 access->access_addr_ = GlobalAddress::Null();
             }
 			access_list_.Clear();
-			is_first_access_ = true;
+            ClearAllLatches();
+            is_first_access_ = true;
             PROFILE_TIME_END(thread_id_, CC_ABORT);
 
         }
