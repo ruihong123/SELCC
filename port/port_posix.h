@@ -114,8 +114,8 @@ extern bool Show_Me_The_Print;
 #define ROCKSDB_PTHREAD_ADAPTIVE_MUTEX
 #define RECEIVE_OUTSTANDING_SIZE 128 // used to be 1024
 #define SEND_OUTSTANDING_SIZE_XCOMPUTE 32
-#define SEND_OUTSTANDING_SIZE 8 // Increase this if we have a lot of async ops
-#define ASYNC_UNLOCK
+#define SEND_OUTSTANDING_SIZE 16 // Increase this if we have a lot of async ops
+//#define ASYNC_UNLOCK
 #define INVALIDATION_STATISTICS
 #define ACCESS_MODE 1 // 0 No cache no sharding, 1 cache with CC protocol, 2 sharding.
 #define SYNC_XALL_OFFSET (16384*2)

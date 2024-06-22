@@ -39,6 +39,7 @@
 #include <list>
 #include <cstdint>
 #include "utils/TimeMeasurer.h"
+#include "DSMEngine/cache.h"
 
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -101,7 +102,19 @@ struct Registered_qp_config {
   uint8_t gid[16]; /* gid */
   uint16_t node_id;
 } __attribute__((packed));
-
+class Async_Tasks {
+public:
+    uint32_t counter = 0; /* QP number */
+    void* handles[SEND_OUTSTANDING_SIZE] = {nullptr};
+    void clear(){
+        for (int i = 0; i < counter; ++i) {
+//            handles[i]
+            handles[i] = nullptr;
+        }
+        counter = 0;
+        memset(handles, 0, SEND_OUTSTANDING_SIZE*8);
+    }
+};
 
 struct Registered_qp_config_xcompute {
     uint32_t qp_num[NUM_QP_ACCROSS_COMPUTE]; /* QP numbers */
@@ -531,8 +544,8 @@ class RDMA_Manager {
     bool global_Rlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
                                                     ibv_mr *cas_buffer, int r_time = 0, CoroContext *cxt= nullptr, int coro_id = 0);
 #endif
-    void global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt = nullptr, int coro_id = 0,
-                        bool async = false);
+    bool global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, bool async = false, Cache::Handle *handle = nullptr,
+                        CoroContext *cxt = nullptr, int coro_id = 0);
     //TODO: there is a potential lock upgrade deadlock, how to solve it?
     // potential solution: If not upgrade the lock after sending the message, the node should
     // unlock the read lock and then acquire the write lock by seperated RDMAs.
@@ -556,12 +569,12 @@ class RDMA_Manager {
                                                     ibv_mr *cas_buffer, int r_time = -1, CoroContext *cxt= nullptr, int coro_id = 0);
 #endif
     // THis function acctually does not flush global lock words, otherwise the RDMA write will interfere with RDMA FAA making the CAS failed always
-    void global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
-                                       GlobalAddress remote_lock_addr, bool async = false);
-    void global_write_page_and_WHandover(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, uint8_t next_writer_id,
-                                       GlobalAddress remote_lock_addr, bool async = false);
-    void global_write_page_and_WdowntoR(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
-                                       GlobalAddress remote_lock_addr, bool async = false);
+    bool global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
+                                       GlobalAddress remote_lock_addr, bool async = false, Cache::Handle* handle = nullptr);
+    bool global_write_page_and_WHandover(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, uint8_t next_holder_id,
+                                         GlobalAddress remote_lock_addr, bool async = false, Cache::Handle* handle = nullptr);
+    bool global_write_page_and_WdowntoR(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
+                                       GlobalAddress remote_lock_addr, bool async = false, Cache::Handle* handle = nullptr);
     void global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                        GlobalAddress remote_lock_addr, CoroContext *cxt = nullptr, int coro_id = 0, bool async = false);
     void global_unlock_addr(GlobalAddress remote_lock_add, CoroContext *cxt= nullptr, int coro_id = 0, bool async = false);
@@ -664,7 +677,7 @@ class RDMA_Manager {
   std::map<uint16_t, ThreadLocalPtr*> qp_data_default;
   std::map<uint16_t, ThreadLocalPtr*> cq_data_default;
   std::map<uint16_t, ThreadLocalPtr*> local_read_qp_info;
-    std::map<uint16_t, ThreadLocalPtr*> async_counter;
+    std::map<uint16_t, ThreadLocalPtr*> async_tasks;
     ThreadLocalPtr* read_buffer;
   ThreadLocalPtr* send_message_buffer;
   ThreadLocalPtr* receive_message_buffer;

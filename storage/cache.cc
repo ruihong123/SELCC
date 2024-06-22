@@ -602,7 +602,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                                                  ibv_mr *mr, ibv_mr* cas_mr) {
 
         if (this->remote_lock_status == 1){
-            rdma_mg->global_RUnlock(lock_addr, cas_mr);
+            rdma_mg->global_RUnlock(lock_addr, cas_mr, false, nullptr, nullptr, 0);
             remote_lock_status.store(0);
             //todo: spin wait to avoid write lock starvation.
             if (remote_lock_urged.load() > 1){
@@ -1395,7 +1395,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                                                     ibv_mr *mr, bool need_spin) {
         state_mtx.lock();
         if (this->remote_lock_status == 1){
-            rdma_mg->global_RUnlock(lock_addr, rdma_mg->Get_local_CAS_mr());
+            rdma_mg->global_RUnlock(lock_addr, rdma_mg->Get_local_CAS_mr(), false, nullptr, nullptr, 0);
             remote_lock_status.store(0);
             //spin wait to delay the global latch acquire for other thread and then to prevent write lock starvation.
             // However, it is possible the other thread has already enter the critical section and see the global latch is 0.
@@ -1426,7 +1426,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                     assert(next_holder_id != RDMA_Manager::node_id);
                     printf("Global lock for page %p handover from node %u to node %u part 2\n", page_addr, rdma_mg->node_id, next_holder_id.load());
                     fflush( stdout );
-                    rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, next_holder_id.load(), lock_addr);
+                    rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, next_holder_id.load(), lock_addr,
+                                                             false, nullptr);
                     remote_lock_status.store(0);
 #else
                     rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
