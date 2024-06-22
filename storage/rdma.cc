@@ -6703,6 +6703,10 @@ void RDMA_Manager::fs_deserilization(
                 if(handle->rw_mtx.try_lock()){
                     if (starv_level >= handle->starvation_priority){
                         if ( handle->remote_lock_status.load() == 1){
+                            //TODO: implement async global latch release. the local latch shall be kept until the global latch is released.
+                            // We need call back function on local latch. THink about how to implement it.
+
+
                             global_RUnlock(lock_gptr, cas_mr);
                             handle->remote_lock_status.store(0);
                             reply_type = 1;
