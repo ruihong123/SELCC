@@ -598,7 +598,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
     }
 }
 
-    void Cache::Handle::invalidate_current_entry(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
+    void Cache_Handle::invalidate_current_entry(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
                                                  ibv_mr *mr, ibv_mr* cas_mr) {
 
         if (this->remote_lock_status == 1){
@@ -617,7 +617,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
     }
 
 
-    void Cache::Handle::reader_pre_access(GlobalAddress page_addr, size_t page_size,
+    void Cache_Handle::reader_pre_access(GlobalAddress page_addr, size_t page_size,
                                           GlobalAddress lock_addr, ibv_mr*& mr) {
         assert(page_addr == gptr);
         if (rdma_mg == nullptr){
@@ -727,7 +727,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
 
     }
-    bool Cache::Handle::try_reader_pre_access(GlobalAddress page_addr, size_t page_size,
+    bool Cache_Handle::try_reader_pre_access(GlobalAddress page_addr, size_t page_size,
                                           GlobalAddress lock_addr, ibv_mr*& mr) {
         assert(page_addr == gptr);
         if (rdma_mg == nullptr){
@@ -850,7 +850,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         return true;
     }
 
-    void Cache::Handle::reader_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *mr) {
+    void Cache_Handle::reader_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *mr) {
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
 
 
@@ -885,7 +885,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
     }
 
-    void Cache::Handle::updater_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
+    void Cache_Handle::updater_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
 
         if (rdma_mg == nullptr){
             rdma_mg = RDMA_Manager::Get_Instance(nullptr);
@@ -967,7 +967,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             }
 
     }
-    bool Cache::Handle::try_upgrade_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
+    bool Cache_Handle::try_upgrade_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
 
         if (rdma_mg == nullptr){
             rdma_mg = RDMA_Manager::Get_Instance(nullptr);
@@ -1063,7 +1063,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         }
         return true;
     }
-    bool Cache::Handle::try_updater_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
+    bool Cache_Handle::try_updater_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
 
         if (rdma_mg == nullptr){
             rdma_mg = RDMA_Manager::Get_Instance(nullptr);
@@ -1158,7 +1158,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             }
         return true;
     }
-    void Cache::Handle::upgrade_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
+    void Cache_Handle::upgrade_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
         assert(rw_mtx.issharelocked());
         assert(remote_lock_status == 1);
         if (rdma_mg == nullptr){
@@ -1243,7 +1243,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
     }
 
-    void Cache::Handle::updater_writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
+    void Cache_Handle::updater_writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
 
 //        if (strategy == 1){
 #ifdef LOCAL_LOCK_DEBUG
@@ -1350,7 +1350,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
     }
 
     bool
-    Cache::Handle::global_Rlock_update(ibv_mr * local_mr, GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt,
+    Cache_Handle::global_Rlock_update(ibv_mr * local_mr, GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt,
                                        int coro_id) {
         assert(remote_lock_status.load() == 1);
         bool succfully_updated = rdma_mg->global_Rlock_update(local_mr, lock_addr, cas_buffer, cxt, coro_id);
@@ -1366,7 +1366,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
     }
     //Deprecated temporarilly.
     void
-    Cache::Handle::writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
+    Cache_Handle::writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
         assert(false);
 
 
@@ -1391,7 +1391,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         rw_mtx.unlock();
     }
 //shall be protected by latch outside
-    void Cache::Handle::Invalid_local_by_cached_mes(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
+    void Cache_Handle::Invalid_local_by_cached_mes(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
                                                     ibv_mr *mr, bool need_spin) {
         state_mtx.lock();
         if (this->remote_lock_status == 1){

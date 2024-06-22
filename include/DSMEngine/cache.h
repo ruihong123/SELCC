@@ -69,12 +69,7 @@ DSMEngine_EXPORT Cache* NewLRUCache(size_t capacity);
 //TODO: Early lock release still buggy, the latch sometime will be released twice.
 constexpr uint8_t Invalid_Node_ID = 255;
 
-
-
-class DSMEngine_EXPORT Cache {
- public:
-  Cache() = default;
-    struct Handle {
+    struct Cache_Handle {
     public:
         void* value = nullptr; // NOTE: the value is the pointer to ibv_mr not the buffer!!!! Carefule.
         std::atomic<uint32_t> refs;     // References, including table_cache reference, if present.
@@ -107,8 +102,8 @@ class DSMEngine_EXPORT Cache {
         std::set<uint16_t> holder_ids;
         std::mutex holder_id_mtx;
 #endif
-        void (*deleter)(Cache::Handle* handle);
-        ~Handle(){}
+        void (*deleter)(Cache_Handle* handle);
+        ~Cache_Handle(){}
         void clear_states(){
 //            state_mtx.lock();
             lock_pending_num.store(0);
@@ -147,8 +142,13 @@ class DSMEngine_EXPORT Cache {
         bool global_Rlock_update(ibv_mr *local_mr, GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt = nullptr,
                                  int coro_id = 0);
         void Invalid_local_by_cached_mes(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
-                                                ibv_mr *mr, bool need_spin);
+                                         ibv_mr *mr, bool need_spin);
     };
+
+class DSMEngine_EXPORT Cache {
+ public:
+  Cache() = default;
+    typedef Cache_Handle Handle;
 
   Cache(const Cache&) = delete;
   Cache& operator=(const Cache&) = delete;
