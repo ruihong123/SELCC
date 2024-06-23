@@ -3704,7 +3704,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // todo: the read lock release and then lock acquire is not atomic. we need to develop and atomic way
         // for the lock upgrading to gurantee the correctness of 2 phase locking.
         if (retry_cnt > 1){
-            global_RUnlock(lock_addr, cas_buffer, cxt, coro_id, false);
+            global_RUnlock(lock_addr, cas_buffer, false, nullptr, cxt, coro_id);
 //            printf("Lock upgrade failed, release the lock, address is %p\n", lock_addr);
             return false;
         }
@@ -3768,8 +3768,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         return true;
     }
     //TODO: Implement a sync read unlock function.
-    void RDMA_Manager::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
-                                      bool async) {
+    bool RDMA_Manager::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, bool async, Cache_Handle* handle,
+                                      CoroContext *cxt, int coro_id) {
 //        printf("realse global reader lock on address: %u, %lu, this nodeid: %u\n", lock_addr.nodeID, lock_addr.offset-8, node_id);
         //TODO: Change (RDMA_Manager::node_id/2 +1) to (RDMA_Manager::node_id/2)
         uint64_t add = (1ull);
@@ -3834,6 +3834,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
 
 //        printf("Release read lock for %lu\n", lock_addr.offset-8);
+        return true;
     }
 #else
     // TODO: current implementation can not guarantee the atomicity of lock upgrade if it return success. If there is another
