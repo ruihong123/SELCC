@@ -448,7 +448,7 @@ namespace DSMEngine {
             assert(v.size() == r.GetRecordSize());
             r.ReSetRecord(v.data_reference(), v.size());
         }else{
-            printf("New record inserted at the end of the page\n");
+//            printf("New record inserted at the end of the page\n");
             assert(insert_index < hdr.kLeafCardinality );
             auto r = Record(record_scheme,tuple_start);
             assert(v.size() == r.GetRecordSize());
