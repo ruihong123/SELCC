@@ -386,6 +386,11 @@ class TpccPopulator : public BenchmarkPopulator {
 
       storage_manager_->tables_[ITEM_TABLE_ID]->InsertPriIndex(
               &key, 1, tuple_gaddr);
+#ifndef NDEBUG
+      auto ret = storage_manager_->tables_[WAREHOUSE_TABLE_ID]->SearchPriIndex(
+              key);
+      assert(ret == tuple_gaddr);
+#endif
       gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
   }
 

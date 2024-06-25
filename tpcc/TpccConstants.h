@@ -32,7 +32,7 @@ enum TableType
   HISTORY_TABLE_ID,
   kTableCount
 };
-const int FREQUENCY_DELIVERY = 20;  //0 0
+const int FREQUENCY_DELIVERY = 0;  //0 0
 const int FREQUENCY_PAYMENT = 20; // 43
 const int FREQUENCY_NEW_ORDER = 20; // 45
 const int FREQUENCY_ORDER_STATUS = 20;  //0

@@ -242,10 +242,6 @@ namespace DSMEngine{
 //            local_lock_meta.hand_over = 0;
 //            local_lock_meta.hand_time = 0;
 //        }
-        void set_global_address(GlobalAddress g_ptr){
-
-        }
-
 //        bool try_lock() {
 //            auto currently_locked = __atomic_load_n(&local_lock_meta.local_lock_byte, __ATOMIC_RELAXED);
 //            return !currently_locked &&
