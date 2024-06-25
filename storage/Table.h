@@ -82,6 +82,8 @@ public:
             memcpy(&tuple_gaddr, key_value_pair + sizeof(IndexKey), sizeof(GlobalAddress));
             return tuple_gaddr;
       } else {
+          printf("Key not find\n");
+          fflush(stdout);
           tuple_gaddr = GlobalAddress::Null();
           return tuple_gaddr;
       }
