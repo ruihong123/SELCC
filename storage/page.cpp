@@ -366,8 +366,7 @@ namespace DSMEngine {
         uint16_t insert_index = 0;
         assert(hdr.kLeafCardinality > 0);
         int tuple_length = record_scheme->GetSchemaSize();
-        printf("Page store function entered\n");
-        fflush(stdout);
+
 //#ifndef NDEBUG
 //        if (hdr.last_index >= 0){
 //            char* tuple_last = data_ + hdr.last_index*tuple_length;
@@ -475,6 +474,8 @@ namespace DSMEngine {
 ////        assert(k < hdr.highest  );
 //        assert(k == last_key);
 //#endif
+        printf("Page store function finished, page pointer is %p, last index is %d\n", hdr.this_page_g_ptr, hdr.last_index);
+        fflush(stdout);
         return cnt == hdr.kLeafCardinality;
 #else
         for (int i = 0; i < kLeafCardinality; ++i) {
