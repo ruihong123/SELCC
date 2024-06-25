@@ -3959,6 +3959,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //  we need to consider to implement an synchronized RDMA Read unlocking function.
 //        RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Internal_and_Leaf);
         if (async){
+            assert(false);
             Async_Tasks * tasks = (Async_Tasks *)async_tasks.at(lock_addr.nodeID)->Get();
             if (UNLIKELY(!tasks)){
                 tasks = new Async_Tasks();
@@ -4522,7 +4523,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // Page write back shall never utilize async unlock. because we can not guarantee, whether the page will be overwritten by
         // another thread before the unlock. It is possible this cache buffer is reused by other cache entry.
         if (async){
-//            assert(false);
+            assert(false);
             Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Regular_Page);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
             *(uint64_t*) local_CAS_mr->addr = 0;
@@ -4653,7 +4654,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // Page write back shall never utilize async unlock. because we can not guarantee, whether the page will be overwritten by
         // another thread before the unlock. It is possible this cache buffer is reused by other cache entry.
         if (async){
-//            assert(false);
+            assert(false);
             Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Regular_Page);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
             *(uint64_t*) local_CAS_mr->addr = 0;
@@ -4786,7 +4787,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // Page write back shall never utilize async unlock. because we can not guarantee, whether the page will be overwritten by
         // another thread before the unlock. It is possible this cache buffer is reused by other cache entry.
         if (async){
-//            assert(false);
+            assert(false);
             Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Regular_Page);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
             *(uint64_t*) local_CAS_mr->addr = 0;

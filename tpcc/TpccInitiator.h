@@ -82,9 +82,9 @@ protected:
         new ColumnInfo("w_zip", ValueType::VARCHAR, static_cast<size_t>(9)));
     columns.push_back(new ColumnInfo("w_tax", ValueType::DOUBLE));
     columns.push_back(new ColumnInfo("w_ytd", ValueType::DOUBLE));
-
+    // Padding in the warehouse table to reduce the contention.
       columns.push_back(
-              new ColumnInfo("padding", ValueType::VARCHAR, static_cast<size_t>(512)));
+              new ColumnInfo("padding", ValueType::VARCHAR, static_cast<size_t>(1024)));
 #if defined(TO)
       columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
 #endif
