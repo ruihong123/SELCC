@@ -1284,7 +1284,7 @@ void RDMA_Manager::Put_qp_info_into_RemoteM(uint16_t target_compute_node_id,
     if (poll_completion(wc, 1, std::string("main"),
                         true, target_memory_node_id)){
 //    assert(try_poll_completions(wc, 1, std::string("main"),true) == 0);
-        fprintf(stderr, "failed to poll send for remote memory register\n");
+        fprintf(stderr, "failed to poll send for qp connection\n");
     }
     asm volatile ("sfence\n" : : );
     asm volatile ("lfence\n" : : );
@@ -5906,6 +5906,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
                             true, target_memory_node_id)){
 //    assert(try_poll_completions(wc, 1, std::string("main"),true) == 0);
             fprintf(stderr, "failed to poll send for remote memory register\n");
+            assert(false);
         }
         asm volatile ("sfence\n" : : );
         asm volatile ("lfence\n" : : );
