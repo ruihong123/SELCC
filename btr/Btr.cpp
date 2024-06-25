@@ -118,6 +118,7 @@ namespace DSMEngine {
         if (DSMEngine::RDMA_Manager::node_id == 0){
             // only the first compute node create the root node for index
             g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Regular_Page, 2 * round_robin_cur + 1); // remote allocation.
+            assert(g_root_ptr.load().nodeID == 2 * round_robin_cur + 1);
             printf("root pointer is %d, %lu\n", g_root_ptr.load().nodeID, g_root_ptr.load().offset);
             if(++round_robin_cur == rdma_mg->memory_nodes.size()){
                 round_robin_cur = 0;
