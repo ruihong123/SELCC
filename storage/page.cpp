@@ -230,7 +230,7 @@ namespace DSMEngine {
         return cnt == kInternalCardinality;
     }
 
-#ifdef CACHECOHERENCEPROTOCOL
+//#ifdef CACHECOHERENCEPROTOCOL
     //TODO: make it ordered and ty not use the Sherman write amplification optimization.
     template<class Key, class Value>
     void LeafPage<Key,Value>::leaf_page_search(const Key &k, SearchResult<Key, Value> &result, GlobalAddress g_page_ptr,
@@ -241,6 +241,7 @@ namespace DSMEngine {
         size_t tuple_length = record_scheme->GetSchemaSize();
         char* tuple_start = data_;
         uint16_t left = 0;
+        assert(hdr.last_index >= 0);
         uint16_t right = hdr.last_index;
         uint16_t mid = 0;
 #ifndef NDEBUG
@@ -447,6 +448,7 @@ namespace DSMEngine {
             assert(v.size() == r.GetRecordSize());
             r.ReSetRecord(v.data_reference(), v.size());
         }else{
+            printf("New record inserted at the end of the page\n");
             assert(insert_index < hdr.kLeafCardinality );
             auto r = Record(record_scheme,tuple_start);
             assert(v.size() == r.GetRecordSize());
@@ -605,44 +607,44 @@ namespace DSMEngine {
 
 
 }
-#else
-void LeafPage::leaf_page_search(const Key &k, SearchResult &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr) {
-//    re_read:
-        Value target_value_buff{};
-//        uint8_t front_v = front_version;
-        asm volatile ("sfence\n" : : );
-        asm volatile ("lfence\n" : : );
-        asm volatile ("mfence\n" : : );
-        //TODO: If record verisons are not consistent, we need to reread the page.
-        // or refetch the record. or we just remove the byteaddressable write and then do not
-        // use record level version.
-        for (int i = 0; i < kLeafCardinality; ++i) {
-            auto &r = records[i];
-            while (r.f_version != r.r_version){
-//                ibv_mr target_mr = *local_mr_copied;
-//                exit(0);
-                int offset = ((char*)&r - (char *) this);
-                LADD(local_mr_copied.addr, offset);
-                Btr::rdma_mg->RDMA_Read(GADD(g_page_ptr, offset), &local_mr_copied, sizeof(LeafEntry),IBV_SEND_SIGNALED,1, Internal_and_Leaf);
-
-            }
-            if (r.key == k && r.value != kValueNull ) {
-                assert(r.f_version == r.r_version);
-                target_value_buff = r.value;
-                asm volatile ("sfence\n" : : );
-                asm volatile ("lfence\n" : : );
-                asm volatile ("mfence\n" : : );
-//                uint8_t rear_v = rear_version;
-//                if (front_v!= rear_v)// version checking
-//                    //TODO: reread from the remote side.
-//                    goto re _read;
-
-//                memcpy(result.value_padding, r.value_padding, VALUE_PADDING);
-//      result.value_padding = r.value_padding;
-                break;
-            }
-        }
-        result.val = target_value_buff;
-    }
-}
-#endif
+//#else
+//void LeafPage::leaf_page_search(const Key &k, SearchResult &result, ibv_mr local_mr_copied, GlobalAddress g_page_ptr) {
+////    re_read:
+//        Value target_value_buff{};
+////        uint8_t front_v = front_version;
+//        asm volatile ("sfence\n" : : );
+//        asm volatile ("lfence\n" : : );
+//        asm volatile ("mfence\n" : : );
+//        //TODO: If record verisons are not consistent, we need to reread the page.
+//        // or refetch the record. or we just remove the byteaddressable write and then do not
+//        // use record level version.
+//        for (int i = 0; i < kLeafCardinality; ++i) {
+//            auto &r = records[i];
+//            while (r.f_version != r.r_version){
+////                ibv_mr target_mr = *local_mr_copied;
+////                exit(0);
+//                int offset = ((char*)&r - (char *) this);
+//                LADD(local_mr_copied.addr, offset);
+//                Btr::rdma_mg->RDMA_Read(GADD(g_page_ptr, offset), &local_mr_copied, sizeof(LeafEntry),IBV_SEND_SIGNALED,1, Internal_and_Leaf);
+//
+//            }
+//            if (r.key == k && r.value != kValueNull ) {
+//                assert(r.f_version == r.r_version);
+//                target_value_buff = r.value;
+//                asm volatile ("sfence\n" : : );
+//                asm volatile ("lfence\n" : : );
+//                asm volatile ("mfence\n" : : );
+////                uint8_t rear_v = rear_version;
+////                if (front_v!= rear_v)// version checking
+////                    //TODO: reread from the remote side.
+////                    goto re _read;
+//
+////                memcpy(result.value_padding, r.value_padding, VALUE_PADDING);
+////      result.value_padding = r.value_padding;
+//                break;
+//            }
+//        }
+//        result.val = target_value_buff;
+//    }
+//}
+//#endif
