@@ -463,9 +463,9 @@ class TpccPopulator : public BenchmarkPopulator {
       Cache::Handle *handle = nullptr;
       char* tuple_data_;
       GlobalAddress tuple_gaddr;
-      bool ret = storage_manager_->tables_[CUSTOMER_TABLE_ID]->AllocateNewTuple(
+      bool ret1 = storage_manager_->tables_[CUSTOMER_TABLE_ID]->AllocateNewTuple(
               tuple_data_, tuple_gaddr, handle, gallocator, nullptr);
-      assert(ret == true);
+      assert(ret1 == true);
       Record record_in_cache = Record(storage_manager_->tables_[CUSTOMER_TABLE_ID]->GetSchema(), tuple_data_);
 
       record_in_cache.SetColumn(0, &record_ptr->c_id_);
@@ -494,9 +494,9 @@ class TpccPopulator : public BenchmarkPopulator {
       storage_manager_->tables_[CUSTOMER_TABLE_ID]->InsertPriIndex(
               &key, 1, tuple_gaddr);
 #ifndef NDEBUG
-      ret = storage_manager_->tables_[CUSTOMER_TABLE_ID]->SearchPriIndex(
+      auto ret2 = storage_manager_->tables_[CUSTOMER_TABLE_ID]->SearchPriIndex(
               key);
-      assert(ret == tuple_gaddr);
+      assert(ret2 == tuple_gaddr);
 #endif
       gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
   }
