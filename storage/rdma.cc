@@ -1756,7 +1756,7 @@ int RDMA_Manager::connect_qp_Mside(ibv_qp* qp, std::string& q_id) {
   rc = modify_qp_to_rtr(qp, remote_con_data->qp_num, remote_con_data->lid,
                         remote_con_data->gid);
   if (rc) {
-    fprintf(stderr, "failed to modify QP state to RTR\n");
+    fprintf(stderr, "Node %u failed to modify QP state to RTR\n", node_id);
     goto connect_qp_exit;
   }
   rc = modify_qp_to_rts(qp);
@@ -1839,7 +1839,7 @@ int RDMA_Manager::connect_qp(ibv_qp* qp, std::string& qp_type,
   rc = modify_qp_to_rtr(qp, remote_con_data->qp_num, remote_con_data->lid,
                         remote_con_data->gid);
   if (rc) {
-    fprintf(stderr, "failed to modify QP state to RTR\n");
+    fprintf(stderr, "Node %u failed to modify QP state to RTR\n", node_id);
     goto connect_qp_exit;
   }
   rc = modify_qp_to_rts(qp);
@@ -1891,7 +1891,7 @@ int RDMA_Manager::connect_qp(ibv_qp* qp, Registered_qp_config* remote_con_data) 
   rc = modify_qp_to_rtr(qp, remote_con_data->qp_num, remote_con_data->lid,
                         remote_con_data->gid);
   if (rc) {
-    fprintf(stderr, "failed to modify QP state to RTR\n");
+    fprintf(stderr, "Node %u failed to modify QP state to RTR\n", node_id);
     goto connect_qp_exit;
   }
   rc = modify_qp_to_rts(qp);
@@ -2033,7 +2033,7 @@ int RDMA_Manager::modify_qp_to_rtr(struct ibv_qp* qp, uint32_t remote_qpn,
   flags = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN |
           IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
   rc = ibv_modify_qp(qp, &attr, flags);
-  if (rc) fprintf(stderr, "failed to modify QP state to RTR\n");
+  if (rc) fprintf(stderr, "Node %u failed to modify QP state to RTR\n", node_id);
   return rc;
 }
 /******************************************************************************
