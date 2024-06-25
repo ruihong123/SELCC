@@ -366,7 +366,7 @@ namespace DSMEngine {
         uint16_t insert_index = 0;
         assert(hdr.kLeafCardinality > 0);
         int tuple_length = record_scheme->GetSchemaSize();
-
+        printf("Page store function entered\n");
 //#ifndef NDEBUG
 //        if (hdr.last_index >= 0){
 //            char* tuple_last = data_ + hdr.last_index*tuple_length;
