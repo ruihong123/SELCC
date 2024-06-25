@@ -32,11 +32,7 @@ class DeliveryProcedure : public StoredProcedure {
       int no_o_id = 0;
       district_new_order_record->GetColumn(2, &no_o_id);
       assert(no_o_id != 0);
-#if defined(TO)
-      held_handle_ = ((Cache::Handle*)district_new_order_record->Get_Handle());
-        assert(held_handle_->gptr!=GlobalAddress::Null());
-        gallocators[thread_id_]->PostPage_UpdateOrWrite(held_handle_->gptr, held_handle_);
-#endif
+
       IndexKey new_order_key = GetNewOrderPrimaryKey(no_o_id, no_d_id,
                                                      delivery_param->w_id_);
       //todo: Remember to delete the record.
@@ -56,6 +52,14 @@ class DeliveryProcedure : public StoredProcedure {
         int next_o_id = 1;
         district_new_order_record->SetColumn(2, &next_o_id);
       }
+#if defined(TO)
+        held_handle_ = ((Cache::Handle*)new_order_record->Get_Handle());
+        assert(held_handle_->gptr!=GlobalAddress::Null());
+        transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+        held_handle_ = ((Cache::Handle*)district_new_order_record->Get_Handle());
+        assert(held_handle_->gptr!=GlobalAddress::Null());
+        transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
     }
 
     for (int no_d_id = 1; no_d_id <= DISTRICTS_PER_WAREHOUSE; ++no_d_id) {
@@ -77,6 +81,11 @@ class DeliveryProcedure : public StoredProcedure {
       assert(c_id != 0);
       c_ids[no_d_id - 1] = c_id;
       no_o_ol_cnt[no_d_id - 1] = 0;
+#if defined(TO)
+        held_handle_ = ((Cache::Handle*)order_record->Get_Handle());
+        assert(held_handle_->gptr!=GlobalAddress::Null());
+        transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
     }
 
      for (int no_d_id = 1; no_d_id <= DISTRICTS_PER_WAREHOUSE; ++no_d_id){
@@ -91,6 +100,11 @@ class DeliveryProcedure : public StoredProcedure {
             order_line_record->SetColumn(6, &delivery_param->ol_delivery_d_);
             order_line_record->GetColumn(8, &tmp);
             sum += tmp;
+#if defined(TO)
+             held_handle_ = ((Cache::Handle*)order_line_record->Get_Handle());
+             assert(held_handle_->gptr!=GlobalAddress::Null());
+             transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
          }
 
      	sums[no_d_id - 1] = sum;
@@ -110,6 +124,11 @@ class DeliveryProcedure : public StoredProcedure {
       customer_record->GetColumn(16, &balance);
       balance += sums[no_d_id - 1];
       customer_record->SetColumn(16, &balance);
+#if defined(TO)
+        held_handle_ = ((Cache::Handle*)customer_record->Get_Handle());
+        assert(held_handle_->gptr!=GlobalAddress::Null());
+        transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
     }
 
     for (size_t no_d_id = 1; no_d_id <= DISTRICTS_PER_WAREHOUSE; ++no_d_id) {
@@ -165,6 +184,11 @@ class NewOrderProcedure : public StoredProcedure {
       double ol_amount = ol_quantity * price;
       ol_amounts[i] = ol_amount;
       total += ol_amount;
+#if defined(TO)
+        held_handle_ = ((Cache::Handle*)item_record->Get_Handle());
+        assert(held_handle_->gptr!=GlobalAddress::Null());
+        transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
     }
     // Stock saves the quantity of each item in different warehouse.
     for (size_t i = 0; i < new_order_param->ol_cnt_; ++i) {
@@ -204,6 +228,11 @@ class NewOrderProcedure : public StoredProcedure {
       }
       int dist_column = new_order_param->d_id_ + 2;
       stock_record->GetColumn(dist_column, s_dists[i]);
+#if defined(TO)
+        held_handle_ = ((Cache::Handle*)stock_record->Get_Handle());
+        assert(held_handle_->gptr!=GlobalAddress::Null());
+        transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
     }
     // "getWarehouseTaxRate": "SELECT W_TAX FROM WAREHOUSE WHERE W_ID = ?"
     IndexKey warehouse_key = GetWarehousePrimaryKey(new_order_param->w_id_);
@@ -212,7 +241,11 @@ class NewOrderProcedure : public StoredProcedure {
         SearchRecord(&context_, WAREHOUSE_TABLE_ID, warehouse_key, warehouse_record, (AccessType)new_order_param->warehouse_access_type_));
     double w_tax = 0;
     warehouse_record->GetColumn(7, &w_tax);
-
+#if defined(TO)
+      held_handle_ = ((Cache::Handle*)warehouse_record->Get_Handle());
+      assert(held_handle_->gptr!=GlobalAddress::Null());
+      transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
     // "getDistrict": "SELECT D_TAX, D_NEXT_O_ID FROM DISTRICT WHERE D_ID = ? AND D_W_ID = ?"
     // "incrementNextOrderId": "UPDATE DISTRICT SET D_NEXT_O_ID = ? WHERE D_ID = ? AND D_W_ID = ?"
     IndexKey district_key = GetDistrictPrimaryKey(new_order_param->d_id_,
@@ -229,6 +262,11 @@ class NewOrderProcedure : public StoredProcedure {
     district_record->GetColumn(8, &d_tax);
     int o_id = d_next_o_id + 1;
     district_record->SetColumn(10, &o_id);
+#if defined(TO)
+      held_handle_ = ((Cache::Handle*)district_record->Get_Handle());
+      assert(held_handle_->gptr!=GlobalAddress::Null());
+      transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
     // "getCustomer": "SELECT C_DISCOUNT, C_LAST, C_CREDIT FROM CUSTOMER WHERE C_W_ID = ? AND C_D_ID = ? AND C_ID = ?"
     IndexKey customer_key = GetCustomerPrimaryKey(new_order_param->c_id_,
                                                   new_order_param->d_id_,
@@ -241,6 +279,11 @@ class NewOrderProcedure : public StoredProcedure {
       for (size_t i = 0; i < new_order_param->ol_cnt_; ++i) {
         ol_amounts[i] *= (1 - c_discount)*(1+w_tax+d_tax);
       }
+#if defined(TO)
+      held_handle_ = ((Cache::Handle*)customer_record->Get_Handle());
+      assert(held_handle_->gptr!=GlobalAddress::Null());
+      transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
     //TODO: adjust the ol_amounts[i] by c_discount.
 
     // "createNewOrder": "INSERT INTO NEW_ORDER (NO_O_ID, NO_D_ID, NO_W_ID) VALUES (?, ?, ?)"
@@ -249,7 +292,7 @@ class NewOrderProcedure : public StoredProcedure {
     GlobalAddress new_order_gaddr = GlobalAddress::Null();
     // TODO: need to allocate a allocation in the transaction manager, and make sure that the access_handle for the same
     // cache line was not locked muliple time.
-      Record *new_order_record;
+      Record *new_order_record = nullptr;
 //      = new Record(
 //              transaction_manager_->storage_manager_->tables_[NEW_ORDER_TABLE_ID]->GetSchema(), new_order_buffer);
       DB_QUERY(AllocateNewRecord(&context_, NEW_ORDER_TABLE_ID, new_order_handle, new_order_gaddr,
@@ -390,6 +433,11 @@ class PaymentProcedure : public StoredProcedure {
     ret.size_ += sizeof(w_ytd);
     double new_w_ytd = w_ytd + payment_param->h_amount_;
     warehouse_record->SetColumn(8, &new_w_ytd);
+#if defined(TO)
+      held_handle_ = ((Cache::Handle*)warehouse_record->Get_Handle());
+      assert(held_handle_->gptr!=GlobalAddress::Null());
+      transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
     // "getDistrict": "SELECT D_NAME, D_STREET_1, D_STREET_2, D_CITY, D_STATE, D_ZIP FROM DISTRICT WHERE D_W_ID = ? AND D_ID = ?"
     // "updateDistrictBalance": "UPDATE DISTRICT SET D_YTD = D_YTD + ? WHERE D_W_ID  = ? AND D_ID = ?"
     IndexKey district_key = GetDistrictPrimaryKey(payment_param->d_id_,
@@ -403,7 +451,11 @@ class PaymentProcedure : public StoredProcedure {
     ret.size_ += sizeof(d_ytd);
     double new_d_ytd = d_ytd + payment_param->h_amount_;
     district_record->SetColumn(9, &new_d_ytd);
-
+#if defined(TO)
+      held_handle_ = ((Cache::Handle*)district_record->Get_Handle());
+      assert(held_handle_->gptr!=GlobalAddress::Null());
+      transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
     Record *customer_record = nullptr;
     if (payment_param->c_id_ == -1) {
       // "getCustomersByLastName": "SELECT C_ID, C_FIRST, C_MIDDLE, C_LAST, C_STREET_1, C_STREET_2, C_CITY, C_STATE, C_ZIP, C_PHONE, C_SINCE, C_CREDIT, C_CREDIT_LIM, C_DISCOUNT, C_BALANCE, C_YTD_PAYMENT, C_PAYMENT_CNT, C_DATA FROM CUSTOMER WHERE C_W_ID = ? AND C_D_ID = ? AND C_LAST = ? ORDER BY C_FIRST"
@@ -430,6 +482,11 @@ class PaymentProcedure : public StoredProcedure {
     customer_record->GetColumn(18, &payment_cnt);
     payment_cnt += 1;
     customer_record->SetColumn(18, &payment_cnt);
+#if defined(TO)
+      held_handle_ = ((Cache::Handle*)customer_record->Get_Handle());
+      assert(held_handle_->gptr!=GlobalAddress::Null());
+      transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
     // "insertHistory": "INSERT INTO HISTORY VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       Cache::Handle *history_handle = nullptr;
       char* history_buffer = nullptr;
@@ -493,6 +550,11 @@ class OrderStatusProcedure : public StoredProcedure {
      int ol_cnt = 0;
      order_record->GetColumn(0, &o_id);
      order_record->GetColumn(6, &ol_cnt);
+#if defined(TO)
+      held_handle_ = ((Cache::Handle*)order_record->Get_Handle());
+      assert(held_handle_->gptr!=GlobalAddress::Null());
+      transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
      assert(o_id != 0);
       assert(ol_cnt <= 16);
 
@@ -508,6 +570,11 @@ class OrderStatusProcedure : public StoredProcedure {
           assert(i_id != 0);
           ret.Memcpy(ret.size_, (char*)(&i_id), sizeof(i_id));
           ret.size_ += sizeof(i_id);
+#if defined(TO)
+          held_handle_ = ((Cache::Handle*)order_line_record->Get_Handle());
+          assert(held_handle_->gptr!=GlobalAddress::Null());
+          transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
       }
 
     return transaction_manager_->CommitTransaction(&context_, param, ret);
@@ -532,6 +599,11 @@ class StockLevelProcedure : public StoredProcedure {
 
      int d_next_o_id = 0;
      district_record->GetColumn(10, &d_next_o_id);
+#if defined(TO)
+      held_handle_ = ((Cache::Handle*)district_record->Get_Handle());
+      assert(held_handle_->gptr!=GlobalAddress::Null());
+      transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
      assert(d_next_o_id != 0);
     //TODO: In stock level query, line 526-534it seems that the order key some times can not find a valid record according to the primary index
      size_t count = 0;
@@ -543,6 +615,11 @@ class StockLevelProcedure : public StoredProcedure {
          int ol_cnt = 0;
          order_record->GetColumn(6, &ol_cnt);
          count += ol_cnt;
+#if defined(TO)
+         held_handle_ = ((Cache::Handle*)district_record->Get_Handle());
+         assert(held_handle_->gptr!=GlobalAddress::Null());
+         transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
      }
 
      ret.Memcpy(ret.size_, (char*)(&d_next_o_id), sizeof(int));

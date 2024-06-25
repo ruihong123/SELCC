@@ -102,7 +102,7 @@ namespace DSMEngine {
         //TODO: make the hierachical lock upgrade atomaticlly, currently we release and then acquire the lock.
         bool PrePage_Upgrade(void*& page_buffer, GlobalAddress page_addr, Cache::Handle* handle);
 
-        void PostPage_UpdateOrWrite(GlobalAddress page_addr, Cache::Handle *&handle);
+        void PostPage_UpdateOrWrite(GlobalAddress page_addr, Cache::Handle *handle);
         bool connectMemcached();
         bool disconnectMemcached();
         void memSet(const char *key, uint32_t klen, const char *val, uint32_t vlen);

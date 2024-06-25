@@ -72,11 +72,10 @@ namespace DSMEngine{
         return true;
     }
 
-    bool TransactionManager::ReleaseLatchForTuple(GlobalAddress tuple_addr){
+    void TransactionManager::ReleaseLatchForTuple(GlobalAddress tuple_addr, Cache::Handle *handle) {
         GlobalAddress page_gaddr = TOPAGE(tuple_addr);
         assert(page_gaddr.offset - tuple_addr.offset > STRUCT_OFFSET(DataPage, data_));
         void*  page_buff;
-        Cache::Handle* handle;
         if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
             if ((locked_handles_)[page_gaddr].second == 1){
                 // for TO rules, the latch is always acquired in exclusive mode.
@@ -90,9 +89,9 @@ namespace DSMEngine{
         }
     }
 
-    bool TransactionManager::ReleaseLatchForGCL(GlobalAddress page_gaddr){
+    void TransactionManager::ReleaseLatchForGCL(GlobalAddress page_gaddr, Cache::Handle *handle) {
         void*  page_buff;
-        Cache::Handle* handle;
+//        Cache::Handle* handle;
         if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
             if ((locked_handles_)[page_gaddr].second == 1){
                 // for TO rules, the latch is always acquired in exclusive mode.
@@ -233,7 +232,7 @@ namespace DSMEngine{
             PROFILE_TIME_END(thread_id_, INDEX_INSERT);
             PROFILE_TIME_END(thread_id_, CC_INSERT);
 //            gallocators[thread_id_]->PostPage_UpdateOrWrite(TOPAGE(handle->gptr), handle);
-            ReleaseLatchForGCL(handle->gptr);
+            ReleaseLatchForGCL(handle->gptr, handle);
             return true;
 			//}
 			//else{

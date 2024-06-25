@@ -214,7 +214,7 @@ namespace DSMEngine {
         return true;
     }
 
-    void DDSM::PostPage_UpdateOrWrite(GlobalAddress page_addr, Cache::Handle *&handle) {
+    void DDSM::PostPage_UpdateOrWrite(GlobalAddress page_addr, Cache::Handle *handle) {
 //        printf("POST Update or Write page node %d, offset %lu, THIS NODE IS %u\n", page_addr.nodeID, page_addr.offset,RDMA_Manager::node_id);
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
