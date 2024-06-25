@@ -6108,6 +6108,7 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
       remote_mr.length = CachelineSize;
       ret.nodeID = target_node_id;
       ret.offset = static_cast<char*>(remote_mr.addr) - (char*)base_addr_map_data[target_node_id];
+        assert(ret.offset<69055800320ull);
       return ret;
     } else
       ptr++;
@@ -6131,6 +6132,7 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
         remote_mr.length = name_to_chunksize.at(pool_name);
         ret.nodeID = target_node_id;
         ret.offset = static_cast<char*>(remote_mr.addr) - (char*)base_addr_map_data[target_node_id];
+        assert(ret.offset<69055800320ull);
         return ret;
     }else{
         Remote_Memory_Register(1 * 1024 * 1024 * 1024ull, target_node_id, pool_name);
@@ -6151,6 +6153,7 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
         //    remote_data_mrs->fname = file_name;
         //    remote_data_mrs->map_pointer = mr_last;
         //  DEBUG_arg("Allocate Remote pointer %p",  remote_mr.addr);
+        assert(ret.offset<69055800320ull);
         return ret;
     }
 }
