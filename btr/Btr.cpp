@@ -1592,7 +1592,7 @@ namespace DSMEngine {
                 if (result.level == 0){
 #ifndef NDEBUG
                     // if the root node is the leaf node this path will happen.
-                    printf("root and leaf are the same 1, this tree id is %lu, this node id is %lu\n", tree_id, RDMA_Manager::node_id);
+//                    printf("root and leaf are the same 1, this tree id is %lu, this node id is %lu\n", tree_id, RDMA_Manager::node_id);
 #endif
                     // assert the page is a valid page.
 //                    assert(page->check_whether_globallock_is_unlocked());
@@ -1656,7 +1656,7 @@ namespace DSMEngine {
 #endif
                 // if the root node is the leaf node this path will happen.
 #ifndef NDEBUG
-                printf("root and leaf are the same 1, this tree id is %lu, this node id is %lu\n", tree_id, RDMA_Manager::node_id);
+//                printf("root and leaf are the same 1, this tree id is %lu, this node id is %lu\n", tree_id, RDMA_Manager::node_id);
 #endif                // assert the page is a valid page.
 //                    assert(page->check_whether_globallock_is_unlocked());
                 if (k >= page->hdr.highest){
