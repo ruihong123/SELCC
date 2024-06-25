@@ -1056,6 +1056,7 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
     mr_map_data.insert({target_node_id, global_data_mr});
     base_addr_map_data.insert({target_node_id, (uint64_t)global_data_mr->addr});
     rkey_map_data.insert({target_node_id, (uint64_t)global_data_mr->rkey});
+    assert(global_data_mr->addr != nullptr);
     auto* global_lock_mr = new ibv_mr();
     *global_lock_mr = ((ibv_mr*) temp_receive)[1];
     mr_map_lock.insert({target_node_id, global_lock_mr});
