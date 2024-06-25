@@ -474,8 +474,8 @@ namespace DSMEngine {
 ////        assert(k < hdr.highest  );
 //        assert(k == last_key);
 //#endif
-        printf("Page store function finished, page pointer is %p, last index is %d\n", hdr.this_page_g_ptr, hdr.last_index);
-        fflush(stdout);
+//        printf("Page store function finished, page pointer is %p, last index is %d\n", hdr.this_page_g_ptr, hdr.last_index);
+//        fflush(stdout);
         return cnt == hdr.kLeafCardinality;
 #else
         for (int i = 0; i < kLeafCardinality; ++i) {

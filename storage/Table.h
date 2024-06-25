@@ -67,8 +67,8 @@ public:
     Slice inserted_slice(key_value_pair, 16);
     memcpy(key_value_pair, &keys[0], sizeof(IndexKey));
       memcpy(key_value_pair + sizeof(IndexKey), &tuple_gaddr, sizeof(GlobalAddress));
-      printf("Table INsert INdex has been executed\n");
-      fflush(stdout);
+//      printf("Table INsert INdex has been executed\n");
+//      fflush(stdout);
       primary_index_->insert(keys[0], inserted_slice);
       return true;
   }

@@ -1043,7 +1043,7 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
     //Check whether the connection is on through the hearbeat message. Do not do this !!!
 //    Send_heart_beat();
 
-
+    //TODO: it seems sync those memory region through TPC IP is not very stable. better sync through RDMA.
   if (sock_sync_data(res->sock_map[target_node_id], 4 * sizeof(ibv_mr), temp_send,
                      temp_receive)) /* just send a dummy char back and forth */
     {
