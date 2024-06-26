@@ -2101,7 +2101,11 @@ re_read:
         if(!skip_cache) {
             ddms_->PrePage_Update(page_buffer, page_addr, handle);
             assert(handle != nullptr);
+#if ACCESS_MODE == 1
             assert(((ibv_mr *) handle->value)->addr == page_buffer);
+#elif ACCESS_MODE == 0
+            assert((ibv_mr *) handle->value== page_buffer);
+#endif
             page = (InternalPage<Key> *) page_buffer;
             page_mr = (ibv_mr *) page_cache->Value(handle);
 
