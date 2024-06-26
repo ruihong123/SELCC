@@ -233,6 +233,7 @@ namespace DSMEngine {
 //        assert(((DataPage*)page_buffer)->hdr.this_page_g_ptr == page_addr);
     }
 #elif ACCESS_MODE == 0
+
     bool DDSM::TryPrePage_Read(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;

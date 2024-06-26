@@ -3604,6 +3604,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         return true;
     }
 #if ACCESS_MODE == 0
+//TODO: we need to fall back the RDMA SX latch to the one introduced in Tobias paper, because the current implementation
+// result in too many FAA on the Read bitmap and could result in overflow.
     bool RDMA_Manager::global_Rlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                                                   GlobalAddress lock_addr, ibv_mr* cas_buffer, int r_time, CoroContext *cxt,
                                                                   int coro_id) {
@@ -3661,7 +3663,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 #endif
         uint64_t return_value = *(uint64_t*) cas_buffer->addr;
 #ifndef ASYNC_UNLOCK
-        assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
+//        assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
 #endif
         // TODO: if the starvation bit is on then we release and wait the lock.
         if ((return_value >> 56) > 0){
