@@ -96,7 +96,8 @@ namespace DSMEngine{
             if ((locked_handles_)[page_gaddr].second == 1){
                 // for TO rules, the latch is always acquired in exclusive mode.
                 default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
-                locked_handles_.erase(page_gaddr);
+                auto ret = locked_handles_.erase(page_gaddr);
+                assert(ret == 1);
             }else{
                 (locked_handles_)[page_gaddr].second -= 1;
             }
@@ -114,6 +115,7 @@ namespace DSMEngine{
 //            }
             // unlock
         }
+        locked_handles_.clear();
     }
         bool TransactionManager::AllocateNewRecord(TxnContext *context, size_t table_id, Cache::Handle *&handle,
                                                    GlobalAddress &tuple_gaddr, Record*& tuple) {

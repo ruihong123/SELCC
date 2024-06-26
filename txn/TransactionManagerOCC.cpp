@@ -265,6 +265,7 @@ namespace DSMEngine{
             }
             // unlock
         }
+        locked_handles_.clear();
 //        is_first_access_ = true;
         PROFILE_TIME_END(thread_id_, CC_COMMIT);
         return true;
@@ -295,6 +296,7 @@ namespace DSMEngine{
                 }
                 // unlock
             }
+            locked_handles_.clear();
             PROFILE_TIME_END(thread_id_, CC_ABORT);
 
         }
