@@ -288,6 +288,7 @@ namespace DSMEngine{
 //                default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
 
                 this->AbortTransaction();
+                return false;
             } else {
                 record->PutRTS(start_timestamp_);
             }
@@ -298,6 +299,7 @@ namespace DSMEngine{
             if (rts > start_timestamp_ || wts > start_timestamp_) {
 //                default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
                 this->AbortTransaction();
+                return false;
             } else {
                 record->PutWTS(start_timestamp_);
             }
