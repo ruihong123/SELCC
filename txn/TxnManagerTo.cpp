@@ -308,6 +308,7 @@ namespace DSMEngine{
         }
 
         PROFILE_TIME_END(thread_id_, CC_SELECT);
+        assert(record->schema_ptr_ == storage_manager_->tables_[table_id]->GetSchema());
         return true;
     }
 

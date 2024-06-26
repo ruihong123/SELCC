@@ -596,15 +596,15 @@ class StockLevelProcedure : public StoredProcedure {
      IndexKey district_key = GetDistrictPrimaryKey(stock_level_param->d_id_, stock_level_param->w_id_);
      Record* district_record = nullptr;
      DB_QUERY(SearchRecord(&context_, DISTRICT_TABLE_ID, district_key, district_record, READ_ONLY));
-
      int d_next_o_id = 0;
      district_record->GetColumn(10, &d_next_o_id);
+     assert(d_next_o_id != 0);
+
 #if defined(TO)
       held_handle_ = ((Cache::Handle*)district_record->Get_Handle());
       assert(held_handle_->gptr!=GlobalAddress::Null());
       transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
 #endif
-     assert(d_next_o_id != 0);
     //TODO: In stock level query, line 526-534it seems that the order key some times can not find a valid record according to the primary index
      size_t count = 0;
      for (int o_id = d_next_o_id - 5; o_id < d_next_o_id; ++o_id){
