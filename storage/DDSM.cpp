@@ -360,7 +360,7 @@ namespace DSMEngine {
 
     }
 
-    void DDSM::PostPage_UpdateOrWrite(GlobalAddress page_addr, Cache::Handle *&handle){
+    void DDSM::PostPage_UpdateOrWrite(GlobalAddress page_addr, Cache::Handle * handle){
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
