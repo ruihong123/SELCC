@@ -46,8 +46,8 @@ class TransactionManager {
     GlobalAddress data_addr = storage_manager_->tables_[table_id]->SearchPriIndex(
             primary_key);
 //      assert(TOPAGE(data_addr).offset != data_addr.offset);
-      printf("target data address is %p\n", data_addr);
-      fflush(stdout);
+//      printf("target data address is %p\n", data_addr);
+//      fflush(stdout);
       PROFILE_TIME_END(thread_id_, INDEX_READ);
     if (data_addr != GlobalAddress::Null()) {
       bool ret = SelectRecordCC(context, table_id, record, data_addr,

@@ -4156,7 +4156,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 // >> 56 in case there are concurrent reader
                 //Other computen node handover for me
 //                printf("Global latch handover received at %p, this node is %u\n", page_addr, RDMA_Manager::node_id);
-                fflush(stdout);
+//                fflush(stdout);
                 return true;
             }
             if (last_CAS_return != (*(uint64_t*) cas_buffer->addr)){
@@ -4340,7 +4340,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 // >> 56 in case there are concurrent reader
                 //Other computen node handover for me
 //                printf("Global latch handover received at %p, this node is %u\n", page_addr, RDMA_Manager::node_id);
-                fflush(stdout);
+//                fflush(stdout);
                 ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
                 return;
             }
