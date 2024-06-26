@@ -151,7 +151,7 @@ namespace DSMEngine{
         PROFILE_TIME_END(thread_id_, CC_SELECT);
         return true;
     }
-
+    // Contain validation and commit stages.
     bool TransactionManager::CommitTransaction(TxnContext* context,
                                                TxnParam* param, CharArray& ret_str) {
         PROFILE_TIME_START(thread_id_, CC_COMMIT);
