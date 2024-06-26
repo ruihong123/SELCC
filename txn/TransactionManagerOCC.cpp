@@ -156,6 +156,7 @@ namespace DSMEngine{
                                                TxnParam* param, CharArray& ret_str) {
         PROFILE_TIME_START(thread_id_, CC_COMMIT);
         uint64_t commit_ts = GlobalTimestamp::GetMonotoneTimestamp();
+        assert(locked_handles_.empty());
         // First let us check whether the transaciton need to abort. (validate stage)
         for (size_t i = 0; i < access_list_.access_count_; ++i) {
             Access* access = access_list_.GetAccess(i);
@@ -167,7 +168,6 @@ namespace DSMEngine{
             page_gaddr = TOPAGE(tuple_gaddr);
             AccessType access_type = access->access_type_;
             RecordSchema *schema_ptr = storage_manager_->tables_[access->access_global_record_->GetTableId()]->GetSchema();
-            assert(locked_handles_.empty());
             //TODO: check the l
             if (access_type == DELETE_ONLY) {
             //todo: check whether the record version now is larger than the local record, if so,
