@@ -251,7 +251,6 @@ namespace DSMEngine{
             access->access_global_record_ = nullptr;
             access->access_addr_ = GlobalAddress::Null();
             if (access->txn_local_tuple_!= nullptr){
-                assert(access->access_type_ == READ_WRITE);
                 delete access->txn_local_tuple_;
                 access->txn_local_tuple_ = nullptr;
             }
