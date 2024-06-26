@@ -63,7 +63,7 @@ namespace DSMEngine{
                 assert(page_gaddr!=GlobalAddress::Null());
         }else{
             handle = locked_handles_.at(page_gaddr).first;
-            (locked_handles_)[page_gaddr].second += 1;
+            (locked_handles_).at(page_gaddr).second += 1;
             page_buff = ((ibv_mr*)handle->value)->addr;
             tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
             assert(page_gaddr!=GlobalAddress::Null());
@@ -76,13 +76,13 @@ namespace DSMEngine{
         GlobalAddress page_gaddr = TOPAGE(tuple_addr);
         assert(page_gaddr.offset - tuple_addr.offset > STRUCT_OFFSET(DataPage, data_));
         void*  page_buff;
-        if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
+        if (locked_handles_.find(page_gaddr) != locked_handles_.end()){
             if ((locked_handles_)[page_gaddr].second == 1){
                 // for TO rules, the latch is always acquired in exclusive mode.
                 default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
                 locked_handles_.erase(page_gaddr);
             }else{
-                (locked_handles_)[page_gaddr].second -= 1;
+                (locked_handles_).at(page_gaddr).second -= 1;
             }
         }else{
             assert(false);
@@ -92,7 +92,7 @@ namespace DSMEngine{
     void TransactionManager::ReleaseLatchForGCL(GlobalAddress page_gaddr, Cache::Handle *handle) {
         void*  page_buff;
 //        Cache::Handle* handle;
-        if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
+        if (locked_handles_.find(page_gaddr) != locked_handles_.end()){
             if ((locked_handles_)[page_gaddr].second == 1){
                 // for TO rules, the latch is always acquired in exclusive mode.
                 default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
