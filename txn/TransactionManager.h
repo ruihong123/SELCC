@@ -46,14 +46,17 @@ class TransactionManager {
     GlobalAddress data_addr = storage_manager_->tables_[table_id]->SearchPriIndex(
             primary_key);
 //      assert(TOPAGE(data_addr).offset != data_addr.offset);
-    PROFILE_TIME_END(thread_id_, INDEX_READ);
+      printf("target data address is %p\n", data_addr);
+      fflush(stdout);
+      PROFILE_TIME_END(thread_id_, INDEX_READ);
     if (data_addr != GlobalAddress::Null()) {
       bool ret = SelectRecordCC(context, table_id, record, data_addr,
                                 access_type);
       return ret;
     } else {
-      printf("table_id=%d cannot find the record with  key=%lx",
+      printf("table_id=%d cannot find the record with  key=%lx\n",
           table_id, primary_key);
+        fflush(stdout);
       //Not found return true, and let the caller to handle check whetehr record is still null to figure out
       // whether the tuple is found or not.
       return true;
