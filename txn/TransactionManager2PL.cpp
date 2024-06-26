@@ -122,7 +122,12 @@ namespace DSMEngine {
               default_gallocator->PrePage_Upgrade(page_buff, page_gaddr, handle);
               locked_handles_[page_gaddr].second = access_type;
           }
+          // TODO: change the code below for SEL-DM.
+#if ACCESS_MODE == 1
           page_buff = ((ibv_mr*)handle->value)->addr;
+#elif ACCESS_MODE == 0
+            page_buff = handle->value;
+#endif
           tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
           assert(page_gaddr!=GlobalAddress::Null());
           assert(access_type <= READ_WRITE);
