@@ -1632,7 +1632,11 @@ namespace DSMEngine {
             // page_hint this time.
             ddms_->PrePage_Read(page_buffer, page_addr, handle);
             mr = (ibv_mr*)handle->value;
+#if ACCESS_MODE == 1
             assert(page_buffer == mr->addr);
+#elseif ACCESS_MODE == 0
+            assert(page_buffer == handle->value);
+#endif
             header = (Header_Index<Key> *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
 
             page = (InternalPage<Key> *)page_buffer;
