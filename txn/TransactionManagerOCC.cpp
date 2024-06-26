@@ -92,7 +92,7 @@ namespace DSMEngine{
             bool ret = storage_manager_->tables_[table_id]->InsertPriIndex(keys, key_num, tuple_gaddr);
             PROFILE_TIME_END(thread_id_, INDEX_INSERT);
             PROFILE_TIME_END(thread_id_, CC_INSERT);
-            gallocators[thread_id_]->PostPage_UpdateOrWrite(TOPAGE(handle->gptr), handle);
+//            gallocators[thread_id_]->PostPage_UpdateOrWrite(TOPAGE(handle->gptr), handle);
             return true;
 			//}
 			//else{
@@ -139,6 +139,7 @@ namespace DSMEngine{
         if (access_type == DELETE_ONLY) {
             record->SetVisible(false);
         }
+        default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
         PROFILE_TIME_END(thread_id_, CC_SELECT);
         return true;
     }
