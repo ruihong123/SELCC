@@ -301,7 +301,7 @@ namespace DSMEngine{
 
         }
 
-    bool TransactionManager::AcquireSLatchForTuple(char*& tuple_buffer,GlobalAddress tuple_gaddr, AccessType access_type){
+    bool TransactionManager::AcquireLatchForTuple(char*& tuple_buffer,GlobalAddress tuple_gaddr, AccessType access_type){
             GlobalAddress page_gaddr = TOPAGE(tuple_gaddr);
             assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
             void*  page_buff;
