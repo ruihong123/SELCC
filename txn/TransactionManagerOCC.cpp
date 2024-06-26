@@ -139,7 +139,15 @@ namespace DSMEngine{
         if (access_type == DELETE_ONLY) {
             record->SetVisible(false);
         }
-        default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
+        if (access_type == READ_ONLY) {
+//                uint64_t wts = record->GetWTS();
+            default_gallocator->PostPage_Read(page_gaddr, handle);
+
+        } else  {
+            //Read_Write, Delete_Only, Insert_Only
+            default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
+
+        }
         PROFILE_TIME_END(thread_id_, CC_SELECT);
         return true;
     }
