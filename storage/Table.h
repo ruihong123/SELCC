@@ -216,7 +216,7 @@ public:
           uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*schema_ptr_->GetSchemaSize() +1);
           page = new(page_buffer) DataPage(*g_addr, cardinality, table_id_);
       }
-
+      assert(page->hdr.kDataCardinality > 0);
 
         assert(handle != nullptr);
         assert(page_buffer != nullptr);

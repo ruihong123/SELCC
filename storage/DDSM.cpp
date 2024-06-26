@@ -249,10 +249,12 @@ namespace DSMEngine {
             return false;
         }
 
-        //TODO: maybe we need to copy it to a new buffer to avoid overwrite. or we let the implementation outside this function to handle it
-        page_buffer = mr->addr;
+        // maybe we need to copy it to a new buffer to avoid overwrite.
+        page_buffer = new char[kLeafPageSize];
+        memcpy(page_buffer, mr->addr, kLeafPageSize);
+//        page_buffer = mr->addr;
         handle = new Cache::Handle();
-        handle->value = mr;
+        handle->value = page_buffer;
         handle->gptr = page_addr;
         return true;
     }
@@ -269,9 +271,11 @@ namespace DSMEngine {
         if(!rdma_mg->global_Wlock_and_read_page_without_INVALID(mr, page_addr, kLeafPageSize, lock_addr, cas_mr, 5)){
             return false;
         }
-        page_buffer = mr->addr;
+        page_buffer = new char[kLeafPageSize];
+        memcpy(page_buffer, mr->addr, kLeafPageSize);
+//        page_buffer = mr->addr;
         handle = new Cache::Handle();
-        handle->value = mr;
+        handle->value = page_buffer;
         handle->gptr = page_addr;
         return true;
     }
@@ -298,10 +302,11 @@ namespace DSMEngine {
         ibv_mr *mr = rdma_mg->Get_local_read_mr();
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
         rdma_mg->global_Rlock_and_read_page_without_INVALID(mr, page_addr, kLeafPageSize, lock_addr, cas_mr);
-        page_buffer = mr->addr;
-        //Create a fake handle
+        page_buffer = new char[kLeafPageSize];
+        memcpy(page_buffer, mr->addr, kLeafPageSize);
+//        page_buffer = mr->addr;
         handle = new Cache::Handle();
-        handle->value = mr;
+        handle->value = page_buffer;
         handle->gptr = page_addr;
     }
 
@@ -311,6 +316,7 @@ namespace DSMEngine {
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
         rdma_mg->global_RUnlock(lock_addr, cas_mr);
+        delete[] (char*)handle->value;
         delete handle;
     }
 
@@ -324,10 +330,11 @@ namespace DSMEngine {
         ibv_mr *mr = rdma_mg->Get_local_read_mr();
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
         rdma_mg->global_Wlock_without_INVALID(mr, page_addr, kLeafPageSize, lock_addr, cas_mr);
-        page_buffer = mr->addr;
-        //Create a fake handle
+        page_buffer = new char[kLeafPageSize];
+        memcpy(page_buffer, mr->addr, kLeafPageSize);
+//        page_buffer = mr->addr;
         handle = new Cache::Handle();
-        handle->value = mr;
+        handle->value = page_buffer;
         handle->gptr = page_addr;
 
     }
@@ -338,6 +345,7 @@ namespace DSMEngine {
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
         ibv_mr *local_mr = rdma_mg->Get_local_read_mr();
         rdma_mg->global_write_page_and_Wunlock(local_mr, page_addr, kLeafPageSize, lock_addr);
+        delete[] (char*)handle->value;
         delete handle;
 
     }
@@ -352,10 +360,11 @@ namespace DSMEngine {
         ibv_mr *mr = rdma_mg->Get_local_read_mr();
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
         rdma_mg->global_Wlock_and_read_page_without_INVALID(mr, page_addr, kLeafPageSize, lock_addr, cas_mr);
-        page_buffer = mr->addr;
-        //Create a fake handle
+        page_buffer = new char[kLeafPageSize];
+        memcpy(page_buffer, mr->addr, kLeafPageSize);
+//        page_buffer = mr->addr;
         handle = new Cache::Handle();
-        handle->value = mr;
+        handle->value = page_buffer;
         handle->gptr = page_addr;
 
     }
@@ -366,6 +375,7 @@ namespace DSMEngine {
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
         ibv_mr *local_mr = rdma_mg->Get_local_read_mr();
         rdma_mg->global_write_page_and_Wunlock(local_mr, page_addr, kLeafPageSize, lock_addr);
+        delete[] (char*)handle->value;
         delete handle;
 
     }
