@@ -213,7 +213,7 @@ namespace DSMEngine{
                 if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
                     //No matter write or read we need acquire exclusive latch.
                     assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
-                    default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
+                    default_gallocator->PrePage_Read(page_buff, page_gaddr, handle);
                     assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
                     tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
                     access->access_global_record_->ReSetRecordBuff(tuple_buffer, access->access_global_record_->GetRecordSize(), false);
