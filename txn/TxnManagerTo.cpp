@@ -263,12 +263,21 @@ namespace DSMEngine{
 //            default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
         AcquireXLatchForTuple(tuple_buffer, tuple_gaddr, handle);
         assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
-        tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+//        tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
         record = new Record(schema_ptr, tuple_buffer);
         record->Set_Handle(handle);
 
-
-
+        Access* access = access_list_.NewAccess();
+        access->access_type_ = access_type;
+        access->access_global_record_ = record;
+        access->access_addr_ = tuple_gaddr;
+        if (access_type == READ_WRITE) {
+            // local tuple servers as the roll back tuple, in TO transaction concurrency control.
+            // This has to be done before update the write time stamp.
+            Record* local_tuple = new Record(schema_ptr);
+            local_tuple->CopyFrom(record);
+            access->txn_local_tuple_ = local_tuple;
+        }
         //TODO: need to remember the latch, so that the latch can be released when the transaction abort.
         if (access_type == READ_ONLY) {
 
@@ -293,19 +302,11 @@ namespace DSMEngine{
                 record->PutWTS(start_timestamp_);
             }
         }
-        Access* access = access_list_.NewAccess();
-        access->access_type_ = access_type;
-        access->access_global_record_ = record;
-        access->access_addr_ = tuple_gaddr;
+
         if (access_type == DELETE_ONLY) {
             record->SetVisible(false);
         }
-        if (access_type == READ_WRITE) {
-            // local tuple servers as the roll back tuple, in TO transaction concurrency control.
-            Record* local_tuple = new Record(schema_ptr);
-            local_tuple->CopyFrom(record);
-            access->txn_local_tuple_ = local_tuple;
-        }
+
         PROFILE_TIME_END(thread_id_, CC_SELECT);
         return true;
     }
