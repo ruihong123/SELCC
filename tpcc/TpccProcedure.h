@@ -616,7 +616,7 @@ class StockLevelProcedure : public StoredProcedure {
          order_record->GetColumn(6, &ol_cnt);
          count += ol_cnt;
 #if defined(TO)
-         held_handle_ = ((Cache::Handle*)district_record->Get_Handle());
+         held_handle_ = ((Cache::Handle*)order_record->Get_Handle());
          assert(held_handle_->gptr!=GlobalAddress::Null());
          transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
 #endif
