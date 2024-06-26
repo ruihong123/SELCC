@@ -167,7 +167,7 @@ namespace DSMEngine{
             page_gaddr = TOPAGE(tuple_gaddr);
             AccessType access_type = access->access_type_;
             RecordSchema *schema_ptr = storage_manager_->tables_[access->access_global_record_->GetTableId()]->GetSchema();
-
+            assert(locked_handles_.empty());
             //TODO: check the l
             if (access_type == DELETE_ONLY) {
             //todo: check whether the record version now is larger than the local record, if so,
@@ -225,11 +225,7 @@ namespace DSMEngine{
                 }else{
                     handle = locked_handles_.at(page_gaddr).first;
                     //TODO: update the hierachical lock atomically, if the lock is shared lock
-                    if (locked_handles_[page_gaddr].second == READ_ONLY){
-                        assert(false);
-                        default_gallocator->PrePage_Upgrade(page_buff, page_gaddr, handle);
-                        locked_handles_[page_gaddr].second = access_type;
-                    }
+
                     page_buff = ((ibv_mr*)handle->value)->addr;
                     tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
                     assert(page_gaddr!=GlobalAddress::Null());
