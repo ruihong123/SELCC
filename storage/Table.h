@@ -182,7 +182,7 @@ public:
               }
               (*locked_handles_)[cacheline_g_addr].second = INSERT_ONLY;
 #if ACCESS_MODE == 1
-              page_buff = ((ibv_mr*)handle->value)->addr;
+              page_buffer = ((ibv_mr*)handle->value)->addr;
 #elif ACCESS_MODE == 0
               page_buffer = handle->value;
 #endif
