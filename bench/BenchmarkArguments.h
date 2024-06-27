@@ -85,6 +85,7 @@ namespace DSMEngine {
             PrintUsage();
             exit(0);
         }
+        void* temp_pointer;
         for (int i = 1; i < argc; ++i) {
             if (argv[i][0] != '-') {
                 PrintUsage();
@@ -122,8 +123,7 @@ namespace DSMEngine {
             } else if (argv[i][1] == 'r' && argv[i][2] == 'd' && argv[i][3] == 'e') {
                 FREQUENCY_DELIVERY = atoi(&argv[i][4]);
                 assert(FREQUENCY_DELIVERY!=20);
-                printf("FREQUENCY_DELIVERY address is %p\n", &FREQUENCY_DELIVERY);
-                fflush(stdout);
+                temp_pointer = &FREQUENCY_DELIVERY;
             } else if (argv[i][1] == 'r' && argv[i][2] == 'p' && argv[i][3] == 'a') {
                 FREQUENCY_PAYMENT = atoi(&argv[i][4]);
             } else if (argv[i][1] == 'r' && argv[i][2] == 'n' && argv[i][3] == 'e') {
