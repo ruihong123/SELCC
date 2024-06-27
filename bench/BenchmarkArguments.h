@@ -6,6 +6,7 @@
 #include <cassert>
 #include "Meta.h"
 #include "rdma.h"
+#include "TpccSource.h"
 
 namespace DSMEngine {
     static int app_type = -1;
@@ -25,7 +26,11 @@ namespace DSMEngine {
     static bool gForceRandomAccess = false; // fixed
     static bool gStandard = true;  // true if follow standard specification
 
-
+    static int FREQUENCY_DELIVERY = 20;  //0 0
+    static int FREQUENCY_PAYMENT = 20; // 43
+    static int FREQUENCY_NEW_ORDER = 20; // 45
+    static int FREQUENCY_ORDER_STATUS = 20;  //0
+    static int FREQUENCY_STOCK_LEVEL = 20;  //0
     static void PrintUsage() {
         std::cout << "==========[USAGE]==========" << std::endl;
         std::cout << "\t-pINT: PORT(required)" << std::endl;
@@ -115,15 +120,15 @@ namespace DSMEngine {
                 PrintUsage();
                 exit(0);
             } else if (argv[i][1] == 'r' && argv[i][2] == 'd' && argv[i][3] == 'e') {
-                TpccBenchmark::FREQUENCY_DELIVERY = atoi(&argv[i][4]);
+                FREQUENCY_DELIVERY = atoi(&argv[i][4]);
             } else if (argv[i][1] == 'r' && argv[i][2] == 'p' && argv[i][3] == 'a') {
-                TpccBenchmark::FREQUENCY_PAYMENT = atoi(&argv[i][4]);
+                FREQUENCY_PAYMENT = atoi(&argv[i][4]);
             } else if (argv[i][1] == 'r' && argv[i][2] == 'n' && argv[i][3] == 'e') {
-                TpccBenchmark::FREQUENCY_NEW_ORDER = atoi(&argv[i][4]);
+                FREQUENCY_NEW_ORDER = atoi(&argv[i][4]);
             } else if (argv[i][1] == 'r' && argv[i][2] == 'o' && argv[i][3] == 'r') {
-                TpccBenchmark::FREQUENCY_ORDER_STATUS = atoi(&argv[i][4]);
+                FREQUENCY_ORDER_STATUS = atoi(&argv[i][4]);
             } else if (argv[i][1] == 'r' && argv[i][2] == 's' && argv[i][3] == 't') {
-                TpccBenchmark::FREQUENCY_STOCK_LEVEL = atoi(&argv[i][4]);
+                FREQUENCY_STOCK_LEVEL = atoi(&argv[i][4]);
             } else {
                 PrintUsage();
                 exit(0);
