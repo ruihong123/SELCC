@@ -26,11 +26,11 @@ namespace DSMEngine {
     static bool gForceRandomAccess = false; // fixed
     static bool gStandard = true;  // true if follow standard specification
 
-    static int FREQUENCY_DELIVERY = 0;  //0 0
-    static int FREQUENCY_PAYMENT = 0; // 43
-    static int FREQUENCY_NEW_ORDER = 0; // 45
-    static int FREQUENCY_ORDER_STATUS = 0;  //0
-    static int FREQUENCY_STOCK_LEVEL = 0;  //0
+    static int FREQUENCY_DELIVERY = 20;  //0 0
+    static int FREQUENCY_PAYMENT = 20; // 43
+    static int FREQUENCY_NEW_ORDER = 20; // 45
+    static int FREQUENCY_ORDER_STATUS = 20;  //0
+    static int FREQUENCY_STOCK_LEVEL = 20;  //0
     static void PrintUsage() {
         std::cout << "==========[USAGE]==========" << std::endl;
         std::cout << "\t-pINT: PORT(required)" << std::endl;
@@ -121,6 +121,7 @@ namespace DSMEngine {
                 exit(0);
             } else if (argv[i][1] == 'r' && argv[i][2] == 'd' && argv[i][3] == 'e') {
                 FREQUENCY_DELIVERY = atoi(&argv[i][4]);
+                assert(FREQUENCY_DELIVERY!=20);
             } else if (argv[i][1] == 'r' && argv[i][2] == 'p' && argv[i][3] == 'a') {
                 FREQUENCY_PAYMENT = atoi(&argv[i][4]);
             } else if (argv[i][1] == 'r' && argv[i][2] == 'n' && argv[i][3] == 'e') {
