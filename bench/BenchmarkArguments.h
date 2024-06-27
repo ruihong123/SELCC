@@ -134,6 +134,7 @@ namespace DSMEngine {
                 exit(0);
             }
         }
+        assert(FREQUENCY_DELIVERY!=20);
         printf("Frequencies: %d %d %d %d %d\n", FREQUENCY_DELIVERY, FREQUENCY_PAYMENT, FREQUENCY_NEW_ORDER, FREQUENCY_ORDER_STATUS, FREQUENCY_STOCK_LEVEL);
         ArgumentsChecker();
     }
