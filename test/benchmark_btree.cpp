@@ -33,7 +33,7 @@ uint16_t ThisNodeID;
 uint16_t tcp_port=19843;
 //int kComputeNodeCount;
 //int kMemoryNodeCount;
-bool table_scan = true;
+bool table_scan = false;
 bool use_range_query = true;
 
 //uint64_t kKeySpace = 64 * define::MB;
@@ -42,7 +42,7 @@ uint64_t kKeySpace = 50ull*1024ull*1024ull; // bigdata
 //uint64_t kKeySpace = 50*1024*1024; //cloudlab
 double kWarmRatio = 0.8;
 
-bool use_zipf = false;
+bool use_zipf = true;
 double zipfan =0.99;
 
 std::thread th[kMaxThread];
