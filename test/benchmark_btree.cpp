@@ -33,7 +33,7 @@ uint16_t ThisNodeID;
 uint16_t tcp_port=19843;
 //int kComputeNodeCount;
 //int kMemoryNodeCount;
-bool table_scan = false;
+bool table_scan = true;
 bool use_range_query = true;
 
 //uint64_t kKeySpace = 64 * define::MB;
