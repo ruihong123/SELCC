@@ -84,40 +84,6 @@ class TransactionManager {
                       Record *&record, const GlobalAddress &tuple_gaddr,
                       AccessType access_type);
 
-//  bool TryWLockRecord(const GAddr& data_addr, size_t schema_size) {
-//    epicLog(LOG_DEBUG, "this=%p, data_addr=%lx, schema_size=%d",
-//        this, data_addr, schema_size);
-//    bool success = true;
-//    size_t try_count = 0;
-//    while (gallocators[thread_id_]->Try_WLock(data_addr, schema_size) != 0) {
-//      if (++try_count >= kTryLockLimit) {
-//        success = false;
-//        break;
-//      }
-//    }
-//    return success;
-//  }
-//
-//  bool TryRLockRecord(const GAddr& data_addr, size_t schema_size) {
-//    epicLog(LOG_DEBUG, "this=%p, data_addr=%lx, schema_size=%d",
-//        this, data_addr, schema_size);
-//    bool success = true;
-//    size_t try_count = 0;
-//    while (gallocators[thread_id_]->Try_RLock(data_addr, schema_size) != 0) {
-//      if (++try_count >= kTryLockLimit) {
-//        success = false;
-//        break;
-//      }
-//    }
-//    return success;
-//  }
-
-//  void UnLockRecord(const GAddr &data_addr, size_t schema_size) {
-//    epicLog(LOG_DEBUG, "this=%p, data_addr=%lx, schema_size=%d",
-//        this, data_addr, schema_size);
-//    gallocators[thread_id_]->UnLock(data_addr, schema_size);
-//  }
-
  public:
   StorageManager* storage_manager_;
  protected:

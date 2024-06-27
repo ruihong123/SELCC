@@ -114,6 +114,16 @@ namespace DSMEngine {
             } else if (argv[i][1] == 'h') {
                 PrintUsage();
                 exit(0);
+            } else if (argv[i][1] == 'r' && argv[i][2] == 'd' && argv[i][3] == 'e') {
+                TpccBenchmark::FREQUENCY_DELIVERY = atoi(&argv[i][4]);
+            } else if (argv[i][1] == 'r' && argv[i][2] == 'p' && argv[i][3] == 'a') {
+                TpccBenchmark::FREQUENCY_PAYMENT = atoi(&argv[i][4]);
+            } else if (argv[i][1] == 'r' && argv[i][2] == 'n' && argv[i][3] == 'e') {
+                TpccBenchmark::FREQUENCY_NEW_ORDER = atoi(&argv[i][4]);
+            } else if (argv[i][1] == 'r' && argv[i][2] == 'o' && argv[i][3] == 'r') {
+                TpccBenchmark::FREQUENCY_ORDER_STATUS = atoi(&argv[i][4]);
+            } else if (argv[i][1] == 'r' && argv[i][2] == 's' && argv[i][3] == 't') {
+                TpccBenchmark::FREQUENCY_STOCK_LEVEL = atoi(&argv[i][4]);
             } else {
                 PrintUsage();
                 exit(0);

@@ -107,12 +107,32 @@ vary_read_ratios () {
     compute_ARGS=${old_user_args}
   done
 }
-
 vary_thread_number () {
   #read_ratios=(0 30 50 70 90 100)
   thread_number=(8)
+
+
+  query_ratio=(0 30 50 70 90 100)
+  for qr_index in 0 1 2 3 4; do
   for thread_n in ${thread_number[@]}; do
-    compute_ARGS="-p$port -sf64 -sf1 -c$thread_n -t1000000 -f../connection.conf"
+    compute_ARGS="-p$port -sf64 -sf1 -c$thread_n  -t1000000 -f../connection.conf"
+    run_tpcc
+  done
+}
+
+vary_query_ratio () {
+  #read_ratios=(0 30 50 70 90 100)
+  thread_number=(8)
+  FREQUENCY_DELIVERY = (100 0 0 0 0);
+  FREQUENCY_PAYMENT = (0 100 0 0 0);
+  FREQUENCY_NEW_ORDER = (0 0 100 0 0);
+  FREQUENCY_ORDER_STATUS = (0 0 0 100 0);
+  FREQUENCY_STOCK_LEVEL = (0 0 0 0 100);
+
+  query_ratio=(0 30 50 70 90 100)
+  for qr_index in 0 1 2 3 4; do
+  for thread_n in ${thread_number[@]}; do
+    compute_ARGS="-p$port -sf64 -sf1 -c$thread_n -rde${FREQUENCY_DELIVERY[$qr_index]} -rpa${FREQUENCY_PAYMENT[$qr_index]} -rne${FREQUENCY_NEW_ORDER[$qr_index]} -ror${FREQUENCY_ORDER_STATUS[$qr_index]} -rst${FREQUENCY_STOCK_LEVEL[$qr_index]} -t1000000 -f../connection.conf"
     run_tpcc
   done
 }
@@ -136,6 +156,7 @@ auto_fill_params () {
 auto_fill_params
 # run standard tpcc
 #run_tpcc
-vary_thread_number
+#vary_thread_number
+vary_query_ratio
 # vary_read_ratios
 #vary_temp_locality

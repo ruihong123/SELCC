@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include <cstdio>
-
+#include "TpccSource.h"
 namespace DSMEngine {
 struct PerfStatistics {
   PerfStatistics() {
@@ -30,6 +30,9 @@ struct PerfStatistics {
     printf(
         "this node id: %hu, agg_total_count\t%lld\nagg_total_abort_count\t%lld\nabort_rate\t%lf\n",
         RDMA_Manager::node_id, agg_total_count_, agg_total_abort_count_, abort_rate);
+      printf(
+              "FREQUENCY_PAYMENT is %d\nFREQUENCY_PAYMENT IS %D\nFREQUENCY_NEW_ORDER is %d\nFREQUENCY_ORDER_STATUS is %d\nFREQUENCY_STOCK_LEVEL is %d\n",
+                TpccBenchmark::FREQUENCY_DELIVERY, TpccBenchmark::FREQUENCY_PAYMENT, TpccBenchmark::FREQUENCY_NEW_ORDER, TpccBenchmark::FREQUENCY_ORDER_STATUS, TpccBenchmark::FREQUENCY_STOCK_LEVEL);
     printf(
         "per_node_elapsed_time\t%lf\ntotal_throughput\t%lf\nper_node_throughput\t%lf\nper_core_throughput\t%lf\n",
         agg_elapsed_time_ * 1.0 / agg_node_num_, agg_throughput_,
