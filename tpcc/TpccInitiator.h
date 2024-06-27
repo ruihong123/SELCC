@@ -222,6 +222,9 @@ protected:
     columns.push_back(new ColumnInfo("d_id", ValueType::INT));
     columns.push_back(new ColumnInfo("w_id", ValueType::INT));
     columns.push_back(new ColumnInfo("o_id", ValueType::INT));
+    // Reduce the contention for update.
+    columns.push_back(
+              new ColumnInfo("c_data", ValueType::VARCHAR, static_cast<size_t>(480)));
 #if defined(TO)
       columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
 #endif

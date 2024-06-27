@@ -39,10 +39,7 @@ namespace DSMEngine{
             assert((char*)tuple_buffer - (char*)page_buffer > STRUCT_OFFSET(DataPage, data_));
             assert(((DataPage*)page_buffer)->hdr.this_page_g_ptr != GlobalAddress::Null());
             assert(ret);
-            if(cnt == page->hdr.kDataCardinality){
-                delete gcl_addr;
-                table->SetOpenedBlock(nullptr);
-            }
+
 //           table->Allo/cateNewTuple(tuple_buffer, tuple_gaddr, handle, default_gallocator, nullptr);
             Record* global_record = new Record(schema_ptr, tuple_buffer);
             //Reset the tuple timestamp.
@@ -56,7 +53,10 @@ namespace DSMEngine{
             tuple = local_tuple;
             access->access_addr_ = tuple_gaddr;
             gallocator->PostPage_UpdateOrWrite(*gcl_addr, handle);
-
+            if(cnt == page->hdr.kDataCardinality){
+                delete gcl_addr;
+                table->SetOpenedBlock(nullptr);
+            }
 //        printf("AllocateNewRecord: thread_id=%zu,table_id=%zu,access_type=%u,data_addr=%lx, start SelectRecordCC\n",
 //               thread_id_, table_id, INSERT_ONLY, tuple_gaddr.val);
 //            fflush(stdout);
