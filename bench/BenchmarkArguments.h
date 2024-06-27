@@ -109,6 +109,14 @@ namespace DSMEngine {
                 config_filename = std::string(&argv[i][2]);
             } else if (argv[i][1] == 'z') {
                 gParamBatchSize = atoi(&argv[i][2]);
+            } else if (argv[i][1] == 'r' && argv[i][2] == 'p' && argv[i][3] == 'a') {
+                FREQUENCY_PAYMENT = atoi(&argv[i][4]);
+            } else if (argv[i][1] == 'r' && argv[i][2] == 'n' && argv[i][3] == 'e') {
+                FREQUENCY_NEW_ORDER = atoi(&argv[i][4]);
+            } else if (argv[i][1] == 'r' && argv[i][2] == 'o' && argv[i][3] == 'r') {
+                FREQUENCY_ORDER_STATUS = atoi(&argv[i][4]);
+            } else if (argv[i][1] == 'r' && argv[i][2] == 's' && argv[i][3] == 't') {
+                FREQUENCY_STOCK_LEVEL = atoi(&argv[i][4]);
             } else if (argv[i][1] == 'r') {
                 gReadRatio = atoi(&argv[i][2]);
                 gStandard = false;
@@ -122,16 +130,6 @@ namespace DSMEngine {
                 exit(0);
             } else if (argv[i][1] == 'r' && argv[i][2] == 'd' && argv[i][3] == 'e') {
                 FREQUENCY_DELIVERY = atoi(&argv[i][4]);
-                assert(FREQUENCY_DELIVERY!=20);
-                temp_pointer = &FREQUENCY_DELIVERY;
-            } else if (argv[i][1] == 'r' && argv[i][2] == 'p' && argv[i][3] == 'a') {
-                FREQUENCY_PAYMENT = atoi(&argv[i][4]);
-            } else if (argv[i][1] == 'r' && argv[i][2] == 'n' && argv[i][3] == 'e') {
-                FREQUENCY_NEW_ORDER = atoi(&argv[i][4]);
-            } else if (argv[i][1] == 'r' && argv[i][2] == 'o' && argv[i][3] == 'r') {
-                FREQUENCY_ORDER_STATUS = atoi(&argv[i][4]);
-            } else if (argv[i][1] == 'r' && argv[i][2] == 's' && argv[i][3] == 't') {
-                FREQUENCY_STOCK_LEVEL = atoi(&argv[i][4]);
             } else {
                 PrintUsage();
                 exit(0);
@@ -140,7 +138,7 @@ namespace DSMEngine {
                 assert(FREQUENCY_DELIVERY!=20);
             }
         }
-        assert(FREQUENCY_DELIVERY!=20);
+//        assert(FREQUENCY_DELIVERY!=20);
         printf("Frequencies: %d %d %d %d %d\n", FREQUENCY_DELIVERY, FREQUENCY_PAYMENT, FREQUENCY_NEW_ORDER, FREQUENCY_ORDER_STATUS, FREQUENCY_STOCK_LEVEL);
         ArgumentsChecker();
     }
