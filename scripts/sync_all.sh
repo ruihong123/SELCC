@@ -92,7 +92,7 @@ function run_bench() {
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server" &
     ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench" &
     ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*" &
-#    ssh ${ssh_opts} $node "sudo mkdir /mnt/core_dump && sudo mkfs.ext4 /dev/sda4 && sudo mount /dev/sda4 /mnt/core_dump"
+    ssh ${ssh_opts} $node "sudo mkdir /mnt/core_dump && sudo mkfs.ext4 /dev/sda4 && sudo mount /dev/sda4 /mnt/core_dump"
 
     ssh ${ssh_opts} $node "echo '$core_dump_dir/core$compute' | sudo tee /proc/sys/kernel/core_pattern" &
 #    ssh -o StrictHostKeyChecking=no $node  "sudo mount /dev/sda4 /mnt/core_dump" &
@@ -114,7 +114,7 @@ function run_bench() {
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server" &
     ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench" &
     ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*" &
-#    ssh ${ssh_opts} $node "sudo mkdir /mnt/core_dump && sudo mkfs.ext4 /dev/sda4 && sudo mount /dev/sda4 /mnt/core_dump"
+    ssh ${ssh_opts} $node "sudo mkdir /mnt/core_dump && sudo mkfs.ext4 /dev/sda4 && sudo mount /dev/sda4 /mnt/core_dump"
 
     ssh ${ssh_opts} $node "echo '$core_dump_dir/core$compute' | sudo tee /proc/sys/kernel/core_pattern" &
 
