@@ -1634,7 +1634,7 @@ namespace DSMEngine {
             mr = (ibv_mr*)handle->value;
 #if ACCESS_MODE == 1
             assert(page_buffer == mr->addr);
-#elseif ACCESS_MODE == 0
+#elif ACCESS_MODE == 0
             assert(page_buffer == handle->value);
 #endif
             header = (Header_Index<Key> *) ((char *) page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
