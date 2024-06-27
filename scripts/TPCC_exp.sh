@@ -87,6 +87,7 @@ launch () {
   done
 
   wait
+  sleep 3
   echo "done for ${dist_ratio}"
 }
 

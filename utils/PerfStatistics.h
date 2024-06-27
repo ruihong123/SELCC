@@ -31,7 +31,7 @@ struct PerfStatistics {
         "this node id: %hu, agg_total_count\t%lld\nagg_total_abort_count\t%lld\nabort_rate\t%lf\n",
         RDMA_Manager::node_id, agg_total_count_, agg_total_abort_count_, abort_rate);
       printf(
-              "FREQUENCY_PAYMENT is %d\nFREQUENCY_PAYMENT IS %d\nFREQUENCY_NEW_ORDER is %d\nFREQUENCY_ORDER_STATUS is %d\nFREQUENCY_STOCK_LEVEL is %d\n",
+              "FREQUENCY_DELIVERY is %d\nFREQUENCY_PAYMENT IS %d\nFREQUENCY_NEW_ORDER is %d\nFREQUENCY_ORDER_STATUS is %d\nFREQUENCY_STOCK_LEVEL is %d\n",
                 FREQUENCY_DELIVERY, FREQUENCY_PAYMENT, FREQUENCY_NEW_ORDER, FREQUENCY_ORDER_STATUS, FREQUENCY_STOCK_LEVEL);
     printf(
         "per_node_elapsed_time\t%lf\ntotal_throughput\t%lf\nper_node_throughput\t%lf\nper_core_throughput\t%lf\n",
