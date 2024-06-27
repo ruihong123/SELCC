@@ -117,6 +117,8 @@ namespace DSMEngine {
                 FREQUENCY_ORDER_STATUS = atoi(&argv[i][4]);
             } else if (argv[i][1] == 'r' && argv[i][2] == 's' && argv[i][3] == 't') {
                 FREQUENCY_STOCK_LEVEL = atoi(&argv[i][4]);
+            } else if (argv[i][1] == 'r' && argv[i][2] == 'd' && argv[i][3] == 'e') {
+                FREQUENCY_DELIVERY = atoi(&argv[i][4]);
             } else if (argv[i][1] == 'r') {
                 gReadRatio = atoi(&argv[i][2]);
                 gStandard = false;
@@ -128,8 +130,7 @@ namespace DSMEngine {
             } else if (argv[i][1] == 'h') {
                 PrintUsage();
                 exit(0);
-            } else if (argv[i][1] == 'r' && argv[i][2] == 'd' && argv[i][3] == 'e') {
-                FREQUENCY_DELIVERY = atoi(&argv[i][4]);
+
             } else {
                 PrintUsage();
                 exit(0);
