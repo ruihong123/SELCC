@@ -35,7 +35,7 @@ class DeliveryProcedure : public StoredProcedure {
 
       IndexKey new_order_key = GetNewOrderPrimaryKey(no_o_id, no_d_id,
                                                      delivery_param->w_id_);
-      //todo: Remember to delete the record.
+      //todo: the code below can hold two latch at the same time, potentially result in deadlock.
       Record *new_order_record = nullptr;
         DB_QUERY(SearchRecord(&context_, NEW_ORDER_TABLE_ID,
                               new_order_key, new_order_record,
