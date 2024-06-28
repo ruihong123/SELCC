@@ -44,6 +44,12 @@ class DeliveryProcedure : public StoredProcedure {
         no_o_ids[no_d_id - 1] = no_o_id;
         int next_o_id = no_o_id + 1;
         district_new_order_record->SetColumn(2, &next_o_id);
+#if defined(TO)
+          held_handle_ = ((Cache::Handle*)new_order_record->Get_Handle());
+          assert(held_handle_->gptr!=GlobalAddress::Null());
+          transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+#endif
+
       } else {
         // when cannot find any no_o_id, let next_o_id wrap around again and drop this order delivery
         // TODO: this place should be modified after implementing an efficient index.
@@ -53,9 +59,7 @@ class DeliveryProcedure : public StoredProcedure {
         district_new_order_record->SetColumn(2, &next_o_id);
       }
 #if defined(TO)
-        held_handle_ = ((Cache::Handle*)new_order_record->Get_Handle());
-        assert(held_handle_->gptr!=GlobalAddress::Null());
-        transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+
         held_handle_ = ((Cache::Handle*)district_new_order_record->Get_Handle());
         assert(held_handle_->gptr!=GlobalAddress::Null());
         transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
