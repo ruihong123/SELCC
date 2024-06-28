@@ -157,9 +157,16 @@ namespace DSMEngine{
         PROFILE_TIME_START(thread_id_, CC_COMMIT);
         uint64_t commit_ts = GlobalTimestamp::GetMonotoneTimestamp();
         assert(locked_handles_.empty());
-        // First let us check whether the transaciton need to abort. (validate stage)
+        std::map<uint64_t, Access*> sorted_access;
+        // lock the access list in order to avoid deadlock.
         for (size_t i = 0; i < access_list_.access_count_; ++i) {
             Access* access = access_list_.GetAccess(i);
+            GlobalAddress g_addr = access->access_addr_;
+            sorted_access.insert({g_addr, access});
+        }
+        // First let us check whether the transaciton need to abort. (validate stage)
+        for (auto iter : sorted_access){
+            Access* access = iter.second;
             void*  page_buff;
             Cache::Handle* handle;
             char* tuple_buffer;

@@ -354,9 +354,15 @@ namespace DSMEngine{
 
 		void TransactionManager::AbortTransaction() {
             PROFILE_TIME_START(thread_id_, CC_ABORT);
-            //TODO: use AcquireXLatchForTuple to acquire the latch for roll back and release it altogether in the end.
+            std::map<uint64_t, Access*> sorted_access;
+            // lock the access list in order to avoid deadlock.
             for (size_t i = 0; i < access_list_.access_count_; ++i) {
                 Access* access = access_list_.GetAccess(i);
+                GlobalAddress g_addr = access->access_addr_;
+                sorted_access.insert({g_addr, access});
+            }
+            for (auto iter: sorted_access) {
+                Access* access = iter.second;
                 GlobalAddress page_gaddr;
                 Cache::Handle* handle;
                 char* tuple_buffer;
