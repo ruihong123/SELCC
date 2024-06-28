@@ -36,6 +36,7 @@ class DeliveryProcedure : public StoredProcedure {
       IndexKey new_order_key = GetNewOrderPrimaryKey(no_o_id, no_d_id,
                                                      delivery_param->w_id_);
       //todo: the code below can hold two latch at the same time, potentially result in deadlock.
+      // reimplement the abortion lock acquire to solve this problem.
       Record *new_order_record = nullptr;
         DB_QUERY(SearchRecord(&context_, NEW_ORDER_TABLE_ID,
                               new_order_key, new_order_record,
