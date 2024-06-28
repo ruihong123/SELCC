@@ -15,7 +15,18 @@ using namespace DSMEngine;
 
 void ExchPerfStatistics(ClusterConfig* config, 
     ClusterSync* synchronizer, PerfStatistics* s);
-
+extern uint64_t cache_invalidation[MAX_APP_THREAD];
+extern uint64_t cache_hit_valid[MAX_APP_THREAD][8];
+extern uint64_t cache_miss[MAX_APP_THREAD][8];
+void clear_cache_statistics() {
+    for (int i = 0; i < MAX_APP_THREAD; ++i) {
+        cache_invalidation[i] = 0;
+        for (int j = 0; j < 8; ++j) {
+            cache_hit_valid[i][j] = 0;
+            cache_miss[i][j] = 0;
+        }
+    }
+}
 int main(int argc, char* argv[]) {
   ArgumentsParser(argc, argv);
 
@@ -67,7 +78,8 @@ int main(int argc, char* argv[]) {
     REPORT_PROFILE_TIME(gThreadCount);
   }
     synchronizer.FenceXComputes();
-
+    // clear the cache statistics.
+    clear_cache_statistics();
   {
     // run workload
     INIT_PROFILE_TIME(gThreadCount);
@@ -101,5 +113,6 @@ void ExchPerfStatistics(ClusterConfig* config,
   delete[] stats;
   stats = nullptr;
 }
+
 
 
