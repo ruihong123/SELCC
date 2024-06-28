@@ -50,8 +50,7 @@ namespace DSMEngine{
         }
     }
 
-    bool
-    TransactionManager::AcquireXLatchForTuple(char *&tuple_buffer, GlobalAddress tuple_gaddr, Cache::Handle *&handle) {
+    bool TransactionManager::AcquireXLatchForTuple(char *&tuple_buffer, GlobalAddress tuple_gaddr, Cache::Handle *&handle) {
         GlobalAddress page_gaddr = TOPAGE(tuple_gaddr);
         assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
         void*  page_buff;
