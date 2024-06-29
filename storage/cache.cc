@@ -1411,6 +1411,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                                                     ibv_mr *mr, bool need_spin) {
         state_mtx.lock();
         if (this->remote_lock_status == 1){
+            printf("High pririty invalidation message receive, target gcl is %p\n", page_addr);
+            fflush(stdout);
             rdma_mg->global_RUnlock(lock_addr, rdma_mg->Get_local_CAS_mr(), false, nullptr, nullptr, 0);
             remote_lock_status.store(0);
             //spin wait to delay the global latch acquire for other thread and then to prevent write lock starvation.
