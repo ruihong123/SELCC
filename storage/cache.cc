@@ -875,8 +875,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 timer_begin = std::chrono::high_resolution_clock::now();
             }
             if ( handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
-//                printf("Lock starvation prevention code was executed stage 2\n");
-
+                printf("Lock starvation prevention code was executed stage 2, page_adr is %p\n", page_addr);
+                fflush(stdout);
                 // make sure only one thread release the global latch successfully by double check lock.
                 rw_mtx.unlock_shared();
                 rw_mtx.lock(RDMA_Manager::thread_id+256);
