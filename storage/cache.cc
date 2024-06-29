@@ -738,6 +738,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
         if (remote_lock_urged.load() > 0){
             lock_pending_num.fetch_add(1);
+            //TODO: pontential bug below, if there is try lock then the read write counter may not be updated but neve cleared.
             uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
             while (handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
                 //wait here by no ops
@@ -750,7 +751,6 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             }
             lock_pending_num.fetch_sub(1);
 //            read_lock_holder_num.fetch_add(1);
-            read_lock_counter.fetch_add(1);
         }else{
             if (!rw_mtx.try_shared_lock()){
                 return false;
@@ -847,6 +847,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 cache_hit_valid[RDMA_Manager::thread_id][0]++;
             }
             mr = (ibv_mr*)value;
+        if (remote_lock_urged.load() > 0){
+            read_lock_counter.fetch_add(1);
+        }
 
         return true;
     }
@@ -989,7 +992,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             }
 //            rw_mtx.lock(RDMA_Manager::thread_id+512);
             lock_pending_num.fetch_sub(1);
-            write_lock_counter.fetch_add(1);
+            //The continous access counter can not be added here, because the lock may be abandoned later.
         }else{
             if (!rw_mtx.try_upgrade()){
                 return false;
@@ -1062,6 +1065,10 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             cache_hit_valid[RDMA_Manager::thread_id][0]++;
 
         }
+        if(remote_lock_urged.load() > 0){
+            write_lock_counter.fetch_add(1);
+        }
+
         return true;
     }
     bool Cache_Handle::try_updater_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
@@ -1072,6 +1079,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
         if (remote_lock_urged.load() > 0){
             lock_pending_num.fetch_add(1);
+            // TODO: delete the lcok pending and the waiting mechanims below. if there is a blocking.
             uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
             while (handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
                 //wait here by no ops
@@ -1084,7 +1092,6 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             }
 //            rw_mtx.lock(RDMA_Manager::thread_id+512);
             lock_pending_num.fetch_sub(1);
-            write_lock_counter.fetch_add(1);
         }else{
             if (!rw_mtx.try_lock()){
                 return false;
@@ -1157,6 +1164,10 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 cache_hit_valid[RDMA_Manager::thread_id][0]++;
 
             }
+            //TODO: If the code below not work, delete the waiting code before try the local latch.
+        if (remote_lock_urged.load() > 0){
+            write_lock_counter.fetch_add(1);
+        }
         return true;
     }
     void Cache_Handle::upgrade_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
