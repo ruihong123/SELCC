@@ -33,32 +33,44 @@ class DeliveryProcedure : public StoredProcedure {
       district_new_order_record->GetColumn(2, &no_o_id);
       assert(no_o_id != 0);
 
-      IndexKey new_order_key = GetNewOrderPrimaryKey(no_o_id, no_d_id,
-                                                     delivery_param->w_id_);
-      //todo: the code below can hold two latch at the same time, potentially result in deadlock.
-      // reimplement the abortion lock acquire to solve this problem.
-      Record *new_order_record = nullptr;
-        DB_QUERY(SearchRecord(&context_, NEW_ORDER_TABLE_ID,
-                              new_order_key, new_order_record,
-                              READ_ONLY))
-      if (new_order_record) {
-        no_o_ids[no_d_id - 1] = no_o_id;
-        int next_o_id = no_o_id + 1;
-        district_new_order_record->SetColumn(2, &next_o_id);
-#if defined(TO)
-          held_handle_ = ((Cache::Handle*)new_order_record->Get_Handle());
-          assert(held_handle_->gptr!=GlobalAddress::Null());
-          transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
-#endif
-
-      } else {
-        // when cannot find any no_o_id, let next_o_id wrap around again and drop this order delivery
-        // TODO: this place should be modified after implementing an efficient index.
-
-          no_o_ids[no_d_id - 1] = -1;
-        int next_o_id = 1;
-        district_new_order_record->SetColumn(2, &next_o_id);
-      }
+        if (no_o_id < CUSTOMERS_PER_DISTRICT){
+            no_o_ids[no_d_id - 1] = no_o_id;
+            int next_o_id = no_o_id + 1;
+            district_new_order_record->SetColumn(2, &next_o_id);
+        }else if (no_o_id == CUSTOMERS_PER_DISTRICT){
+            no_o_ids[no_d_id - 1] = no_o_id;
+            int next_o_id = 1;
+            district_new_order_record->SetColumn(2, &next_o_id);
+        }else{
+            assert(false);
+        }
+//
+//      IndexKey new_order_key = GetNewOrderPrimaryKey(no_o_id, no_d_id,
+//                                                     delivery_param->w_id_);
+//      // the code below can hold two latch at the same time, potentially result in deadlock.
+//      // reimplement the abortion lock acquire to solve this problem.
+//      Record *new_order_record = nullptr;
+//        DB_QUERY(SearchRecord(&context_, NEW_ORDER_TABLE_ID,
+//                              new_order_key, new_order_record,
+//                              READ_ONLY))
+//      if (new_order_record) {
+//        no_o_ids[no_d_id - 1] = no_o_id;
+//        int next_o_id = no_o_id + 1;
+//        district_new_order_record->SetColumn(2, &next_o_id);
+//#if defined(TO)
+//          held_handle_ = ((Cache::Handle*)new_order_record->Get_Handle());
+//          assert(held_handle_->gptr!=GlobalAddress::Null());
+//          transaction_manager_->ReleaseLatchForGCL(held_handle_->gptr, held_handle_);
+//#endif
+//
+//      } else {
+//        // when cannot find any no_o_id, let next_o_id wrap around again and drop this order delivery
+//        // TODO: this place should be modified after implementing an efficient index.
+//
+//          no_o_ids[no_d_id - 1] = -1;
+//        int next_o_id = 1;
+//        district_new_order_record->SetColumn(2, &next_o_id);
+//      }
 #if defined(TO)
 
         held_handle_ = ((Cache::Handle*)district_new_order_record->Get_Handle());
