@@ -296,8 +296,9 @@ namespace DSMEngine{
             //TODO: totally rewrite the code below it's totally wrong.
             uint64_t wts = record->GetWTS();
             if (wts > start_timestamp_) {
-//                default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
-
+                // Need to release all the latch of outside. and reacquire the latches
+                // in sequence in the abort function
+                ClearAllLatches();
                 this->AbortTransaction();
                 return false;
             } else {
@@ -309,6 +310,7 @@ namespace DSMEngine{
             uint64_t wts = record->GetWTS();
             if (rts > start_timestamp_ || wts > start_timestamp_) {
 //                default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
+                ClearAllLatches();
                 this->AbortTransaction();
                 return false;
             } else {
@@ -360,8 +362,8 @@ namespace DSMEngine{
             // lock the access list in order to avoid deadlock.
             for (size_t i = 0; i < access_list_.access_count_; ++i) {
                 Access* access = access_list_.GetAccess(i);
-                GlobalAddress g_addr = access->access_addr_;
-                sorted_access.insert({g_addr, access});
+                GlobalAddress tuple_g_addr = access->access_addr_;
+                sorted_access.insert({tuple_g_addr, access});
             }
             for (auto iter: sorted_access) {
                 Access* access = iter.second;
