@@ -617,6 +617,11 @@ class StockLevelProcedure : public StoredProcedure {
      	IndexKey order_key = GetOrderPrimaryKey(o_id, stock_level_param->d_id_, stock_level_param->w_id_);
          Record *order_record = nullptr;
          DB_QUERY(SearchRecord(&context_, ORDER_TABLE_ID, order_key, order_record, READ_ONLY));
+         //It is possible that the new order first modify the district next o id, but the real new order was not inserted to the DB yet.
+         if (!order_record){
+             transaction_manager_->AbortTransaction();
+             return false;
+         }
          int ol_cnt = 0;
          order_record->GetColumn(6, &ol_cnt);
          count += ol_cnt;
