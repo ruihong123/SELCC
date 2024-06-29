@@ -240,10 +240,11 @@ namespace DSMEngine {
                  iter.second.second == INSERT_ONLY ||
                  iter.second.second == READ_WRITE);
           if (iter.second.second == READ_ONLY){
-              assert(iter.second.first->remote_lock_status == 1);
+              assert(iter.second.first->remote_lock_status >= 1);
               default_gallocator->PostPage_Read(iter.second.first->gptr, iter.second.first);
           }
           else {
+              assert(iter.second.first->remote_lock_status == 2);
               default_gallocator->PostPage_UpdateOrWrite(iter.second.first->gptr, iter.second.first);
           }
           // unlock
