@@ -6921,8 +6921,8 @@ message_reply:
                         if (handle->remote_lock_status.load() == 2){
                             if (starv_level >0){
 #ifdef GLOBAL_HANDOVER
-//                                printf("Global lock for page %p handover from node %u to node %u part 1\n", g_ptr, node_id, target_node_id);
-//                                fflush( stdout );
+                                printf("Global lock for page %p handover from node %u to node %u part 1\n", g_ptr, node_id, target_node_id);
+                                fflush( stdout );
                                 global_write_page_and_WHandover(page_mr, g_ptr,
                                                                 page_mr->length, target_node_id, lock_gptr);
                                 handle->remote_lock_status.store(0);

@@ -739,17 +739,19 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         if (remote_lock_urged.load() > 0){
             lock_pending_num.fetch_add(1);
             //TODO: pontential bug below, if there is try lock then the read write counter may not be updated but neve cleared.
-            uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
-            while (handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
-                //wait here by no ops
-                handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
-                asm volatile("pause\n": : :"memory");
-            }
-            if (!rw_mtx.try_shared_lock()){
+//            uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
+//            while (handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
+//                //wait here by no ops
+//                handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
+//                asm volatile("pause\n": : :"memory");
+//            }
+            if (!rw_mtx.try_shared_lock()) {
                 lock_pending_num.fetch_sub(1);
                 return false;
             }
+            read_lock_counter.fetch_add(1);
             lock_pending_num.fetch_sub(1);
+
 //            read_lock_holder_num.fetch_add(1);
         }else{
             if (!rw_mtx.try_shared_lock()){
@@ -847,9 +849,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 cache_hit_valid[RDMA_Manager::thread_id][0]++;
             }
             mr = (ibv_mr*)value;
-        if (remote_lock_urged.load() > 0){
-            read_lock_counter.fetch_add(1);
-        }
+//        if (remote_lock_urged.load() > 0){
+//            read_lock_counter.fetch_add(1);
+//        }
 
         return true;
     }
@@ -980,17 +982,18 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
         if (remote_lock_urged.load() > 0){
             lock_pending_num.fetch_add(1);
-            uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
-            while (handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
-                //wait here by no ops
-                handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
-                asm volatile("pause\n": : :"memory");
-            }
+//            uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
+//            while (handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
+//                //wait here by no ops
+//                handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
+//                asm volatile("pause\n": : :"memory");
+//            }
             if (!rw_mtx.try_upgrade()){
                 lock_pending_num.fetch_sub(1);
                 return false;
             }
 //            rw_mtx.lock(RDMA_Manager::thread_id+512);
+            write_lock_counter.fetch_add(1);
             lock_pending_num.fetch_sub(1);
             //The continous access counter can not be added here, because the lock may be abandoned later.
         }else{
@@ -1065,9 +1068,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             cache_hit_valid[RDMA_Manager::thread_id][0]++;
 
         }
-        if(remote_lock_urged.load() > 0){
-            write_lock_counter.fetch_add(1);
-        }
+//        if(remote_lock_urged.load() > 0){
+//            write_lock_counter.fetch_add(1);
+//        }
 
         return true;
     }
@@ -1080,17 +1083,18 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         if (remote_lock_urged.load() > 0){
             lock_pending_num.fetch_add(1);
             // TODO: delete the lcok pending and the waiting mechanims below. if there is a blocking.
-            uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
-            while (handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
-                //wait here by no ops
-                handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
-                asm volatile("pause\n": : :"memory");
-            }
+//            uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
+//            while (handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
+//                //wait here by no ops
+//                handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
+//                asm volatile("pause\n": : :"memory");
+//            }
             if (!rw_mtx.try_lock()){
                 lock_pending_num.fetch_sub(1);
                 return false;
             }
 //            rw_mtx.lock(RDMA_Manager::thread_id+512);
+            write_lock_counter.fetch_add(1);
             lock_pending_num.fetch_sub(1);
         }else{
             if (!rw_mtx.try_lock()){
@@ -1165,9 +1169,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
             }
             //TODO: If the code below not work, delete the waiting code before try the local latch.
-        if (remote_lock_urged.load() > 0){
-            write_lock_counter.fetch_add(1);
-        }
+//        if (remote_lock_urged.load() > 0){
+//            write_lock_counter.fetch_add(1);
+//        }
         return true;
     }
     void Cache_Handle::upgrade_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr) {
@@ -1436,8 +1440,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 }else{
 #ifdef GLOBAL_HANDOVER
                     assert(next_holder_id != RDMA_Manager::node_id);
-//                    printf("Global lock for page %p handover from node %u to node %u part 2, starvation level is %d\n", page_addr, rdma_mg->node_id, next_holder_id.load(), starvation_priority.load());
-//                    fflush( stdout );
+                    printf("Global lock for page %p handover from node %u to node %u part 2, starvation level is %d\n", page_addr, rdma_mg->node_id, next_holder_id.load(), starvation_priority.load());
+                    fflush( stdout );
                     rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, next_holder_id.load(), lock_addr,
                                                              false, nullptr);
                     remote_lock_status.store(0);
