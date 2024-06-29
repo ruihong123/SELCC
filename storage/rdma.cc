@@ -1001,7 +1001,7 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
   local_con_data.lid = htons(res->port_attr.lid);
   memcpy(local_con_data.gid, &my_gid, 16);
   local_con_data.node_id = node_id;
-  fprintf(stdout, "\nLocal LID = 0x%x\n", res->port_attr.lid);
+//  fprintf(stdout, "\nLocal LID = 0x%x\n", res->port_attr.lid);
   if (sock_sync_data(res->sock_map[target_node_id], sizeof(struct Registered_qp_config),
                      (char*)&local_con_data, (char*)&tmp_con_data) < 0) {
     fprintf(stderr, "failed to exchange connection data between sides, node%d and node%d\n", node_id, target_node_id);
@@ -1246,7 +1246,7 @@ void RDMA_Manager::Put_qp_info_into_RemoteM(uint16_t target_compute_node_id,
     send_pointer->command = put_qp_info;
     for (int i = 0; i < NUM_QP_ACCROSS_COMPUTE; ++i) {
         send_pointer->content.qp_config_xcompute.qp_num[i] = (*qp_arr)[i]->qp_num;
-        fprintf(stdout, "\nQP num to be sent = 0x%x\n", (*qp_arr)[i]->qp_num);
+//        fprintf(stdout, "\nQP num to be sent = 0x%x\n", (*qp_arr)[i]->qp_num);
     }
     union ibv_gid my_gid;
     int rc;
@@ -1740,10 +1740,10 @@ int RDMA_Manager::connect_qp_Mside(ibv_qp* qp, std::string& q_id) {
   l.unlock();
   if (rdma_config.gid_idx >= 0) {
     uint8_t* p = remote_con_data->gid;
-    fprintf(stdout,
-            "Remote GID =%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n ",
-            p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10],
-            p[11], p[12], p[13], p[14], p[15]);
+//    fprintf(stdout,
+//            "Remote GID =%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n ",
+//            p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10],
+//            p[11], p[12], p[13], p[14], p[15]);
   }
   /* modify the QP to init */
   rc = modify_qp_to_init(qp);
@@ -1823,10 +1823,10 @@ int RDMA_Manager::connect_qp(ibv_qp* qp, std::string& qp_type,
   l.unlock();
   if (rdma_config.gid_idx >= 0) {
     uint8_t* p = remote_con_data->gid;
-    fprintf(stdout,
-            "Remote GID =%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n ",
-            p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10],
-            p[11], p[12], p[13], p[14], p[15]);
+//    fprintf(stdout,
+//            "Remote GID =%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n ",
+//            p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10],
+//            p[11], p[12], p[13], p[14], p[15]);
   }
   /* modify the QP to init */
   rc = modify_qp_to_init(qp);
@@ -1875,10 +1875,10 @@ int RDMA_Manager::connect_qp(ibv_qp* qp, Registered_qp_config* remote_con_data) 
 
   if (rdma_config.gid_idx >= 0) {
     uint8_t* p = remote_con_data->gid;
-    fprintf(stdout,
-            "Remote GID =%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n ",
-            p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10],
-            p[11], p[12], p[13], p[14], p[15]);
+//    fprintf(stdout,
+//            "Remote GID =%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n ",
+//            p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10],
+//            p[11], p[12], p[13], p[14], p[15]);
   }
   /* modify the QP to init */
   rc = modify_qp_to_init(qp);
@@ -5965,10 +5965,10 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
   send_pointer = (RDMA_Request*)send_mr.addr;
   send_pointer->command = create_qp_;
   send_pointer->content.qp_config.qp_num = qp->qp_num;
-  fprintf(stdout, "\nQP num to be sent = 0x%x\n", qp->qp_num);
+//  fprintf(stdout, "\nQP num to be sent = 0x%x\n", qp->qp_num);
   send_pointer->content.qp_config.lid = res->port_attr.lid;
   memcpy(send_pointer->content.qp_config.gid, &my_gid, 16);
-  fprintf(stdout, "Local LID = 0x%x\n", res->port_attr.lid);
+//  fprintf(stdout, "Local LID = 0x%x\n", res->port_attr.lid);
   send_pointer->buffer = receive_mr.addr;
   send_pointer->rkey = receive_mr.rkey;
   RDMA_Reply* receive_pointer;
