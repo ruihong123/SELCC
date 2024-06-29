@@ -29,7 +29,7 @@ output_dir="/users/Ruihong/MemoryEngine/scripts/data"
 core_dump_dir="/mnt/core_dump"
 # working environment
 proj_dir="/users/Ruihong/MemoryEngine"
-bin_dir="${proj_dir}/debug"
+bin_dir="${proj_dir}/release"
 script_dir="${proj_dir}/database/scripts"
 ssh_opts="-o StrictHostKeyChecking=no"
 
@@ -122,13 +122,13 @@ vary_thread_number () {
 vary_query_ratio () {
   #read_ratios=(0 30 50 70 90 100)
   thread_number=(8)
-  WarehouseNum=(64)
-  FREQUENCY_DELIVERY=(100 0 0 0 0)
-  FREQUENCY_PAYMENT=(0 100 0 0 0)
-  FREQUENCY_NEW_ORDER=(0 0 100 0 0)
-  FREQUENCY_ORDER_STATUS=(0 0 0 100 0)
-  FREQUENCY_STOCK_LEVEL=(0 0 0 0 100)
-  for qr_index in 1 0; do
+  WarehouseNum=(64 256)
+  FREQUENCY_DELIVERY=(100 0 0 0 0 20)
+  FREQUENCY_PAYMENT=(0 100 0 0 0 20)
+  FREQUENCY_NEW_ORDER=(0 0 100 0 0 20)
+  FREQUENCY_ORDER_STATUS=(0 0 0 100 0 20)
+  FREQUENCY_STOCK_LEVEL=(0 0 0 0 100 20)
+  for qr_index in 0 1 2 3 4 5; do
     for ware_num in ${WarehouseNum[@]}; do
       for thread_n in ${thread_number[@]}; do
         compute_ARGS="-p$port -sf$ware_num -sf1 -c$thread_n -rde${FREQUENCY_DELIVERY[$qr_index]} -rpa${FREQUENCY_PAYMENT[$qr_index]} -rne${FREQUENCY_NEW_ORDER[$qr_index]} -ror${FREQUENCY_ORDER_STATUS[$qr_index]} -rst${FREQUENCY_STOCK_LEVEL[$qr_index]} -t1000000 -f../connection.conf"
