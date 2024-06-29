@@ -58,12 +58,14 @@ namespace DSMEngine{
         PROFILE_TIME_START(thread_id_, LOCK_WRITE);
 
         if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
-
-                default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
-                assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
-                tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
-                locked_handles_.insert({page_gaddr, {handle, 1}});
-                assert(page_gaddr!=GlobalAddress::Null());
+            default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
+//            if (!default_gallocator->TryPrePage_Update(page_buff, page_gaddr, handle)){
+//                return false;
+//            }
+            assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
+            tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+            locked_handles_.insert({page_gaddr, {handle, 1}});
+            assert(page_gaddr!=GlobalAddress::Null());
         }else{
             handle = locked_handles_.at(page_gaddr).first;
             (locked_handles_).at(page_gaddr).second += 1;
