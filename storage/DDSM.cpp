@@ -54,6 +54,7 @@ namespace DSMEngine {
         handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
         assert(handle != nullptr);
         if(!handle->try_reader_pre_access(page_addr, kLeafPageSize, lock_addr, mr)){
+            page_cache->Release(handle);
             return false;
         }
         page_buffer = mr->addr;
@@ -175,6 +176,7 @@ namespace DSMEngine {
         assert(handle != nullptr);
         //TODO: unwarp the updater_pre_access.
         if(!handle->try_updater_pre_access(page_addr, kLeafPageSize, lock_addr, mr)){
+            page_cache->Release(handle);
             return false;
         }
         page_buffer = mr->addr;
