@@ -94,6 +94,7 @@ LRUCache::~LRUCache() {
             LRU_Append(&in_use_, e);
         }
         e->refs++;
+        assert(e->refs <=100);
     }
 
 
