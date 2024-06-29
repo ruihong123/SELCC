@@ -89,7 +89,7 @@ namespace DSMEngine{
 
 			record->is_visible_ = false;
             PROFILE_TIME_START(thread_id_, INDEX_INSERT);
-//            bool ret = storage_manager_->tables_[table_id]->InsertPriIndex(keys, key_num, tuple_gaddr);
+            bool ret = storage_manager_->tables_[table_id]->InsertPriIndex(keys, key_num, tuple_gaddr);
             PROFILE_TIME_END(thread_id_, INDEX_INSERT);
             PROFILE_TIME_END(thread_id_, CC_INSERT);
 //            gallocators[thread_id_]->PostPage_UpdateOrWrite(TOPAGE(handle->gptr), handle);
