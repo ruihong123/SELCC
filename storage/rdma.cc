@@ -6769,7 +6769,7 @@ void RDMA_Manager::fs_deserilization(
                             }
 #else
                             global_RUnlock(lock_gptr, cas_mr);
-                            handle->last_modifier_thread_id = thread_id;
+//                            handle->last_modifier_thread_id = thread_id;
 #endif
                             handle->remote_lock_status.store(0);
                             reply_type = 1;
