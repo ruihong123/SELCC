@@ -668,6 +668,7 @@ bool RDMA_Manager::Local_Memory_Register(char** p2buffpointer,
               "New MR was registered with addr=%p, lkey=0x%x, rkey=0x%x, flags=0x%x, size=%lu, total registered size is %lu\n",
               (*p2mrpointer)->addr, (*p2mrpointer)->lkey, (*p2mrpointer)->rkey,
               mr_flags, size, total_registered_size);
+      fflush(stdout);
   }
 
   if (!*p2mrpointer) {
