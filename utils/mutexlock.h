@@ -162,12 +162,12 @@ public:
 
     }
     bool try_shared_lock() {
-        auto currently_locked = write_now.load(std::memory_order_relaxed);
+        auto currently_locked = write_now.load(std::memory_order_seq_cst);
 //        auto currently_readers = readers_count.load(std::memory_order_relaxed);
         if (!currently_locked){
             readers_count.fetch_add(1);
             if (write_now.load()){
-                readers_count.fetch_sub(1, std::memory_order_release);
+                readers_count.fetch_sub(1, std::memory_order_seq_cst);
                 return false;
             }else{
                 return true;
