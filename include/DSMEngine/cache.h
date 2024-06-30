@@ -94,7 +94,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
 //        std::atomic<uint8_t> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
         bool keep_the_mr = false;
 #ifndef NDEBUG
-//        uint16_t last_modifier_thread_id = 0;
+        uint16_t last_modifier_thread_id = 0;
 #endif
 //#ifdef EARLY_LOCK_RELEASE
 //        bool mr_in_use = false;

@@ -3585,6 +3585,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             if (last_atomic_return >> 56 != return_value >> 56){
                 // someone else have acquire the latch, immediately issue a invalidation in the next loop.
+                //TODO: change the code below.
                 retry_cnt = retry_cnt/INVALIDATION_INTERVAL;
             }
             last_atomic_return = return_value;
@@ -3866,7 +3867,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // for the lock upgrading to gurantee the correctness of 2 phase locking.
         if (retry_cnt > 1){
             global_RUnlock(lock_addr, cas_buffer, false, nullptr, cxt, coro_id);
-//            printf("Lock upgrade failed, release the lock, address is %p\n", lock_addr);
+            printf("Lock upgrade failed, release the lock, address is %p\n", lock_addr);
+            fflush(stdout);
             return false;
         }
         if (retry_cnt % 4 ==  2) {
@@ -6767,6 +6769,7 @@ void RDMA_Manager::fs_deserilization(
                             }
 #else
                             global_RUnlock(lock_gptr, cas_mr);
+                            handle->last_modifier_thread_id = thread_id;
 #endif
                             handle->remote_lock_status.store(0);
                             reply_type = 1;

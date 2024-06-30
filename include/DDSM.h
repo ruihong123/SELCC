@@ -26,6 +26,7 @@ namespace DSMEngine {
                 // RDMA read unlock
 //            printf("release the read lock during the handle destroy\n ");
                 rdma_mg->global_RUnlock(lock_gptr, rdma_mg->Get_local_CAS_mr(), false, nullptr, nullptr, 0);
+                handle->last_modifier_thread_id = 256;
                 handle->remote_lock_status.store(0);
 
             }else if(handle->remote_lock_status == 2){
