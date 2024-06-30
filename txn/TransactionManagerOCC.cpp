@@ -179,6 +179,7 @@ namespace DSMEngine{
             if (access_type == DELETE_ONLY) {
             //todo: check whether the record version now is larger than the local record, if so,
             // abort the transaction.
+                assert(false);
 
             }else if (access_type == READ_WRITE || access_type == INSERT_ONLY){
 
