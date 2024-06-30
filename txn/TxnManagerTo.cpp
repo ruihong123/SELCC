@@ -181,7 +181,7 @@ namespace DSMEngine{
 //           table->Allo/cateNewTuple(tuple_buffer, tuple_gaddr, handle, default_gallocator, nullptr);
             RecordSchema *schema_ptr = storage_manager_->tables_[table_id]->GetSchema();
             int cnt = 0;
-            bool ret = page->AllocateRecord(cnt, schema_ptr , tuple_gaddr, tuple_buffer);
+            volatile bool ret = page->AllocateRecord(cnt, schema_ptr , tuple_gaddr, tuple_buffer);
             assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
             assert((char*)tuple_buffer - (char*)page_buffer > STRUCT_OFFSET(DataPage, data_));
             assert(((DataPage*)page_buffer)->hdr.this_page_g_ptr != GlobalAddress::Null());
