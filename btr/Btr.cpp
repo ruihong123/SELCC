@@ -1089,8 +1089,8 @@ namespace DSMEngine {
                 assert(level == result.level || level == -1);
 #ifndef NDEBUG
                 printf("fall back to the upper level, this nodeid is %lu, this thread is %d, This gptr %p, upper gptr is %p\n", RDMA_Manager::node_id, RDMA_Manager::thread_id, p, path_stack[coro_id][result.level +1]);
-#endif
                 fflush(stdout);
+#endif
                 p = path_stack[coro_id][result.level +1];
                 if (p == root){
                     isroot = true;
