@@ -20,7 +20,7 @@ namespace DSMEngine {
         assert(locked_handles_.find(TOPAGE(tuple_gaddr)) != locked_handles_.end());
 //        printf("AllocateNewRecord: thread_id=%zu,table_id=%zu,access_type=%u,data_addr=%lx, start SelectRecordCC\n",
 //               thread_id_, table_id, INSERT_ONLY, tuple_gaddr.val);
-        fflush(stdout);
+//        fflush(stdout);
         return true;
 
 //        GlobalAddress* g_addr = table->GetOpenedBlock();
@@ -197,7 +197,7 @@ namespace DSMEngine {
 //        access->access_addr_ = Gnullptr;
       }
 //        printf("this access index is %zu\n",i);
-        fflush(stdout);
+//        fflush(stdout);
       delete access->access_global_record_;
       access->access_global_record_ = nullptr;
       access->access_addr_ = GlobalAddress::Null();
