@@ -29,7 +29,7 @@ output_dir="/users/Ruihong/MemoryEngine/scripts/data"
 core_dump_dir="/mnt/core_dump"
 # working environment
 proj_dir="/users/Ruihong/MemoryEngine"
-bin_dir="${proj_dir}/debug"
+bin_dir="${proj_dir}/release"
 script_dir="${proj_dir}/database/scripts"
 ssh_opts="-o StrictHostKeyChecking=no"
 
@@ -121,13 +121,13 @@ vary_read_ratios () {
 
 vary_query_ratio () {
   #read_ratios=(0 30 50 70 90 100)
-  thread_number=(4)
-  WarehouseNum=(16 256)
-  FREQUENCY_DELIVERY=(100 0 0 0 0 20 33)
-  FREQUENCY_PAYMENT=(0 100 0 0 0 20 33)
-  FREQUENCY_NEW_ORDER=(0 0 100 0 0 20 33)
-  FREQUENCY_ORDER_STATUS=(0 0 0 100 0 20 0)
-  FREQUENCY_STOCK_LEVEL=(0 0 0 0 100 20 0)
+  thread_number=(8)
+  WarehouseNum=(256 64)
+  FREQUENCY_DELIVERY=(100 0 0 0 0 20 33 0)
+  FREQUENCY_PAYMENT=(0 100 0 0 0 20 33 0)
+  FREQUENCY_NEW_ORDER=(0 0 100 0 0 20 33 0)
+  FREQUENCY_ORDER_STATUS=(0 0 0 100 0 20 0 50)
+  FREQUENCY_STOCK_LEVEL=(0 0 0 0 100 20 0 50)
   for ware_num in ${WarehouseNum[@]}; do
     for qr_index in 0 5 2 1 3 4; do
       for thread_n in ${thread_number[@]}; do
