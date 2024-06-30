@@ -175,7 +175,7 @@ class TransactionExecutor {
         }
         ++count;
         PROFILE_TIME_END(thread_id, TXN_EXECUTE);
-        if(count % 10000 == 0){
+        if(count % 100000 == 0){
             printf("Thread %zu finished %d\n", thread_id, count);
         }
         if (is_finish_ == true) {
