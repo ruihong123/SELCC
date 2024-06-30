@@ -173,11 +173,14 @@ namespace DSMEngine {
            iter.second.second == READ_WRITE);
         GlobalAddress page_addr = iter.second.first->gptr;
         if (iter.second.second == READ_ONLY){
+            assert(iter.second.first->remote_lock_status >= 1);
+
             default_gallocator->PostPage_Read(iter.second.first->gptr, iter.second.first);
             assert(iter.first == page_addr.val);
 //            printf("Threadid %zu Release read lock for nodeid %d, offset %lu lock handle number is %zu\n", thread_id_, page_addr.nodeID, page_addr.offset, locked_handles_.size());
         }
         else {
+            assert(iter.second.first->remote_lock_status == 2);
             default_gallocator->PostPage_UpdateOrWrite(iter.second.first->gptr, iter.second.first);
 //            printf("Threadid %zu Release write lock for nodeid %d, offset %lu lock handle number is %zu\n", thread_id_, page_addr.nodeID, page_addr.offset, locked_handles_.size());
 
