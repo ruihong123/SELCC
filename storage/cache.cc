@@ -875,8 +875,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 timer_begin = std::chrono::high_resolution_clock::now();
             }
             if ( handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
-                printf("Lock starvation prevention code was executed stage 2, page_adr is %p\n", page_addr);
-                fflush(stdout);
+//                printf("Lock starvation prevention code was executed stage 2, page_adr is %p\n", page_addr);
+//                fflush(stdout);
                 // make sure only one thread release the global latch successfully by double check lock.
                 rw_mtx.unlock_shared();
                 rw_mtx.lock(RDMA_Manager::thread_id+256);
@@ -1411,8 +1411,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                                                     ibv_mr *mr, bool need_spin) {
         state_mtx.lock();
         if (this->remote_lock_status == 1){
-            printf("High pririty invalidation message receive, target gcl is %p\n", page_addr);
-            fflush(stdout);
+//            printf("High pririty invalidation message receive, target gcl is %p\n", page_addr);
+//            fflush(stdout);
             rdma_mg->global_RUnlock(lock_addr, rdma_mg->Get_local_CAS_mr(), false, nullptr, nullptr, 0);
             remote_lock_status.store(0);
             //spin wait to delay the global latch acquire for other thread and then to prevent write lock starvation.
