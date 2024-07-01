@@ -1687,13 +1687,12 @@ namespace DSMEngine {
             // (2) if this node is from the level = (the root level) - 1 then the cached root page should be invalidated.
             // Note that the root page is not stored in LRU cache.
             // (3) If other level, then the upper level page in the LRU cache should be invalidated.
-
+            GlobalAddress sib_ptr = page->hdr.sibling_ptr;
             if(!skip_cache){
                 ddms_->PostPage_Read(page_addr, handle);
             }else{
                 handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
                 root_mtx.unlock_shared();
-
             }
             if (isroot || path_stack[coro_id][result.level+1] == GlobalAddress::Null()){
                 // only invalidate the upper layer if we did not acquire shared root_mtx.
@@ -1723,8 +1722,7 @@ namespace DSMEngine {
 //            printf("arrive here\n");
                 nested_retry_counter++;
 //                result.slibing = page->hdr.sibling_ptr;
-                assert(page->hdr.sibling_ptr != GlobalAddress::Null());
-                GlobalAddress sib_ptr = page->hdr.sibling_ptr;
+//                assert(page->hdr.sibling_ptr != GlobalAddress::Null());
                 // The release should always happen in the end of the function, otherwise the
                 // page will be overwrittened. When you run release, this means the page buffer will
                 // sooner be overwritten.
@@ -2121,6 +2119,7 @@ re_read:
         // Not sure whether this will still work if we have node merge
         // Why this node can not be the right most node
         if (k >= page->hdr.highest ) {
+            GlobalAddress sib_ptr = page->hdr.sibling_ptr;
 
             if (!skip_cache){
                 ddms_->PostPage_UpdateOrWrite(page_addr, handle);
@@ -2138,10 +2137,9 @@ re_read:
 
 
 
-            assert(page->hdr.sibling_ptr != GlobalAddress::Null());
+//            assert(page->hdr.sibling_ptr != GlobalAddress::Null());
             if (nested_retry_counter <= 4){
                 nested_retry_counter++;
-                GlobalAddress sib_ptr = page->hdr.sibling_ptr;
 
                 insert_success = this->internal_page_store(sib_ptr, k, v, level, cxt,
                                                            coro_id);
@@ -2462,11 +2460,13 @@ re_read:
 //                    }
 //                    // Has to be unlocked to avoid a deadlock.
 //                    l.unlock();
+                    auto sibling_ptr = page->hdr.sibling_ptr;
+
                     ddms_->PostPage_UpdateOrWrite(page_addr,handle);
 //                    handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 //                    page_cache->Release(handle);
 
-                    return this->leaf_page_store(page->hdr.sibling_ptr, k, v, split_key, sibling_addr, level, cxt,
+                    return this->leaf_page_store(sibling_ptr, k, v, split_key, sibling_addr, level, cxt,
                                                  coro_id);
                 }else{
 
