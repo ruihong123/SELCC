@@ -277,6 +277,7 @@ namespace DSMEngine{
 //        tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
         record = new Record(schema_ptr, tuple_buffer);
         record->Set_Handle(handle);
+        assert(start_timestamp_ < 0x700066737575);
 
         Access* access = access_list_.NewAccess();
         access->access_type_ = access_type;
@@ -289,6 +290,8 @@ namespace DSMEngine{
             local_tuple->CopyFrom(record);
             access->txn_local_tuple_ = local_tuple;
         }
+        assert(start_timestamp_ < 0x700066737575);
+
         //TODO: need to remember the latch, so that the latch can be released when the transaction abort.
         if (access_type == READ_ONLY) {
 
