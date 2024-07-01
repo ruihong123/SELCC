@@ -292,6 +292,7 @@ size_t RDMA_Manager::GetComputeNodeNum() {
     uint64_t RDMA_Manager::GetNextTimestamp() {
         ibv_mr* local_cas_buffer = Get_local_CAS_mr();
         RDMA_FAA(timestamp_oracle,local_cas_buffer,1,1,IBV_SEND_SIGNALED,1);
+        assert(*(uint64_t *)local_cas_buffer->addr <0x700d2c00cbe9);
         return *(uint64_t *)local_cas_buffer->addr;
     }
 bool RDMA_Manager::poll_reply_buffer(RDMA_Reply* rdma_reply) {
@@ -3324,8 +3325,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         sr.wr.atomic.rkey = remote_mr->rkey;
         sr.wr.atomic.remote_addr = (uint64_t )remote_mr->addr;
         sr.wr.atomic.compare_add = add; /* expected value in remote address */
-
-
+#ifndef NDEBUG
+        ibv_wc wc1[2];
+        assert(try_poll_completions(wc1, 1, qp_type, true, 1) == 0);
+#endif
         ibv_qp* qp;
         if (qp_type == "default"){
             //    assert(false);// Never comes to here
