@@ -93,8 +93,8 @@ class TransactionManager {
   AccessList<kMaxAccessLimit> access_list_;
 //    std::map<uint64_t, Access*> access_list_;
 #if defined(TO)
-  uint64_t start_timestamp_;
-  bool is_first_access_;
+  uint64_t start_timestamp_ = 0;
+  bool is_first_access_ = true;
   std::map<uint64_t , std::pair<Cache::Handle*, int>> locked_handles_;
 #endif
   // lock handles shall also be used for non-lock based algorithm to avoid acquire the same latch twice during the execution.
