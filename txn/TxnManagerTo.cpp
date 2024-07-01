@@ -257,12 +257,16 @@ namespace DSMEngine{
     // latch access the next one. Never let a transaction holding two latch at the same time!!!!
     bool TransactionManager::SelectRecordCC(TxnContext* context, size_t table_id,
         Record *&record, const GlobalAddress &tuple_gaddr, AccessType access_type) {
+        assert(start_timestamp_ < 0x700066737575);
+
         if (is_first_access_ == true){
 
             start_timestamp_ = GlobalTimestamp::GetMonotoneTimestamp();
             assert(start_timestamp_ < 0x700066737575);
             is_first_access_ = false;
         }
+        assert(start_timestamp_ < 0x700066737575);
+
         PROFILE_TIME_START(thread_id_, CC_SELECT);
         GlobalAddress page_gaddr = TOPAGE(tuple_gaddr);
         assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
@@ -272,9 +276,13 @@ namespace DSMEngine{
         char* tuple_buffer;
         //No matter write or read we need acquire exclusive latch.
 //            default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
+        assert(start_timestamp_ < 0x700066737575);
+
         AcquireXLatchForTuple(tuple_buffer, tuple_gaddr, handle);
         assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
 //        tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
+        assert(start_timestamp_ < 0x700066737575);
+
         record = new Record(schema_ptr, tuple_buffer);
         record->Set_Handle(handle);
         assert(start_timestamp_ < 0x700066737575);
