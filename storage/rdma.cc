@@ -3328,9 +3328,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 #ifndef NDEBUG
         ibv_wc wc1[2];
         if (cq_data_default.at(target_node_id)->Get() != nullptr) {
-            Remote_Query_Pair_Connection(qp_type, target_node_id);
+            assert(try_poll_completions(wc1, 1, qp_type, true, 1) == 0);
         }
-        assert(try_poll_completions(wc1, 1, qp_type, true, 1) == 0);
 #endif
         ibv_qp* qp;
         if (qp_type == "default"){
