@@ -193,6 +193,7 @@ class TransactionExecutor {
     total_count_ += count;
     total_abort_count_ += abort_count;
       printf("Thread %zu finished \n", thread_id);
+      fflush(stdout);
     //txn_manager->CleanUp();
     return;
   }
