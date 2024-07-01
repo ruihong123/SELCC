@@ -260,7 +260,7 @@ namespace DSMEngine{
         if (is_first_access_ == true){
 
             start_timestamp_ = GlobalTimestamp::GetMonotoneTimestamp();
-
+            assert(start_timestamp_ < 0x700066737575);
             is_first_access_ = false;
         }
         PROFILE_TIME_START(thread_id_, CC_SELECT);
