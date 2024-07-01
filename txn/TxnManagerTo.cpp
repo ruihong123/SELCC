@@ -314,6 +314,7 @@ namespace DSMEngine{
                 this->AbortTransaction();
                 return false;
             } else {
+                assert(start_timestamp_ < 0x700066737575);
                 record->PutWTS(start_timestamp_);
             }
         }
