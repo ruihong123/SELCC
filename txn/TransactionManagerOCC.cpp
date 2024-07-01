@@ -2,6 +2,8 @@
 #include "TransactionManager.h"
 #include "GlobalTimestamp.h"
 namespace DSMEngine{
+    //TODO: this CC algirhtm will be blocked at delivery query when there are 64 warehouse, need to understand why.
+    // and this problem seems only happen in the release mode.
         bool TransactionManager::AllocateNewRecord(TxnContext *context, size_t table_id, Cache::Handle *&handle,
                                                    GlobalAddress &tuple_gaddr, Record*& tuple) {
             char* tuple_buffer;

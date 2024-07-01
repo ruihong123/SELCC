@@ -49,12 +49,12 @@ protected:
     columns.push_back(new ColumnInfo("i_price", ValueType::DOUBLE));
     columns.push_back(
         new ColumnInfo("i_data", ValueType::VARCHAR, static_cast<size_t>(64)));
-#if defined(TO)
-      columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
-#endif
-#if defined(TO)| defined(OCC)
-      columns.push_back(new ColumnInfo("WriteTS", ValueType::INT64));
-#endif
+//#if defined(TO)
+//      columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
+//#endif
+//#if defined(TO)| defined(OCC)
+//      columns.push_back(new ColumnInfo("WriteTS", ValueType::INT64));
+//#endif
       columns.push_back(new ColumnInfo("meta", ValueType::META));
     schema = new RecordSchema(ITEM_TABLE_ID);
     schema->InsertColumns(columns);
@@ -85,12 +85,12 @@ protected:
     // Padding in the warehouse table to reduce the contention.
       columns.push_back(
               new ColumnInfo("padding", ValueType::VARCHAR, static_cast<size_t>(1024)));
-#if defined(TO)
-      columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
-#endif
-#if defined(TO)| defined(OCC)
-      columns.push_back(new ColumnInfo("WriteTS", ValueType::INT64));
-#endif
+//#if defined(TO)
+//      columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
+//#endif
+//#if defined(TO)| defined(OCC)
+//      columns.push_back(new ColumnInfo("WriteTS", ValueType::INT64));
+//#endif
       columns.push_back(new ColumnInfo("meta", ValueType::META));
 
       // The padding below is for the better concurrency.this can be generalized to other tables
@@ -125,12 +125,12 @@ protected:
     columns.push_back(new ColumnInfo("d_tax", ValueType::DOUBLE));
     columns.push_back(new ColumnInfo("d_ytd", ValueType::DOUBLE));
     columns.push_back(new ColumnInfo("d_next_o_id", ValueType::INT));
-#if defined(TO)
-      columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
-#endif
-#if defined(TO)| defined(OCC)
-      columns.push_back(new ColumnInfo("WriteTS", ValueType::INT64));
-#endif
+//#if defined(TO)
+//      columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
+//#endif
+//#if defined(TO)| defined(OCC)
+//      columns.push_back(new ColumnInfo("WriteTS", ValueType::INT64));
+//#endif
       columns.push_back(new ColumnInfo("meta", ValueType::META));
 
       schema = new RecordSchema(DISTRICT_TABLE_ID);
@@ -177,12 +177,12 @@ protected:
     columns.push_back(new ColumnInfo("c_delivery_cnt", ValueType::INT));
     columns.push_back(
         new ColumnInfo("c_data", ValueType::VARCHAR, static_cast<size_t>(500)));
-#if defined(TO)
-      columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
-#endif
-#if defined(TO)| defined(OCC)
-      columns.push_back(new ColumnInfo("WriteTS", ValueType::INT64));
-#endif
+//#if defined(TO)
+//      columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
+//#endif
+//#if defined(TO)| defined(OCC)
+//      columns.push_back(new ColumnInfo("WriteTS", ValueType::INT64));
+//#endif
       columns.push_back(new ColumnInfo("meta", ValueType::META));
     schema = new RecordSchema(CUSTOMER_TABLE_ID);
     schema->InsertColumns(columns);
@@ -202,12 +202,12 @@ protected:
     columns.push_back(new ColumnInfo("o_carrier_id", ValueType::INT));
     columns.push_back(new ColumnInfo("o_ol_cnt", ValueType::INT));
     columns.push_back(new ColumnInfo("o_all_local", ValueType::INT));
-#if defined(TO)
-      columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
-#endif
-#if defined(TO)| defined(OCC)
-      columns.push_back(new ColumnInfo("WriteTS", ValueType::INT64));
-#endif
+//#if defined(TO)
+//      columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
+//#endif
+//#if defined(TO)| defined(OCC)
+//      columns.push_back(new ColumnInfo("WriteTS", ValueType::INT64));
+//#endif
       columns.push_back(new ColumnInfo("meta", ValueType::META));
     schema = new RecordSchema(ORDER_TABLE_ID);
     schema->InsertColumns(columns);
@@ -225,12 +225,12 @@ protected:
     // Reduce the contention for update.
     columns.push_back(
               new ColumnInfo("c_data", ValueType::VARCHAR, static_cast<size_t>(480)));
-#if defined(TO)
-      columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
-#endif
-#if defined(TO)| defined(OCC)
-      columns.push_back(new ColumnInfo("WriteTS", ValueType::INT64));
-#endif
+//#if defined(TO)
+//      columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
+//#endif
+//#if defined(TO)| defined(OCC)
+//      columns.push_back(new ColumnInfo("WriteTS", ValueType::INT64));
+//#endif
       columns.push_back(new ColumnInfo("meta", ValueType::META));
     schema = new RecordSchema(DISTRICT_NEW_ORDER_TABLE_ID);
     schema->InsertColumns(columns);
@@ -245,12 +245,12 @@ protected:
     columns.push_back(new ColumnInfo("o_id", ValueType::INT));
     columns.push_back(new ColumnInfo("d_id", ValueType::INT));
     columns.push_back(new ColumnInfo("w_id", ValueType::INT));
-#if defined(TO)
-      columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
-#endif
-#if defined(TO)| defined(OCC)
-      columns.push_back(new ColumnInfo("WriteTS", ValueType::INT64));
-#endif
+//#if defined(TO)
+//      columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
+//#endif
+//#if defined(TO)| defined(OCC)
+//      columns.push_back(new ColumnInfo("WriteTS", ValueType::INT64));
+//#endif
       columns.push_back(new ColumnInfo("meta", ValueType::META));
     schema = new RecordSchema(NEW_ORDER_TABLE_ID);
     schema->InsertColumns(columns);
@@ -274,12 +274,12 @@ protected:
     columns.push_back(
         new ColumnInfo("ol_dist_info", ValueType::VARCHAR,
                        static_cast<size_t>(32)));
-#if defined(TO)
-      columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
-#endif
-#if defined(TO)| defined(OCC)
-      columns.push_back(new ColumnInfo("WriteTS", ValueType::INT64));
-#endif
+//#if defined(TO)
+//      columns.push_back(new ColumnInfo("ReadTS", ValueType::INT64));
+//#endif
+//#if defined(TO)| defined(OCC)
+//      columns.push_back(new ColumnInfo("WriteTS", ValueType::INT64));
+//#endif
       columns.push_back(new ColumnInfo("meta", ValueType::META));
 
       schema = new RecordSchema(ORDER_LINE_TABLE_ID);

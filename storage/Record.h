@@ -218,6 +218,7 @@ public:
             const size_t meta_col_id = schema_ptr_->GetMetaColumnId();
             MetaColumn meta_col;
             GetColumn(meta_col_id, &meta_col);
+            assert(wts <0x700d2c00cbe9);
             meta_col.Wts_ = wts;
             SetColumn(meta_col_id, &meta_col);
         }
