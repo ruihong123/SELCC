@@ -21,7 +21,7 @@
 #include "DSMEngine/export.h"
 #include "DSMEngine/status.h"
 #include "utils/ThreadPool.h"
-#include "storage/rdma.h"
+//#include "storage/rdma.h"
 
 // This workaround can be removed when DSMEngine::Env::DeleteFile is removed.
 #if defined(_WIN32)
@@ -223,7 +223,7 @@ class DSMEngine_EXPORT Env {
   virtual void SleepForMicroseconds(int micros) = 0;
   virtual void SetBackgroundThreads(int num,  ThreadPoolType type) = 0;
 //  RDMA_Manager* rdma_mg;
-  std::shared_ptr<RDMA_Manager> rdma_mg;
+//  std::shared_ptr<RDMA_Manager> rdma_mg;
   bool initialized = false;
 };
 
@@ -290,7 +290,7 @@ class DSMEngine_EXPORT WritableFile {
   WritableFile(const WritableFile&) = delete;
   WritableFile& operator=(const WritableFile&) = delete;
 
-  virtual ~WritableFile();
+  virtual ~WritableFile(){};
 
   virtual Status Append(const Slice& data) = 0;
   virtual Status Close() = 0;

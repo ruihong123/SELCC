@@ -14,19 +14,46 @@
 #include "TxnContext.h"
 #include "TxnAccess.h"
 #include "Profiler.h"
+#include "env_posix.h"
 //#include "log.h"
 
 namespace DSMEngine {
 class TransactionManager {
  public:
-  TransactionManager(StorageManager *storage_manager, size_t thread_count,
-                     size_t thread_id)
+  TransactionManager(StorageManager *storage_manager, size_t thread_count, size_t thread_id, bool wal_log = false)
       : storage_manager_(storage_manager),
         thread_count_(thread_count),
-        thread_id_(thread_id) {
+        thread_id_(thread_id),
+        log_enabled_(wal_log){
+      if(wal_log){
+          if (!log_file_){
+              Status ret = NewWritableFile("logdump.txt", &log_file_);
+              if (!ret.ok()){
+                  printf("cannot create log file\n");
+                  fflush(stdout);
+              }
+          }
+
+      }
+
   }
   ~TransactionManager() {
+        if(log_enabled_){
+            delete log_file_;
+        }
   }
+    Status NewWritableFile(const std::string& filename,
+                           WritableFile** result)  {
+        int fd = ::open(filename.c_str(),
+                        O_TRUNC | O_WRONLY | O_CREAT | 0, 0644);
+        if (fd < 0) {
+            *result = nullptr;
+            return PosixError(filename, errno);
+        }
+
+        *result = new PosixWritableFile(filename, fd);
+        return Status::OK();
+    }
     bool AllocateNewRecord(TxnContext *context, size_t table_id, Cache::Handle *&handle,
                            GlobalAddress &data_addr, Record*& tuple);
 
@@ -87,10 +114,13 @@ class TransactionManager {
  public:
   StorageManager* storage_manager_;
  protected:
+//  Env* env_;
   size_t thread_id_;
   size_t thread_count_;
-
   AccessList<kMaxAccessLimit> access_list_;
+    static WritableFile* log_file_;
+    bool log_enabled_ = false;
+
 //    std::map<uint64_t, Access*> access_list_;
 #if defined(TO)
   uint64_t start_timestamp_ = 0;

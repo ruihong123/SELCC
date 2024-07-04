@@ -22,24 +22,24 @@ PosixEnv::PosixEnv()
       started_background_thread_(false),
       mmap_limiter_(MaxMmaps()),
       fd_limiter_(MaxOpenFiles()) {
-  struct config_t config = {
-      NULL,  /* dev_name */
-      NULL,  /* server_name */
-      19843, /* tcp_port */
-      1,	 /* ib_port */ //physical
-      1, /* gid_idx */
-      4*10*1024*1024 /*initial local buffer size*/
-  };
-  size_t remote_block_size = RDMA_WRITE_BLOCK;
-  //Initialize the rdma manager, the remote block size will be configured in the beggining.
-  // remote block size will always be the same.
-  rdma_mg = std::make_shared<RDMA_Manager>(config, remote_block_size);
-//  rdma_mg = new RDMA_Manager(config, remote_block_size);
-  // Unlike the remote block size, the local block size is adjustable, and there could be different
-  // local memory pool with different size. each size of memory pool will have an ID below is "4k"
-
-  //client will try to connect to the remote memory, now there is only one remote memory.
-  rdma_mg->Client_Set_Up_Resources();
+//  struct config_t config = {
+//      NULL,  /* dev_name */
+//      NULL,  /* server_name */
+//      19843, /* tcp_port */
+//      1,	 /* ib_port */ //physical
+//      1, /* gid_idx */
+//      4*10*1024*1024 /*initial local buffer size*/
+//  };
+//  size_t remote_block_size = RDMA_WRITE_BLOCK;
+//  //Initialize the rdma manager, the remote block size will be configured in the beggining.
+//  // remote block size will always be the same.
+//  rdma_mg = std::make_shared<RDMA_Manager>(config, remote_block_size);
+////  rdma_mg = new RDMA_Manager(config, remote_block_size);
+//  // Unlike the remote block size, the local block size is adjustable, and there could be different
+//  // local memory pool with different size. each size of memory pool will have an ID below is "4k"
+//
+//  //client will try to connect to the remote memory, now there is only one remote memory.
+//  rdma_mg->Client_Set_Up_Resources();
 
 
 

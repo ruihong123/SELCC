@@ -3,6 +3,7 @@
 #include "TransactionManager.h"
 
 namespace DSMEngine {
+    WritableFile* TransactionManager::log_file_ = nullptr;
     bool TransactionManager::AllocateNewRecord(TxnContext *context, size_t table_id, Cache::Handle *&handle,
                                                GlobalAddress &tuple_gaddr, Record*& tuple) {
         char* tuple_buffer;
@@ -59,6 +60,7 @@ namespace DSMEngine {
     PROFILE_TIME_START(thread_id_, INDEX_INSERT);
     //TODO: comment the index insertion for a fair comparision
     bool ret = storage_manager_->tables_[table_id]->InsertPriIndex(keys, key_num, tuple_gaddr);
+
     PROFILE_TIME_END(thread_id_, INDEX_INSERT);
     PROFILE_TIME_END(thread_id_, CC_INSERT);
     return true;
@@ -190,7 +192,10 @@ namespace DSMEngine {
     //GC
     for (size_t i = 0; i < access_list_.access_count_; ++i) {
       Access* access = access_list_.GetAccess(i);
-
+        if (log_enabled_){
+            Slice log_record = Slice(access->access_global_record_->data_ptr_, access->access_global_record_->data_size_);
+            log_file_->Append(log_record);
+        }
       if (access->access_type_ == DELETE_ONLY) {
           //TODO: implement the delete function.
 //        gallocators[thread_id_]->Free(access->access_addr_);
@@ -207,6 +212,14 @@ namespace DSMEngine {
             access->txn_local_tuple_ = nullptr;
       }
     }
+      if (log_enabled_){
+          std::string ret_str_temp("Commit");
+          Slice log_record = Slice(ret_str_temp.c_str(), ret_str_temp.size());
+          log_file_->Append(log_record);
+          log_file_->Flush();
+          log_file_->Sync();
+      }
+
     access_list_.Clear();
     locked_handles_.clear();
     PROFILE_TIME_END(thread_id_, CC_COMMIT);
