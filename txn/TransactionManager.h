@@ -20,11 +20,12 @@
 namespace DSMEngine {
 class TransactionManager {
  public:
-  TransactionManager(StorageManager *storage_manager, size_t thread_count, size_t thread_id, bool wal_log = false)
+  TransactionManager(StorageManager *storage_manager, size_t thread_count, size_t thread_id, bool wal_log = false, bool sharding = false)
       : storage_manager_(storage_manager),
-        thread_count_(thread_count),
         thread_id_(thread_id),
-        log_enabled_(wal_log){
+        thread_count_(thread_count),
+        log_enabled_(wal_log),
+        sharding_(sharding) {
       if(wal_log){
           if (!log_file_){
               Status ret = NewWritableFile("logdump.txt", &log_file_);
@@ -120,7 +121,7 @@ class TransactionManager {
   AccessList<kMaxAccessLimit> access_list_;
     static WritableFile* log_file_;
     bool log_enabled_ = false;
-
+    bool sharding_ = false;
 //    std::map<uint64_t, Access*> access_list_;
 #if defined(TO)
   uint64_t start_timestamp_ = 0;
