@@ -12,7 +12,7 @@ namespace DSMEngine {
     static int app_type = -1;
     static double scale_factors[2] = { -1, -1 };
     static int factor_count = 0;
-    static int dist_ratio = 50;
+    static int dist_ratio = 1;
     static int num_txn = -1;
     static int num_core = -1;  // number of cores utilized in a single numa node.
 
