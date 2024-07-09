@@ -2,7 +2,7 @@
 #include "TransactionManager.h"
 #include "GlobalTimestamp.h"
 namespace DSMEngine{
-        WritableFile* TransactionManager::log_file_ = nullptr;
+        WritableFile* TransactionManager::log_file = nullptr;
 
     //TODO: this CC algirhtm will be blocked at delivery query when there are 64 warehouse, need to understand why.
     // and this problem seems only happen in the release mode.

@@ -3,7 +3,7 @@
 #include "GlobalTimestamp.h"
 
 namespace DSMEngine{
-        WritableFile* TransactionManager::log_file_ = nullptr;
+        WritableFile* TransactionManager::log_file = nullptr;
     bool TransactionManager::AcquireLatchForTuple(char*& tuple_buffer,GlobalAddress tuple_gaddr, AccessType access_type){
         GlobalAddress page_gaddr = TOPAGE(tuple_gaddr);
         assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));

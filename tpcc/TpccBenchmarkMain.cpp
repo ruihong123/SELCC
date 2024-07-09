@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
   IORedirector redirector(gThreadCount);
   size_t access_pattern = 0;
   TpccSource sourcer(&tpcc_scale_params, &redirector, num_txn,
-                     SourceType::RANDOM_SOURCE, gThreadCount, dist_ratio,
+                     WORKLOAD_PATTERN, gThreadCount, dist_ratio,
                      config.GetMyPartitionId());
   //TpccSource sourcer(&tpcc_scale_params, &redirector, num_txn, SourceType::RANDOM_SOURCE, gThreadCount, dist_ratio);
   sourcer.Start();
@@ -85,8 +85,7 @@ int main(int argc, char* argv[]) {
     INIT_PROFILE_TIME(gThreadCount);
     TpccExecutor executor(&redirector, &storage_manager, gThreadCount);
     executor.Start();
-    REPORT_PROFILE_TIME
-    (gThreadCount);
+    REPORT_PROFILE_TIME(gThreadCount);
     ExchPerfStatistics(&config, &synchronizer, &executor.GetPerfStatistics());
   }
 

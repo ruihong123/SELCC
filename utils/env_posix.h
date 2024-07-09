@@ -316,7 +316,8 @@ class PosixWritableFile final : public WritableFile {
   }
 
   Status Append(const Slice& data) override {
-    size_t write_size = data.size();
+      std::unique_lock<std::mutex> lock(mutex_);
+      size_t write_size = data.size();
     const char* write_data = data.data();
 
     // Fit as much as possible into buffer.
@@ -354,10 +355,15 @@ class PosixWritableFile final : public WritableFile {
     return status;
   }
 
-  Status Flush() override { return FlushBuffer(); }
+  Status Flush() override {
+      std::unique_lock<std::mutex> lock(mutex_);
+      return FlushBuffer();
+  }
 
   Status Sync() override {
-    // Ensure new files referred to by the manifest are in the filesystem.
+      std::unique_lock<std::mutex> lock(mutex_);
+
+      // Ensure new files referred to by the manifest are in the filesystem.
     //
     // This needs to happen before the manifest file is flushed to disk, to
     // avoid crashing in a state where the manifest refers to files that are not
@@ -487,6 +493,7 @@ class PosixWritableFile final : public WritableFile {
   const bool is_manifest_;  // True if the file's name starts with MANIFEST.
   const std::string filename_;
   const std::string dirname_;  // The directory of filename_.
+  std::mutex mutex_;
 };
 
 //template<typename ReturnType, typename ArgsType>
@@ -671,9 +678,9 @@ class PosixEnv : public Env {
 
   void Schedule(void (*background_work_function)(void* background_work_arg),
                 void* background_work_arg) override;
-  void Schedule(
-      void (*background_work_function)(void* background_work_arg),
-      void* background_work_arg, ThreadPoolType type) override;
+//  void Schedule(
+//      void (*background_work_function)(void* background_work_arg),
+//      void* background_work_arg, ThreadPoolType type) override;
   unsigned int Queue_Length_Quiry(ThreadPoolType type) override;
   void JoinAllThreads(bool wait_for_jobs_to_complete) override;
   void StartThread(void (*thread_main)(void* thread_main_arg),
@@ -729,26 +736,11 @@ class PosixEnv : public Env {
     std::this_thread::sleep_for(std::chrono::microseconds(micros));
   }
   void SetBackgroundThreads(int num,  ThreadPoolType type) override{
-    switch (type) {
-      case FlushThreadPool:
-        flushing.SetBackgroundThreads(num);
-        break;
-      case CompactionThreadPool:
-        compaction.SetBackgroundThreads(num);
-        break;
-      case SubcompactionThreadPool:
-        subcompaction.SetBackgroundThreads(num);
-        break;
-    }
+      workers.SetBackgroundThreads(num);
   }
 
  private:
-  void BackgroundThreadMain();
-
-  static void BackgroundThreadEntryPoint(PosixEnv* env) {
-    env->BackgroundThreadMain();
-  }
-
+//  void BackgroundThreadMain();
   // Stores the work item data in a Schedule() call.
   //
   // Instances are constructed on the thread calling Schedule() and used on the
@@ -763,15 +755,16 @@ class PosixEnv : public Env {
     void* const arg;
   };
 
-  port::Mutex background_work_mutex_;
-  port::CondVar background_work_cv_ GUARDED_BY(background_work_mutex_);
-  bool started_background_thread_ GUARDED_BY(background_work_mutex_);
-
-  std::queue<BackgroundWorkItem> background_work_queue_
-      GUARDED_BY(background_work_mutex_);
-  ThreadPool flushing;
-  ThreadPool compaction;
-  ThreadPool subcompaction;
+//  port::Mutex background_work_mutex_;
+//  port::CondVar background_work_cv_ GUARDED_BY(background_work_mutex_);
+//  bool started_background_thread_ GUARDED_BY(background_work_mutex_);
+//
+//  std::queue<BackgroundWorkItem> background_work_queue_
+//      GUARDED_BY(background_work_mutex_);
+//  ThreadPool flushing;
+//  ThreadPool compaction;
+//  ThreadPool subcompaction;
+    ThreadPool workers;
   PosixLockTable locks_;  // Thread-safe.
   Limiter mmap_limiter_;  // Thread-safe.
   Limiter fd_limiter_;    // Thread-safe.

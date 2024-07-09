@@ -1,6 +1,7 @@
 #include <fstream>
 #include "rdma.h"
 #include <cstdint>
+#include "DSMEngine/env.h"
 #include "Common.h"
 #include "storage/page.h"
 #include "HugePageAlloc.h"
@@ -315,7 +316,7 @@ bool RDMA_Manager::poll_reply_buffer(RDMA_Reply* rdma_reply) {
   return true;
 }
     bool RDMA_Manager::poll_reply_buffer(volatile RDMA_ReplyXCompute* rdma_reply) {
-        volatile uint8_t * check_byte = &(rdma_reply->reply_type);
+        volatile uint8_t * check_byte = &(rdma_reply->inv_reply_type);
 //  size_t counter = 0;
         while(!*check_byte){
             _mm_clflush(check_byte);
@@ -332,6 +333,21 @@ bool RDMA_Manager::poll_reply_buffer(RDMA_Reply* rdma_reply) {
 
         }
         return true;
+    }
+    void RDMA_Manager::Set_message_handling_func(std::function<void(uint32_t )> &&func) {
+        message_handling_func = std::move(func);
+    }
+    void RDMA_Manager::register_message_handling_thread(uint32_t handler_id) {
+        std::unique_lock<std::shared_mutex> lck(user_df_map_mutex);
+        RDMA_Request* request = new RDMA_Request();
+        request->command = invalid_command_;
+        communication_buffers.insert({handler_id, request});
+        communication_mtxs.insert({handler_id, new std::mutex()});
+        communication_cvs.insert({handler_id, new std::condition_variable()});
+        std::thread t(message_handling_func, handler_id);
+        user_defined_functions_handler.insert({handler_id, std::move(t)});
+
+
     }
 /******************************************************************************
 * Function: sock_connect
@@ -1141,7 +1157,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
     for (int i = 0; i < NUM_QP_ACCROSS_COMPUTE; ++i) {
         std::unique_lock<std::mutex> lck(invalidate_channel_mtx);
 //        std::thread p_t(&::DSMEngine::RDMA_Manager::compute_message_handling_thread, this, target_node_id, i, recv_mr[i]);
-        Invalidation_bg_threads.emplace_back(&RDMA_Manager::invalidation_message_handling_worker, this, target_node_id, i, recv_mr[i]);
+        Invalidation_bg_threads.emplace_back(&RDMA_Manager::cross_compute_message_handling_worker, this, target_node_id, i, recv_mr[i]);
 //        Invalidation_bg_threads.back().detach();
     }
 //    std::unique_lock<std::mutex> lck(invalidate_channel_mtx);
@@ -1153,7 +1169,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
 
 }
 
-    void RDMA_Manager::invalidation_message_handling_worker(uint16_t target_node_id, int qp_num, ibv_mr *recv_mr) {
+    void RDMA_Manager::cross_compute_message_handling_worker(uint16_t target_node_id, int qp_num, ibv_mr *recv_mr) {
         ibv_wc wc[3] = {};
         int buffer_position= 0;
         int miss_poll_counter= 0;
@@ -1191,41 +1207,85 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
 
                 // copy the pointer of receive buf to a new place because
                 // it is the same with send buff pointer.
-                if (receive_msg_buf->command == writer_invalidate_modified) {
+            switch (receive_msg_buf->command) {
+                case writer_invalidate_modified:
                     post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
-//                printf("release_write_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
-
-
-
-                    //TODO: what shall we do if the read lock is on
-                    //Ans: do nothing
-
-//                    BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
-//                    Invalidation_bg_threads.Schedule(&RDMA_Manager::Write_Invalidation_Message_Handler, thread_pool_args, i);
                     Writer_Inv_Modified_handler(receive_msg_buf, target_node_id);
-
-                } else if (receive_msg_buf->command == writer_invalidate_shared) {
+                    break;
+                case writer_invalidate_shared:
                     post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
-//                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
-//                    BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
-//                    Invalidation_bg_threads.Schedule(&RDMA_Manager::Read_Invalidation_Message_Handler, thread_pool_args, i);
                     Writer_Inv_Shared_handler(receive_msg_buf, target_node_id);
-                } else if (receive_msg_buf->command == reader_invalidate_modified) {
+                    break;
+                case reader_invalidate_modified:
                     post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
-//                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
-//                    BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
-//                    Invalidation_bg_threads.Schedule(&RDMA_Manager::Read_Invalidation_Message_Handler, thread_pool_args, i);
                     Reader_Inv_Modified_handler(receive_msg_buf, target_node_id);
-                } else if (receive_msg_buf->command == heart_beat) {
+                    break;
+                case heart_beat:
                     printf("heart_beat\n");
                     post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
-
-
-                } else {
+                    break;
+                case tuple_read_2pc:
+                    post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
+                    Tuple_read_2pc_handler(receive_msg_buf, target_node_id);
+                    break;
+                case prepare_2pc:
+                    post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
+                    Prepare_2pc_handler(receive_msg_buf, target_node_id);
+                    break;
+                case commit_2pc:
+                    post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
+                    Commit_2pc_handler(receive_msg_buf, target_node_id);
+                    break;
+                default:
                     printf("corrupt message from client. %d\n", receive_msg_buf->command);
                     assert(false);
+                    exit(0);
                     break;
-                }
+                
+            }
+//                if (receive_msg_buf->command == writer_invalidate_modified) {
+//                    post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
+////                printf("release_write_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
+//
+//
+//
+//                    //TODO: what shall we do if the read lock is on
+//                    //Ans: do nothing
+//
+////                    BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
+////                    Invalidation_bg_threads.Schedule(&RDMA_Manager::Write_Invalidation_Message_Handler, thread_pool_args, i);
+//                    Writer_Inv_Modified_handler(receive_msg_buf, target_node_id);
+//
+//                } else if (receive_msg_buf->command == writer_invalidate_shared) {
+//                    post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
+////                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
+////                    BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
+////                    Invalidation_bg_threads.Schedule(&RDMA_Manager::Read_Invalidation_Message_Handler, thread_pool_args, i);
+//                    Writer_Inv_Shared_handler(receive_msg_buf, target_node_id);
+//                } else if (receive_msg_buf->command == reader_invalidate_modified) {
+//                    post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
+////                printf("release_read_lock, page_addr is %p\n", receive_msg_buf->content.R_message.page_addr);
+////                    BGThreadMetadata* thread_pool_args = new BGThreadMetadata{.rdma_mg = this, .func_args = receive_msg_buf};
+////                    Invalidation_bg_threads.Schedule(&RDMA_Manager::Read_Invalidation_Message_Handler, thread_pool_args, i);
+//                    Reader_Inv_Modified_handler(receive_msg_buf, target_node_id);
+//                } else if (receive_msg_buf->command == heart_beat) {
+//                    printf("heart_beat\n");
+//                    post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
+//                } else if (receive_msg_buf->command == tuple_read_2pc) {
+//                    printf("heart_beat\n");
+//                    post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
+//                } else if (receive_msg_buf->command == prepare_2pc) {
+//                    printf("heart_beat\n");
+//                    post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
+//                } else if (receive_msg_buf->command == commit_2pc) {
+//                    printf("heart_beat\n");
+//                    post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
+//
+//                } else {
+//                    printf("corrupt message from client. %d\n", receive_msg_buf->command);
+//                    assert(false);
+//                    break;
+//                }
                 // increase the buffer index
                 if (buffer_position == RECEIVE_OUTSTANDING_SIZE - 1 ){
                     buffer_position = 0;
@@ -5900,6 +5960,148 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
             poll_reply_buffer(receive_pointer); // poll the receive for 2 entires
         }
     }
+    bool RDMA_Manager::Tuple_Read_2PC_RPC(uint16_t target_node_id, uint64_t primary_key, size_t table_id,
+                                          size_t tuple_size, char* & tuple_buffer) {
+        RDMA_Request* send_pointer;
+        ibv_mr* send_mr = Get_local_send_message_mr();
+        ibv_mr* recv_mr = Get_local_read_mr();
+        tuple_buffer = (char*)recv_mr->addr;
+        send_pointer = (RDMA_Request*)send_mr->addr;
+        send_pointer->command = tuple_read_2pc;
+        send_pointer->content.tuple_info.primary_key = primary_key;
+        send_pointer->content.tuple_info.table_id = table_id;
+        send_pointer->content.tuple_info.thread_id = thread_id;
+        send_pointer->buffer = recv_mr->addr;
+        send_pointer->rkey = recv_mr->rkey;
+
+
+        RDMA_ReplyXCompute* receive_pointer = (RDMA_ReplyXCompute*)((char*)recv_mr->addr + tuple_size);
+        //Clear the reply buffer for the polling.
+//        memset(receive_pointer, 0, recv_mr->length);
+        *receive_pointer = {};
+
+        int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+
+        post_send_xcompute(send_mr, target_node_id, qp_id);
+        ibv_wc wc[2] = {};
+        assert(send_pointer->command!= create_qp_);
+////         Check the completion outside this function
+//        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
+//            fprintf(stderr, "failed to poll send for remote memory register\n");
+//            return false;
+//        }
+        asm volatile ("sfence\n" : : );
+        asm volatile ("lfence\n" : : );
+        asm volatile ("mfence\n" : : );
+        volatile uint8_t * check_byte = (uint8_t*)&receive_pointer->toPC_reply_type;
+        while(!*check_byte){
+            _mm_clflush(check_byte);
+            asm volatile ("sfence\n" : : );
+            asm volatile ("lfence\n" : : );
+            asm volatile ("mfence\n" : : );
+        }
+        if (receive_pointer->toPC_reply_type == 1){
+            return true;
+        }else{
+            return false;
+        }
+
+    }
+    bool RDMA_Manager::Prepare_2PC_RPC(uint16_t target_node_id) {
+        RDMA_Request* send_pointer;
+        ibv_mr* send_mr = Get_local_send_message_mr();
+        ibv_mr* recv_mr = Get_local_read_mr();
+        send_pointer = (RDMA_Request*)send_mr->addr;
+        send_pointer->command = prepare_2pc;
+        send_pointer->buffer = recv_mr->addr;
+        send_pointer->rkey = recv_mr->rkey;
+
+
+        RDMA_ReplyXCompute* receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
+        //Clear the reply buffer for the polling.
+        *receive_pointer = {};
+
+        int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+
+        post_send_xcompute(send_mr, target_node_id, qp_id);
+        ibv_wc wc[2] = {};
+        assert(send_pointer->command!= create_qp_);
+////         Check the completion outside this function
+//        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
+//            fprintf(stderr, "failed to poll send for remote memory register\n");
+//            return false;
+//        }
+        asm volatile ("sfence\n" : : );
+        asm volatile ("lfence\n" : : );
+        asm volatile ("mfence\n" : : );
+        volatile uint8_t * check_byte = (uint8_t*)&receive_pointer->toPC_reply_type;
+        while(!*check_byte){
+            _mm_clflush(check_byte);
+            asm volatile ("sfence\n" : : );
+            asm volatile ("lfence\n" : : );
+            asm volatile ("mfence\n" : : );
+        }
+        if (receive_pointer->toPC_reply_type == 1){
+            return true;
+        }else{
+            return false;
+        }
+
+    }
+    bool RDMA_Manager::Commit_2PC_RPC(uint16_t target_node_id) {
+        RDMA_Request* send_pointer;
+        ibv_mr* send_mr = Get_local_send_message_mr();
+        ibv_mr* recv_mr = Get_local_read_mr();
+        send_pointer = (RDMA_Request*)send_mr->addr;
+        send_pointer->command = commit_2pc;
+        send_pointer->buffer = recv_mr->addr;
+        send_pointer->rkey = recv_mr->rkey;
+
+
+        RDMA_ReplyXCompute* receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
+        //Clear the reply buffer for the polling.
+        *receive_pointer = {};
+
+        int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+
+        post_send_xcompute(send_mr, target_node_id, qp_id);
+        ibv_wc wc[2] = {};
+        assert(send_pointer->command!= create_qp_);
+////         Check the completion outside this function
+//        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
+//            fprintf(stderr, "failed to poll send for remote memory register\n");
+//            return false;
+//        }
+        return true;
+    }
+    bool RDMA_Manager::Abort_2PC_RPC(uint16_t target_node_id) {
+        RDMA_Request* send_pointer;
+        ibv_mr* send_mr = Get_local_send_message_mr();
+        ibv_mr* recv_mr = Get_local_read_mr();
+        send_pointer = (RDMA_Request*)send_mr->addr;
+        send_pointer->command = abort_2pc;
+        send_pointer->buffer = recv_mr->addr;
+        send_pointer->rkey = recv_mr->rkey;
+
+
+        RDMA_ReplyXCompute* receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
+        //Clear the reply buffer for the polling.
+        *receive_pointer = {};
+
+        int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+
+        post_send_xcompute(send_mr, target_node_id, qp_id);
+        ibv_wc wc[2] = {};
+        assert(send_pointer->command!= create_qp_);
+////         Check the completion outside this function
+//        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
+//            fprintf(stderr, "failed to poll send for remote memory register\n");
+//            return false;
+//        }
+        return true;
+
+    }
+
     bool RDMA_Manager::Send_heart_beat() {
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
@@ -6769,7 +6971,7 @@ void RDMA_Manager::fs_deserilization(
 #ifdef ASYNC_UNLOCK
                             if (global_RUnlock(lock_gptr, cas_mr, true, handle)){
                                 handle->remote_lock_status.store(0);
-                                reply_type = 1;
+                                inv_reply_type = 1;
                                 handle->clear_states();
                                 goto message_reply;
                             }
@@ -6817,7 +7019,7 @@ message_reply:
             reply_type = 2;
         }
         ibv_mr* local_mr = Get_local_send_message_mr();
-        ((RDMA_ReplyXCompute* )local_mr->addr)->reply_type = reply_type;
+        ((RDMA_ReplyXCompute* )local_mr->addr)->inv_reply_type = reply_type;
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
         RDMA_Write_xcompute(local_mr,  receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(RDMA_ReplyXCompute),target_node_id,qp_id);
         delete receive_msg_buf;
@@ -6895,7 +7097,7 @@ message_reply:
             reply_type = 2;
         }
         ibv_mr* local_mr = Get_local_send_message_mr();
-        ((RDMA_ReplyXCompute* )local_mr->addr)->reply_type = reply_type;
+        ((RDMA_ReplyXCompute* )local_mr->addr)->inv_reply_type = reply_type;
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
         RDMA_Write_xcompute(local_mr,  receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(RDMA_ReplyXCompute), target_node_id, qp_id);
         delete receive_msg_buf;
@@ -6985,7 +7187,7 @@ message_reply:
             reply_type = 2;
         }
         ibv_mr* local_mr = Get_local_send_message_mr();
-        ((RDMA_ReplyXCompute* )local_mr->addr)->reply_type = reply_type;
+        ((RDMA_ReplyXCompute* )local_mr->addr)->inv_reply_type = reply_type;
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
         RDMA_Write_xcompute(local_mr,  receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(RDMA_ReplyXCompute), target_node_id, qp_id);
         delete receive_msg_buf;
@@ -7002,7 +7204,67 @@ message_reply:
         delete static_cast<BGThreadMetadata*>(thread_args);
     }
 
+    void RDMA_Manager::Tuple_read_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
+    uint16_t thread_id_remote = receive_msg_buf->content.tuple_info.thread_id;
+    uint32_t handling_id = ((uint32_t)target_node_id << 16) | thread_id_remote;
+    std::shared_lock<std::shared_mutex> read_lock(user_df_map_mutex);
+    auto partipant_handler = user_defined_functions_handler.find(handling_id);
+    if (partipant_handler == user_defined_functions_handler.end()){
+        read_lock.unlock();
+        std::unique_lock<std::shared_mutex> write_lock(user_df_map_mutex);
+        register_message_handling_thread(handling_id);
+        //wait for the handling thread ready to receive the message.
+        usleep(10);
+    }
+    auto communication_buffer = communication_buffers.find(handling_id)->second;
+    auto communication_mtx = communication_mtxs.find(handling_id)->second;
+    auto communication_cv = communication_cvs.find(handling_id)->second;
+    read_lock.unlock();
+    std::unique_lock<std::mutex> lck_comm(*communication_mtx);
+    *communication_buffer = *receive_msg_buf;
+    communication_cv->notify_one();
+    delete receive_msg_buf;
+//    auto communication_ready = communication_ready_flags.find(handling_id)->second;
 
+
+    // first check whetehr the
+}
+    void RDMA_Manager::Prepare_2pc_handler(DSMEngine::RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
+        uint16_t thread_id_remote = receive_msg_buf->content.tuple_info.thread_id;
+        uint32_t handling_id = ((uint32_t)target_node_id << 16) | thread_id_remote;
+        std::shared_lock<std::shared_mutex> read_lock(user_df_map_mutex);
+        auto partipant_handler = user_defined_functions_handler.find(handling_id);
+        if (partipant_handler == user_defined_functions_handler.end()){
+            assert(false);
+        }
+        auto communication_buffer = communication_buffers.find(handling_id)->second;
+        auto communication_mtx = communication_mtxs.find(handling_id)->second;
+        auto communication_cv = communication_cvs.find(handling_id)->second;
+        read_lock.unlock();
+        std::unique_lock<std::mutex> lck_comm(*communication_mtx);
+        *communication_buffer = *receive_msg_buf;
+        communication_cv->notify_one();
+        delete receive_msg_buf;
+
+    }
+    void RDMA_Manager::Commit_2pc_handler(DSMEngine::RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
+        uint16_t thread_id = receive_msg_buf->content.tuple_info.thread_id;
+        uint32_t handling_id = ((uint32_t)target_node_id << 16) | thread_id;
+        std::shared_lock<std::shared_mutex> read_lock(user_df_map_mutex);
+        auto partipant_handler = user_defined_functions_handler.find(handling_id);
+        if (partipant_handler == user_defined_functions_handler.end()){
+            assert(false);
+        }
+        auto communication_buffer = communication_buffers.find(handling_id)->second;
+        auto communication_mtx = communication_mtxs.find(handling_id)->second;
+        auto communication_cv = communication_cvs.find(handling_id)->second;
+        read_lock.unlock();
+        std::unique_lock<std::mutex> lck_comm(*communication_mtx);
+        *communication_buffer = *receive_msg_buf;
+        communication_cv->notify_one();
+        delete receive_msg_buf;
+
+    }
 
 
 }

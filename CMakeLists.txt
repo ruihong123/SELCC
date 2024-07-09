@@ -76,6 +76,7 @@ target_sources(DSMEngine
         "utils/status.cc"
         "utils/env_posix.h"
         "utils/env_posix.cc"
+        "utils/env.cc"
         "utils/status.h"
         "test/zipf.h"
         "include/DSMEngine/env.h"

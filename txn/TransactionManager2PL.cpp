@@ -3,7 +3,7 @@
 #include "TransactionManager.h"
 
 namespace DSMEngine {
-    WritableFile* TransactionManager::log_file_ = nullptr;
+    WritableFile* TransactionManager::log_file = nullptr;
     bool TransactionManager::AllocateNewRecord(TxnContext *context, size_t table_id, Cache::Handle *&handle,
                                                GlobalAddress &tuple_gaddr, Record*& tuple) {
         char* tuple_buffer;
@@ -164,8 +164,43 @@ namespace DSMEngine {
 
   bool TransactionManager::CommitTransaction(TxnContext* context, 
       TxnParam* param, CharArray& ret_str) {
-//    epicLog(LOG_DEBUG, "thread_id=%u,txn_type=%d,commit", thread_id_, context->txn_type_);
     PROFILE_TIME_START(thread_id_, CC_COMMIT);
+      if (log_enabled_) {
+          for (size_t i = 0; i < access_list_.access_count_; ++i) {
+              Access *access = access_list_.GetAccess(i);
+              Slice log_record = Slice(access->access_global_record_->data_ptr_,
+                                       access->access_global_record_->data_size_);
+              log_file->Append(log_record);
+          }
+      }
+
+      if (sharding_){
+          assert(log_enabled_);
+          if (log_enabled_){
+              std::string ret_str_temp("Prepare\n");
+              Slice log_record = Slice(ret_str_temp.c_str(), ret_str_temp.size());
+              log_file->Append(log_record);
+              log_file->Flush();
+              log_file->Sync();
+          }
+          bool success = true;
+          for (auto iter : participants){
+              success = success && default_gallocator->rdma_mg->Prepare_2PC_RPC(iter);
+          }
+          if (success){
+              for (auto iter : participants){
+                  default_gallocator->rdma_mg->Commit_2PC_RPC(iter);
+              }
+          } else {
+              AbortTransaction();
+              return false;
+          }
+          participants.clear();
+
+      }
+      if(log_enabled_){
+          WriteCommitLog();
+      }
 //      assert(locked_handles_.size() == access_list_.access_count_);
       assert(locked_handles_.size() >0);
     for (auto iter : locked_handles_){
@@ -194,7 +229,7 @@ namespace DSMEngine {
       Access* access = access_list_.GetAccess(i);
         if (log_enabled_){
             Slice log_record = Slice(access->access_global_record_->data_ptr_, access->access_global_record_->data_size_);
-            log_file_->Append(log_record);
+            log_file->Append(log_record);
         }
       if (access->access_type_ == DELETE_ONLY) {
           //TODO: implement the delete function.
@@ -212,13 +247,8 @@ namespace DSMEngine {
             access->txn_local_tuple_ = nullptr;
       }
     }
-      if (log_enabled_){
-          std::string ret_str_temp("Commit");
-          Slice log_record = Slice(ret_str_temp.c_str(), ret_str_temp.size());
-          log_file_->Append(log_record);
-          log_file_->Flush();
-          log_file_->Sync();
-      }
+
+
 
     access_list_.Clear();
     locked_handles_.clear();
@@ -229,7 +259,16 @@ namespace DSMEngine {
   void TransactionManager::AbortTransaction() {
 //    printf( "thread_id=%zu,abort\n", thread_id_);
     PROFILE_TIME_START(thread_id_, CC_ABORT);
+      if (sharding_){
+          for (auto iter : participants){
+              default_gallocator->rdma_mg->Abort_2PC_RPC(iter);
+          }
+          participants.clear();
+      }
 
+      if (log_enabled_){
+          WriteAbortLog();
+      }
       //TODO: roll back the data changes.
     //GC
     for (size_t i = 0; i < access_list_.access_count_; ++i) {
@@ -265,11 +304,15 @@ namespace DSMEngine {
           }
           // unlock
       }
+
+//      require_2pc = false;
+
     access_list_.Clear();
     locked_handles_.clear();
 
     PROFILE_TIME_END(thread_id_, CC_ABORT);
   }
+
 
 
 }

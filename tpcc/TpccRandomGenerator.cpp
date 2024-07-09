@@ -1,5 +1,6 @@
 // NOTICE: this file is adapted from Cavalia
 #include "TpccRandomGenerator.h"
+#include "TpccParams.h"
 
 namespace DSMEngine {
 namespace TpccBenchmark {
@@ -11,6 +12,5 @@ const int TpccRandomGenerator::cId_ = TpccRandomGenerator::GenerateInteger(
     0, 1023);
 const int TpccRandomGenerator::orderlineItemId_ =
     TpccRandomGenerator::GenerateInteger(0, 8191);
-
 }
 }

@@ -199,7 +199,7 @@ class DSMEngine_EXPORT Env {
   // I.e., the caller may not assume that background work items are
   // serialized.
   virtual void Schedule(void (*function)(void* arg), void* arg) = 0;
-  virtual void Schedule(void (*function)(void* arg), void* arg, ThreadPoolType type) = 0;
+//  virtual void Schedule(void (*function)(void* arg), void* arg, ThreadPoolType type) = 0;
   virtual unsigned int Queue_Length_Quiry(ThreadPoolType type);
   virtual void JoinAllThreads(bool wait_for_jobs_to_complete) = 0;
   // Start a new thread, invoking "function(arg)" within the new thread.
@@ -235,7 +235,7 @@ class DSMEngine_EXPORT SequentialFile {
   SequentialFile(const SequentialFile&) = delete;
   SequentialFile& operator=(const SequentialFile&) = delete;
 
-  virtual ~SequentialFile();
+  virtual ~SequentialFile() = 0;
 
   // Read up to "n" bytes from the file.  "scratch[0..n-1]" may be
   // written by this routine.  Sets "*result" to the data that was
@@ -290,7 +290,7 @@ class DSMEngine_EXPORT WritableFile {
   WritableFile(const WritableFile&) = delete;
   WritableFile& operator=(const WritableFile&) = delete;
 
-  virtual ~WritableFile(){};
+  virtual ~WritableFile();
 
   virtual Status Append(const Slice& data) = 0;
   virtual Status Close() = 0;

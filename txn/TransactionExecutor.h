@@ -53,12 +53,14 @@ class TransactionExecutor {
 
   virtual void ProcessQuery() {
     std::cout << "start process query" << std::endl;
-    boost::thread_group thread_group;
+      default_gallocator->rdma_mg->Set_message_handling_func(std::bind(&TransactionExecutor::ProcessQueryThread_2PC_Participant, this,std::placeholders::_1));
+      boost::thread_group thread_group;
     for (size_t i = 0; i < thread_count_; ++i) {
       // can bind threads to cores here
       thread_group.create_thread(
           boost::bind(&TransactionExecutor::ProcessQueryThread, this, i));
     }
+    //TODO: set the message handling function for the RDMA manager, need to develp an more elegant way.
     bool is_all_ready = true;
     while (1) {
       for (size_t i = 0; i < thread_count_; ++i) {
@@ -94,7 +96,73 @@ class TransactionExecutor {
     perf_statistics_.elapsed_time_ = elapsed_time;
     perf_statistics_.throughput_ = throughput;
   }
+  virtual void ProcessQueryThread_2PC_Participant(uint32_t handler_id) {
+      TransactionManager *txn_manager = new TransactionManager(
+              storage_manager_, this->thread_count_, 0, true, false);
+      auto rdma_mg = default_gallocator->rdma_mg;
+      std::shared_lock<std::shared_mutex> read_lock(rdma_mg->user_df_map_mutex);
+      auto partipant_handler = rdma_mg->user_defined_functions_handler.find(handler_id);
+      if (partipant_handler == rdma_mg->user_defined_functions_handler.end()){
+          assert(false);
+      }
+      CharArray dummy;
+      auto communication_buffer = rdma_mg->communication_buffers.find(handler_id)->second;
+      auto communication_mtx = rdma_mg->communication_mtxs.find(handler_id)->second;
+      auto communication_cv = rdma_mg->communication_cvs.find(handler_id)->second;
+      uint16_t target_node_id = handler_id >> 16;
+      // wait for the signal on communicaiton buffer to process query.
+        while (1){
+            std::unique_lock<std::mutex> lock(*communication_mtx);
+            communication_cv->wait(lock);
+            if (communication_buffer->command == invalid_command_){
+                continue;
+            }
+            bool need_abort = false;
+            RDMA_Request received_rdma_request = *communication_buffer;
+            lock.unlock();
+            Record* record;
+            switch (received_rdma_request.command) {
+                case tuple_read_2pc:
+                    // process the request
+                    need_abort = txn_manager->SearchRecord(nullptr, received_rdma_request.content.tuple_info.table_id, received_rdma_request.content.tuple_info.primary_key, record, (DSMEngine::AccessType)received_rdma_request.content.tuple_info.access_type);
+                    break;
+                case prepare_2pc:
+                    need_abort = txn_manager->CommitTransaction(nullptr, nullptr, dummy);
+                    break;
+                case commit_2pc:
+                    txn_manager->WriteCommitLog();
 
+                    break;
+                case abort_2pc:
+                    txn_manager->AbortTransaction();
+                    break;
+                default:
+                    assert(false);
+                    printf("Invalid command for 2pc processing\n");
+                    exit(0);
+            }
+            if(received_rdma_request.command == tuple_read_2pc){
+                ibv_mr* local_mr = rdma_mg->Get_local_read_mr();
+                memcpy(local_mr->addr, record->data_ptr_, record->data_size_);
+                ((RDMA_ReplyXCompute* )((char*)local_mr->addr)+record->data_size_)->toPC_reply_type = need_abort? 2: 1;
+                int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+                rdma_mg->RDMA_Write_xcompute(local_mr,  received_rdma_request.buffer, received_rdma_request.rkey, sizeof(RDMA_ReplyXCompute)+record->data_size_, target_node_id, qp_id);
+
+            }else if (received_rdma_request.command == prepare_2pc){
+                ibv_mr* local_mr = rdma_mg->Get_local_send_message_mr();
+                ((RDMA_ReplyXCompute* )(local_mr->addr))->toPC_reply_type = need_abort? 2: 1;
+                int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+                rdma_mg->RDMA_Write_xcompute(local_mr,  received_rdma_request.buffer, received_rdma_request.rkey, sizeof(RDMA_ReplyXCompute), target_node_id, qp_id);
+            }
+
+//            delete receive_msg_buf;
+
+
+            need_abort = false;
+            communication_buffer->command = invalid_command_;
+        }
+
+  }
   virtual void ProcessQueryThread(const size_t& thread_id) {
       bindCore(thread_id + 1);
     //std::cout << "start thread " << thread_id << std::endl;
@@ -102,7 +170,7 @@ class TransactionExecutor {
       *(redirector_ptr_->GetParameterBatches(thread_id));
 
     TransactionManager *txn_manager = new TransactionManager(
-            storage_manager_, this->thread_count_, thread_id, true, false);
+            storage_manager_, this->thread_count_, thread_id, LOGGING, PARTITIONED);
     StoredProcedure **procedures = new StoredProcedure*[registers_.size()];
     for (auto &entry : registers_) {
       procedures[entry.first] = entry.second();

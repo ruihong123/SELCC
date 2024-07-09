@@ -73,6 +73,7 @@
 #define FILTER_BLOCK  (2*1024*1024)
 namespace DSMEngine {
 class Cache;
+class Env;
 enum Chunk_type {Regular_Page, LockTable, Message, BigPage, IndexChunk, FilterChunk, FlushBuffer, DataChunk};
 static const char * EnumStrings[] = { "Internal_and_Leaf", "LockTable", "Message", "Version_edit", "IndexChunk", "FilterChunk", "FlushBuffer", "DataChunk"};
 
@@ -153,6 +154,23 @@ struct New_Root {
     int level;
 
 } __attribute__((packed));
+struct Tuple_info {
+    uint64_t primary_key;
+    size_t table_id;
+    uint16_t thread_id;
+    size_t access_type;
+    bool new_session;
+//    size_t buffer_size;
+} __attribute__((packed));
+struct Prepare {
+    uint16_t thread_id;
+
+//    size_t buffer_size;
+} __attribute__((packed));
+struct Commit{
+    uint16_t thread_id;
+//    size_t buffer_size;
+} __attribute__((packed));
 enum RDMA_Command_Type {
   invalid_command_ = 0,
   create_qp_,
@@ -170,9 +188,11 @@ enum RDMA_Command_Type {
   writer_invalidate_modified,
   reader_invalidate_modified,
   writer_invalidate_shared,
+  tuple_read_2pc,
+  prepare_2pc,
+  commit_2pc,
+  abort_2pc,
   heart_beat
-
-
 };
 enum file_type { log_type, others };
 struct fs_sync_command {
@@ -207,6 +227,9 @@ union RDMA_Request_Content {
   New_Root root_broadcast;
   uint32_t target_id_pair;
   Invalid_Message inv_message;
+  Tuple_info tuple_info;
+  Prepare prepare;
+  Commit commit;
 };
 union RDMA_Reply_Content {
   ibv_mr mr;
@@ -225,8 +248,8 @@ struct RDMA_Request {
 //  Options opt;
 } __attribute__((packed));
 struct RDMA_ReplyXCompute {
-    uint8_t reply_type; // 0 not received, 1 message processed at the scene, 2 the target handle is not found or found invalidated, 3 message was pushed in the handle.
-    uint8_t to_fill_blank1;
+    uint8_t inv_reply_type; // 0 not received, 1 message processed at the scene, 2 the target handle is not found or found invalidated, 3 message was pushed in the handle.
+    uint8_t toPC_reply_type; // 0 not received, 1 commit, 2 abort.
     uint16_t to_fill_blank2;
 } __attribute__((packed));
 
@@ -426,7 +449,7 @@ class RDMA_Manager {
   // Set up the socket connection to remote shared memory.
   bool Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id);
   void Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id);
-    void invalidation_message_handling_worker(uint16_t target_node_id, int qp_num, ibv_mr *recv_mr);
+    void cross_compute_message_handling_worker(uint16_t target_node_id, int qp_num, ibv_mr *recv_mr);
 
     //FUnction for invalidation message handling
     void Writer_Inv_Shared_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
@@ -434,6 +457,20 @@ class RDMA_Manager {
     void Writer_Inv_Modified_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     static void Write_Invalidation_Message_Handler(void* thread_args);
     static void Read_Invalidation_Message_Handler(void* thread_args);
+    void Tuple_read_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
+    void Prepare_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
+    void Commit_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
+    bool Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
+                                        uint64_t page_version);
+    bool Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
+                                        uint64_t page_version);
+    bool Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level,
+                                      uint64_t page_version, uint8_t pos);
+    bool Writer_Invalidate_Shared_RPC_Reply(uint8_t num_of_poll);
+    bool Tuple_Read_2PC_RPC(uint16_t target_node_id, uint64_t primary_key, size_t table_id, size_t tuple_size, char* & tuple_buffer);
+    bool Prepare_2PC_RPC(uint16_t target_node_id);
+    bool Commit_2PC_RPC(uint16_t target_node_id);
+    bool Abort_2PC_RPC(uint16_t target_node_id);
 
     void Put_qp_info_into_RemoteM(uint16_t target_compute_node_id,
                                   std::array<ibv_cq *, NUM_QP_ACCROSS_COMPUTE * 2> *cq_arr,
@@ -486,14 +523,9 @@ class RDMA_Manager {
   ibv_mr * Preregister_Memory(size_t gb_number); //Pre register the memroy do not allocate bit map
   // Remote Memory registering will call RDMA send and receive to the remote memory it also push the new SST bit map to the Remote_Leaf_Node_Bitmap
   bool Remote_Memory_Register(size_t size, uint16_t target_node_id, Chunk_type pool_name);
-  bool Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
-                                      uint64_t page_version);
-    bool Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
-                                        uint64_t page_version);
-  bool Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level,
-                                    uint64_t page_version, uint8_t pos);
-    bool Writer_Invalidate_Shared_RPC_Reply(uint8_t num_of_poll);
-  bool Send_heart_beat();
+
+
+    bool Send_heart_beat();
     bool Send_heart_beat_xcompute(uint16_t target_memory_node_id);
   int Remote_Memory_Deregister();
   // new query pair creation and connection to remote Memory by RDMA send and receive
@@ -631,6 +663,8 @@ class RDMA_Manager {
   //  void mem_pool_serialization
   bool poll_reply_buffer(RDMA_Reply* rdma_reply);
   static bool poll_reply_buffer(volatile RDMA_ReplyXCompute * rdma_reply);
+  void Set_message_handling_func(std::function<void(uint32_t)> &&func);
+  void register_message_handling_thread(uint32_t handler_id);
   // TODO: Make all the variable more smart pointers.
 //#ifndef NDEBUG
     static thread_local int thread_id;
@@ -729,8 +763,14 @@ class RDMA_Manager {
   ibv_mr* global_index_table = nullptr;
   ibv_mr* global_lock_table = nullptr;
   ibv_mr* timestamp_oracle = nullptr;
-
-
+  Env* env_;
+  std::function<void(uint32_t)> message_handling_func;
+    std::shared_mutex user_df_map_mutex;
+    //TODO: clear those allocated resources when RDMA manager is being destroyed.
+  std::map<uint32_t,std::thread> user_defined_functions_handler;
+  std::map<uint32_t, RDMA_Request*> communication_buffers;
+  std::map<uint32_t, std::mutex*> communication_mtxs;
+  std::map<uint32_t, std::condition_variable*> communication_cvs;
 #ifdef PROCESSANALYSIS
   static std::atomic<uint64_t> RDMAReadTimeElapseSum;
   static std::atomic<uint64_t> ReadCount;

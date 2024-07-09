@@ -13,6 +13,7 @@
 
 namespace DSMEngine {
 namespace TpccBenchmark {
+extern TpccScaleParams tpcc_scale_params;
 /******************** get primary key **********************/
 static IndexKey GetItemPrimaryKey(int i_id, int w_id) {
   assert(i_id >= 1 && i_id <= tpcc_scale_params.num_items_);
