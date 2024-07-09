@@ -48,7 +48,7 @@ int main(int argc,char* argv[])
 //    DSMEngine::RDMA_Manager::node_id = 1;
   }
 
-  mn_keeper->SetBackgroundThreads(12, DSMEngine::ThreadPoolType::CompactionThreadPool);
+//  mn_keeper->SetBackgroundThreads(12, DSMEngine::ThreadPoolType::CompactionThreadPool);
   mn_keeper->Server_to_Client_Communication();
   delete mn_keeper;
 
