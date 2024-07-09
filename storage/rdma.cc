@@ -338,7 +338,7 @@ bool RDMA_Manager::poll_reply_buffer(RDMA_Reply* rdma_reply) {
         message_handling_func = std::move(func);
     }
     void RDMA_Manager::register_message_handling_thread(uint32_t handler_id) {
-        std::unique_lock<std::shared_mutex> lck(user_df_map_mutex);
+//        std::unique_lock<std::shared_mutex> lck(user_df_map_mutex);
         RDMA_Request* request = new RDMA_Request();
         request->command = invalid_command_;
         communication_buffers.insert({handler_id, request});
