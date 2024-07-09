@@ -7216,6 +7216,8 @@ message_reply:
         register_message_handling_thread(handling_id);
         //wait for the handling thread ready to receive the message.
         usleep(10);
+        write_lock.unlock();
+        read_lock.lock();
     }
     auto communication_buffer = communication_buffers.find(handling_id)->second;
     auto communication_mtx = communication_mtxs.find(handling_id)->second;
