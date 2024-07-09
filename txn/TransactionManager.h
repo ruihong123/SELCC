@@ -82,7 +82,7 @@ class TransactionManager {
     bool ClearAllLatches();
     bool IsRecordLocal(IndexKey primary_key, uint16_t& target_node_id){
             int warehouse_id = primary_key >> TpccBenchmark::kWarehouseBits;
-            target_node_id = ((warehouse_id -1) % num_warehouse_per_par_)*2;
+            target_node_id = ((warehouse_id -1) / num_warehouse_per_par_)*2;
             return warehouse_id >= warehouse_start_ && warehouse_id <= warehouse_end_;
 
     }
