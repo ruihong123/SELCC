@@ -345,6 +345,7 @@ bool RDMA_Manager::poll_reply_buffer(RDMA_Reply* rdma_reply) {
         communication_mtxs.insert({handler_id, new std::mutex()});
         communication_cvs.insert({handler_id, new std::condition_variable()});
         std::thread t(message_handling_func, handler_id);
+        t.detach();
         user_defined_functions_handler.insert({handler_id, std::move(t)});
 
 
