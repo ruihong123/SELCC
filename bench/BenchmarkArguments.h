@@ -9,28 +9,28 @@
 //#include "TpccSource.h"
 
 namespace DSMEngine {
-    static int app_type = -1;
-    static double scale_factors[2] = { -1, -1 };
-    static int factor_count = 0;
-    static int dist_ratio = 1;
-    static int num_txn = -1;
-    static int num_core = -1;  // number of cores utilized in a single numa node.
+    extern int app_type;
+    extern double scale_factors[2];
+    extern int factor_count;
+    extern int dist_ratio;
+    extern int num_txn;
+    extern int num_core;  // number of cores utilized in a single numa node.
 
-    static size_t cache_size = 8 * 1024LLU * 1024LLU* 1024LLU;
-    static std::string my_host_name;
-    static unsigned int conn_port = -1;
-    static std::string config_filename = "../connection.conf";
+    extern size_t cache_size;
+    extern std::string my_host_name;
+    extern unsigned int conn_port;
+    extern std::string config_filename;
 // To modify tpcc workload
-    static size_t gReadRatio = 0;
-    static size_t gTimeLocality = 0;
-    static bool gForceRandomAccess = false; // fixed
-    static bool gStandard = true;  // true if follow standard specification
+    extern size_t gReadRatio;
+    extern size_t gTimeLocality;
+    extern bool gForceRandomAccess; // fixed
+    extern bool gStandard;  // true if follow standard specification
 
-    static int FREQUENCY_DELIVERY = 20;  //0 0
-    static int FREQUENCY_PAYMENT = 20; // 43
-    static int FREQUENCY_NEW_ORDER = 20; // 45
-    static int FREQUENCY_ORDER_STATUS = 20;  //0
-    static int FREQUENCY_STOCK_LEVEL = 20;  //0
+    extern int FREQUENCY_DELIVERY;  //0 0
+    extern int FREQUENCY_PAYMENT; // 43
+    extern int FREQUENCY_NEW_ORDER; // 45
+    extern int FREQUENCY_ORDER_STATUS;  //0
+    extern int FREQUENCY_STOCK_LEVEL;  //0
     static void PrintUsage() {
         std::cout << "==========[USAGE]==========" << std::endl;
         std::cout << "\t-pINT: PORT(required)" << std::endl;

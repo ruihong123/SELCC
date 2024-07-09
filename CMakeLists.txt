@@ -128,6 +128,7 @@ file(GLOB TPCC_DEPENDENCY
         "${PROJECT_SOURCE_DIR}/storage/*.h"
         "${PROJECT_SOURCE_DIR}/storage/*.cpp"
         "${PROJECT_SOURCE_DIR}/bench/*.h"
+        "${PROJECT_SOURCE_DIR}/bench/*.cpp"
         "${PROJECT_SOURCE_DIR}/tpcc/*.h"
         "${PROJECT_SOURCE_DIR}/tpcc/*.cpp"
         "${PROJECT_SOURCE_DIR}/utils/*.h"
