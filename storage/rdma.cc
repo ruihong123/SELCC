@@ -6023,7 +6023,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         post_send_xcompute(send_mr, target_node_id, qp_id);
         ibv_wc wc[2] = {};
         assert(send_pointer->command!= create_qp_);
-        printf("Tuple read request sent from %u to %u", node_id, target_node_id);
+        printf("Tuple read request sent from %u to %u\n", node_id, target_node_id);
         fflush(stdout);
 ////         Check the completion outside this function
 //        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
@@ -6067,7 +6067,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         post_send_xcompute(send_mr, target_node_id, qp_id);
         ibv_wc wc[2] = {};
         assert(send_pointer->command!= create_qp_);
-        printf("Prepare request sent from %u to %u", node_id, target_node_id);
+        printf("Prepare request sent from %u to %u\n", node_id, target_node_id);
         fflush(stdout);
 ////         Check the completion outside this function
 //        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
@@ -6112,7 +6112,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         post_send_xcompute(send_mr, target_node_id, qp_id);
         ibv_wc wc[2] = {};
         assert(send_pointer->command!= create_qp_);
-        printf("Commit request sent from %u to %u", node_id, target_node_id);
+        printf("Commit request sent from %u to %u\n", node_id, target_node_id);
         fflush(stdout);
 ////         Check the completion outside this function
 //        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
@@ -6142,7 +6142,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         post_send_xcompute(send_mr, target_node_id, qp_id);
         ibv_wc wc[2] = {};
         assert(send_pointer->command!= create_qp_);
-        printf("Abort request sent from %u to %u", node_id, target_node_id);
+        printf("Abort request sent from %u to %u\n", node_id, target_node_id);
         fflush(stdout);
 ////         Check the completion outside this function
 //        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
