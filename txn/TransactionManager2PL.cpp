@@ -278,9 +278,14 @@ namespace DSMEngine {
             //todo: Deallcoate the space of inserted tuples.
         }
         else if (access->access_type_ == READ_WRITE){
-            assert(access->txn_local_tuple_ != nullptr);
-            access->access_global_record_->CopyFrom(access->txn_local_tuple_);
-            delete access->txn_local_tuple_;
+            if (!sharding_){
+                assert(access->txn_local_tuple_ != nullptr);
+            }
+            if (access->txn_local_tuple_ != nullptr){
+                access->access_global_record_->CopyFrom(access->txn_local_tuple_);
+                delete access->txn_local_tuple_;
+            }
+
         } else if (access->access_type_ == DELETE_ONLY){
             access->access_global_record_->SetVisible(true);
         }
