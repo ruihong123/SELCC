@@ -544,7 +544,8 @@ class RDMA_Manager {
   int RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr, size_t msg_size,
                  std::string qp_type, size_t send_flag, int poll_num,
                  uint16_t target_node_id);
-  int RDMA_Write_xcompute(ibv_mr *local_mr, void* addr, uint32_t rkey, size_t msg_size, uint16_t target_node_id, int num_of_qp);
+  int RDMA_Write_xcompute(ibv_mr *local_mr, void *addr, uint32_t rkey, size_t msg_size, uint16_t target_node_id,
+                          int num_of_qp, bool is_inline);
     int RDMA_Write_Batch(void* addr, uint32_t rkey, ibv_mr* local_mr, size_t msg_size,
                    std::string qp_type, size_t send_flag, int poll_num,
                    uint16_t target_node_id);

@@ -101,13 +101,16 @@ class TransactionExecutor {
                 memcpy(local_mr->addr, record->data_ptr_, record->data_size_);
                 ((RDMA_ReplyXCompute* )((char*)local_mr->addr)+record->data_size_)->toPC_reply_type = need_abort? 2: 1;
                 int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
-                rdma_mg->RDMA_Write_xcompute(local_mr,  received_rdma_request.buffer, received_rdma_request.rkey, sizeof(RDMA_ReplyXCompute)+record->data_size_, target_node_id, qp_id);
+                rdma_mg->RDMA_Write_xcompute(local_mr, received_rdma_request.buffer, received_rdma_request.rkey,
+                                             sizeof(RDMA_ReplyXCompute) + record->data_size_, target_node_id, qp_id,
+                                             false);
 
             }else if (received_rdma_request.command == prepare_2pc){
                 ibv_mr* local_mr = rdma_mg->Get_local_send_message_mr();
                 ((RDMA_ReplyXCompute* )(local_mr->addr))->toPC_reply_type = need_abort? 2: 1;
                 int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
-                rdma_mg->RDMA_Write_xcompute(local_mr,  received_rdma_request.buffer, received_rdma_request.rkey, sizeof(RDMA_ReplyXCompute), target_node_id, qp_id);
+                rdma_mg->RDMA_Write_xcompute(local_mr, received_rdma_request.buffer, received_rdma_request.rkey,
+                                             sizeof(RDMA_ReplyXCompute), target_node_id, qp_id, true);
             }
 
 //            delete receive_msg_buf;

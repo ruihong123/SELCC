@@ -2689,7 +2689,9 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
     //  duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start); printf("RDMA Write post send and poll size: %zu elapse: %ld\n", msg_size, duration.count());
     return rc;
 }
-    int RDMA_Manager::RDMA_Write_xcompute(ibv_mr *local_mr, void* addr, uint32_t rkey, size_t msg_size, uint16_t target_node_id, int num_of_qp) {
+    int RDMA_Manager::RDMA_Write_xcompute(ibv_mr *local_mr, void *addr, uint32_t rkey, size_t msg_size,
+                                          uint16_t target_node_id,
+                                          int num_of_qp, bool is_inline) {
         struct ibv_send_wr sr;
         struct ibv_sge sge;
         struct ibv_send_wr* bad_wr = NULL;
@@ -2716,7 +2718,9 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
         auto pending_num = os_start->fetch_add(1);
         bool need_signal =  pending_num >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1;
         if (!need_signal){
-            sr.send_flags = IBV_SEND_INLINE;
+            if (is_inline){
+                sr.send_flags = IBV_SEND_INLINE;
+            }
             ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
             rc = ibv_post_send(qp, &sr, &bad_wr);
             //os_end is updated after os_start, it is possible to have os_end >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1
@@ -2732,8 +2736,11 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
             mtx->lock();
             auto new_pending_num = os_start->fetch_add(1);
             if (new_pending_num >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1){
-
-                sr.send_flags = IBV_SEND_SIGNALED|IBV_SEND_INLINE;
+                if (is_inline){
+                    sr.send_flags = IBV_SEND_SIGNALED|IBV_SEND_INLINE;
+                }else{
+                    sr.send_flags = IBV_SEND_SIGNALED;
+                }
                 ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
                 //We need to make sure that the wr sequence in the queue is in the ticket order. otherwise, the pending wr
                 // can still exceed the upper bound.
@@ -7048,7 +7055,8 @@ message_reply:
         ibv_mr* local_mr = Get_local_send_message_mr();
         ((RDMA_ReplyXCompute* )local_mr->addr)->inv_reply_type = reply_type;
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
-        RDMA_Write_xcompute(local_mr,  receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(RDMA_ReplyXCompute),target_node_id,qp_id);
+        RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(RDMA_ReplyXCompute),
+                            target_node_id, qp_id, true);
         delete receive_msg_buf;
 
     }
@@ -7126,7 +7134,8 @@ message_reply:
         ibv_mr* local_mr = Get_local_send_message_mr();
         ((RDMA_ReplyXCompute* )local_mr->addr)->inv_reply_type = reply_type;
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
-        RDMA_Write_xcompute(local_mr,  receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(RDMA_ReplyXCompute), target_node_id, qp_id);
+        RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(RDMA_ReplyXCompute),
+                            target_node_id, qp_id, true);
         delete receive_msg_buf;
     }
     void RDMA_Manager::Writer_Inv_Modified_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
@@ -7216,7 +7225,8 @@ message_reply:
         ibv_mr* local_mr = Get_local_send_message_mr();
         ((RDMA_ReplyXCompute* )local_mr->addr)->inv_reply_type = reply_type;
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
-        RDMA_Write_xcompute(local_mr,  receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(RDMA_ReplyXCompute), target_node_id, qp_id);
+        RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(RDMA_ReplyXCompute),
+                            target_node_id, qp_id, true);
         delete receive_msg_buf;
     }
 
