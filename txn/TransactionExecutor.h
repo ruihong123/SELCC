@@ -100,6 +100,8 @@ class TransactionExecutor {
                 ibv_mr* local_mr = rdma_mg->Get_local_read_mr();
                 memcpy(local_mr->addr, record->data_ptr_, record->data_size_);
                 ((RDMA_ReplyXCompute* )((char*)local_mr->addr)+record->data_size_)->toPC_reply_type = need_abort? 2: 1;
+                printf("Message sent from node %u to node%u\n", rdma_mg->node_id, target_node_id);
+                fflush(stdout);
                 int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
                 rdma_mg->RDMA_Write_xcompute(local_mr, received_rdma_request.buffer, received_rdma_request.rkey,
                                              sizeof(RDMA_ReplyXCompute) + record->data_size_, target_node_id, qp_id,

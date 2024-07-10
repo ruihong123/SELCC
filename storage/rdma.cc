@@ -6011,8 +6011,8 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
 
         RDMA_ReplyXCompute* receive_pointer = (RDMA_ReplyXCompute*)((char*)recv_mr->addr + tuple_size);
         //Clear the reply buffer for the polling.
-//        memset(receive_pointer, 0, recv_mr->length);
-        *receive_pointer = {};
+        memset(recv_mr->addr, 0, recv_mr->length);
+//        *receive_pointer = {};
 
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
 
