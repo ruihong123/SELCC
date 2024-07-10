@@ -171,6 +171,10 @@ struct Commit{
     uint16_t thread_id;
 //    size_t buffer_size;
 } __attribute__((packed));
+struct Abort{
+    uint16_t thread_id;
+//    size_t buffer_size;
+} __attribute__((packed));
 enum RDMA_Command_Type {
   invalid_command_ = 0,
   create_qp_,
@@ -230,6 +234,7 @@ union RDMA_Request_Content {
   Tuple_info tuple_info;
   Prepare prepare;
   Commit commit;
+  Abort abort;
 };
 union RDMA_Reply_Content {
   ibv_mr mr;

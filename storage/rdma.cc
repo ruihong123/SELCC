@@ -6051,6 +6051,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         ibv_mr* recv_mr = Get_local_read_mr();
         send_pointer = (RDMA_Request*)send_mr->addr;
         send_pointer->command = prepare_2pc;
+        send_pointer->content.prepare.thread_id = thread_id;
         send_pointer->buffer = recv_mr->addr;
         send_pointer->rkey = recv_mr->rkey;
 
@@ -6092,6 +6093,8 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         ibv_mr* recv_mr = Get_local_read_mr();
         send_pointer = (RDMA_Request*)send_mr->addr;
         send_pointer->command = commit_2pc;
+        send_pointer->content.commit.thread_id = thread_id;
+
         send_pointer->buffer = recv_mr->addr;
         send_pointer->rkey = recv_mr->rkey;
 
@@ -6118,6 +6121,8 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         ibv_mr* recv_mr = Get_local_read_mr();
         send_pointer = (RDMA_Request*)send_mr->addr;
         send_pointer->command = abort_2pc;
+        send_pointer->content.abort.thread_id = thread_id;
+
         send_pointer->buffer = recv_mr->addr;
         send_pointer->rkey = recv_mr->rkey;
 
@@ -7276,7 +7281,7 @@ message_reply:
     // first check whetehr the
 }
     void RDMA_Manager::Prepare_2pc_handler(DSMEngine::RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
-        uint16_t thread_id_remote = receive_msg_buf->content.tuple_info.thread_id;
+        uint16_t thread_id_remote = receive_msg_buf->content.prepare.thread_id;
         uint32_t handling_id = ((uint32_t)target_node_id << 16) | thread_id_remote;
         std::shared_lock<std::shared_mutex> read_lock(user_df_map_mutex);
         if (communication_buffers.find(handling_id) == communication_buffers.end()){
@@ -7295,7 +7300,7 @@ message_reply:
 
     }
     void RDMA_Manager::Commit_2pc_handler(DSMEngine::RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
-        uint16_t thread_id = receive_msg_buf->content.tuple_info.thread_id;
+        uint16_t thread_id = receive_msg_buf->content.commit.thread_id;
         uint32_t handling_id = ((uint32_t)target_node_id << 16) | thread_id;
         std::shared_lock<std::shared_mutex> read_lock(user_df_map_mutex);
         if (communication_buffers.find(handling_id) == communication_buffers.end()){
@@ -7314,7 +7319,7 @@ message_reply:
 
     }
     void RDMA_Manager::Abort_2pc_handler(DSMEngine::RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
-        uint16_t thread_id = receive_msg_buf->content.tuple_info.thread_id;
+        uint16_t thread_id = receive_msg_buf->content.abort.thread_id;
         uint32_t handling_id = ((uint32_t)target_node_id << 16) | thread_id;
         std::shared_lock<std::shared_mutex> read_lock(user_df_map_mutex);
         if (communication_buffers.find(handling_id) == communication_buffers.end()){

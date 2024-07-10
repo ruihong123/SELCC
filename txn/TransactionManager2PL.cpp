@@ -249,6 +249,7 @@ namespace DSMEngine {
     }
 
 
+    participants.clear();
 
     access_list_.Clear();
     locked_handles_.clear();
