@@ -47,71 +47,23 @@ class TransactionExecutor {
   PerfStatistics &GetPerfStatistics() {
     return perf_statistics_;
   }
-
- private:
-  virtual void PrepareProcedures() = 0;
-
-  virtual void ProcessQuery() {
-    std::cout << "start process query" << std::endl;
-      default_gallocator->rdma_mg->Set_message_handling_func(std::bind(&TransactionExecutor::ProcessQueryThread_2PC_Participant, this,std::placeholders::_1));
-      boost::thread_group thread_group;
-    for (size_t i = 0; i < thread_count_; ++i) {
-      // can bind threads to cores here
-      thread_group.create_thread(
-          boost::bind(&TransactionExecutor::ProcessQueryThread, this, i));
-    }
-    //TODO: set the message handling function for the RDMA manager, need to develp an more elegant way.
-    bool is_all_ready = true;
-    while (1) {
-      for (size_t i = 0; i < thread_count_; ++i) {
-        if (is_ready_[i] == false) {
-          is_all_ready = false;
-          break;
+  static void ProcessQueryThread_2PC_Participant(void* storage_ptr, uint32_t handler_id) {
+        StorageManager* storage_manager_ = (StorageManager*)storage_ptr;
+        size_t thread_count = 0;
+        TransactionManager *txn_manager = new TransactionManager(
+                storage_manager_, thread_count, 0, true, false);
+        auto rdma_mg = default_gallocator->rdma_mg;
+        std::shared_lock<std::shared_mutex> read_lock(rdma_mg->user_df_map_mutex);
+        if (rdma_mg->communication_buffers.find(handler_id) == rdma_mg->communication_buffers.end()){
+            assert(false);
         }
-      }
-      if (is_all_ready == true) {
-        break;
-      }
-      is_all_ready = true;
-    }
-    // epoch generator.
-    std::cout << "start processing..." << std::endl;
-    is_begin_ = true;
-    start_timestamp_ = timer_.GetTimePoint();
-    thread_group.join_all();
-    long long elapsed_time = timer_.CalcMilliSecondDiff(start_timestamp_,
-                                                        end_timestamp_);
-    double throughput = total_count_ * 1.0 / elapsed_time;
-    double per_core_throughput = throughput / thread_count_;
-    std::cout << "execute_count=" << total_count_ << ", abort_count="
-              << total_abort_count_ << ", abort_rate="
-              << total_abort_count_ * 1.0 / (total_count_ + 1) << std::endl;
-    std::cout << "elapsed time=" << elapsed_time << "ms.\nthroughput="
-              << throughput << "K tps.\nper-core throughput="
-              << per_core_throughput << "K tps." << std::endl;
-
-    perf_statistics_.total_count_ = total_count_;
-    perf_statistics_.total_abort_count_ = total_abort_count_;
-    perf_statistics_.thread_count_ = thread_count_;
-    perf_statistics_.elapsed_time_ = elapsed_time;
-    perf_statistics_.throughput_ = throughput;
-  }
-  virtual void ProcessQueryThread_2PC_Participant(uint32_t handler_id) {
-      TransactionManager *txn_manager = new TransactionManager(
-              storage_manager_, this->thread_count_, 0, true, false);
-      auto rdma_mg = default_gallocator->rdma_mg;
-      std::shared_lock<std::shared_mutex> read_lock(rdma_mg->user_df_map_mutex);
-      auto partipant_handler = rdma_mg->user_defined_functions_handler.find(handler_id);
-      if (partipant_handler == rdma_mg->user_defined_functions_handler.end()){
-          assert(false);
-      }
-      CharArray dummy;
-      auto communication_buffer = rdma_mg->communication_buffers.find(handler_id)->second;
-      auto communication_mtx = rdma_mg->communication_mtxs.find(handler_id)->second;
-      auto communication_cv = rdma_mg->communication_cvs.find(handler_id)->second;
-      uint16_t target_node_id = handler_id >> 16;
-      // wait for the signal on communicaiton buffer to process query.
-        while (1){
+        CharArray dummy;
+        auto communication_buffer = rdma_mg->communication_buffers.find(handler_id)->second;
+        auto communication_mtx = rdma_mg->communication_mtxs.find(handler_id)->second;
+        auto communication_cv = rdma_mg->communication_cvs.find(handler_id)->second;
+        uint16_t target_node_id = handler_id >> 16;
+        // wait for the signal on communicaiton buffer to process query.
+        while (!rdma_mg->handler_is_finish.load()){
             std::unique_lock<std::mutex> lock(*communication_mtx);
             communication_cv->wait(lock);
             if (communication_buffer->command == invalid_command_){
@@ -163,6 +115,54 @@ class TransactionExecutor {
         }
 
   }
+ private:
+  virtual void PrepareProcedures() = 0;
+
+  virtual void ProcessQuery() {
+    std::cout << "start process query" << std::endl;
+      boost::thread_group thread_group;
+    for (size_t i = 0; i < thread_count_; ++i) {
+      // can bind threads to cores here
+      thread_group.create_thread(
+          boost::bind(&TransactionExecutor::ProcessQueryThread, this, i));
+    }
+    //TODO: set the message handling function for the RDMA manager, need to develp an more elegant way.
+    bool is_all_ready = true;
+    while (1) {
+      for (size_t i = 0; i < thread_count_; ++i) {
+        if (is_ready_[i] == false) {
+          is_all_ready = false;
+          break;
+        }
+      }
+      if (is_all_ready == true) {
+        break;
+      }
+      is_all_ready = true;
+    }
+    // epoch generator.
+    std::cout << "start processing..." << std::endl;
+    is_begin_ = true;
+    start_timestamp_ = timer_.GetTimePoint();
+    thread_group.join_all();
+    long long elapsed_time = timer_.CalcMilliSecondDiff(start_timestamp_,
+                                                        end_timestamp_);
+    double throughput = total_count_ * 1.0 / elapsed_time;
+    double per_core_throughput = throughput / thread_count_;
+    std::cout << "execute_count=" << total_count_ << ", abort_count="
+              << total_abort_count_ << ", abort_rate="
+              << total_abort_count_ * 1.0 / (total_count_ + 1) << std::endl;
+    std::cout << "elapsed time=" << elapsed_time << "ms.\nthroughput="
+              << throughput << "K tps.\nper-core throughput="
+              << per_core_throughput << "K tps." << std::endl;
+
+    perf_statistics_.total_count_ = total_count_;
+    perf_statistics_.total_abort_count_ = total_abort_count_;
+    perf_statistics_.thread_count_ = thread_count_;
+    perf_statistics_.elapsed_time_ = elapsed_time;
+    perf_statistics_.throughput_ = throughput;
+  }
+
   virtual void ProcessQueryThread(const size_t& thread_id) {
       bindCore(thread_id + 1);
     //std::cout << "start thread " << thread_id << std::endl;

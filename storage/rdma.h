@@ -460,6 +460,7 @@ class RDMA_Manager {
     void Tuple_read_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     void Prepare_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     void Commit_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
+    void Abort_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     bool Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
                                         uint64_t page_version);
     bool Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
@@ -665,6 +666,7 @@ class RDMA_Manager {
   static bool poll_reply_buffer(volatile RDMA_ReplyXCompute * rdma_reply);
   void Set_message_handling_func(std::function<void(uint32_t)> &&func);
   void register_message_handling_thread(uint32_t handler_id);
+    void join_all_handling_thread();
   // TODO: Make all the variable more smart pointers.
 //#ifndef NDEBUG
     static thread_local int thread_id;
@@ -766,8 +768,9 @@ class RDMA_Manager {
   Env* env_;
   std::function<void(uint32_t)> message_handling_func;
     std::shared_mutex user_df_map_mutex;
+    std::atomic<bool> handler_is_finish = false;
     //TODO: clear those allocated resources when RDMA manager is being destroyed.
-  std::map<uint32_t,std::thread> user_defined_functions_handler;
+  std::vector<std::thread> user_defined_functions_handler;
   std::map<uint32_t, RDMA_Request*> communication_buffers;
   std::map<uint32_t, std::mutex*> communication_mtxs;
   std::map<uint32_t, std::condition_variable*> communication_cvs;

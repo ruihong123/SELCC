@@ -25,4 +25,5 @@ namespace DSMEngine {
     int FREQUENCY_NEW_ORDER = 20; // 45
     int FREQUENCY_ORDER_STATUS = 20;  //0
     int FREQUENCY_STOCK_LEVEL = 20;  //0
+
 }

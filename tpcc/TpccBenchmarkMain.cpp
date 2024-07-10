@@ -66,6 +66,10 @@ int main(int argc, char* argv[]) {
   TpccSource sourcer(&tpcc_scale_params, &redirector, num_txn,
                      WORKLOAD_PATTERN, gThreadCount, dist_ratio,
                      config.GetMyPartitionId());
+    if (WORKLOAD_PATTERN == PARTITION_SOURCE){
+        auto func = std::bind(&TpccExecutor::ProcessQueryThread_2PC_Participant,  (void*)&storage_manager, std::placeholders::_1);
+        default_gallocator->rdma_mg->Set_message_handling_func(func);
+    }
   //TpccSource sourcer(&tpcc_scale_params, &redirector, num_txn, SourceType::RANDOM_SOURCE, gThreadCount, dist_ratio);
   sourcer.Start();
     synchronizer.FenceXComputes();
@@ -91,7 +95,7 @@ int main(int argc, char* argv[]) {
 
   std::cout << "prepare to exit..." << std::endl;
     synchronizer.Fence_XALLNodes();
-
+    default_gallocator->rdma_mg->join_all_handling_thread();
   std::cout << "over.." << std::endl;
   return 0;
 }

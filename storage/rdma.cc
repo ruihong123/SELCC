@@ -344,10 +344,36 @@ bool RDMA_Manager::poll_reply_buffer(RDMA_Reply* rdma_reply) {
         communication_buffers.insert({handler_id, request});
         communication_mtxs.insert({handler_id, new std::mutex()});
         communication_cvs.insert({handler_id, new std::condition_variable()});
-        std::thread t(message_handling_func, handler_id);
-        t.detach();
-        user_defined_functions_handler.insert({handler_id, std::move(t)});
+//        std::thread t(message_handling_func, handler_id);
+        user_defined_functions_handler.emplace_back(message_handling_func, handler_id);
+        user_defined_functions_handler.back().detach();
 
+
+    }
+    void RDMA_Manager::join_all_handling_thread() {
+        //stop all the handling threads.
+        handler_is_finish.store(true);
+        for (auto iter : communication_cvs) {
+            iter.second->notify_all();
+        }
+
+        // join all the handling thread. and deallocate all the communication states.
+        for(auto& iter : user_defined_functions_handler){
+            iter.join();
+        }
+        user_defined_functions_handler.clear();
+        for(auto iter : communication_buffers){
+            delete iter.second;
+        }
+        communication_buffers.clear();
+        for(auto iter : communication_mtxs){
+            delete iter.second;
+        }
+        communication_mtxs.clear();
+        for(auto iter : communication_cvs){
+            delete iter.second;
+        }
+        communication_cvs.clear();
 
     }
 /******************************************************************************
@@ -7209,8 +7235,7 @@ message_reply:
     uint16_t thread_id_remote = receive_msg_buf->content.tuple_info.thread_id;
     uint32_t handling_id = ((uint32_t)target_node_id << 16) | thread_id_remote;
     std::shared_lock<std::shared_mutex> read_lock(user_df_map_mutex);
-    auto partipant_handler = user_defined_functions_handler.find(handling_id);
-    if (partipant_handler == user_defined_functions_handler.end()){
+    if (communication_buffers.find(handling_id) == communication_buffers.end()){
         read_lock.unlock();
         std::unique_lock<std::shared_mutex> write_lock(user_df_map_mutex);
         register_message_handling_thread(handling_id);
@@ -7236,8 +7261,7 @@ message_reply:
         uint16_t thread_id_remote = receive_msg_buf->content.tuple_info.thread_id;
         uint32_t handling_id = ((uint32_t)target_node_id << 16) | thread_id_remote;
         std::shared_lock<std::shared_mutex> read_lock(user_df_map_mutex);
-        auto partipant_handler = user_defined_functions_handler.find(handling_id);
-        if (partipant_handler == user_defined_functions_handler.end()){
+        if (communication_buffers.find(handling_id) == communication_buffers.end()){
             assert(false);
         }
         auto communication_buffer = communication_buffers.find(handling_id)->second;
@@ -7254,8 +7278,24 @@ message_reply:
         uint16_t thread_id = receive_msg_buf->content.tuple_info.thread_id;
         uint32_t handling_id = ((uint32_t)target_node_id << 16) | thread_id;
         std::shared_lock<std::shared_mutex> read_lock(user_df_map_mutex);
-        auto partipant_handler = user_defined_functions_handler.find(handling_id);
-        if (partipant_handler == user_defined_functions_handler.end()){
+        if (communication_buffers.find(handling_id) == communication_buffers.end()){
+            assert(false);
+        }
+        auto communication_buffer = communication_buffers.find(handling_id)->second;
+        auto communication_mtx = communication_mtxs.find(handling_id)->second;
+        auto communication_cv = communication_cvs.find(handling_id)->second;
+        read_lock.unlock();
+        std::unique_lock<std::mutex> lck_comm(*communication_mtx);
+        *communication_buffer = *receive_msg_buf;
+        communication_cv->notify_one();
+        delete receive_msg_buf;
+
+    }
+    void RDMA_Manager::Abort_2pc_handler(DSMEngine::RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
+        uint16_t thread_id = receive_msg_buf->content.tuple_info.thread_id;
+        uint32_t handling_id = ((uint32_t)target_node_id << 16) | thread_id;
+        std::shared_lock<std::shared_mutex> read_lock(user_df_map_mutex);
+        if (communication_buffers.find(handling_id) == communication_buffers.end()){
             assert(false);
         }
         auto communication_buffer = communication_buffers.find(handling_id)->second;
