@@ -61,11 +61,14 @@ class TransactionExecutor {
         auto communication_buffer = rdma_mg->communication_buffers.find(handler_id)->second;
         auto communication_mtx = rdma_mg->communication_mtxs.find(handler_id)->second;
         auto communication_cv = rdma_mg->communication_cvs.find(handler_id)->second;
+        read_lock.unlock();
         uint16_t target_node_id = handler_id >> 16;
         // wait for the signal on communicaiton buffer to process query.
         while (!rdma_mg->handler_is_finish.load()){
             std::unique_lock<std::mutex> lock(*communication_mtx);
-            communication_cv->wait(lock);
+//            communication_cv->wait(lock);
+            communication_cv->wait(lock, [&] { return communication_buffer->command != invalid_command_; });
+
             if (communication_buffer->command == invalid_command_){
                 continue;
             }

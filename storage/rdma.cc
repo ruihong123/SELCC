@@ -7234,13 +7234,14 @@ message_reply:
     void RDMA_Manager::Tuple_read_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
     uint16_t thread_id_remote = receive_msg_buf->content.tuple_info.thread_id;
     uint32_t handling_id = ((uint32_t)target_node_id << 16) | thread_id_remote;
+
     std::shared_lock<std::shared_mutex> read_lock(user_df_map_mutex);
     if (communication_buffers.find(handling_id) == communication_buffers.end()){
         read_lock.unlock();
         std::unique_lock<std::shared_mutex> write_lock(user_df_map_mutex);
         register_message_handling_thread(handling_id);
         //wait for the handling thread ready to receive the message.
-        usleep(10);
+        usleep(100);
         write_lock.unlock();
         read_lock.lock();
     }
@@ -7248,9 +7249,12 @@ message_reply:
     auto communication_mtx = communication_mtxs.find(handling_id)->second;
     auto communication_cv = communication_cvs.find(handling_id)->second;
     read_lock.unlock();
-    std::unique_lock<std::mutex> lck_comm(*communication_mtx);
-    *communication_buffer = *receive_msg_buf;
-    communication_cv->notify_one();
+    {
+        std::unique_lock<std::mutex> lck_comm(*communication_mtx);
+        *communication_buffer = *receive_msg_buf;
+        //TODO: WHY notify can not wake up the processing thread? need to debug.
+        communication_cv->notify_one();
+    }
     delete receive_msg_buf;
 //    auto communication_ready = communication_ready_flags.find(handling_id)->second;
 
@@ -7268,9 +7272,11 @@ message_reply:
         auto communication_mtx = communication_mtxs.find(handling_id)->second;
         auto communication_cv = communication_cvs.find(handling_id)->second;
         read_lock.unlock();
-        std::unique_lock<std::mutex> lck_comm(*communication_mtx);
-        *communication_buffer = *receive_msg_buf;
-        communication_cv->notify_one();
+        {
+            std::unique_lock<std::mutex> lck_comm(*communication_mtx);
+            *communication_buffer = *receive_msg_buf;
+            communication_cv->notify_one();
+        }
         delete receive_msg_buf;
 
     }
@@ -7285,9 +7291,11 @@ message_reply:
         auto communication_mtx = communication_mtxs.find(handling_id)->second;
         auto communication_cv = communication_cvs.find(handling_id)->second;
         read_lock.unlock();
-        std::unique_lock<std::mutex> lck_comm(*communication_mtx);
-        *communication_buffer = *receive_msg_buf;
-        communication_cv->notify_one();
+        {
+            std::unique_lock<std::mutex> lck_comm(*communication_mtx);
+            *communication_buffer = *receive_msg_buf;
+            communication_cv->notify_one();
+        }
         delete receive_msg_buf;
 
     }
@@ -7302,9 +7310,11 @@ message_reply:
         auto communication_mtx = communication_mtxs.find(handling_id)->second;
         auto communication_cv = communication_cvs.find(handling_id)->second;
         read_lock.unlock();
-        std::unique_lock<std::mutex> lck_comm(*communication_mtx);
-        *communication_buffer = *receive_msg_buf;
-        communication_cv->notify_one();
+        {
+            std::unique_lock<std::mutex> lck_comm(*communication_mtx);
+            *communication_buffer = *receive_msg_buf;
+            communication_cv->notify_one();
+        }
         delete receive_msg_buf;
 
     }
