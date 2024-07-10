@@ -266,7 +266,7 @@ namespace DSMEngine {
           participants.clear();
       }
 
-      if (log_enabled_){
+      if (log_enabled_ && access_list_.access_count_ > 0){
           WriteAbortLog();
       }
       //TODO: roll back the data changes.
