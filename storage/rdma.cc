@@ -1263,6 +1263,10 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
                     post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
                     Commit_2pc_handler(receive_msg_buf, target_node_id);
                     break;
+                case abort_2pc:
+                    post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
+                    Abort_2pc_handler(receive_msg_buf, target_node_id);
+                    break;
                 default:
                     printf("corrupt message from client. %d\n", receive_msg_buf->command);
                     assert(false);
