@@ -54,11 +54,11 @@ class TransactionExecutor {
                 storage_manager_, thread_count, 0, true, false);
         auto rdma_mg = default_gallocator->rdma_mg;
         std::shared_lock<std::shared_mutex> read_lock(rdma_mg->user_df_map_mutex);
-        if (rdma_mg->communication_buffers.find(handler_id) == rdma_mg->communication_buffers.end()){
+        if (rdma_mg->communication_queues.find(handler_id) == rdma_mg->communication_queues.end()){
             assert(false);
         }
         CharArray dummy;
-        auto communication_buffer = rdma_mg->communication_buffers.find(handler_id)->second;
+        auto communication_queue = rdma_mg->communication_queues.find(handler_id)->second;
         auto communication_mtx = rdma_mg->communication_mtxs.find(handler_id)->second;
         auto communication_cv = rdma_mg->communication_cvs.find(handler_id)->second;
         read_lock.unlock();
@@ -67,13 +67,14 @@ class TransactionExecutor {
         while (!rdma_mg->handler_is_finish.load()){
             std::unique_lock<std::mutex> lock(*communication_mtx);
 //            communication_cv->wait(lock);
-            communication_cv->wait(lock, [&] { return communication_buffer->command != invalid_command_; });
-
-            if (communication_buffer->command == invalid_command_){
+            communication_cv->wait(lock, [&] { return !communication_queue.empty(); });
+            // The predicate below can be deleted.
+            if (communication_queue.empty()){
                 continue;
             }
             bool success = true;
-            RDMA_Request received_rdma_request = *communication_buffer;
+            RDMA_Request received_rdma_request = communication_queue.front();
+            communication_queue.pop();
             lock.unlock();
             Record* record;
             switch (received_rdma_request.command) {
@@ -101,7 +102,7 @@ class TransactionExecutor {
                 memcpy(local_mr->addr, record->data_ptr_, record->data_size_);
                 auto send_request_ptr = (RDMA_ReplyXCompute* )((char*)local_mr->addr+record->data_size_);
                 send_request_ptr->toPC_reply_type = success ? 1 : 2;
-                printf("Tuple get Reply sent from node %u to node %u, the return type is %d\n", rdma_mg->node_id, target_node_id, send_request_ptr->toPC_reply_type);
+                printf("Tuple Read Reply sent from node %u to node %u, the return type is %d\n", rdma_mg->node_id, target_node_id, send_request_ptr->toPC_reply_type);
                 fflush(stdout);
                 int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
                 rdma_mg->RDMA_Write_xcompute(local_mr, received_rdma_request.buffer, received_rdma_request.rkey,
@@ -123,7 +124,7 @@ class TransactionExecutor {
 
 
             success = true;
-            communication_buffer->command = invalid_command_;
+//            communication_queue->command = invalid_command_;
         }
 
   }

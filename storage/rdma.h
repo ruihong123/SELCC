@@ -24,6 +24,7 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <queue>
 #include "utils/thread_local.h"
 #include "Common.h"
 #include "port/port_posix.h"
@@ -777,7 +778,9 @@ class RDMA_Manager {
     std::atomic<bool> handler_is_finish = false;
     //TODO: clear those allocated resources when RDMA manager is being destroyed.
   std::vector<std::thread> user_defined_functions_handler;
-  std::map<uint32_t, RDMA_Request*> communication_buffers;
+  // TODO: Make the communicaiton buffer a queue rather than a single buffer.
+//  std::map<uint32_t, RDMA_Request*> communication_queues;
+  std::map<uint32_t, std::queue<RDMA_Request>> communication_queues;
   std::map<uint32_t, std::mutex*> communication_mtxs;
   std::map<uint32_t, std::condition_variable*> communication_cvs;
 #ifdef PROCESSANALYSIS
