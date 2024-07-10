@@ -362,9 +362,9 @@ bool RDMA_Manager::poll_reply_buffer(RDMA_Reply* rdma_reply) {
             iter.join();
         }
         user_defined_functions_handler.clear();
-        for(auto iter : communication_queues){
-            delete iter.second;
-        }
+//        for(auto iter : communication_queues){
+//            delete iter.second;
+//        }
         communication_queues.clear();
         for(auto iter : communication_mtxs){
             delete iter.second;
