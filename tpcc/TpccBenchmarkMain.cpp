@@ -70,6 +70,12 @@ int main(int argc, char* argv[]) {
                      WORKLOAD_PATTERN, gThreadCount, dist_ratio,
                      config.GetMyPartitionId());
   sourcer.Start();
+
+    IORedirector redirector1(gThreadCount);
+    TpccSource sourcer1(&tpcc_scale_params, &redirector1, num_txn/100,
+                       WORKLOAD_PATTERN, gThreadCount, dist_ratio,
+                       config.GetMyPartitionId());
+    sourcer1.Start();
   synchronizer.FenceXComputes();
 
   {
@@ -85,7 +91,7 @@ int main(int argc, char* argv[]) {
   {
     // run workload
     INIT_PROFILE_TIME(gThreadCount);
-    TpccExecutor executor(&redirector, &storage_manager, gThreadCount, LOGGING);
+    TpccExecutor executor(&redirector1, &storage_manager, gThreadCount, LOGGING);
     executor.Start();
     REPORT_PROFILE_TIME(gThreadCount);
     ExchPerfStatistics(&config, &synchronizer, &executor.GetPerfStatistics());
