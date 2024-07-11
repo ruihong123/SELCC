@@ -156,24 +156,27 @@ struct New_Root {
 
 } __attribute__((packed));
 struct Tuple_info {
+    bool log_enabled;
     uint64_t primary_key;
     size_t table_id;
     uint16_t thread_id;
     size_t access_type;
-    bool new_session;
 //    size_t buffer_size;
 } __attribute__((packed));
 struct Prepare {
+    bool log_enabled;
     uint16_t thread_id;
-
 //    size_t buffer_size;
 } __attribute__((packed));
 struct Commit{
     uint16_t thread_id;
+    bool log_enabled;
+
 //    size_t buffer_size;
 } __attribute__((packed));
 struct Abort{
     uint16_t thread_id;
+    bool log_enabled;
 //    size_t buffer_size;
 } __attribute__((packed));
 enum RDMA_Command_Type {
@@ -474,10 +477,11 @@ class RDMA_Manager {
     bool Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level,
                                       uint64_t page_version, uint8_t pos);
     bool Writer_Invalidate_Shared_RPC_Reply(uint8_t num_of_poll);
-    bool Tuple_Read_2PC_RPC(uint16_t target_node_id, uint64_t primary_key, size_t table_id, size_t tuple_size, char* & tuple_buffer);
-    bool Prepare_2PC_RPC(uint16_t target_node_id);
-    bool Commit_2PC_RPC(uint16_t target_node_id);
-    bool Abort_2PC_RPC(uint16_t target_node_id);
+    bool Tuple_Read_2PC_RPC(uint16_t target_node_id, uint64_t primary_key, size_t table_id, size_t tuple_size,
+                            char *&tuple_buffer, bool log_enabled);
+    bool Prepare_2PC_RPC(uint16_t target_node_id, bool log_enabled);
+    bool Commit_2PC_RPC(uint16_t target_node_id, bool log_enabled);
+    bool Abort_2PC_RPC(uint16_t target_node_id, bool log_enabled);
 
     void Put_qp_info_into_RemoteM(uint16_t target_compute_node_id,
                                   std::array<ibv_cq *, NUM_QP_ACCROSS_COMPUTE * 2> *cq_arr,

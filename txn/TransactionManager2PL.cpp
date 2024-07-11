@@ -187,11 +187,11 @@ namespace DSMEngine {
           }
           bool success = true;
           for (auto iter : participants){
-              success = success && default_gallocator->rdma_mg->Prepare_2PC_RPC(iter);
+              success = success && default_gallocator->rdma_mg->Prepare_2PC_RPC(iter, false);
           }
           if (success){
               for (auto iter : participants){
-                  default_gallocator->rdma_mg->Commit_2PC_RPC(iter);
+                  default_gallocator->rdma_mg->Commit_2PC_RPC(iter, false);
               }
           } else {
               printf("Abort at commit\n");
@@ -266,7 +266,7 @@ namespace DSMEngine {
     PROFILE_TIME_START(thread_id_, CC_ABORT);
       if (sharding_){
           for (auto iter : participants){
-              default_gallocator->rdma_mg->Abort_2PC_RPC(iter);
+              default_gallocator->rdma_mg->Abort_2PC_RPC(iter, false);
           }
           participants.clear();
       }

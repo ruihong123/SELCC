@@ -86,6 +86,12 @@ class TransactionManager {
             return warehouse_id >= warehouse_start_ && warehouse_id <= warehouse_end_;
 
     }
+    void EnableLog(){
+        log_enabled_ = true;
+    }
+    void DisableLog(){
+        log_enabled_ = false;
+    }
   bool SearchRecord(TxnContext* context, size_t table_id,
                     const IndexKey& primary_key, Record*& record,
                     AccessType access_type) {
@@ -96,7 +102,8 @@ class TransactionManager {
 
           char* tuple_buffer;
           //Send message to the corresponding node to search the record.
-          if (default_gallocator->rdma_mg->Tuple_Read_2PC_RPC(target_node_id, primary_key, table_id, schema_ptr->GetSchemaSize(), tuple_buffer)){
+          if (default_gallocator->rdma_mg->Tuple_Read_2PC_RPC(target_node_id, primary_key, table_id,
+                                                              schema_ptr->GetSchemaSize(), tuple_buffer, false)){
               record = new Record(schema_ptr, tuple_buffer);
               Access* access = access_list_.NewAccess();
               access->access_type_ = access_type;

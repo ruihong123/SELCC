@@ -19,11 +19,12 @@
 namespace DSMEngine {
 class TransactionExecutor {
  public:
-  TransactionExecutor(IORedirector* const redirector, 
-      StorageManager *storage_manager, size_t thread_count)
+  TransactionExecutor(IORedirector *const redirector, StorageManager *storage_manager, size_t thread_count,
+                      bool log_enabled)
       : redirector_ptr_(redirector),
         storage_manager_(storage_manager),
-        thread_count_(thread_count) {
+        thread_count_(thread_count),
+        log_enabled_(log_enabled) {
     is_begin_ = false;
     is_finish_ = false;
     total_count_ = 0;
@@ -79,6 +80,8 @@ class TransactionExecutor {
             RDMA_Request received_rdma_request = communication_queue.front();
             communication_queue.pop();
             lock.unlock();
+
+            txn_manager
             Record* record;
             switch (received_rdma_request.command) {
                 case tuple_read_2pc:
@@ -185,7 +188,7 @@ class TransactionExecutor {
       *(redirector_ptr_->GetParameterBatches(thread_id));
 
     TransactionManager *txn_manager = new TransactionManager(
-            storage_manager_, this->thread_count_, thread_id, LOGGING, PARTITIONED);
+            storage_manager_, this->thread_count_, thread_id, log_enabled_, PARTITIONED);
     StoredProcedure **procedures = new StoredProcedure*[registers_.size()];
     for (auto &entry : registers_) {
       procedures[entry.first] = entry.second();
@@ -304,6 +307,7 @@ class TransactionExecutor {
   std::atomic<size_t> total_abort_count_;
 
   PerfStatistics perf_statistics_;
+  bool log_enabled_;
 };
 }
 

@@ -2767,7 +2767,9 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
                 os_end->store(0);
                 mtx->unlock();
             }else{
-                sr.send_flags = IBV_SEND_INLINE;
+                if (is_inline){
+                    sr.send_flags = IBV_SEND_INLINE;
+                }
                 ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
                 rc = ibv_post_send(qp, &sr, &bad_wr);
                 os_end->fetch_add(1);
@@ -5998,8 +6000,9 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
             poll_reply_buffer(receive_pointer); // poll the receive for 2 entires
         }
     }
-    bool RDMA_Manager::Tuple_Read_2PC_RPC(uint16_t target_node_id, uint64_t primary_key, size_t table_id,
-                                          size_t tuple_size, char* & tuple_buffer) {
+    bool
+    RDMA_Manager::Tuple_Read_2PC_RPC(uint16_t target_node_id, uint64_t primary_key, size_t table_id, size_t tuple_size,
+                                     char *&tuple_buffer, bool log_enabled) {
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
         ibv_mr* recv_mr = Get_local_read_mr();
@@ -6009,6 +6012,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         send_pointer->content.tuple_info.primary_key = primary_key;
         send_pointer->content.tuple_info.table_id = table_id;
         send_pointer->content.tuple_info.thread_id = thread_id;
+        send_pointer->content.tuple_info.log_enabled = log_enabled;
         send_pointer->buffer = recv_mr->addr;
         send_pointer->rkey = recv_mr->rkey;
 
@@ -6047,13 +6051,14 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         }
 
     }
-    bool RDMA_Manager::Prepare_2PC_RPC(uint16_t target_node_id) {
+    bool RDMA_Manager::Prepare_2PC_RPC(uint16_t target_node_id, bool log_enabled) {
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
         ibv_mr* recv_mr = Get_local_read_mr();
         send_pointer = (RDMA_Request*)send_mr->addr;
         send_pointer->command = prepare_2pc;
         send_pointer->content.prepare.thread_id = thread_id;
+        send_pointer->content.prepare.log_enabled = log_enabled;
         send_pointer->buffer = recv_mr->addr;
         send_pointer->rkey = recv_mr->rkey;
 
@@ -6091,13 +6096,14 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         }
 
     }
-    bool RDMA_Manager::Commit_2PC_RPC(uint16_t target_node_id) {
+    bool RDMA_Manager::Commit_2PC_RPC(uint16_t target_node_id, bool log_enabled) {
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
         ibv_mr* recv_mr = Get_local_read_mr();
         send_pointer = (RDMA_Request*)send_mr->addr;
         send_pointer->command = commit_2pc;
         send_pointer->content.commit.thread_id = thread_id;
+        send_pointer->content.commit.log_enabled = log_enabled;
 
         send_pointer->buffer = recv_mr->addr;
         send_pointer->rkey = recv_mr->rkey;
@@ -6121,13 +6127,15 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
 //        }
         return true;
     }
-    bool RDMA_Manager::Abort_2PC_RPC(uint16_t target_node_id) {
+    bool RDMA_Manager::Abort_2PC_RPC(uint16_t target_node_id, bool log_enabled) {
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
         ibv_mr* recv_mr = Get_local_read_mr();
         send_pointer = (RDMA_Request*)send_mr->addr;
         send_pointer->command = abort_2pc;
         send_pointer->content.abort.thread_id = thread_id;
+        send_pointer->content.abort.log_enabled = log_enabled;
+
 
         send_pointer->buffer = recv_mr->addr;
         send_pointer->rkey = recv_mr->rkey;
