@@ -478,7 +478,7 @@ class RDMA_Manager {
                                       uint64_t page_version, uint8_t pos);
     bool Writer_Invalidate_Shared_RPC_Reply(uint8_t num_of_poll);
     bool Tuple_Read_2PC_RPC(uint16_t target_node_id, uint64_t primary_key, size_t table_id, size_t tuple_size,
-                            char *&tuple_buffer, bool log_enabled);
+                            char *&tuple_buffer, size_t access_type, bool log_enabled);
     bool Prepare_2PC_RPC(uint16_t target_node_id, bool log_enabled);
     bool Commit_2PC_RPC(uint16_t target_node_id, bool log_enabled);
     bool Abort_2PC_RPC(uint16_t target_node_id, bool log_enabled);

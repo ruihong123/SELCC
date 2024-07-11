@@ -6002,7 +6002,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
     }
     bool
     RDMA_Manager::Tuple_Read_2PC_RPC(uint16_t target_node_id, uint64_t primary_key, size_t table_id, size_t tuple_size,
-                                     char *&tuple_buffer, bool log_enabled) {
+                                     char *&tuple_buffer, size_t access_type, bool log_enabled) {
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
         ibv_mr* recv_mr = Get_local_read_mr();
@@ -6013,6 +6013,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         send_pointer->content.tuple_info.table_id = table_id;
         send_pointer->content.tuple_info.thread_id = thread_id;
         send_pointer->content.tuple_info.log_enabled = log_enabled;
+        send_pointer->content.tuple_info.access_type = access_type;
         send_pointer->buffer = recv_mr->addr;
         send_pointer->rkey = recv_mr->rkey;
 

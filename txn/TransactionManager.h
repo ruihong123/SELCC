@@ -103,7 +103,8 @@ class TransactionManager {
           char* tuple_buffer;
           //Send message to the corresponding node to search the record.
           if (default_gallocator->rdma_mg->Tuple_Read_2PC_RPC(target_node_id, primary_key, table_id,
-                                                              schema_ptr->GetSchemaSize(), tuple_buffer, log_enabled_)){
+                                                              schema_ptr->GetSchemaSize(), tuple_buffer, access_type,
+                                                              log_enabled_)){
               record = new Record(schema_ptr, tuple_buffer);
               Access* access = access_list_.NewAccess();
               access->access_type_ = access_type;
