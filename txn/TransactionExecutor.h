@@ -64,7 +64,9 @@ class TransactionExecutor {
         auto communication_cv = rdma_mg->communication_cvs.find(handler_id)->second;
         read_lock.unlock();
         uint16_t target_node_id = handler_id >> 16;
-        // wait for the signal on communicaiton buffer to process query.
+        ibv_mr* local_mr = rdma_mg->Get_local_read_mr();
+
+      // wait for the signal on communicaiton buffer to process query.
         while (!rdma_mg->handler_is_finish.load()){
             std::unique_lock<std::mutex> lock(*communication_mtx);
 //            communication_cv->wait(lock);
@@ -107,7 +109,6 @@ class TransactionExecutor {
             }
             if(received_rdma_request.command == tuple_read_2pc){
                 assert(record->data_size_ == 768 || record->data_size_ == 409);
-                ibv_mr* local_mr = rdma_mg->Get_local_read_mr();
                 memcpy(local_mr->addr, record->data_ptr_, record->data_size_);
                 auto send_request_ptr = (RDMA_ReplyXCompute* )((char*)local_mr->addr+record->data_size_);
                 send_request_ptr->toPC_reply_type = success ? 1 : 2;
