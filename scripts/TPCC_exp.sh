@@ -92,7 +92,9 @@ launch () {
 }
 
 run_tpcc () {
-  dist_ratios=(0 20 40 60 80 100)
+#  dist_ratios=(0 20 40 60 80 100)
+  dist_ratios=(100)
+
   for dist_ratio in ${dist_ratios[@]}; do
     launch ${dist_ratio}
   done
