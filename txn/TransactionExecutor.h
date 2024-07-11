@@ -68,10 +68,13 @@ class TransactionExecutor {
             std::unique_lock<std::mutex> lock(*communication_mtx);
 //            communication_cv->wait(lock);
             communication_cv->wait(lock, [&] { return !communication_queue.empty(); });
+
             // The predicate below can be deleted.
             if (communication_queue.empty()){
                 continue;
             }
+            printf("Thread waked up\n");
+            fflush(stdout);
             bool success = true;
             RDMA_Request received_rdma_request = communication_queue.front();
             communication_queue.pop();

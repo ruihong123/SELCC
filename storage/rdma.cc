@@ -7279,6 +7279,8 @@ message_reply:
     {
         std::unique_lock<std::mutex> lck_comm(*communication_mtx);
         communication_queue.push(*receive_msg_buf);
+        printf("Request is pushed into the queue\n");
+        fflush(stdout);
         communication_cv->notify_one();
     }
     delete receive_msg_buf;
