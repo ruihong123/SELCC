@@ -58,7 +58,7 @@ class TransactionExecutor {
             assert(false);
         }
         CharArray dummy;
-        auto communication_queue = rdma_mg->communication_queues.find(handler_id)->second;
+        auto& communication_queue = rdma_mg->communication_queues.find(handler_id)->second;
         auto communication_mtx = rdma_mg->communication_mtxs.find(handler_id)->second;
         auto communication_cv = rdma_mg->communication_cvs.find(handler_id)->second;
         read_lock.unlock();
