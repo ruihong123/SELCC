@@ -73,8 +73,8 @@ class TransactionExecutor {
             if (communication_queue.empty()){
                 continue;
             }
-            printf("Thread waked up\n");
-            fflush(stdout);
+//            printf("Thread waked up\n");
+//            fflush(stdout);
             bool success = true;
             RDMA_Request received_rdma_request = communication_queue.front();
             communication_queue.pop();
