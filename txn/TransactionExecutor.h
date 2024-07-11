@@ -110,8 +110,8 @@ class TransactionExecutor {
                 memcpy(local_mr->addr, record->data_ptr_, record->data_size_);
                 auto send_request_ptr = (RDMA_ReplyXCompute* )((char*)local_mr->addr+record->data_size_);
                 send_request_ptr->toPC_reply_type = success ? 1 : 2;
-                printf("Tuple Read Reply sent from node %u to node %u, the return type is %d\n", rdma_mg->node_id, target_node_id, send_request_ptr->toPC_reply_type);
-                fflush(stdout);
+//                printf("Tuple Read Reply sent from node %u to node %u, the return type is %d\n", rdma_mg->node_id, target_node_id, send_request_ptr->toPC_reply_type);
+//                fflush(stdout);
                 int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
                 rdma_mg->RDMA_Write_xcompute(local_mr, received_rdma_request.buffer, received_rdma_request.rkey,
                                              sizeof(RDMA_ReplyXCompute) + record->data_size_, target_node_id, qp_id,

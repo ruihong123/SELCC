@@ -6027,8 +6027,8 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         post_send_xcompute(send_mr, target_node_id, qp_id);
         ibv_wc wc[2] = {};
         assert(send_pointer->command!= create_qp_);
-        printf("Tuple read request sent from %u to %u\n", node_id, target_node_id);
-        fflush(stdout);
+//        printf("Tuple read request sent from %u to %u\n", node_id, target_node_id);
+//        fflush(stdout);
 ////         Check the completion outside this function
 //        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
 //            fprintf(stderr, "failed to poll send for remote memory register\n");
@@ -6072,8 +6072,8 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         post_send_xcompute(send_mr, target_node_id, qp_id);
         ibv_wc wc[2] = {};
         assert(send_pointer->command!= create_qp_);
-        printf("Prepare request sent from %u to %u\n", node_id, target_node_id);
-        fflush(stdout);
+//        printf("Prepare request sent from %u to %u\n", node_id, target_node_id);
+//        fflush(stdout);
 ////         Check the completion outside this function
 //        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
 //            fprintf(stderr, "failed to poll send for remote memory register\n");
@@ -6118,8 +6118,8 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         post_send_xcompute(send_mr, target_node_id, qp_id);
         ibv_wc wc[2] = {};
         assert(send_pointer->command!= create_qp_);
-        printf("Commit request sent from %u to %u\n", node_id, target_node_id);
-        fflush(stdout);
+//        printf("Commit request sent from %u to %u\n", node_id, target_node_id);
+//        fflush(stdout);
 ////         Check the completion outside this function
 //        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
 //            fprintf(stderr, "failed to poll send for remote memory register\n");
@@ -6150,8 +6150,8 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         post_send_xcompute(send_mr, target_node_id, qp_id);
         ibv_wc wc[2] = {};
         assert(send_pointer->command!= create_qp_);
-        printf("Abort request sent from %u to %u\n", node_id, target_node_id);
-        fflush(stdout);
+//        printf("Abort request sent from %u to %u\n", node_id, target_node_id);
+//        fflush(stdout);
 ////         Check the completion outside this function
 //        if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
 //            fprintf(stderr, "failed to poll send for remote memory register\n");

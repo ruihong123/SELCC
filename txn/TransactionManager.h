@@ -113,8 +113,8 @@ class TransactionManager {
               }
               return true;
           } else{
-              printf("Abort at remote tuple read\n");
-                fflush(stdout);
+//              printf("Abort at remote tuple read\n");
+//                fflush(stdout);
               AbortTransaction();
               return false;
           }
