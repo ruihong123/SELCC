@@ -105,6 +105,8 @@ class TransactionManager {
                   participants.insert(target_node_id);
               }
           } else{
+              printf("Abort at remote tuple read\n");
+                fflush(stdout);
               AbortTransaction();
               return false;
           }

@@ -103,6 +103,8 @@ namespace DSMEngine {
               PROFILE_TIME_START(thread_id_, LOCK_WRITE);
 //              default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
               if (!default_gallocator->TryPrePage_Update(page_buff, page_gaddr, handle)){
+                  printf("Abort at local tuple read\n");
+                  fflush(stdout);
                   this->AbortTransaction();
                   return false;
               }
@@ -192,6 +194,8 @@ namespace DSMEngine {
                   default_gallocator->rdma_mg->Commit_2PC_RPC(iter);
               }
           } else {
+              printf("Abort at commit\n");
+              fflush(stdout);
               AbortTransaction();
               return false;
           }
