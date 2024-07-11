@@ -118,7 +118,7 @@ class TransactionExecutor {
                 }else{
                     memset(local_mr->addr, 0, tuple_size);
                 }
-                auto send_request_ptr = (RDMA_ReplyXCompute* )((char*)local_mr->addr+record->data_size_);
+                auto send_request_ptr = (RDMA_ReplyXCompute* )((char*)local_mr->addr+tuple_size);
                 send_request_ptr->toPC_reply_type = success ? 1 : 2;
 //                printf("Tuple Read Reply sent from node %u to node %u, the return type is %d\n", rdma_mg->node_id, target_node_id, send_request_ptr->toPC_reply_type);
 //                fflush(stdout);
