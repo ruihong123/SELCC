@@ -177,7 +177,7 @@ namespace DSMEngine {
       }
 
       if (sharding_){
-          assert(log_enabled_);
+//          assert(log_enabled_);
           if (log_enabled_){
               std::string ret_str_temp("Prepare\n");
               Slice log_record = Slice(ret_str_temp.c_str(), ret_str_temp.size());
