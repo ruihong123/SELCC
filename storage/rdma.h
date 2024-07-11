@@ -169,14 +169,14 @@ struct Prepare {
 //    size_t buffer_size;
 } __attribute__((packed));
 struct Commit{
-    uint16_t thread_id;
     bool log_enabled;
+    uint16_t thread_id;
 
 //    size_t buffer_size;
 } __attribute__((packed));
 struct Abort{
-    uint16_t thread_id;
     bool log_enabled;
+    uint16_t thread_id;
 //    size_t buffer_size;
 } __attribute__((packed));
 enum RDMA_Command_Type {

@@ -59,25 +59,23 @@ int main(int argc, char* argv[]) {
   REPORT_PROFILE_TIME(gThreadCount);
   //TODO: it seems that FenceXComputes did not do the synchronization.
     synchronizer.FenceXComputes();
-
+    if (WORKLOAD_PATTERN == PARTITION_SOURCE){
+        auto func = std::bind(&TpccExecutor::ProcessQueryThread_2PC_Participant,  (void*)&storage_manager, std::placeholders::_1);
+        default_gallocator->rdma_mg->Set_message_handling_func(func);
+    }
   // generate workload
   IORedirector redirector(gThreadCount);
   size_t access_pattern = 0;
   TpccSource sourcer(&tpcc_scale_params, &redirector, num_txn,
                      WORKLOAD_PATTERN, gThreadCount, dist_ratio,
                      config.GetMyPartitionId());
-    if (WORKLOAD_PATTERN == PARTITION_SOURCE){
-        auto func = std::bind(&TpccExecutor::ProcessQueryThread_2PC_Participant,  (void*)&storage_manager, std::placeholders::_1);
-        default_gallocator->rdma_mg->Set_message_handling_func(func);
-    }
-  //TpccSource sourcer(&tpcc_scale_params, &redirector, num_txn, SourceType::RANDOM_SOURCE, gThreadCount, dist_ratio);
   sourcer.Start();
-    synchronizer.FenceXComputes();
+  synchronizer.FenceXComputes();
 
   {
     // warm up
     INIT_PROFILE_TIME(gThreadCount);
-    TpccExecutor executor(&redirector, &storage_manager, gThreadCount);
+    TpccExecutor executor(&redirector, &storage_manager, gThreadCount, false);
     executor.Start();
     REPORT_PROFILE_TIME(gThreadCount);
   }
@@ -87,7 +85,7 @@ int main(int argc, char* argv[]) {
   {
     // run workload
     INIT_PROFILE_TIME(gThreadCount);
-    TpccExecutor executor(&redirector, &storage_manager, gThreadCount);
+    TpccExecutor executor(&redirector, &storage_manager, gThreadCount, LOGGING);
     executor.Start();
     REPORT_PROFILE_TIME(gThreadCount);
     ExchPerfStatistics(&config, &synchronizer, &executor.GetPerfStatistics());

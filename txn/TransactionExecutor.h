@@ -80,8 +80,11 @@ class TransactionExecutor {
             RDMA_Request received_rdma_request = communication_queue.front();
             communication_queue.pop();
             lock.unlock();
-
-            txn_manager
+            if (received_rdma_request.content.tuple_info.log_enabled){
+                txn_manager->EnableLog();
+            } else{
+                txn_manager->DisableLog();
+            }
             Record* record;
             switch (received_rdma_request.command) {
                 case tuple_read_2pc:
