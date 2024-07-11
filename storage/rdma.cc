@@ -7272,7 +7272,7 @@ message_reply:
         write_lock.unlock();
         read_lock.lock();
     }
-    auto communication_queue = communication_queues.find(handling_id)->second;
+    auto& communication_queue = communication_queues.find(handling_id)->second;
     auto communication_mtx = communication_mtxs.find(handling_id)->second;
     auto communication_cv = communication_cvs.find(handling_id)->second;
     read_lock.unlock();
@@ -7296,7 +7296,7 @@ message_reply:
         if (communication_queues.find(handling_id) == communication_queues.end()){
             assert(false);
         }
-        auto communication_queue = communication_queues.find(handling_id)->second;
+        auto& communication_queue = communication_queues.find(handling_id)->second;
         auto communication_mtx = communication_mtxs.find(handling_id)->second;
         auto communication_cv = communication_cvs.find(handling_id)->second;
         read_lock.unlock();
@@ -7315,7 +7315,7 @@ message_reply:
         if (communication_queues.find(handling_id) == communication_queues.end()){
             assert(false);
         }
-        auto communication_queue = communication_queues.find(handling_id)->second;
+        auto& communication_queue = communication_queues.find(handling_id)->second;
         auto communication_mtx = communication_mtxs.find(handling_id)->second;
         auto communication_cv = communication_cvs.find(handling_id)->second;
         read_lock.unlock();
@@ -7334,7 +7334,7 @@ message_reply:
         if (communication_queues.find(handling_id) == communication_queues.end()){
             assert(false);
         }
-        auto communication_queue = communication_queues.find(handling_id)->second;
+        auto& communication_queue = communication_queues.find(handling_id)->second;
         auto communication_mtx = communication_mtxs.find(handling_id)->second;
         auto communication_cv = communication_cvs.find(handling_id)->second;
         read_lock.unlock();
