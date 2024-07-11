@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
   sourcer.Start();
 
     IORedirector redirector1(gThreadCount);
-    TpccSource sourcer1(&tpcc_scale_params, &redirector1, num_txn/100,
+    TpccSource sourcer1(&tpcc_scale_params, &redirector1, num_txn/1000,
                        WORKLOAD_PATTERN, gThreadCount, dist_ratio,
                        config.GetMyPartitionId());
     sourcer1.Start();

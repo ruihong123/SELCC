@@ -29,7 +29,7 @@ output_dir="/users/Ruihong/MemoryEngine/scripts/data"
 core_dump_dir="/mnt/core_dump"
 # working environment
 proj_dir="/users/Ruihong/MemoryEngine"
-bin_dir="${proj_dir}/debug"
+bin_dir="${proj_dir}/release"
 script_dir="${proj_dir}/database/scripts"
 ssh_opts="-o StrictHostKeyChecking=no"
 
@@ -92,7 +92,7 @@ launch () {
 }
 
 run_tpcc () {
-#  dist_ratios=(0 20 40 60 80 100)
+  dist_ratios=(0 10 20 30 40 50 60 70 80 90 100)
   dist_ratios=(100)
 
   for dist_ratio in ${dist_ratios[@]}; do
