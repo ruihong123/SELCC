@@ -104,6 +104,7 @@ class TransactionManager {
               if (participants.find(target_node_id) == participants.end()){
                   participants.insert(target_node_id);
               }
+              return true;
           } else{
               printf("Abort at remote tuple read\n");
                 fflush(stdout);
