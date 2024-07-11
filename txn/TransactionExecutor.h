@@ -106,7 +106,7 @@ class TransactionExecutor {
                     exit(0);
             }
             if(received_rdma_request.command == tuple_read_2pc){
-                assert(record->data_size_ == 768);
+                assert(record->data_size_ == 768 || record->data_size_ == 409);
                 ibv_mr* local_mr = rdma_mg->Get_local_read_mr();
                 memcpy(local_mr->addr, record->data_ptr_, record->data_size_);
                 auto send_request_ptr = (RDMA_ReplyXCompute* )((char*)local_mr->addr+record->data_size_);
