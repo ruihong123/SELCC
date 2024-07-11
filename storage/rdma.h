@@ -158,8 +158,10 @@ struct New_Root {
 struct Tuple_info {
     bool log_enabled;
     uint64_t primary_key;
+    uint32_t tuple_size;
     size_t table_id;
     uint16_t thread_id;
+
     size_t access_type;
 //    size_t buffer_size;
 } __attribute__((packed));

@@ -107,16 +107,24 @@ class TransactionExecutor {
                     printf("Invalid command for 2pc processing\n");
                     exit(0);
             }
+#ifndef NDEBUG
+            memset(local_mr->addr, 0, local_mr->length);
+#endif
             if(received_rdma_request.command == tuple_read_2pc){
-                assert(record->data_size_ == 768 || record->data_size_ == 409);
-                memcpy(local_mr->addr, record->data_ptr_, record->data_size_);
+                size_t tuple_size = received_rdma_request.content.tuple_info.tuple_size;
+                if (success){
+                    assert(record->data_size_ == tuple_size);
+                    memcpy(local_mr->addr, record->data_ptr_, record->data_size_);
+                }else{
+                    memset(local_mr->addr, 0, tuple_size);
+                }
                 auto send_request_ptr = (RDMA_ReplyXCompute* )((char*)local_mr->addr+record->data_size_);
                 send_request_ptr->toPC_reply_type = success ? 1 : 2;
 //                printf("Tuple Read Reply sent from node %u to node %u, the return type is %d\n", rdma_mg->node_id, target_node_id, send_request_ptr->toPC_reply_type);
 //                fflush(stdout);
                 int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
                 rdma_mg->RDMA_Write_xcompute(local_mr, received_rdma_request.buffer, received_rdma_request.rkey,
-                                             sizeof(RDMA_ReplyXCompute) + record->data_size_, target_node_id, qp_id,
+                                             sizeof(RDMA_ReplyXCompute) + tuple_size, target_node_id, qp_id,
                                              false);
 
             }else if (received_rdma_request.command == prepare_2pc){
@@ -268,6 +276,7 @@ class TransactionExecutor {
         PROFILE_TIME_END(thread_id, TXN_EXECUTE);
         if(count % 10000 == 0){
             printf("Node %u Thread %zu finished %d\n", default_gallocator->rdma_mg->node_id, thread_id, count);
+            fflush(stdout);
         }
         if (is_finish_ == true) {
           total_count_ += count;

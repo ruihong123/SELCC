@@ -6012,6 +6012,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
         send_pointer->content.tuple_info.primary_key = primary_key;
         send_pointer->content.tuple_info.table_id = table_id;
         send_pointer->content.tuple_info.thread_id = thread_id;
+        send_pointer->content.tuple_info.tuple_size = tuple_size;
         send_pointer->content.tuple_info.log_enabled = log_enabled;
         send_pointer->content.tuple_info.access_type = access_type;
         send_pointer->buffer = recv_mr->addr;
