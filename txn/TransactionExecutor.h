@@ -73,8 +73,8 @@ class TransactionExecutor {
             if (communication_queue.empty()){
                 continue;
             }
-            printf("Thread waked up\n");
-            fflush(stdout);
+//            printf("Thread waked up\n");
+//            fflush(stdout);
             bool success = true;
             RDMA_Request received_rdma_request = communication_queue.front();
             communication_queue.pop();
@@ -90,7 +90,6 @@ class TransactionExecutor {
                     break;
                 case commit_2pc:
                     txn_manager->WriteCommitLog();
-
                     break;
                 case abort_2pc:
                     txn_manager->AbortTransaction();
@@ -115,8 +114,8 @@ class TransactionExecutor {
             }else if (received_rdma_request.command == prepare_2pc){
                 ibv_mr* local_mr = rdma_mg->Get_local_send_message_mr();
                 auto send_request_ptr = ((RDMA_ReplyXCompute* )(local_mr->addr));
-                printf("Prepare Reply sent from node %u to node %u, the return type is %d\n", rdma_mg->node_id, target_node_id, send_request_ptr->toPC_reply_type);
-                fflush(stdout);
+//                printf("Prepare Reply sent from node %u to node %u, the return type is %d\n", rdma_mg->node_id, target_node_id, send_request_ptr->toPC_reply_type);
+//                fflush(stdout);
                 send_request_ptr->toPC_reply_type = success ? 1 : 2;
                 int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
                 rdma_mg->RDMA_Write_xcompute(local_mr, received_rdma_request.buffer, received_rdma_request.rkey,
