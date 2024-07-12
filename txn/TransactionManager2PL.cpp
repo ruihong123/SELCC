@@ -178,7 +178,7 @@ namespace DSMEngine {
 
       if (sharding_){
 //          assert(log_enabled_);
-          if (log_enabled_){
+          if (log_enabled_ && !participants.empty()){
               std::string ret_str_temp("Prepare\n");
               Slice log_record = Slice(ret_str_temp.c_str(), ret_str_temp.size());
               log_file->Append(log_record);
@@ -231,10 +231,10 @@ namespace DSMEngine {
     //GC
     for (size_t i = 0; i < access_list_.access_count_; ++i) {
       Access* access = access_list_.GetAccess(i);
-        if (log_enabled_){
-            Slice log_record = Slice(access->access_global_record_->data_ptr_, access->access_global_record_->data_size_);
-            log_file->Append(log_record);
-        }
+//        if (log_enabled_){
+//            Slice log_record = Slice(access->access_global_record_->data_ptr_, access->access_global_record_->data_size_);
+//            log_file->Append(log_record);
+//        }
       if (access->access_type_ == DELETE_ONLY) {
           //TODO: implement the delete function.
 //        gallocators[thread_id_]->Free(access->access_addr_);
