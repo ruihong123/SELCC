@@ -9,9 +9,9 @@
 #include <cassert>
 
 #define LOGGING true
-#define PARTITIONED true
-#define WORKLOAD_PATTERN SourceType::PARTITION_SOURCE
-//#define WORKLOAD_PATTERN SourceType::RANDOM_SOURCE
+#define PARTITIONED false
+//#define WORKLOAD_PATTERN SourceType::PARTITION_SOURCE
+#define WORKLOAD_PATTERN SourceType::RANDOM_SOURCE
 namespace DSMEngine {
 namespace TpccBenchmark {
 struct TpccScaleParams {
