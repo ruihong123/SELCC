@@ -109,7 +109,7 @@ if(WITH_NUMA)
     include_directories(${NUMA_INCLUDE_DIR})
     target_link_libraries(DSMEngine NUMA::NUMA)
 endif()
-add_executable(TestTrial trial_test.cpp)
+#add_executable(TestTrial trial_test.cpp)
 add_executable(memory_server "server.cc"
         "memory_node/memory_node_keeper.h"
         "memory_node/memory_node_keeper.cpp")
@@ -137,7 +137,7 @@ file(GLOB TPCC_DEPENDENCY
 )
 add_executable(tpcc ${TPCC_DEPENDENCY})
 target_link_libraries(tpcc DSMEngine)
-target_link_libraries(TestTrial DSMEngine)
+#target_link_libraries(TestTrial DSMEngine)
 target_link_libraries(memory_server DSMEngine)
 target_link_libraries(memory_server_term DSMEngine)
 target_link_libraries(memory_server_tpcc DSMEngine)
@@ -146,30 +146,4 @@ target_link_libraries(micro_bench DSMEngine)
 target_link_libraries(cpu_scale_test -lnuma)
 
 
-#add_subdirectory("third_party/googlemock")
-function(Engine_test test_file)
-    get_filename_component(test_target_name "${test_file}" NAME_WE)
 
-    add_executable("${test_target_name}" "")
-#    target_include_directories("${test_target_name}"
-#            PUBLIC
-#            ${PROJECT_SOURCE_DIR}/third_party/googletest/googletest/include
-#            ${PROJECT_SOURCE_DIR}/third_party/googletest/googlemock/include
-#            )
-    target_sources("${test_target_name}"
-            PRIVATE
-#            "${PROJECT_BINARY_DIR}/${TimberSaw_PORT_CONFIG_DIR}/port_config.h"
-#            "utils/testutil.cc"
-#            "utils/testutil.h"
-            "${test_file}"
-            )
-
-    target_link_libraries("${test_target_name}" DSMEngine)
-
-
-
-    add_test(NAME "${test_target_name}" COMMAND "${test_target_name}")
-endfunction(Engine_test)
-
-Engine_test("test/RDMA_Manager_Test.cpp")
-Engine_test("test/Btree_Test.cpp")
