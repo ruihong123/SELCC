@@ -43,7 +43,7 @@ namespace DSMEngine {
 //        }
 
 
-//        default_gallocator->PrePage_Write(page_buffer, g_addr, handle);
+//        default_gallocator->SELCC_Exclusive_Lock_noread(page_buffer, g_addr, handle);
     }
     //The hierachy lock shall be acquired outside of this function.
   bool TransactionManager::InsertRecord(TxnContext* context, 
@@ -84,8 +84,8 @@ namespace DSMEngine {
       if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
           if (access_type == READ_ONLY) {
               PROFILE_TIME_START(thread_id_, LOCK_READ);
-//              default_gallocator->PrePage_Read(page_buff, page_gaddr, handle);
-                if (!default_gallocator->TryPrePage_Read(page_buff, page_gaddr, handle)){
+//              default_gallocator->SELCC_Shared_Lock(page_buff, page_gaddr, handle);
+                if (!default_gallocator->TrySELCC_Shared_Lock(page_buff, page_gaddr, handle)){
                     this->AbortTransaction();
                     return false;
                 }
@@ -101,8 +101,8 @@ namespace DSMEngine {
           else {
               // DELETE_ONLY, READ_WRITE
               PROFILE_TIME_START(thread_id_, LOCK_WRITE);
-//              default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
-              if (!default_gallocator->TryPrePage_Update(page_buff, page_gaddr, handle)){
+//              default_gallocator->SELCC_Exclusive_Lock(page_buff, page_gaddr, handle);
+              if (!default_gallocator->TrySELCC_Exclusive_Lock(page_buff, page_gaddr, handle)){
 //                  printf("Abort at local tuple read\n");
 //                  fflush(stdout);
                   this->AbortTransaction();
@@ -123,7 +123,7 @@ namespace DSMEngine {
           //TODO: update the hierachical lock atomically, if the lock is shared lock
           if (access_type > READ_ONLY && locked_handles_[page_gaddr].second == READ_ONLY){
               assert(false);
-              default_gallocator->PrePage_Upgrade(page_buff, page_gaddr, handle);
+              default_gallocator->SELCC_Lock_Upgrade(page_buff, page_gaddr, handle);
               locked_handles_[page_gaddr].second = access_type;
           }
           // TODO: change the code below for SEL-DM.
@@ -216,13 +216,13 @@ namespace DSMEngine {
         if (iter.second.second == READ_ONLY){
             assert(iter.second.first->remote_lock_status >= 1);
 
-            default_gallocator->PostPage_Read(iter.second.first->gptr, iter.second.first);
+            default_gallocator->SELCC_Shared_UnLock(iter.second.first->gptr, iter.second.first);
             assert(iter.first == page_addr.val);
 //            printf("Threadid %zu Release read lock for nodeid %d, offset %lu lock handle number is %zu\n", thread_id_, page_addr.nodeID, page_addr.offset, locked_handles_.size());
         }
         else {
             assert(iter.second.first->remote_lock_status == 2);
-            default_gallocator->PostPage_UpdateOrWrite(iter.second.first->gptr, iter.second.first);
+            default_gallocator->SELCC_Exclusive_UnLock(iter.second.first->gptr, iter.second.first);
 //            printf("Threadid %zu Release write lock for nodeid %d, offset %lu lock handle number is %zu\n", thread_id_, page_addr.nodeID, page_addr.offset, locked_handles_.size());
 
         }
@@ -306,11 +306,11 @@ namespace DSMEngine {
                  iter.second.second == READ_WRITE);
           if (iter.second.second == READ_ONLY){
               assert(iter.second.first->remote_lock_status >= 1);
-              default_gallocator->PostPage_Read(iter.second.first->gptr, iter.second.first);
+              default_gallocator->SELCC_Shared_UnLock(iter.second.first->gptr, iter.second.first);
           }
           else {
               assert(iter.second.first->remote_lock_status == 2);
-              default_gallocator->PostPage_UpdateOrWrite(iter.second.first->gptr, iter.second.first);
+              default_gallocator->SELCC_Exclusive_UnLock(iter.second.first->gptr, iter.second.first);
           }
           // unlock
       }

@@ -1630,7 +1630,7 @@ namespace DSMEngine {
         if(!skip_cache){
             // Can be root if the original root ptr is invalid and this funciton is entered again bby the node fall back, because we do not have
             // page_hint this time.
-            ddms_->PrePage_Read(page_buffer, page_addr, handle);
+            ddms_->SELCC_Shared_Lock(page_buffer, page_addr, handle);
             mr = (ibv_mr*)handle->value;
 #if ACCESS_MODE == 1
             assert(page_buffer == mr->addr);
@@ -1664,14 +1664,14 @@ namespace DSMEngine {
 #endif                // assert the page is a valid page.
 //                    assert(page->check_whether_globallock_is_unlocked());
                 if (k >= page->hdr.highest){
-                    ddms_->PostPage_Read(page_addr, handle);
+                    ddms_->SELCC_Shared_UnLock(page_addr, handle);
                     std::unique_lock<RWSpinLock> l(root_mtx);
                     if (page_addr == g_root_ptr.load()){
                         g_root_ptr.store(GlobalAddress::Null());
                     }
                     return false;
                 }
-                ddms_->PostPage_Read(page_addr, handle);
+                ddms_->SELCC_Shared_UnLock(page_addr, handle);
                 return true;
             }
 
@@ -1689,7 +1689,7 @@ namespace DSMEngine {
             // (3) If other level, then the upper level page in the LRU cache should be invalidated.
             GlobalAddress sib_ptr = page->hdr.sibling_ptr;
             if(!skip_cache){
-                ddms_->PostPage_Read(page_addr, handle);
+                ddms_->SELCC_Shared_UnLock(page_addr, handle);
             }else{
                 handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
                 root_mtx.unlock_shared();
@@ -1742,7 +1742,7 @@ namespace DSMEngine {
 
         if (k < page->hdr.lowest) {
             if(!skip_cache){
-                ddms_->PostPage_Read(page_addr, handle);
+                ddms_->SELCC_Shared_UnLock(page_addr, handle);
             }else{
                 handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
                 root_mtx.unlock_shared();
@@ -1777,7 +1777,7 @@ namespace DSMEngine {
 
 
         if(!skip_cache){
-            ddms_->PostPage_Read(page_addr, handle);
+            ddms_->SELCC_Shared_UnLock(page_addr, handle);
         }else{
             handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
             root_mtx.unlock_shared();
@@ -1818,7 +1818,7 @@ namespace DSMEngine {
         LeafPage<Key,Value>* page;
 
 //        ibv_mr* mr = nullptr;
-        ddms_->PrePage_Read(page_buffer, page_addr, handle);
+        ddms_->SELCC_Shared_Lock(page_buffer, page_addr, handle);
 #ifdef PROCESSANALYSIS
         if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
             auto stop = std::chrono::high_resolution_clock::now();
@@ -1929,7 +1929,7 @@ namespace DSMEngine {
 ////                    handle->remote_lock_status.store(0);
 //        }
         assert(handle);
-        ddms_->PostPage_Read(page_addr, handle);
+        ddms_->SELCC_Shared_UnLock(page_addr, handle);
 //        handle->reader_post_access(page_addr, kLeafPageSize, lock_addr, mr);
 //        page_cache->Release(handle);
         return true;
@@ -1939,7 +1939,7 @@ namespace DSMEngine {
 ////                    handle->remote_lock_status.store(0);
 //        }
         assert(handle);
-        ddms_->PostPage_Read(page_addr, handle);
+        ddms_->SELCC_Shared_UnLock(page_addr, handle);
 //        handle->reader_post_access(page_addr, kLeafPageSize, lock_addr, mr);
 //        page_cache->Release(handle);
         return false;
@@ -2097,7 +2097,7 @@ re_read:
 
 
         if(!skip_cache) {
-            ddms_->PrePage_Update(page_buffer, page_addr, handle);
+            ddms_->SELCC_Exclusive_Lock(page_buffer, page_addr, handle);
             assert(handle != nullptr);
 #if ACCESS_MODE == 1
             assert(((ibv_mr *) handle->value)->addr == page_buffer);
@@ -2122,7 +2122,7 @@ re_read:
             GlobalAddress sib_ptr = page->hdr.sibling_ptr;
 
             if (!skip_cache){
-                ddms_->PostPage_UpdateOrWrite(page_addr, handle);
+                ddms_->SELCC_Exclusive_UnLock(page_addr, handle);
             }else{
                 assert(false);
             }
@@ -2159,7 +2159,7 @@ re_read:
         if (k < page->hdr.lowest ) {
 
             if (!skip_cache){
-                ddms_->PostPage_UpdateOrWrite(page_addr, handle);
+                ddms_->SELCC_Exclusive_UnLock(page_addr, handle);
             }else{
                 assert(false);
             }
@@ -2265,7 +2265,7 @@ re_read:
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 
         if (!skip_cache){
-            ddms_->PostPage_UpdateOrWrite(page_addr, handle);
+            ddms_->SELCC_Exclusive_UnLock(page_addr, handle);
         }else{
             assert(false);
         }
@@ -2403,7 +2403,7 @@ re_read:
         Slice page_id((char*)&page_addr, sizeof(GlobalAddress));
         Header_Index<Key> * header;
         LeafPage<Key,Value>* page;
-        ddms_->PrePage_Update(page_buffer, page_addr,handle);
+        ddms_->SELCC_Exclusive_Lock(page_buffer, page_addr,handle);
         assert(page_buffer != nullptr);
 //        ibv_mr* local_mr;
         assert(level == 0);
@@ -2462,7 +2462,7 @@ re_read:
 //                    l.unlock();
                     auto sibling_ptr = page->hdr.sibling_ptr;
 
-                    ddms_->PostPage_UpdateOrWrite(page_addr,handle);
+                    ddms_->SELCC_Exclusive_UnLock(page_addr,handle);
 //                    handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 //                    page_cache->Release(handle);
 
@@ -2477,7 +2477,7 @@ re_read:
 //                        global_unlock_addr(lock_addr,handle, cxt, coro_id, false);
 //                        handle->remote_lock_status.store(0);
 //                    }
-                    ddms_->PostPage_UpdateOrWrite(page_addr,handle);
+                    ddms_->SELCC_Exclusive_UnLock(page_addr,handle);
 //
 //                    handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 //
@@ -2515,7 +2515,7 @@ re_read:
                     g_root_ptr.store(GlobalAddress::Null());
                 }
             }
-            ddms_->PostPage_UpdateOrWrite(page_addr,handle);
+            ddms_->SELCC_Exclusive_UnLock(page_addr,handle);
 
 //            handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 //
@@ -2539,7 +2539,7 @@ re_read:
         num_of_record++;
 //        assert(page->hdr.last_index== 0 || page->data_[0]!=0);
         if (!need_split) {
-                ddms_->PostPage_UpdateOrWrite(page_addr,handle);
+                ddms_->SELCC_Exclusive_UnLock(page_addr,handle);
 
 //            handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 //
@@ -2608,7 +2608,7 @@ re_read:
             delete sibling_mr;
 
         }
-        ddms_->PostPage_UpdateOrWrite(page_addr,handle);
+        ddms_->SELCC_Exclusive_UnLock(page_addr,handle);
 //        handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
 //
 //        page_cache->Release(handle);

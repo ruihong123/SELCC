@@ -163,8 +163,8 @@ public:
       if (locked_handles_!= nullptr && g_addr != nullptr){
           GlobalAddress cacheline_g_addr = *g_addr;
           if (locked_handles_->find(cacheline_g_addr) == locked_handles_->end()){
-//              gallocator->PrePage_Update(page_buffer, *g_addr, handle);
-              if (!gallocator->TryPrePage_Update(page_buffer, *g_addr, handle)){
+//              gallocator->SELCC_Exclusive_Lock(page_buffer, *g_addr, handle);
+              if (!gallocator->TrySELCC_Exclusive_Lock(page_buffer, *g_addr, handle)){
                   return false;
               }
               assert(((DataPage*)page_buffer)->hdr.table_id == table_id_);
@@ -175,8 +175,8 @@ public:
               handle = locked_handles_->at(cacheline_g_addr).first;
               //TODO: update the hierachical lock atomically, if the lock is shared lock
               if (locked_handles_->at(cacheline_g_addr).second == READ_ONLY){
-//                  default_gallocator->PrePage_Upgrade(page_buffer, cacheline_g_addr, handle);
-                  if (!default_gallocator->PrePage_Upgrade(page_buffer, cacheline_g_addr, handle)){
+//                  default_gallocator->SELCC_Lock_Upgrade(page_buffer, cacheline_g_addr, handle);
+                  if (!default_gallocator->SELCC_Lock_Upgrade(page_buffer, cacheline_g_addr, handle)){
                         return false;
                   }
               }
@@ -190,8 +190,8 @@ public:
 
           }
       }else if(locked_handles_== nullptr && g_addr != nullptr){
-          gallocator->PrePage_Update(page_buffer, *g_addr, handle);
-//          if (!gallocator->TryPrePage_Update(page_buffer, *g_addr, handle)){
+          gallocator->SELCC_Exclusive_Lock(page_buffer, *g_addr, handle);
+//          if (!gallocator->TrySELCC_Exclusive_Lock(page_buffer, *g_addr, handle)){
 //              return false;
 //          }
           assert(((DataPage*)page_buffer)->hdr.table_id == table_id_);
@@ -200,8 +200,8 @@ public:
           g_addr = new GlobalAddress();
           *g_addr = gallocator->Allocate_Remote(Regular_Page);
           SetOpenedBlock(g_addr);
-//          gallocator->PrePage_Update(page_buffer, *g_addr, handle);
-          if (!gallocator->TryPrePage_Update(page_buffer, *g_addr, handle)){
+//          gallocator->SELCC_Exclusive_Lock(page_buffer, *g_addr, handle);
+          if (!gallocator->TrySELCC_Exclusive_Lock(page_buffer, *g_addr, handle)){
               return false;
           }
           uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*schema_ptr_->GetSchemaSize() +1);
@@ -213,8 +213,8 @@ public:
           g_addr = new GlobalAddress();
           *g_addr = gallocator->Allocate_Remote(Regular_Page);
           SetOpenedBlock(g_addr);
-          gallocator->PrePage_Update(page_buffer, *g_addr, handle);
-//          if (!gallocator->TryPrePage_Update(page_buffer, *g_addr, handle)){
+          gallocator->SELCC_Exclusive_Lock(page_buffer, *g_addr, handle);
+//          if (!gallocator->TrySELCC_Exclusive_Lock(page_buffer, *g_addr, handle)){
 //              return false;
 //          }
           uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*schema_ptr_->GetSchemaSize() +1);

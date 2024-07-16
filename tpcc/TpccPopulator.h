@@ -391,7 +391,7 @@ class TpccPopulator : public BenchmarkPopulator {
               key);
       assert(ret == tuple_gaddr);
 #endif
-      gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
+      gallocator->SELCC_Exclusive_UnLock(handle->gptr, handle);
   }
 
   void InsertWarehouseRecord(WarehouseRecord* record_ptr, Record *record_buf,
@@ -421,7 +421,7 @@ class TpccPopulator : public BenchmarkPopulator {
               k);
       assert(ret == tuple_gaddr);
 #endif
-      gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
+      gallocator->SELCC_Exclusive_UnLock(handle->gptr, handle);
   }
 
   void InsertDistrictRecord(DistrictRecord* record_ptr, Record *record_buf,
@@ -454,7 +454,7 @@ class TpccPopulator : public BenchmarkPopulator {
               k);
       assert(ret == tuple_gaddr);
 #endif
-      gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
+      gallocator->SELCC_Exclusive_UnLock(handle->gptr, handle);
   }
 
   void InsertCustomerRecord(CustomerRecord* record_ptr, Record *record_buf,
@@ -498,7 +498,7 @@ class TpccPopulator : public BenchmarkPopulator {
               key);
       assert(ret2 == tuple_gaddr);
 #endif
-      gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
+      gallocator->SELCC_Exclusive_UnLock(handle->gptr, handle);
   }
 
   void InsertStockRecord(StockRecord* record_ptr, Record *record_buf,
@@ -529,7 +529,7 @@ class TpccPopulator : public BenchmarkPopulator {
               key);
       assert(ret == tuple_gaddr);
 #endif
-      gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
+      gallocator->SELCC_Exclusive_UnLock(handle->gptr, handle);
   }
 
   void InsertOrderRecord(OrderRecord* record_ptr, Record *record_buf,
@@ -554,7 +554,7 @@ class TpccPopulator : public BenchmarkPopulator {
                                       record_ptr->o_w_id_);
       storage_manager_->tables_[ORDER_TABLE_ID]->InsertPriIndex(
               &key, 1, tuple_gaddr);
-      gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
+      gallocator->SELCC_Exclusive_UnLock(handle->gptr, handle);
   }
 
   void InsertNewOrderRecord(NewOrderRecord* record_ptr, Record *record_buf,
@@ -574,7 +574,7 @@ class TpccPopulator : public BenchmarkPopulator {
                                          record_ptr->w_id_);
       storage_manager_->tables_[NEW_ORDER_TABLE_ID]->InsertPriIndex(
               &key, 1, tuple_gaddr);
-      gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
+      gallocator->SELCC_Exclusive_UnLock(handle->gptr, handle);
   }
 
   void InsertOrderLineRecord(OrderLineRecord* record_ptr, Record *record_buf,
@@ -603,7 +603,7 @@ class TpccPopulator : public BenchmarkPopulator {
     //keys[1] = GetOrderLineSecondaryKey(record_ptr->ol_o_id_, record_ptr->ol_d_id_, record_ptr->ol_w_id_);
       storage_manager_->tables_[ORDER_LINE_TABLE_ID]->InsertPriIndex(
               &key, 1, tuple_gaddr);
-      gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
+      gallocator->SELCC_Exclusive_UnLock(handle->gptr, handle);
   }
 
   void InsertHistoryRecord(HistoryRecord* record_ptr, Record *record_buf,
@@ -628,7 +628,7 @@ class TpccPopulator : public BenchmarkPopulator {
                                         record_ptr->h_w_id_);
       storage_manager_->tables_[HISTORY_TABLE_ID]->InsertPriIndex(
               &key, 1, tuple_gaddr);
-      gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
+      gallocator->SELCC_Exclusive_UnLock(handle->gptr, handle);
   }
 
   void InsertDistrictNewOrderRecord(DistrictNewOrderRecord* record_ptr,
@@ -648,7 +648,7 @@ class TpccPopulator : public BenchmarkPopulator {
                                                  record_ptr->w_id_);
       storage_manager_->tables_[DISTRICT_NEW_ORDER_TABLE_ID]->InsertPriIndex(
               &key, 1, tuple_gaddr);
-      gallocator->PostPage_UpdateOrWrite(handle->gptr, handle);
+      gallocator->SELCC_Exclusive_UnLock(handle->gptr, handle);
   }
 };
 

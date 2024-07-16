@@ -20,8 +20,8 @@ namespace DSMEngine{
             DDSM* gallocator = gallocators[thread_id_];
             if (gcl_addr){
                 GlobalAddress cacheline_g_addr = *gcl_addr;
-                gallocator->PrePage_Update(page_buffer, *gcl_addr, handle);
-//                    if (!gallocator->TryPrePage_Update(page_buffer, *gcl_addr, handle)){
+                gallocator->SELCC_Exclusive_Lock(page_buffer, *gcl_addr, handle);
+//                    if (!gallocator->TrySELCC_Exclusive_Lock(page_buffer, *gcl_addr, handle)){
 //                        return false;
 //                    }
                 assert(((DataPage*)page_buffer)->hdr.table_id == table_id);
@@ -31,7 +31,7 @@ namespace DSMEngine{
                 gcl_addr = new GlobalAddress();
                 *gcl_addr = gallocator->Allocate_Remote(Regular_Page);
                 table->SetOpenedBlock(gcl_addr);
-                gallocator->PrePage_Update(page_buffer, *gcl_addr, handle);
+                gallocator->SELCC_Exclusive_Lock(page_buffer, *gcl_addr, handle);
 
                 uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*table->GetSchemaSize() +1);
                 page = new(page_buffer) DataPage(*gcl_addr, cardinality, table_id);
@@ -56,7 +56,7 @@ namespace DSMEngine{
             access->txn_local_tuple_ = local_tuple;
             tuple = local_tuple;
             access->access_addr_ = tuple_gaddr;
-            gallocator->PostPage_UpdateOrWrite(*gcl_addr, handle);
+            gallocator->SELCC_Exclusive_UnLock(*gcl_addr, handle);
             if(cnt == page->hdr.kDataCardinality){
                 delete gcl_addr;
                 table->SetOpenedBlock(nullptr);
@@ -85,7 +85,7 @@ namespace DSMEngine{
 //        }
 
 
-//        default_gallocator->PrePage_Write(page_buffer, gcl_addr, handle);
+//        default_gallocator->SELCC_Exclusive_Lock_noread(page_buffer, gcl_addr, handle);
         }
 		bool TransactionManager::InsertRecord(TxnContext* context,
                                               size_t table_id, const IndexKey* keys,
@@ -96,7 +96,7 @@ namespace DSMEngine{
             bool ret = storage_manager_->tables_[table_id]->InsertPriIndex(keys, key_num, tuple_gaddr);
             PROFILE_TIME_END(thread_id_, INDEX_INSERT);
             PROFILE_TIME_END(thread_id_, CC_INSERT);
-//            gallocators[thread_id_]->PostPage_UpdateOrWrite(TOPAGE(handle->gptr), handle);
+//            gallocators[thread_id_]->SELCC_Exclusive_UnLock(TOPAGE(handle->gptr), handle);
             return true;
 			//}
 			//else{
@@ -121,11 +121,11 @@ namespace DSMEngine{
             //TODO: need to remember the latch, so that the latch can be released when the transaction abort.
             if (access_type == READ_ONLY) {
 //                uint64_t wts = record->GetWTS();
-                default_gallocator->PrePage_Read(page_buff, page_gaddr, handle);
+                default_gallocator->SELCC_Shared_Lock(page_buff, page_gaddr, handle);
 
             } else  {
                 //Read_Write, Delete_Only, Insert_Only
-                default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
+                default_gallocator->SELCC_Exclusive_Lock(page_buff, page_gaddr, handle);
 
             }
         assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
@@ -145,11 +145,11 @@ namespace DSMEngine{
         }
         if (access_type == READ_ONLY) {
 //                uint64_t wts = record->GetWTS();
-            default_gallocator->PostPage_Read(page_gaddr, handle);
+            default_gallocator->SELCC_Shared_UnLock(page_gaddr, handle);
 
         } else  {
             //Read_Write, Delete_Only, Insert_Only
-            default_gallocator->PostPage_UpdateOrWrite(page_gaddr, handle);
+            default_gallocator->SELCC_Exclusive_UnLock(page_gaddr, handle);
 
         }
         PROFILE_TIME_END(thread_id_, CC_SELECT);
@@ -190,7 +190,7 @@ namespace DSMEngine{
                 if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
                     //No matter write or read we need acquire exclusive latch.
                     assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
-                    default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
+                    default_gallocator->SELCC_Exclusive_Lock(page_buff, page_gaddr, handle);
                     assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
                     tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
                     access->access_global_record_->ReSetRecordBuff(tuple_buffer, access->access_global_record_->GetRecordSize(), false);
@@ -206,7 +206,7 @@ namespace DSMEngine{
                     //TODO: update the hierachical lock atomically, if the lock is shared lock
                     if (locked_handles_[page_gaddr].second == READ_ONLY){
                         assert(false);
-                        default_gallocator->PrePage_Upgrade(page_buff, page_gaddr, handle);
+                        default_gallocator->SELCC_Lock_Upgrade(page_buff, page_gaddr, handle);
                         locked_handles_[page_gaddr].second = access_type;
                     }
 #if ACCESS_MODE == 1
@@ -229,7 +229,7 @@ namespace DSMEngine{
                 if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
                     //No matter write or read we need acquire exclusive latch.
                     assert(page_gaddr.offset - tuple_gaddr.offset > STRUCT_OFFSET(DataPage, data_));
-                    default_gallocator->PrePage_Read(page_buff, page_gaddr, handle);
+                    default_gallocator->SELCC_Shared_Lock(page_buff, page_gaddr, handle);
                     assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
                     tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
                     access->access_global_record_->ReSetRecordBuff(tuple_buffer, access->access_global_record_->GetRecordSize(), false);
@@ -282,10 +282,10 @@ namespace DSMEngine{
                    iter.second.second == INSERT_ONLY ||
                    iter.second.second == READ_WRITE);
             if (iter.second.second == READ_ONLY){
-                default_gallocator->PostPage_Read(iter.second.first->gptr, iter.second.first);
+                default_gallocator->SELCC_Shared_UnLock(iter.second.first->gptr, iter.second.first);
             }
             else {
-                default_gallocator->PostPage_UpdateOrWrite(iter.second.first->gptr, iter.second.first);
+                default_gallocator->SELCC_Exclusive_UnLock(iter.second.first->gptr, iter.second.first);
             }
             // unlock
         }
@@ -313,10 +313,10 @@ namespace DSMEngine{
                        iter.second.second == INSERT_ONLY ||
                        iter.second.second == READ_WRITE);
                 if (iter.second.second == READ_ONLY){
-                    default_gallocator->PostPage_Read(iter.second.first->gptr, iter.second.first);
+                    default_gallocator->SELCC_Shared_UnLock(iter.second.first->gptr, iter.second.first);
                 }
                 else {
-                    default_gallocator->PostPage_UpdateOrWrite(iter.second.first->gptr, iter.second.first);
+                    default_gallocator->SELCC_Exclusive_UnLock(iter.second.first->gptr, iter.second.first);
                 }
                 // unlock
             }
@@ -334,7 +334,7 @@ namespace DSMEngine{
 //            if (locked_handles_.find(page_gaddr) == locked_handles_.end()){
 //                if (access_type == READ_ONLY) {
 //                    PROFILE_TIME_START(thread_id_, LOCK_READ);
-//                    default_gallocator->PrePage_Read(page_buff, page_gaddr, handle);
+//                    default_gallocator->SELCC_Shared_Lock(page_buff, page_gaddr, handle);
 //                    assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
 //                    tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
 //                    locked_handles_.insert({page_gaddr, {handle, access_type}});
@@ -345,7 +345,7 @@ namespace DSMEngine{
 //                else {
 //                    // DELETE_ONLY, READ_WRITE
 //                    PROFILE_TIME_START(thread_id_, LOCK_WRITE);
-//                    default_gallocator->PrePage_Update(page_buff, page_gaddr, handle);
+//                    default_gallocator->SELCC_Exclusive_Lock(page_buff, page_gaddr, handle);
 //                    assert((tuple_gaddr.offset - handle->gptr.offset) > STRUCT_OFFSET(DataPage, data_));
 //                    tuple_buffer = (char*)page_buff + (tuple_gaddr.offset - handle->gptr.offset);
 //                    locked_handles_.insert({page_gaddr, {handle, access_type}});
@@ -359,7 +359,7 @@ namespace DSMEngine{
 //                //TODO: update the hierachical lock atomically, if the lock is shared lock
 //                if (access_type > READ_ONLY && locked_handles_[page_gaddr].second == READ_ONLY){
 //                    assert(false);
-//                    default_gallocator->PrePage_Upgrade(page_buff, page_gaddr, handle);
+//                    default_gallocator->SELCC_Lock_Upgrade(page_buff, page_gaddr, handle);
 //                    locked_handles_[page_gaddr].second = access_type;
 //                }
 //#if ACCESS_MODE == 1

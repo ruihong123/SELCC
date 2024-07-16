@@ -16,7 +16,7 @@ namespace DSMEngine {
         return res;
     }
 #if ACCESS_MODE == 1 || ACCESS_MODE == 2
-    void DDSM::PrePage_Read(void *& page_buffer, GlobalAddress page_addr, Cache::Handle *& handle) {
+    void DDSM::SELCC_Shared_Lock(void *& page_buffer, GlobalAddress page_addr, Cache::Handle *& handle) {
         assert((page_addr.offset % 1ULL*1024ULL*1024ULL*1024ULL)% kLeafPageSize == 0);
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
@@ -44,7 +44,7 @@ namespace DSMEngine {
 
     }
     //TODO: local TRY multiple times for local latch
-    bool DDSM::TryPrePage_Read(void *& page_buffer, GlobalAddress page_addr, Cache::Handle *& handle) {
+    bool DDSM::TrySELCC_Shared_Lock(void *& page_buffer, GlobalAddress page_addr, Cache::Handle *& handle) {
         assert((page_addr.offset % 1ULL*1024ULL*1024ULL*1024ULL)% kLeafPageSize == 0);
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
@@ -65,7 +65,7 @@ namespace DSMEngine {
         return true;
     }
 
-    void DDSM::PostPage_Read(GlobalAddress page_addr, Cache::Handle *&handle) {
+    void DDSM::SELCC_Shared_UnLock(GlobalAddress page_addr, Cache::Handle *&handle) {
         assert((page_addr.offset % 1ULL*1024ULL*1024ULL*1024ULL)% kLeafPageSize == 0);
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
@@ -77,7 +77,7 @@ namespace DSMEngine {
 
     }
 
-    void DDSM::PrePage_Write(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *& handle) {
+    void DDSM::SELCC_Exclusive_Lock_noread(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *& handle) {
 //        printf("PRE Write page node %d, offset %lu, THIS NODE IS %u\n", page_addr.nodeID, page_addr.offset,RDMA_Manager::node_id);
         assert(TOPAGE(page_addr) == page_addr);
         GlobalAddress lock_addr;
@@ -98,7 +98,7 @@ namespace DSMEngine {
 //        assert(handle->gptr == page_addr);
 //        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == page_addr);
     }
-//    bool DDSM::TryPrePage_Write(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *& handle) {
+//    bool DDSM::TrySELCC_Exclusive_Lock_noread(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *& handle) {
 ////        printf("PRE Write page node %d, offset %lu, THIS NODE IS %u\n", page_addr.nodeID, page_addr.offset,RDMA_Manager::node_id);
 //        assert(TOPAGE(page_addr) == page_addr);
 //        GlobalAddress lock_addr;
@@ -123,7 +123,7 @@ namespace DSMEngine {
 ////        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == page_addr);
 //    }
 
-    void DDSM::PostPage_Write(GlobalAddress page_addr, Cache::Handle *&handle) {
+    void DDSM::SELCC_Exclusive_UnLock_noread(GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
@@ -133,7 +133,7 @@ namespace DSMEngine {
         handle = nullptr;
     }
 
-    void DDSM::PrePage_Update(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *& handle) {
+    void DDSM::SELCC_Exclusive_Lock(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *& handle) {
 //        printf("PRE Update page node %d, offset %lu, THIS NODE IS %u\n", page_addr.nodeID, page_addr.offset,RDMA_Manager::node_id);
         assert(TOPAGE(page_addr) == page_addr);
         GlobalAddress lock_addr;
@@ -162,7 +162,7 @@ namespace DSMEngine {
 //        assert(((LeafPage<uint64_t, uint64_t>*)page_buffer)->hdr.this_page_g_ptr == page_addr);
 
     }
-    bool DDSM::TryPrePage_Update(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
+    bool DDSM::TrySELCC_Exclusive_Lock(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
 //        printf("PRE Update page node %d, offset %lu, THIS NODE IS %u\n", page_addr.nodeID, page_addr.offset,RDMA_Manager::node_id);
         assert(TOPAGE(page_addr) == page_addr);
         GlobalAddress lock_addr;
@@ -188,7 +188,7 @@ namespace DSMEngine {
 
     }
 
-    bool DDSM::PrePage_Upgrade(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *handle) {
+    bool DDSM::SELCC_Lock_Upgrade(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *handle) {
         assert(handle != nullptr);
         assert(handle->remote_lock_status == 1);
         assert(handle->rw_mtx.issharelocked());
@@ -216,7 +216,7 @@ namespace DSMEngine {
         return true;
     }
 
-    void DDSM::PostPage_UpdateOrWrite(GlobalAddress page_addr, Cache::Handle *handle) {
+    void DDSM::SELCC_Exclusive_UnLock(GlobalAddress page_addr, Cache::Handle *handle) {
 //        printf("POST Update or Write page node %d, offset %lu, THIS NODE IS %u\n", page_addr.nodeID, page_addr.offset,RDMA_Manager::node_id);
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
@@ -236,7 +236,7 @@ namespace DSMEngine {
     }
 #elif ACCESS_MODE == 0
 
-    bool DDSM::TryPrePage_Read(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
+    bool DDSM::TrySELCC_Shared_Lock(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
@@ -261,7 +261,7 @@ namespace DSMEngine {
         handle->gptr = page_addr;
         return true;
     }
-    bool DDSM::TryPrePage_Update(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
+    bool DDSM::TrySELCC_Exclusive_Lock(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
 
@@ -282,7 +282,7 @@ namespace DSMEngine {
         handle->gptr = page_addr;
         return true;
     }
-    bool DDSM::PrePage_Upgrade(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *handle) {
+    bool DDSM::SELCC_Lock_Upgrade(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *handle) {
         assert(handle);
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
@@ -295,7 +295,7 @@ namespace DSMEngine {
         }
         return true;
     }
-    void DDSM::PrePage_Read(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
+    void DDSM::SELCC_Shared_Lock(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
@@ -313,7 +313,7 @@ namespace DSMEngine {
         handle->gptr = page_addr;
     }
 
-    void DDSM::PostPage_Read(GlobalAddress page_addr, Cache::Handle *&handle) {
+    void DDSM::SELCC_Shared_UnLock(GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
@@ -323,7 +323,7 @@ namespace DSMEngine {
         delete handle;
     }
 
-    void DDSM::PrePage_Write(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
+    void DDSM::SELCC_Exclusive_Lock_noread(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
@@ -342,7 +342,7 @@ namespace DSMEngine {
 
     }
 
-    void DDSM::PostPage_Write(GlobalAddress page_addr, Cache::Handle *&handle) {
+    void DDSM::SELCC_Exclusive_UnLock_noread(GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
@@ -354,7 +354,7 @@ namespace DSMEngine {
 
     }
 
-    void DDSM::PrePage_Update(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
+    void DDSM::SELCC_Exclusive_Lock(void *&page_buffer, GlobalAddress page_addr, Cache::Handle *&handle) {
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
@@ -373,7 +373,7 @@ namespace DSMEngine {
 
     }
 
-    void DDSM::PostPage_UpdateOrWrite(GlobalAddress page_addr, Cache::Handle * handle){
+    void DDSM::SELCC_Exclusive_UnLock(GlobalAddress page_addr, Cache::Handle * handle){
         GlobalAddress lock_addr;
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
