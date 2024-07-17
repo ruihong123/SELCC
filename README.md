@@ -52,8 +52,14 @@ competitors:
 * SEL: an one-sided access framework that operates without compute-side caching.
 Results:
 Scalability:
-Workload with access locality
+<!-- ![TableScan]() -->
+<img src="Figures/scalability.png" alt="drawing" width="600"/>
+Workload with access locality:
+<!-- ![TableScan]() -->
+<img src="Figures/locality.png" alt="drawing" width="600"/>
 Workload with access skewness
+<!-- ![TableScan]() -->
+<img src="Figures/skewness.png" alt="drawing" width="600"/>
 ### Index over SELCC
 competitors: 
 * btree over SELCC: a demonstration of btree implemented by SELCC APIs
