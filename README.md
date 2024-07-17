@@ -86,7 +86,7 @@ Results:
 <img src="Figures/TPC-C.png" alt="drawing" width="1000"/>
 
 <!-- ![TableScan]() -->
-<img src="Figures/TPC-C_2pc.png" alt="drawing" width="1000"/>
+<img src="Figures/TPC-C_2pc.png" alt="drawing" width="500"/>
 
 ## Repository contents
 
