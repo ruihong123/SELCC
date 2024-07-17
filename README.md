@@ -53,19 +53,25 @@ competitors:
 Results:
 Scalability:
 <!-- ![TableScan]() -->
-<img src="Figures/scalability.png" alt="drawing" width="600"/>
+<img src="Figures/scalability.png" alt="drawing" width="1000"/>
 Workload with access locality:
 <!-- ![TableScan]() -->
-<img src="Figures/locality.png" alt="drawing" width="600"/>
+<img src="Figures/locality.png" alt="drawing" width="1000"/>
 Workload with access skewness
 <!-- ![TableScan]() -->
-<img src="Figures/skewness.png" alt="drawing" width="600"/>
+<img src="Figures/skewness.png" alt="drawing" width="1000"/>
+
 ### Index over SELCC
 competitors: 
 * btree over SELCC: a demonstration of btree implemented by SELCC APIs
 * btree over SEL: a demonstration of btree implemented by SEL APIs (without local cache)
 * Sherman: [Sherman: A Write-Optimized Distributed B+Tree Index on Disaggregated Memory](https://dl.acm.org/doi/pdf/10.1145/3514221.3517824)
 * DEX: [DEX: Scalable Range Indexing on Disaggregated Memory](https://arxiv.org/abs/2405.14502)
+
+Results:
+<!-- ![TableScan]() -->
+<img src="Figures/btree.png" alt="drawing" width="1000"/>
+
 ### Tranasction engine over SELCC
 competitors: 
 * 2PL over SELCC: 2 phase locking concurrency control with no wait deadlock avoidance strategy over SELCC APIs
@@ -73,17 +79,25 @@ competitors:
 * OCC over SELCC: optimistic concurrency control over SELCC APIs
 * 2PL over SEL: 2 phase locking concurrency control with no wait deadlock avoidance strategy over SELCC APIs
 * TO over SEL: timestamp ordering concurrency control over SELCC APIs
-* OCC over SEL: optimistic concurrency control over SELCC APIs# Repository content:
+* OCC over SEL: optimistic concurrency control over SELCC APIs
+
+Results:
+<!-- ![TableScan]() -->
+<img src="Figures/TPC-C.png" alt="drawing" width="1000"/>
+
+<!-- ![TableScan]() -->
+<img src="Figures/TPC-C_2pc.png" alt="drawing" width="1000"/>
+
 ## Repository contents
 
 Guide to folders:
-* **btr**: The files for btree over SELCC.
-* * **include**: The folder for the header files exposed to the users.
-* **memory_node**: The implementation for memory servers.
-* **port**: The files defining macro for turning on and off optimizations.
-* **scripts**: The bash scripts for mulitple node setup.
-* **storage**: Implementations of DB tables, btree nodes, data pages, tuples and RDMA communication.
-* **util**: Some necessary tools for system building.
+* **/btr**: The files for btree over SELCC.
+* **/include**: The folder for the header files exposed to the users.
+* **/memory_node**: The implementation for memory servers.
+* **/port**: The files defining macro for turning on and off optimizations.
+* **/scripts**: The bash scripts for mulitple node setup.
+* **/storage**: Implementations of DB tables, btree nodes, data pages, tuples and RDMA communication.
+* **/util**: Some necessary tools for system building.
 
 Guide to header files:
 
