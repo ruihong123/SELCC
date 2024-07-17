@@ -101,7 +101,7 @@ Guide to folders:
 
 Guide to header files:
 
-* **include/DDSM.h**: High-level interface for upper layer applications: Start here.
+* **include/DDSM.h**: High-level interface for upper layer applications.
 
-* **include/DSMEngine.h**: Low-level interfaces for potential developers.
+* **include/DSMEngine/\*.h**: Low-level interfaces for potential developers.
 
