@@ -13,35 +13,12 @@ namespace DSMEngine {
     bool InternalPage<Key>::internal_page_search(const Key &k, void *result_ptr) {
         SearchResult<Key,GlobalAddress>& result = *(SearchResult<Key,GlobalAddress>*)result_ptr;
         assert(k >= hdr.lowest);
-//        assert(k < hdr.highest);
-//        uint64_t local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
-//        if (((Local_Meta*) &local_meta_new)->local_lock_byte !=0 || ((Local_Meta*) &local_meta_new)->current_ticket != current_ticket){
-//            return false;
-//        }
-
-//        Key highest_buffer = 0;
-//        highest_buffer = hdr.highest;
-        // optimistically latch free.
-        //TODO (potential bug) what will happen if the record version is not consistent?
-
-        // It is necessary to have reread in this function because the interanl page cache can be
-        // updated by a concurrent writer. THe writer will pull the updates from the remote memory.
-        //
-        //TODO(Potential bug): the optimistic latch free is not fully correct because the orginal
-        // algorithm first check the lock state then check the verison again when the read operation end.
-        // the front and rear verison can guarantee the consistency between remote writer and reader but can not guarantee the
-        // consistency between local writer and reader.
-        // THe front and rear versions are necessary.
-        // choice1: Maybe the lock check is necessary (either in the page or outside)
-        // choice2: or we check whether the front verison equals the rear version to check wehther there is a
-        // concurrent writer (check lock).
-//    re_read:
+        assert(k < hdr.highest);
         GlobalAddress target_global_ptr_buff;
 
         //TOTHINK: how to make sure that concurrent write will not result in segfault,
         // such as out of buffer for cnt.
         auto cnt = hdr.last_index + 1;
-        // page->debug();
         if (k < records[0].key) {
 //      printf("next level pointer is  leftmost %p \n", page->hdr.leftmost_ptr);
             target_global_ptr_buff = hdr.leftmost_ptr;
@@ -142,88 +119,62 @@ namespace DSMEngine {
                     right = mid - 1;
                 }else{
                     // internal node entry shall never get updated
-                    assert(false);
-                    records[mid].ptr = value;
-                    is_update = true;
+                    if (hdr.p_type == P_Internal_P){
+                        records[mid].ptr = value;
+                        is_update = true;
+                        return cnt == kInternalCardinality;
+                    } else if (hdr.p_type == P_Internal_S){
+                        is_update = false;
+                        left = mid;
+                        right = mid;
+                        break;
+                    }
+
 
                 }
             }
+            assert(!is_update);
             assert(left == right);
+            // THe while loop will not set the "is_update" flag if the search is ended at the first position.
+            // The code below is made up for that situation
             if (BOOST_LIKELY(k!=records[left].key)){
                 insert_index = left +1;
             }else{
                 // internal node entry shall never get updated
-                assert(false);
-                records[left].ptr = value;
-                is_update = true;
+                assert(left == 0);
+                if (hdr.p_type == P_Internal_P){
+                    records[left].ptr = value;
+                    is_update = true;
+                    return cnt == kInternalCardinality;
+                } else if (hdr.p_type == P_Internal_S){
+                    is_update = false;
+                    insert_index = left +1;
+
+                }
             }
 
 
         }
 
-
-//        printf("The last index %d 's key is %lu, this key is %lu\n", page->hdr.last_index, page->records[page->hdr.last_index].key, k);
-        // ---------------------------------------------------------
-        //TODO: Make it a binary search.
-//        for (int i = cnt - 1; i >= 0; --i) {
-//            if (records[i].key == k) { // find and update
-//
-////                asm volatile ("sfence\n" : : );
-//                records[i].ptr = value;
-////                asm volatile ("sfence\n" : : );
-//
-//                is_update = true;
-//                break;
-//            }
-//            if (records[i].key < k) {
-//                insert_index = i + 1;
-//                break;
-//            }
-//        }
-        //--------------------------------------------
         assert(cnt != kInternalCardinality);
         assert(records[hdr.last_index].ptr != GlobalAddress::Null());
-//        Key split_key;
-//        GlobalAddress sibling_addr = GlobalAddress::Null();
+        assert(!is_update);
         if (!is_update) { // insert and shift
-//            if ((k & ((1ull << 40) -1)) == 0){
-//                printf("Internal Node Insert position for key %p is %d, this node_id is %lu\n", k, insert_index,
-//                       RDMA_Manager::node_id);
-//                fflush(stdout);
-//            }
-            // The update should mark the page version change because this will make the page state in consistent.
-//      __atomic_fetch_add(&page->front_version, 1, __ATOMIC_SEQ_CST);
-//      page->front_version++;
             //TODO(potential bug): double check the memory fence, there could be out of order
             // execution preventing the version lock.
-//      asm volatile ("sfence\n" : : );
-//      asm volatile ("lfence\n" : : );
-//      asm volatile ("mfence" : : : "memory");
             for (int i = cnt; i > insert_index; --i) {
                 records[i].key = records[i - 1].key;
                 records[i].ptr = records[i - 1].ptr;
             }
-
-
             records[insert_index].key = k;
             records[insert_index].ptr = value;
 #ifndef NDEBUG
             uint16_t last_index_prev = hdr.last_index;
 #endif
             hdr.last_index++;
-
-
-//#ifndef NDEBUG
-//      assert(last_index_memo == page->hdr.last_index);
-//#endif
-//      asm volatile ("sfence\n" : : );
-// THe last index could be the same for several print because we may not insert to the end all the time.
-//        printf("last_index of page offset %lu is %hd, page level is %d, page is %p, the last index content is %lu %p, version should be, the key is %lu\n"
-//               , page_addr.offset,  page->hdr.last_index, page->hdr.level, page, page->records[page->hdr.last_index].key, page->records[page->hdr.last_index].ptr, k);
             assert(hdr.last_index == last_index_prev + 1);
             assert(records[hdr.last_index].ptr != GlobalAddress::Null());
             assert(records[hdr.last_index].key != 0);
-//  assert(page->records[page->hdr.last_index] != GlobalAddress::Null());
             cnt = hdr.last_index + 1;
         }
 
@@ -235,9 +186,7 @@ namespace DSMEngine {
     template<class Key, class Value>
     void LeafPage<Key,Value>::leaf_page_search(const Key &k, SearchResult<Key, Value> &result, GlobalAddress g_page_ptr,
                                                RecordSchema *record_scheme) {
-
 #ifdef DYNAMIC_ANALYSE_PAGE
-//        int kLeafCardinality = record_scheme->GetLeafCardi();
         size_t tuple_length = record_scheme->GetSchemaSize();
         char* tuple_start = data_;
         uint16_t left = 0;
@@ -275,48 +224,26 @@ namespace DSMEngine {
                 return;
             }
         }
-        // Not find
+        // Not find or the target key is the first entry.
         assert(right == left);
+
         tuple_start = data_ + right*tuple_length;
         auto r = Record(record_scheme,tuple_start);
         Key temp_key;
         r.GetPrimaryKey(&temp_key);
+        assert(k > temp_key || right == 0);
         if (k == temp_key){
 //            assert(false);
+            // this branch can only happen when the target key is the first key in this leaf node
+            assert(right == 0);
             assert(result.val.size() == r.GetRecordSize());
             memcpy((void*)result.val.data(),r.data_ptr_, r.GetRecordSize());
             result.find_value = true;
         }else{
-            assert(k >temp_key || right == 0);
+            assert(k >temp_key);
 //            assert(false);
         }
         return;
-
-
-//        for (int i = 0; i < kLeafCardinality; ++i) {
-//            tuple_start = data_ + i*tuple_length;
-//
-//            auto r = Record(record_scheme,tuple_start);
-//            Key temp_key;
-//            r.GetPrimaryKey(&temp_key);
-//            if (temp_key == k && temp_key != kValueNull<Key> ) {
-//                assert(result.val.size() == r.GetRecordSize());
-//                memcpy(result.val.data(),r.data_ptr_, r.GetRecordSize());
-//                result.find_value = true;
-//                asm volatile ("sfence\n" : : );
-//                asm volatile ("lfence\n" : : );
-//                asm volatile ("mfence\n" : : );
-////                uint8_t rear_v = rear_version;
-////                if (front_v!= rear_v)// version checking
-////                    //TODO: reread from the remote side.
-////                    goto re _read;
-//
-////                memcpy(result.value_padding, r.value_padding, VALUE_PADDING);
-////      result.value_padding = r.value_padding;
-//                break;
-//            }
-//        }
-//        result.val = target_value_buff;
 #else
         Value target_value_buff{};
 //        uint8_t front_v = front_version;
@@ -345,10 +272,124 @@ namespace DSMEngine {
         result.val = target_value_buff;
 #endif
 
-        //        records =
-//        data_
-//    re_read:
+    }
 
+    template<class Key, class Value>
+    int LeafPage<Key,Value>::leaf_page_pos_lb(const Key &k, GlobalAddress g_page_ptr, RecordSchema *record_scheme) {
+#ifdef DYNAMIC_ANALYSE_PAGE
+        size_t tuple_length = record_scheme->GetSchemaSize();
+        char* tuple_start = data_;
+        uint16_t left = 0;
+        assert(hdr.last_index >= 0);
+        uint16_t right = hdr.last_index;
+        uint16_t mid = 0;
+#ifndef NDEBUG
+        std::vector<std::pair<uint16_t, uint16_t>> binary_history;
+        char* tuple_last = data_ + hdr.last_index*tuple_length;
+        auto r_last = Record(record_scheme,tuple_last);
+        Key last_key;
+        Key temp_key;
+        r_last.GetPrimaryKey(&last_key);
+        assert(k < hdr.highest );
+        assert(last_key < hdr.highest);
+#endif
+        while (left < right) {
+            mid = (left + right + 1) / 2;
+            tuple_start = data_ + mid*tuple_length;
+            auto r = Record(record_scheme,tuple_start);
+
+            r.GetPrimaryKey(&temp_key);
+//            binary_history.push_back(std::make_pair(left, right));
+            if (k > temp_key) {
+                // Key at "mid" is smaller than "target".  Therefore all
+                // blocks before "mid" are uninteresting.
+                left = mid;
+            } else if (k < temp_key) {
+                // Key at "mid" is >= "target".  Therefore all blocks at or
+                // after "mid" are uninteresting.
+                right = mid - 1;
+            } else{
+                //todo: secondary index need to move to the left most value that meets the condition.
+                //Find the value.
+                if (hdr.p_type == P_Leaf_P){
+                    return mid;
+                } else{
+                    assert(hdr.p_type == P_Leaf_S);
+                    // seek forward to find all the entries that meet the condition.
+                    while (mid > 0){
+                        tuple_start = data_ + (mid-1)*tuple_length;
+                        auto r = Record(record_scheme,tuple_start);
+                        Key temp_key;
+                        r.GetPrimaryKey(&temp_key);
+                        if (temp_key == k){
+                            mid--;
+                        }else{
+                            break;
+                        }
+                    }
+                    return mid;
+                }
+            }
+        }
+        assert(k > temp_key || right == 0);
+        // Not find
+        assert(right == left);
+        tuple_start = data_ + right*tuple_length;
+        auto r = Record(record_scheme,tuple_start);
+//        Key temp_key;
+        r.GetPrimaryKey(&temp_key);
+        if (k == temp_key){
+            // only when the target key is the first key will the code goes here.
+            // We treat primary and secondary the same. Even for secondary index, it is not possible that the leaf previous to
+            // the current leaf has the same key, because the upper level search need to guarantee that not happening
+            assert(right == 0);
+            return mid;
+        }else{
+            int ret = right+1;
+            return ret>hdr.last_index ? -1 : ret;
+        }
+#else
+        Value target_value_buff{};
+//        uint8_t front_v = front_version;
+        asm volatile ("sfence\n" : : );
+        asm volatile ("lfence\n" : : );
+        asm volatile ("mfence\n" : : );
+
+        for (int i = 0; i < kLeafCardinality; ++i) {
+            auto &r = records[i];
+
+            if (r.key == k && r.value != kValueNull<Key> ) {
+                target_value_buff = r.value;
+                asm volatile ("sfence\n" : : );
+                asm volatile ("lfence\n" : : );
+                asm volatile ("mfence\n" : : );
+//                uint8_t rear_v = rear_version;
+//                if (front_v!= rear_v)// version checking
+//                    //TODO: reread from the remote side.
+//                    goto re _read;
+
+//                memcpy(result.value_padding, r.value_padding, VALUE_PADDING);
+//      result.value_padding = r.value_padding;
+                break;
+            }
+        }
+        result.val = target_value_buff;
+#endif
+
+    }
+    template<class TKey, class Value>
+    void LeafPage<TKey,Value>::GetByPosition(int pos, RecordSchema *schema_ptr, TKey &key, Value &value) {
+        assert(pos >= 0);
+        assert(pos <= hdr.last_index);
+        char* tuple_start = data_ + pos*hdr.LeafRecordSize;
+        auto r = Record(schema_ptr,tuple_start);
+        //Return the value of the key-value pair for index.
+//        return r.GetColumn(1);
+        //todo: what if the key is compound and containing multiple columns?
+        assert(sizeof(TKey) == r.GetPrimaryKey().size());
+        assert(sizeof(Value) == r.GetColumnSize(1));
+        memcpy(&key,  r.GetPrimaryKey().c_str(), r.GetPrimaryKey().size());
+        memcpy(&value, r.GetColumn(1), r.GetColumnSize(1));
     }
     // [lowest, highest)
     template<class TKey, class Value>
@@ -366,19 +407,6 @@ namespace DSMEngine {
         uint16_t insert_index = 0;
         assert(hdr.kLeafCardinality > 0);
         int tuple_length = record_scheme->GetSchemaSize();
-
-//#ifndef NDEBUG
-//        if (hdr.last_index >= 0){
-//            char* tuple_last = data_ + hdr.last_index*tuple_length;
-//            auto r_last = Record(record_scheme,tuple_last);
-//            TKey last_key;
-//            r_last.GetPrimaryKey(&last_key);
-//            assert(k < hdr.highest );
-//            assert(last_key < hdr.highest);
-//        }
-//
-//#endif
-//        int kLeafCardinality = record_scheme->GetLeafCardi();
         char* tuple_start;
         tuple_start = data_ + 0*tuple_length;
 
@@ -410,36 +438,49 @@ namespace DSMEngine {
                     right = mid - 1; // why mid -1 rather than mid
                 } else{
                     //Find the value.
-                    assert(v.size() == r.GetRecordSize());
-                    memcpy(r.data_ptr_, v.data(), r.GetRecordSize());
-                    is_update = true;
-                    return cnt == hdr.kLeafCardinality;
+                    // todo: add support for secondary index, (allow duplication).
+                    if (hdr.p_type == P_Leaf_P){
+                        assert(v.size() == r.GetRecordSize());
+                        memcpy(r.data_ptr_, v.data(), r.GetRecordSize());
+                        is_update = true;
+                        return cnt == hdr.kLeafCardinality;
+                    } else {
+                        assert(hdr.p_type == P_Leaf_S);
+                        is_update = false;
+                        left = mid;
+                        right = mid;
+                        break;
+                    }
+
                 }
             }
+            // CHECK whether the pointed key is the same as the key. Only if the stop position is 0, can the search key
+            // equal to the pointed key.
             assert(left == right);
             tuple_start = data_ + left*tuple_length;
             auto r = Record(record_scheme,tuple_start);
             TKey temp_key;
             r.GetPrimaryKey(&temp_key);
-            if ((k != temp_key )){
+            if (BOOST_LIKELY(k != temp_key )){
                 insert_index = left +1;
             }else{
-//                assert(false);
-                assert(v.size() == r.GetRecordSize());
-                memcpy(r.data_ptr_, v.data(), r.GetRecordSize());
-                is_update = true;
-                return cnt == hdr.kLeafCardinality;
+                // todo: add support for secondary index, (allow duplication).
+                if (hdr.p_type == P_Leaf_P){
+                    assert(left == 0);
+                    assert(v.size() == r.GetRecordSize());
+                    memcpy(r.data_ptr_, v.data(), r.GetRecordSize());
+                    is_update = true;
+                    return cnt == hdr.kLeafCardinality;
+                } else{
+                    assert(hdr.p_type == P_Leaf_S);
+                    is_update = false;
+                    insert_index = left +1;
+                }
             }
-
-
-
-
         }
 
         assert(cnt != hdr.kLeafCardinality);
         assert(!is_update);
-//        if (!is_update) { // insert new item
-
         tuple_start = data_ + insert_index*tuple_length;
         if (insert_index <= hdr.last_index){
             // Move all the tuples at and after the insert_index,use memmove to avoid undefined behavior for overlapped address.
@@ -448,34 +489,14 @@ namespace DSMEngine {
             assert(v.size() == r.GetRecordSize());
             r.ReSetRecord(v.data_reference(), v.size());
         }else{
-//            printf("New record inserted at the end of the page\n");
             assert(insert_index < hdr.kLeafCardinality );
             auto r = Record(record_scheme,tuple_start);
             assert(v.size() == r.GetRecordSize());
             r.ReSetRecord(v.data_reference(), v.size());
         }
-
-//    memcpy(r.value_padding, padding, VALUE_PADDING);
-//            r.f_version++;
-//            r.r_version = r.f_version;
         cnt++;
         hdr.last_index++;
         assert(hdr.last_index < hdr.kLeafCardinality);
-//        }
-//#ifndef NDEBUG
-//        auto tuple_last = data_ + insert_index*tuple_length;
-//        if ((k & ((1ull << 40) -1)) == 0){
-//            printf("Leafnode Insert position for key %p is %d, this node id %lu \n", k, insert_index, RDMA_Manager::node_id);
-//            fflush(stdout);
-//        }
-//        auto r_last2 = Record(record_scheme,tuple_last);
-//        TKey last_key;
-//        r_last2.GetPrimaryKey(&last_key);
-////        assert(k < hdr.highest  );
-//        assert(k == last_key);
-//#endif
-//        printf("Page store function finished, page pointer is %p, last index is %d\n", hdr.this_page_g_ptr, hdr.last_index);
-//        fflush(stdout);
         return cnt == hdr.kLeafCardinality;
 #else
         for (int i = 0; i < kLeafCardinality; ++i) {

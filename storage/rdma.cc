@@ -7011,7 +7011,7 @@ void RDMA_Manager::fs_deserilization(
             GlobalAddress lock_gptr = g_ptr;
             Header_Index<uint64_t> *header = (Header_Index<uint64_t> *) ((char *) ((ibv_mr *) handle->value)->addr +
                                                                          (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
-            if (header->p_type != P_Internal) {
+            if (header->p_type != P_Internal_P) {
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
 
             } else {
@@ -7103,7 +7103,7 @@ message_reply:
             assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
             assert(STRUCT_OFFSET(DataPage, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
 
-            if (header->p_type != P_Internal){
+            if (header->p_type != P_Internal_P){
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
 //                        printf("Leaf node page %p's global lock state is %lu\n", g_ptr, ((LeafPage*)(page_mr->addr))->global_lock);
 
@@ -7178,7 +7178,7 @@ message_reply:
             auto* page_mr = (ibv_mr*)handle->value;
             GlobalAddress lock_gptr = g_ptr;
             Header_Index<uint64_t>* header = (Header_Index<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
-            if (header->p_type != P_Internal){
+            if (header->p_type != P_Internal_P){
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
 //                        printf("Leaf node page %p's global lock state is %lu\n", g_ptr, ((LeafPage*)(page_mr->addr))->global_lock);
 

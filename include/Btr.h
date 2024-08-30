@@ -56,7 +56,58 @@ extern bool Show_Me_The_Print;
 extern int TimePrintCounter[MAX_APP_THREAD];
 
 namespace DSMEngine {
+    //TODO: implement the iterator for the btree.
+    // TODO: create an class for SELCC latch.
+    template<class Key, class Value>
+    struct btree_iterator {
+    public:
+        btree_iterator(LeafPage<Key, Value> *node, Cache_Handle* handle, uint32_t position, RecordSchema *scheme_ptr, DDSM *dsm)
+                : node(node), handle(handle), position(position), scheme_ptr(scheme_ptr), dsm(dsm) {
 
+        }
+        ~btree_iterator(){
+            if (handle != nullptr){
+                assert(node != nullptr);
+                dsm->SELCC_Shared_UnLock(handle->gptr, handle);
+            }else{
+                assert(node == nullptr);
+            }
+        }
+        void Get(Key& key, Value& value){
+            node->GetByPosition(position, scheme_ptr, key, value);
+        }
+        void Next(){
+            if (position < node->hdr.last_index){
+                position++;
+            } else {
+                // todo: move to the next leaf node.
+                GlobalAddress next_leaf = node->hdr.sibling_ptr;
+                if (next_leaf == GlobalAddress::Null()){
+                    valid = false;
+                    return;
+                }
+                dsm->SELCC_Shared_UnLock(handle->gptr, handle);
+                void* page_buffer;
+                dsm->SELCC_Shared_Lock(page_buffer, next_leaf, handle);
+                node = (LeafPage<Key, Value> *)page_buffer;
+                position = 0;
+            }
+        }
+//        void Prev();
+        bool Valid(){
+            return valid;
+        }
+
+    private:
+        // The node in the tree the iterator is pointing at.
+        LeafPage<Key, Value> *node = nullptr;
+        // The position within the node of the tree the iterator is pointing at.
+        Cache_Handle* handle = nullptr; // use the SELLC latch inside the handle to protect the access of iterator.
+        uint32_t position = 0; // offset within the leaf node
+        bool valid = false;
+        RecordSchema *scheme_ptr = nullptr;
+        DDSM *dsm = nullptr;
+    };
 
     template<class Key>
     class InternalPage;
@@ -64,12 +115,15 @@ namespace DSMEngine {
     template<class Key, class Value>
     class LeafPage;
 
-//TODO: Remove typename Value from all the template defined below.
+//TODO: There are two ways to define types in the btree, one is to define the types in the class, the other is to define the types in the template.
+// the other is to attach a scheme_ptr. Currently we mixed these two ways, which is not good. We need to guarantee that
+// the scheme_ptr is coherent with the template in the btree.
     template<typename Key, typename Value>
     class Btr {
 //friend class DSMEngine::InternalPage;
-
     public:
+        typedef btree_iterator<Key, Value> iterator;
+
         // Assign a unique id to the tree, and allocate the root node by itself
         Btr(DDSM *dsm, Cache *cache_ptr, RecordSchema *record_scheme_ptr, uint16_t Btr_id);
         //Btree waiting for serialization. get the root node from memcached
@@ -80,15 +134,14 @@ namespace DSMEngine {
 
         bool search(const Key &k, const Slice &v, CoroContext *cxt = nullptr,
                     int coro_id = 0);
-
+        //Remember to destroy the iterator after use.
+        iterator* begin();
+        // Finds the first element whose key is not less than key. the iterator always move forward.
+        iterator* lower_bound(const Key &key);
+//        iterator upper_bound(const Key &key) const {
+//            return iterator{};
+//        }
 //        void del(const Key &k, CoroContext *cxt = nullptr, int coro_id = 0);
-
-//  uint64_t range_query(const Key &from, const Key &to, Value *buffer,
-//                       CoroContext *cxt = nullptr, int coro_id = 0);
-
-//        void print_and_check_tree(CoroContext *cxt = nullptr, int coro_id = 0);
-
-        GlobalAddress query_cache(const Key &k);
 
 //  void index_cache_statistics();
         void clear_statistics();
@@ -133,13 +186,14 @@ namespace DSMEngine {
         static thread_local int nested_retry_counter;
         RecordSchema *scheme_ptr;
         uint64_t num_of_record = 0;
-        uint32_t leaf_cardinality_ = 0;
+        uint16_t leaf_cardinality_ = 0;
 
 
 
     private:
         RWSpinLock root_mtx;// in case of contention in the root cache
         uint64_t tree_id;
+        LeafPage<Key, Value> *left_most_leaf = nullptr;
 
         // The cached_root_handle_ref is to keep track of the number of reference to the root page handle.
         // this is necessary because the access of cached_root_page_handle will bypass the cache,
@@ -183,8 +237,6 @@ namespace DSMEngine {
 
         void refetch_rootnode();
 
-//  void coro_worker(CoroYield &yield, RequstGen<Key,Value> *gen, int coro_id);
-//  void coro_master(CoroYield &yield, int coro_cnt);
         // broadcast the new root to all other memroy servers, if memory server and compute
         // servers are the same then the new root is know by all the compute nodes, However,
         // when we seperate the compute from the memory, the memroy node will not get notified.
@@ -202,24 +254,7 @@ namespace DSMEngine {
                            CoroContext *cxt, int coro_id);
 
         void unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro_id, bool async);
-//        void global_unlock_addr(GlobalAddress remote_lock_add, CoroContext *cxt, int coro_id, bool async);
-
-//        void write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress remote_lock_addr,
-//                        CoroContext *cxt, int coro_id, bool async);
-//    void global_write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
-//                                      GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async);
-//  void lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
-//                          int page_size, ibv_mr *cas_buffer,
-//                          GlobalAddress lock_addr, uint64_t tag,
-//                          CoroContext *cxt, int coro_id);
-        //Be careful, do not overwrite the global lock byte, the global lock should in a write lock state for RDMA write.
-//    void global_lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
-//                                   ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id);
-//    uint64_t renew_swap_by_received_state_readlock(uint64_t& received_state);
-//    uint64_t renew_swap_by_received_state_readunlock(uint64_t& received_state);
-//    uint64_t renew_swap_by_received_state_readupgrade(uint64_t& received_state);
-        void
-        global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
+        void global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
                                    ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id,
                                    Cache::Handle *handle);
 
@@ -256,6 +291,9 @@ namespace DSMEngine {
         bool leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key, Value> &result, int level,
                               CoroContext *cxt,
                               int coro_id);
+        // create a iterator for the range query.
+        bool leaf_page_find(GlobalAddress page_addr, const Key &k, SearchResult<Key, Value> &result,
+                            btree_iterator<Key,Value> *&iter, int level);
 //        void internal_page_search(const Key &k, SearchResult &result);
 
 //    void leaf_page_search(LeafPage *page, const Key &k, SearchResult &result);
@@ -289,22 +327,6 @@ namespace DSMEngine {
 
         void releases_local_optimistic_lock(Local_Meta *local_lock_meta);
 
-//        void make_page_invalidated(InternalPage<Key> *upper_page);
-//        void cache_root_handle_ref(){
-//            loop_back:
-//            uint32_t root_handle_ref = 0;
-//            while (root_handle_ref == 0){
-//                root_handle_ref = cached_root_handle_ref.load();
-//            }
-//            if(!cached_root_handle_ref.compare_exchange_strong(root_handle_ref, root_handle_ref + 1)){
-//                goto loop_back;
-//            }
-//        };
-//        void cache_root_handle_unref(){
-//            auto ret = cached_root_handle_ref.fetch_sub(1);
-//            assert(ret >= 1);
-//        };
-
         // should be executed with in a local page lock.
         void Initialize_page_invalidation(InternalPage<Key> *upper_page);
 //        void invalid_root_prt(){
@@ -313,10 +335,5 @@ namespace DSMEngine {
 //        }
     };
 
-//template class Btr<int,int>;
-//template class Btr<uint64_t ,uint64_t>;
-    class Btr_iter {
-        // TODO: implement btree iterator for range query.
-    };
 }
 #endif //BTR_H
