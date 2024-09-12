@@ -27,7 +27,6 @@ namespace DSMEngine{
                 printf("Posix alignment failed\n");
             }
             madvise(res, size, MADV_HUGEPAGE);
-
         }
 
         if (ret !=0 || res == MAP_FAILED || res == nullptr) {

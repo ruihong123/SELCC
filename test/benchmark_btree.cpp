@@ -111,7 +111,9 @@ void thread_run(int id) {
     uint64_t& key = *(uint64_t*)tuple_buff;
     uint64_t& value = *((uint64_t*)tuple_buff+1);
     //    enable_cache = true;
-  //kWarmRatio *
+  //Build up phase.
+  //TODO: make the warmup process more efficient. let all the threads does not overlap each other in the warmup key range
+  // besides, the warmup and build up are two phases, need to seperate them into two code blocks.
   for (uint64_t i = 1; i < end_warm_key; ++i) {
       // we can not sequentially pop up the data. Otherwise there will be a bug.
       if (i % all_thread == my_id) {

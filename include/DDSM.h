@@ -10,33 +10,21 @@
 namespace DSMEngine {
     static void Deallocate_MR_WITH_CCP(Cache::Handle *handle) {
         // TOFIX: The code below is not protected by the lock shared mutex. It is Okay because,
-        // there is definitely no other thread accessing it if a page is destroyed (refs == 0)
+        //  there is definitely no other thread accessing it if a page is destroyed (refs == 0)
         assert(handle->refs.load() == 0);
         auto rdma_mg = RDMA_Manager::Get_Instance(nullptr);
-//    Key
         // Do we need the lock during this deleter? Answer: Probably not, because it is guaratee to have only on thread comes here.
         auto mr = (ibv_mr*) handle->value;
-//        if (handle->strategy == 1){
             GlobalAddress lock_gptr = handle->gptr;
-            //TODO: Figure out Leafpage or internal page?
             lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
             assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
             if (handle->remote_lock_status == 1){
-
                 // RDMA read unlock
-//            printf("release the read lock during the handle destroy\n ");
                 rdma_mg->global_RUnlock(lock_gptr, rdma_mg->Get_local_CAS_mr(), false, nullptr, nullptr, 0);
-//                handle->last_modifier_thread_id = 256;
                 handle->remote_lock_status.store(0);
-
             }else if(handle->remote_lock_status == 2){
-
                 // TODO: shall we not consider the global lock word when flushing back the page?
-
-//            printf("release the write lock at %lu and write back data during the handle destroy\n ", lock_gptr.offset);
-//            ibv_mr* local_mr = (ibv_mr*)value;
                 assert(mr->addr!= nullptr );
-
 //                TODO: recover the assert below if we are testing the blind write operation.
                 LeafPage<uint64_t ,uint64_t>* page = ((LeafPage<uint64_t ,uint64_t>*)mr->addr);
 #ifndef NDEBUG
@@ -47,8 +35,6 @@ namespace DSMEngine {
 #endif
                 assert(page->hdr.this_page_g_ptr == GlobalAddress::Null() || page->hdr.this_page_g_ptr == handle->gptr);
                 assert(page->global_lock);
-//                assert(handle->gptr == ((LeafPage<uint64_t,uint64_t>*)mr->addr)->hdr.this_page_g_ptr);
-
                 // RDMA write unlock and write back the data. THis shall be a sync write back, because the buffer will
                 // be handover to other cache entry after this function. It is possible that the page content is changed when the
                 // RDMA write back has not been finished. The write unlock for page invalidation can be a sync write back.
@@ -57,18 +43,11 @@ namespace DSMEngine {
             }else{
                 //An invalidated page, do nothing
             }
-//        }else{
-//            //TODO: delete the  asserts below when you implement the strategy 2.
-//
-//            assert(false);
-//        }
-//    printf("Deallocate mr for %lu\n", g_ptr.offset);
         if (!handle->keep_the_mr){
             rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Regular_Page);
             delete mr;
         }
         assert(handle->refs.load() == 0);
-//    delete mr;
     }
 
     class DDSM {

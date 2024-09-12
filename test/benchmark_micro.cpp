@@ -23,13 +23,6 @@
 #include "Common.h"
 #include "zipf.h"
 
-//#define PERF_GET
-//#define PERF_MALLOC
-
-//#define BENCHMARK_DEBUG
-//#define STATS_COLLECTION
-//#define LOCAL_MEMORY
-
 //TODO: shall be adjusted according to the no_thread and
 //#define NUMOFBLOCKS (2516582ull) //around 48GB totally, local cache is 8GB per node. (25165824ull)
 //#define SYNC_KEY NUMOFBLOCKS
@@ -77,7 +70,7 @@ int time_locality = 10;  //0..100 (how probable it is to re-visit the current po
 int read_ratio = 10;  //0..100
 int op_type = 1;  //0: read/write; 1: rlock/wlock; 2: rlock+read/wlock+write
 int workload = 0;  //0: random; 1: zipfian 2: multi-hotspot
-double zipfian_param = 1;
+double zipfian_param = 1; //theta in zipfian distribution
 //int total_spot_num = 0; // used when workload == 2
 
 int compute_num = 0;
@@ -257,9 +250,6 @@ volatile bool data_array_is_ready = false;
 void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[], int id,
           unsigned int* seedp) {
     printf( "start init\n");
-
-//  int l_remote_ratio = remote_ratio;
-    int l_space_locality = space_locality;
     int l_shared_ratio = shared_ratio;
     GlobalAddress memset_buffer[MEMSET_GRANULARITY];
     GlobalAddress* memget_buffer = nullptr;
@@ -500,18 +490,8 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
     char buf[item_size];
     int ret;
     int j = 0;
-//	int writes = 0;
-//	GAddr fence_addr = alloc->Malloc(1);
-//	epicAssert(fence_addr);
     long start = get_time();
     for (int i = 0; i < ITERATION; i++) {
-//		if(writes == FENCE_PERIOD) {
-//			alloc->MFence();
-//			char c;
-//			ret = alloc->Read(fence_addr, &c, 1);
-//			epicAssert(ret == 1);
-//			writes = 0;
-//		}
 
 #ifdef STATS_COLLECTION
         int pos;
