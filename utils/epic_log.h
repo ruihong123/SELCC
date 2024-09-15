@@ -1,7 +1,7 @@
 // Copyright (c) 2018 The GAM Authors
 
-#ifndef MEMORYENGINE_EPIC_LOG_H
-#define MEMORYENGINE_EPIC_LOG_H
+#ifndef SELCC_EPIC_LOG_H
+#define SELCC_EPIC_LOG_H
 
 
 
@@ -37,5 +37,5 @@ void PrintStackTrace();
 #endif
 #define epicPanic(fmt, ...) epicLog(LOG_FATAL, fmt, ##__VA_ARGS__),exit(1)
 
-#endif //MEMORYENGINE_EPIC_LOG_H
+#endif //SELCC_EPIC_LOG_H
 

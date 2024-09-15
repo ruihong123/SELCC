@@ -3,8 +3,8 @@
 // Created by wang4996 on 22-8-8.
 //
 
-#ifndef MEMORYENGINE_PAGE_H
-#define MEMORYENGINE_PAGE_H
+#ifndef SELCC_PAGE_H
+#define SELCC_PAGE_H
 #include "Common.h"
 #include "rdma.h"
 #include "DSMEngine/slice.h"
@@ -554,4 +554,4 @@ namespace DSMEngine{
     } __attribute__((packed));
 #endif
 }
-#endif //MEMORYENGINE_PAGE_H
+#endif //SELCC_PAGE_H

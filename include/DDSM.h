@@ -2,8 +2,8 @@
 // Created by ruihong on 10/1/23.
 //
 
-#ifndef MEMORYENGINE_DDSM_H
-#define MEMORYENGINE_DDSM_H
+#ifndef SELCC_DDSM_H
+#define SELCC_DDSM_H
 #include "DSMEngine/cache.h"
 #include "storage/page.h"
 #include <libmemcached/memcached.h>
@@ -125,4 +125,4 @@ namespace DSMEngine {
 }
 
 
-#endif //MEMORYENGINE_DDSM_H
+#endif //SELCC_DDSM_H
