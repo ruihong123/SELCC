@@ -123,7 +123,7 @@ void thread_run(int id) {
 
         }
       if (i % 1000000 == 0 && id ==0){
-          printf("warm up number: %lu node id is \n", i, rdma_mg->node_id);
+          printf("warm up number: %lu node id is %d \n", i, rdma_mg->node_id);
           fflush(stdout);
       }
   }
