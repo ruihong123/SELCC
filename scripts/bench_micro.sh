@@ -481,10 +481,10 @@ run_node_test() {
 # node test
 echo "**************************run node test****************************"
 result_file=$bin/results/node
-node_range="1 2 4 8"
-thread_range="16"
+node_range="8"
+thread_range="1 8 16"
 remote_range="100"
-shared_range="0 30 60 100"
+shared_range="100"
 size_grow=0 # 0 not grow, 1 grow with node number
 read_range="0 50 95 100"
 space_range="0"
