@@ -213,39 +213,9 @@ void thread_run(int id) {
     } else{
         key = rand.Next()%(kKeySpace);
     }
-//    uint64_t key = to_key(dis);
 
-//      uint64_t v;
-#ifdef OPS_TIMER
+
     timer.begin();
-#endif
-#ifdef BENCH_LOCK
-    if (rdma_mg->getMyNodeID() == 0) {
-      while (true)
-        ;
-    }
-    tree->lock_bench(key);
-#else
-//      if (table_scan){
-//          if (use_range_query){
-//              tree->range_query(scan_pos, scan_pos + 1000*1000, value_buffer);
-//              scan_pos += 1000*1000;
-//              if(scan_pos > kKeySpace)
-//                  break;
-//          }else{
-//              tree->search(scan_pos,v);
-//              scan_pos++;
-//              if(scan_pos > kKeySpace)
-//                  break;
-//          }
-//
-//
-//      }
-//      char* tuple_buff = new char[tree->scheme_ptr->GetSchemaSize()];
-//      DSMEngine::Slice tuple_slice = DSMEngine::Slice(tuple_buff,tree->scheme_ptr->GetSchemaSize());
-//      uint64_t& key = *(uint64_t*)tuple_buff;
-//      uint64_t& value = *((uint64_t*)tuple_buff+1);
-
     if (rand_r(&seed) % 100 < kReadRatio) { // GET
 //        printf("Get one key");
       tree->search(key, tuple_slice);
@@ -270,6 +240,7 @@ void thread_run(int id) {
       us_10 = LATENCY_WINDOWS - 1;
     }
     latency[id][us_10]++;
+
   if (table_scan&&use_range_query){
       tp[id][0] += 1000*1000;
   }else{
@@ -277,8 +248,6 @@ void thread_run(int id) {
   }
 
   }
-
-#endif
 }
 
 
