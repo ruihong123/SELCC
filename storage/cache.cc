@@ -86,6 +86,27 @@ LRUCache::~LRUCache() {
     e = next;
   }
 }
+void LRUCache::init(){
+    for (int i = 0; i < capacity_/kLeafPageSize+1; ++i) {
+        auto e = new LRUHandle();
+//                reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));
+        auto mr = new ibv_mr{};
+        auto rdma_mg = RDMA_Manager::Get_Instance();
+        rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
+        e->value = mr;
+        e->remote_lock_status = 0;
+        e->remote_lock_urged = 0;
+        e->gptr = GlobalAddress::Null();
+
+        e->deleter = nullptr;
+        e->charge = 0;
+        e->key_length = 0;
+        e->hash = 0;
+        e->in_cache = false;
+        e->refs = 1;  // for the returned handle.
+        free_list_.push(e);
+    }
+}
 //Can we use the lock within the handle to reduce the conflict here so that the critical seciton
 // of the cache shard lock will be minimized.
     void LRUCache::Ref(LRUHandle* e) {
@@ -297,11 +318,9 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
             assert(counter == 0);
             LRUHandle* old = lru_.next;
             assert(old->refs == 1);
-//#ifndef NDEBUG
-//            if (old->gptr.offset < 9480863232){
-//                printf("page of %lu is extracted from the LRUlist", e->gptr.offset);
-//            }
-//#endif
+
+
+            //TODO; check free list first for the free page.
             // Directly reuse the mr if the evicted cache entry is the same size as the new inserted on.
 #ifdef BUFFER_HANDOVER
 //            bool rw_locked = false;

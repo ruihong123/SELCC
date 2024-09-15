@@ -25,6 +25,7 @@
 #include "DSMEngine/slice.h"
 //#include <shared_mutex>
 #include <boost/thread.hpp>
+#include <stack>
 
 #include "Config.h"
 #include "storage/rdma.h"
@@ -386,7 +387,7 @@ class LRUCache {
 public:
     LRUCache();
     ~LRUCache();
-
+    void init();
     // Separate from constructor so caller can easily make an array of LRUCache
     void SetCapacity(size_t capacity) { capacity_ = capacity; }
 
@@ -426,18 +427,20 @@ private:
     // mutex_ protects the following state.
 //  mutable port::RWMutex mutex_;
     mutable SpinMutex mutex_;
-    size_t usage_ GUARDED_BY(mutex_);
+    mutable SpinMutex free_list_mtx_;
+    size_t usage_;
 
     // Dummy head of LRU list.
     // lru.prev is newest entry, lru.next is oldest entry.
     // Entries have refs==1 and in_cache==true.
-    LRUHandle lru_ GUARDED_BY(mutex_);
+    LRUHandle lru_;
 
     // Dummy head of in-use list.
     // Entries are in use by clients, and have refs >= 2 and in_cache==true.
-    LRUHandle in_use_ GUARDED_BY(mutex_);
+    LRUHandle in_use_;
 
-    HandleTable table_ GUARDED_BY(mutex_);
+    HandleTable table_;
+    std::queue<LRUHandle*> free_list_;
 //    static std::atomic<uint64_t> counter;
 };
 
