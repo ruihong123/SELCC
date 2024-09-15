@@ -265,13 +265,11 @@ void thread_run(int id) {
 //          printf("the generated distributed key is %d\n", dis);
 //      }
 #endif
-#ifdef OPS_TIMER
     auto us_10 = timer.end() / 100;
     if (us_10 >= LATENCY_WINDOWS) {
       us_10 = LATENCY_WINDOWS - 1;
     }
     latency[id][us_10]++;
-#endif
   if (table_scan&&use_range_query){
       tp[id][0] += 1000*1000;
   }else{
