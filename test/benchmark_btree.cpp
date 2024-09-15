@@ -94,9 +94,9 @@ void thread_run(int id) {
     bindCore(id);
 
 //  rdma_mg->registerThread();
-
+    size_t compute_num = rdma_mg->GetComputeNodeNum();
 #ifndef BENCH_LOCK
-  uint64_t all_thread = kThreadCount * rdma_mg->GetComputeNodeNum();
+  uint64_t all_thread = kThreadCount * compute_num;
   uint64_t my_id = kThreadCount * (DSMEngine::RDMA_Manager::node_id)/2 + id;
 
   printf("I am %d\n", my_id);
@@ -105,28 +105,46 @@ void thread_run(int id) {
     bench_timer.begin();
   }
 
-  uint64_t end_warm_key = kKeySpace;
+    uint64_t build_up_num = kKeySpace/compute_num;
+    uint64_t start_warm_key = build_up_num * DSMEngine::RDMA_Manager::node_id/2;
+    uint64_t end_warm_key = start_warm_key + build_up_num;
     char* tuple_buff = new char[tree->scheme_ptr->GetSchemaSize()];
     DSMEngine::Slice tuple_slice = DSMEngine::Slice(tuple_buff,tree->scheme_ptr->GetSchemaSize());
+
     uint64_t& key = *(uint64_t*)tuple_buff;
     uint64_t& value = *((uint64_t*)tuple_buff+1);
-    //    enable_cache = true;
-  //kWarmRatio *
-  for (uint64_t i = 1; i < end_warm_key; ++i) {
-      // we can not sequentially pop up the data. Otherwise there will be a bug.
-      if (i % all_thread == my_id) {
+    for (uint64_t i = start_warm_key; i < end_warm_key; ++i) {
           key = i;
           value = 2*i;
         tree->insert(key, tuple_slice);
-//        tree->insert(to_key(i), i * 2);
-//        tree->insert(rand.Next()%(kKeySpace), i * 2);
-
-        }
       if (i % 1000000 == 0 && id ==0){
           printf("warm up number: %lu node id is %d \n", i, rdma_mg->node_id);
           fflush(stdout);
       }
   }
+
+//    uint64_t end_warm_key = kKeySpace;
+//    char* tuple_buff = new char[tree->scheme_ptr->GetSchemaSize()];
+//    DSMEngine::Slice tuple_slice = DSMEngine::Slice(tuple_buff,tree->scheme_ptr->GetSchemaSize());
+//    uint64_t& key = *(uint64_t*)tuple_buff;
+//    uint64_t& value = *((uint64_t*)tuple_buff+1);
+//    //    enable_cache = true;
+//  //kWarmRatio *
+//  for (uint64_t i = 1; i < end_warm_key; ++i) {
+//      // we can not sequentially pop up the data. Otherwise there will be a bug.
+//      if (i % all_thread == my_id) {
+//          key = i;
+//          value = 2*i;
+//        tree->insert(key, tuple_slice);
+////        tree->insert(to_key(i), i * 2);
+////        tree->insert(rand.Next()%(kKeySpace), i * 2);
+//
+//        }
+//      if (i % 1000000 == 0 && id ==0){
+//          printf("warm up number: %lu node id is %d \n", i, rdma_mg->node_id);
+//          fflush(stdout);
+//      }
+//  }
 //    if (table_scan){
 //        for (uint64_t i = 1; i < end_warm_key; ++i) {
 //            // we can not sequentially pop up the data. Otherwise there will be a bug.
