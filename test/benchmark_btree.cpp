@@ -42,7 +42,7 @@ uint64_t kKeySpace = 2*1024ull*1024ull*1024ull; // bigdata
 //uint64_t kKeySpace = 50*1024*1024; //cloudlab
 double kWarmRatio = 0.8;
 
-bool use_zipf = true;
+bool use_zipf = false;
 double zipfan =0.99;
 
 std::thread th[kMaxThread];
@@ -123,7 +123,8 @@ void thread_run(int id) {
 
         }
       if (i % 1000000 == 0 && id ==0){
-          printf("warm up number: %lu\n", i);
+          printf("warm up number: %lu node id is \n", i, rdma_mg->node_id);
+          fflush(stdout);
       }
   }
 //    if (table_scan){
