@@ -105,8 +105,8 @@ void thread_run(int id) {
     bench_timer.begin();
   }
 
-    uint64_t build_up_num = kKeySpace/compute_num;
-    uint64_t start_warm_key = build_up_num * DSMEngine::RDMA_Manager::node_id/2;
+    uint64_t build_up_num = kKeySpace/all_thread;
+    uint64_t start_warm_key = build_up_num * (DSMEngine::RDMA_Manager::node_id/2*kThreadCount+id);
     uint64_t end_warm_key = start_warm_key + build_up_num;
     char* tuple_buff = new char[tree->scheme_ptr->GetSchemaSize()];
     DSMEngine::Slice tuple_slice = DSMEngine::Slice(tuple_buff,tree->scheme_ptr->GetSchemaSize());
