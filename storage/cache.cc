@@ -626,7 +626,9 @@ class ShardedLRUCache : public Cache {
     capacity_ = capacity;
     for (int s = 0; s < kNumShards; s++) {
       shard_[s].SetCapacity(per_shard);
+#ifdef PAGE_FREE_LIST
       shard_[s].init();
+#endif
     }
   }
   ~ShardedLRUCache() override {}
