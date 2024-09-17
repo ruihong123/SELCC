@@ -972,7 +972,6 @@ int main(int argc, char* argv[]) {
 
     //srand(1);
 
-    DSMEngine::Cache* cache_ptr = DSMEngine::NewLRUCache(cache_size);
 
     struct DSMEngine::config_t config = {
             NULL,  /* dev_name */
@@ -982,11 +981,13 @@ int main(int argc, char* argv[]) {
             1, /* gid_idx */
             4*10*1024*1024, /*initial local buffer size*/
             node_id,
-            cache_ptr
+//            cache_ptr
     };
 //    DSMEngine::RDMA_Manager::node_id = ThisNodeID;
 
     auto rdma_mg = DSMEngine::RDMA_Manager::Get_Instance(&config);
+    DSMEngine::Cache* cache_ptr = DSMEngine::NewLRUCache(cache_size);
+    rdma_mg->set_page_cache(cache_ptr);
     assert(cache_ptr->GetCapacity()> 10000);
     DDSM ddsm = DDSM(cache_ptr, rdma_mg);
     compute_num = ddsm.rdma_mg->GetComputeNodeNum();

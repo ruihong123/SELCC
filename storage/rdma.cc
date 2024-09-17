@@ -141,7 +141,7 @@ static uint64_t  round_to_cacheline(uint64_t size) {
 //    if(node_id%2 == 0){
 //        Invalidation_bg_threads.SetBackgroundThreads(NUM_QP_ACCROSS_COMPUTE);
 //    }
-    page_cache_ = config.cache_prt;
+//    page_cache_ = config.cache_prt;
 }
 
 

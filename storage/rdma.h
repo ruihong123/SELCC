@@ -88,7 +88,7 @@ struct config_t {
   int gid_idx; /* gid index to use */
   int init_local_buffer_size; /*initial local SST buffer size*/
   uint16_t node_id;
-  Cache* cache_prt;
+//  Cache* cache_prt;
 };
 //enum Multi_Exchange_Type {
 //    invalid_ME = 0,
@@ -445,6 +445,9 @@ class RDMA_Manager {
   //  RDMA_Manager()=delete;
   ~RDMA_Manager();
   static RDMA_Manager *Get_Instance(config_t* config = nullptr);
+  void set_page_cache(Cache* cache){
+      page_cache_ = cache;
+  }
   /**
    *
    */
@@ -747,6 +750,8 @@ class RDMA_Manager {
   std::shared_mutex local_mem_mutex;
   //Compute node is even, memory node is odd.
   static uint16_t node_id;
+  //TODO: remove the page cache from RDMA manager. make the communicaiton thread exectute a function variable
+  // which contains a pointer to the page_cache
   DSMEngine::Cache* page_cache_;
   std::unordered_map<uint16_t, ibv_mr*> comm_thread_recv_mrs;
   std::unordered_map<uint16_t , int> comm_thread_buffer;
