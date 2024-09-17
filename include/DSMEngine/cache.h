@@ -73,7 +73,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
     struct Cache_Handle {
     public:
         void* value = nullptr; // NOTE: the value is the pointer to ibv_mr not the buffer!!!! Carefule.
-        std::atomic<uint32_t> refs;     // References, including table_cache reference, if present.
+        std::atomic<uint32_t> refs;     // References, if zero this cache is in the free list.
         //TODO: the internal node may not need the rw_mtx below, maybe we can delete them.
         std::atomic<int> remote_lock_status = 0; // 0 unlocked, 1 read locked, 2 write lock
         GlobalAddress gptr = GlobalAddress::Null();
@@ -243,7 +243,18 @@ class DSMEngine_EXPORT Cache {
         std::atomic<bool> in_cache;     // Whether entry is in the table_cache.
         uint32_t hash;     // Hash of key(); used for fast sharding and comparisons
 //        char key_data[1];  // Beginning of key
+        void init(){
+            assert(remote_lock_status == 0);
+            assert(remote_lock_urged == 0);
+            gptr = GlobalAddress::Null();
 
+            deleter = nullptr;
+            charge = 0;
+            key_length = 0;
+            hash = 0;
+            in_cache = false;
+            refs = 0;  // for the returned handle.
+        }
         Slice key() const {
             // next_ is only equal to this if the LRU handle is the list head of an
             // empty list. List heads never have meaningful keys.
@@ -387,7 +398,9 @@ class LRUCache {
 public:
     LRUCache();
     ~LRUCache();
+#ifdef PAGE_FREE_LIST
     void init();
+#endif
     // Separate from constructor so caller can easily make an array of LRUCache
     void SetCapacity(size_t capacity) { capacity_ = capacity; }
 
@@ -412,11 +425,11 @@ public:
     }
 
 private:
-    void LRU_Remove(LRUHandle* e);
-    void LRU_Append(LRUHandle* list, LRUHandle* e);
+    void List_Remove(LRUHandle* e);
+    void List_Append(LRUHandle* list, LRUHandle* e);
     void Ref(LRUHandle* e);
 //    void Ref_in_LookUp(LRUHandle* e);
-    void Unref(LRUHandle *e, SpinLock *spin_l);
+        void Unref(LRUHandle *e);
     void Unref_Inv(LRUHandle *e);
 //    void Unref_WithoutLock(LRUHandle* e);
     bool FinishErase(LRUHandle *e, SpinLock *spin_l) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
@@ -426,7 +439,6 @@ private:
 
     // mutex_ protects the following state.
 //  mutable port::RWMutex mutex_;
-    mutable SpinMutex mutex_;
     mutable SpinMutex free_list_mtx_;
     size_t usage_;
 
@@ -440,7 +452,10 @@ private:
     LRUHandle in_use_;
 
     HandleTable table_;
-    std::queue<LRUHandle*> free_list_;
+#ifdef PAGE_FREE_LIST
+    mutable SpinMutex mutex_;
+    LRUHandle free_list_;
+#endif
 //    static std::atomic<uint64_t> counter;
 };
 

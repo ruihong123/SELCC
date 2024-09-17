@@ -2250,12 +2250,12 @@ re_read:
 //      printf("page splitted last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
 
             //The code below is optional.
-            Slice sibling_page_id((char*)&sibling_addr, sizeof(GlobalAddress));
-            assert(page_mr!= nullptr);
-            auto sib_handle = page_cache->Insert(sibling_page_id, sibling_mr, kInternalPageSize, Deallocate_MR_WITH_CCP);
-            page_cache->Release(sib_handle);
-//          rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Internal_and_Leaf);
-//          delete sibling_mr;
+//            Slice sibling_page_id((char*)&sibling_addr, sizeof(GlobalAddress));
+//            assert(page_mr!= nullptr);
+//            auto sib_handle = page_cache->Insert(sibling_page_id, sibling_mr, kInternalPageSize, Deallocate_MR_WITH_CCP);
+//            page_cache->Release(sib_handle);
+          rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Regular_Page);
+          delete sibling_mr;
         } else {
 //      k = Key ;
             // Only set the value as null is enough
@@ -2588,20 +2588,15 @@ re_read:
             //We don't care about the last index in the leaf nodes actually,
             // because we iterate all the slots to find an entry.
             page->hdr.last_index -= (cnt - m);
-//      assert(page_addr == root || page->hdr.last_index == m-1);
             //TODO: double check the code below if there is a bug
             sibling->hdr.last_index = (cnt - m - 1);
             assert(sibling->hdr.last_index + 1 + page->hdr.last_index + 1 == cnt);
-//      assert(sibling->hdr.last_index == cnt -m -1);
             sibling->hdr.lowest = split_key;
             sibling->hdr.highest = page->hdr.highest;
             page->hdr.highest = split_key;
-
             // link
             sibling->hdr.sibling_ptr = page->hdr.sibling_ptr;
             page->hdr.sibling_ptr = sibling_addr;
-//            sibling->rear_version =  sibling->front_version;
-//    sibling->set_consistent();
             // TODO: directly back the page with read lock and insert the page into the cache with shared state.
             rdma_mg->RDMA_Write(sibling_addr, sibling_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
             rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Regular_Page);

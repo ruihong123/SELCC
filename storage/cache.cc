@@ -82,49 +82,43 @@ LRUCache::~LRUCache() {
     assert(e->in_cache);
     e->in_cache = false;
     assert(e->refs == 1);  // Invariant of lru_ list.
-      Unref(e, nullptr);
+      Unref(e);
     e = next;
   }
 }
+#ifdef PAGE_FREE_LIST
 void LRUCache::init(){
     for (int i = 0; i < capacity_/kLeafPageSize+1; ++i) {
-        auto e = new LRUHandle();
-//                reinterpret_cast<LRUHandle*>(malloc(sizeof(LRUHandle) - 1 + key.size()));
+        auto e = new LRUHandle();\
+        e->init();
         auto mr = new ibv_mr{};
         auto rdma_mg = RDMA_Manager::Get_Instance();
         rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
         e->value = mr;
-        e->remote_lock_status = 0;
-        e->remote_lock_urged = 0;
-        e->gptr = GlobalAddress::Null();
 
-        e->deleter = nullptr;
-        e->charge = 0;
-        e->key_length = 0;
-        e->hash = 0;
-        e->in_cache = false;
-        e->refs = 1;  // for the returned handle.
-        free_list_.push(e);
+        free_list_mtx_.lock();
+        List_Append(&free_list_, e);
+        free_list_mtx_.unlock();
     }
 }
+#endif
 //Can we use the lock within the handle to reduce the conflict here so that the critical seciton
 // of the cache shard lock will be minimized.
     void LRUCache::Ref(LRUHandle* e) {
         if (e->refs == 1 && e->in_cache) {  // If on lru_ list, move to in_use_ list.
-            LRU_Remove(e);
-            LRU_Append(&in_use_, e);
+            List_Remove(e);
+            List_Append(&in_use_, e);
         }
         e->refs++;
         assert(e->refs <=100);
     }
 
-
+#ifndef PAGE_FREE_LIST
 void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
   assert(e->refs > 0);
   e->refs--;
   if (e->refs == 0) {  // Deallocate.
       //Finish erase will only goes here, or directly return. it will never goes to next if clause
-//        mutex_.unlock();
 #ifdef EARLY_LOCK_RELEASE
       if (spin_l!= nullptr){
           //Early releasing the lock to avoid the RDMA lock releasing in the critical section.
@@ -136,20 +130,32 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
     (*e->deleter)(e);
 //    free(e);
     delete e;
-//      if (spin_l!= nullptr ){
-//          spin_l->Lock();
-//      }
+
   } else if (e->in_cache && e->refs == 1) {
-//#ifndef NDEBUG
-//      if (e->gptr.offset < 9480863232){
-//          printf("page of %lu is removed from the inuse list and apped to LRU list\n", e->gptr.offset);
-//      }
-//#endif
     // No longer in use; move to lru_ list.
     LRU_Remove(e);// remove from in_use list move to LRU list.
     LRU_Append(&lru_, e);
   }
 }
+#else
+//NOte that the back ground threads never use this function. because this does not apply batch eviction.
+    void LRUCache::Unref(LRUHandle *e) {
+        assert(e->refs > 0);
+        e->refs--;
+        if (e->refs == 0) {  // Deallocate.
+            //Finish erase will only goes here, or directly return. it will never goes to next if clause
+            assert(!e->in_cache);
+            (*e->deleter)(e);
+            free_list_mtx_.lock();
+            List_Append(&free_list_, e);
+            free_list_mtx_.unlock();
+        } else if (e->in_cache && e->refs == 1) {
+            // No longer in use; move to lru_ list.
+            List_Remove(e);// remove from in_use list move to LRU list.
+            List_Append(&lru_, e);
+        }
+    }
+#endif
 
     void LRUCache::Unref_Inv(LRUHandle *e) {
         assert(e->refs > 0);
@@ -164,40 +170,13 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
         } else if (e->in_cache && e->refs == 1) {
 
             // No longer in use; move to lru_ list.
-            LRU_Remove(e);// remove from in_use list move to LRU list.
-            LRU_Append(lru_.next, e);
+            List_Remove(e);// remove from in_use list move to LRU list.
+            List_Append(lru_.next, e);
         }
     }
 
-//void DSMEngine::LRUCache::Unref_WithoutLock(LRUHandle *e) {
-//    assert(e->refs > 0);
-////    e->refs--;
-//    if (e->refs.load() == 1) {  // Deallocate.
-//        WriteLock l(&mutex_);
-//        if (e->refs.fetch_sub(1) == 1){
-//            //Finish erase will only goes here, or directly return. it will neve goes to next if clause
-//            assert(!e->in_cache);
-//            (*e->deleter)(e->key(), e->value);
-//            free(e);
-//        }
-//        return;
-//
-//    } else if (e->in_cache && e->refs.load() == 2) {
-//
-//        WriteLock l(&mutex_);
-//        if (e->in_cache && e->refs.fetch_sub(1) == 2){
-//            // No longer in use; move to lru_ list.
-//            LRU_Remove(e);// remove from in_use list move to LRU list.
-//            LRU_Append(&lru_, e);
-//        }
-//        return;
-//
-//    }
-//    e->refs.fetch_sub(1);
-//}
 
-
-void LRUCache::LRU_Remove(LRUHandle* e) {
+void LRUCache::List_Remove(LRUHandle* e) {
 #ifndef NDEBUG
 //    if (e->gptr.offset < 10480863232){
 //        printf("page %lu is being remove from a list", e->gptr.offset);
@@ -205,9 +184,11 @@ void LRUCache::LRU_Remove(LRUHandle* e) {
 #endif
   e->next.load()->prev = e->prev.load();
   e->prev.load()->next = e->next.load();
+  e->next = nullptr;
+  e->prev = nullptr;
 }
 
-void LRUCache::LRU_Append(LRUHandle* list, LRUHandle* e) {
+void LRUCache::List_Append(LRUHandle* list, LRUHandle* e) {
   // Make "e" newest entry by inserting just before *list
   e->next = list;
   e->prev.store(list->prev);
@@ -249,7 +230,24 @@ Cache::Handle* LRUCache::Lookup(const Slice& key, uint32_t hash) {
     }
     return reinterpret_cast<Cache::Handle*>(e);
 }
-Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash, void *value, size_t charge,
+
+
+void LRUCache::Release(Cache::Handle* handle) {
+//  MutexLock l(&mutex_);
+//  WriteLock l(&mutex_);
+    // TODO: the spin mutex below can be removed.
+  SpinLock l(&mutex_);
+    Unref(reinterpret_cast<LRUHandle *>(handle));
+//    assert(reinterpret_cast<LRUHandle*>(handle)->refs != 0);
+}
+void LRUCache::Release_Inv(Cache::Handle* handle) {
+
+    SpinLock l(&mutex_);
+    Unref_Inv(reinterpret_cast<LRUHandle *>(handle));
+}
+
+#ifndef PAGE_FREE_LIST
+    Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash, void *value, size_t charge,
                                                  void (*deleter)(Cache::Handle* handle)) {
     assert(!SpinLock::check_own());
     SpinLock l(&mutex_);
@@ -359,18 +357,7 @@ Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash
         return reinterpret_cast<Cache::Handle*>(e);
     }
 }
-void LRUCache::Release(Cache::Handle* handle) {
-//  MutexLock l(&mutex_);
-//  WriteLock l(&mutex_);
-  SpinLock l(&mutex_);
-    Unref(reinterpret_cast<LRUHandle *>(handle), &l);
-//    assert(reinterpret_cast<LRUHandle*>(handle)->refs != 0);
-}
-void LRUCache::Release_Inv(Cache::Handle* handle) {
 
-    SpinLock l(&mutex_);
-    Unref_Inv(reinterpret_cast<LRUHandle *>(handle));
-}
 //If the inserted key has already existed, then the old LRU handle will be removed from
 // the cache, but it may not garbage-collected right away.
 Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
@@ -453,27 +440,142 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
 
   return reinterpret_cast<Cache::Handle*>(e);
 }
+#else
+    Cache::Handle *DSMEngine::LRUCache::LookupInsert(const Slice &key, uint32_t hash, void *value, size_t charge,
+                                                     void (*deleter)(Cache::Handle* handle)) {
+        assert(!SpinLock::check_own());
+        SpinLock l(&mutex_);
+        //TOTHINK(ruihong): shoul we update the lru list after look up a key?
+        //  Answer: Ref will refer this key and later, the outer function has to call
+        // Unref or release which will update the lRU list.
+        LRUHandle* e = table_.Lookup(key, hash);
+        if (e != nullptr) {
+            assert(e->refs >= 1);
+            Ref(e);
+//        assert(e->refs <=2);
+//        DEBUG_PRINT("cache hit when searching the leaf node");
+            return reinterpret_cast<Cache::Handle*>(e);
+        }else{
+            // Get from LRU free list.
+            e = free_list_.next; // next is the orldest element in the free list
+            if (e){
+                // succeed to get free page
+                List_Remove(e);
+            }else{
+                // Fail to get a free page from free page list, then get a LRU handle from the end of LRU list.
+                LRUHandle* old = lru_.next; // next is the oldest element in the free list
+                assert(old->refs == 1);
+                // The function below can result in latch release and dirty page flush back in the critical path
+                List_Remove(e);
+                e->in_cache = false;
+                usage_ -= e->charge;
+                e->refs--;
+                assert(e->refs == 0);
+                //Finish erase will only goes here, or directly return. it will never goes to next if clause
+                (*e->deleter)(e);
+                e = old;
+            }
+            if (value){
+                // This is for backward compatibility.
+                RDMA_Manager::Get_Instance()->Deallocate_Local_RDMA_Slot(((ibv_mr*)value)->addr, Regular_Page);
+                e->value = value;
+            }
+            e->remote_lock_status = 0;
+            e->remote_lock_urged = 0;
+            e->gptr = *(GlobalAddress*)key.data();
+            e->deleter = deleter;
+            e->charge = charge;
+            e->key_length = key.size();
+            e->hash = hash;
+            e->in_cache = true;
+            assert(e->refs == 0);
+            e->refs = 1;  // for the returned handle.
+            assert(!e->next.load());
+            assert(!e->prev.load());
 
+            if (capacity_ > 0) {
+                e->refs++;  // for the table_cache's reference. refer here and unrefer outside
+                e->in_cache = true;
+                List_Append(&in_use_, e);// Finally it will be pushed into LRU list
+                usage_ += charge;
+                FinishErase(table_.Insert(e), &l);//table_.Insert(e) will return LRUhandle with duplicate key as e, and then delete it by FinishErase
+            } else {  // don't do caching. (capacity_==0 is supported and turns off caching.)
+                // next is read by key() in an assert, so it must be initialized
+                e->next = nullptr;
+            }
+            assert(usage_ <= capacity_ + kLeafPageSize + kInternalPageSize); // make sure the usage is bounded.
+            return reinterpret_cast<Cache::Handle*>(e);
+        }
+    }
+    Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
+                                    size_t charge,
+                                    void (*deleter)(Cache::Handle* handle)) {
+//  MutexLock l(&mutex_);
+        SpinLock l(&mutex_);
+        //TODO: set the LRUHandle within the page, so that we can check the reference, during the direct access, or we reserver
+        // a place hodler for the address pointer to the LRU handle of the page.
+        LRUHandle* e = free_list_.next; // next is the orldest element in the free list
+        if (e) {
+            List_Remove(e);
+        }else{
+            // Fail to get a free page from free page list, then get a LRU handle from the end of LRU list.
+            LRUHandle* old = lru_.next; // next is the oldest element in the free list
+            assert(old->refs == 1);
+            // The function below can result in latch release and dirty page flush back in the critical path
+            List_Remove(e);
+            e->in_cache = false;
+            usage_ -= e->charge;
+            e->refs--;
+            assert(e->refs == 0);
+            //Finish erase will only goes here, or directly return. it will never goes to next if clause
+            (*e->deleter)(e);
+            e = old;
+        }
+        if (value) {
+            // This is for backward compatibility.
+            RDMA_Manager::Get_Instance()->Deallocate_Local_RDMA_Slot(((ibv_mr *) value)->addr, Regular_Page);
+            e->value = value;
+        }
+        e->remote_lock_status = 0;
+        e->remote_lock_urged = 0;
+        e->gptr = *(GlobalAddress*)key.data();
+
+        e->value = value;
+        e->deleter = deleter;
+        e->charge = charge;
+        e->key_length = key.size();
+        e->hash = hash;
+        e->in_cache = false;
+        e->refs = 1;  // for the returned handle.
+        assert(!e->next.load());
+        assert(!e->prev.load());
+        if (capacity_ > 0) {
+            e->refs++;  // for the table_cache's reference. refer here and unrefer outside
+            e->in_cache = true;
+            List_Append(&in_use_, e);// Finally it will be pushed into LRU list
+            usage_ += charge;
+            FinishErase(table_.Insert(e), &l);//table_.Insert(e) will return LRUhandle with duplicate key as e, and then delete it by FinishErase
+        } else {  // don't do caching. (capacity_==0 is supported and turns off caching.)
+            // next is read by key() in an assert, so it must be initialized
+            e->next = nullptr;
+        }
+        assert(usage_ <= capacity_ + kLeafPageSize + kInternalPageSize); // make sure the usage is bounded.
+        return reinterpret_cast<Cache::Handle*>(e);
+    }
+#endif
 // If e != nullptr, finish removing *e from the table_cache;
 // it must have already been removed from the hash table.  Return whether e != nullptr.
 // Remove the handle from LRU and change the usage.
 bool LRUCache::FinishErase(LRUHandle *e, SpinLock *spin_l) {
 
   if (e != nullptr) {
-//#ifndef NDEBUG
-//      if (e->gptr.offset < 9480863232){
-//          printf("page of %lu is removed from the cache\n", e->gptr.offset);
-//      }
-//#endif
     assert(e->in_cache);
-    LRU_Remove(e);
+      List_Remove(e);
     e->in_cache = false;
     usage_ -= e->charge;
   // decrease the reference of cache, making it not pinned by cache, but it
   // can still be pinned outside the cache.
-//      assert(e->refs == 1);
-      Unref(e, spin_l);
-
+      Unref(e);
   }
   return e != nullptr;
 }
@@ -951,6 +1053,10 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 //TODO: delete the line below.
 //                assert(handle->remote_lock_status != 0);
             }else{
+#ifdef PAGE_FREE_LIST
+                // With page_free list the page value shall always be non-zero.
+                assert(false);
+#endif
 #ifndef NDEBUG
                 hint_of_existence = false;
 #endif
