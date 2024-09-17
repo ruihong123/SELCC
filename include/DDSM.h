@@ -63,10 +63,12 @@ namespace DSMEngine {
 //            assert(false);
 //        }
 //    printf("Deallocate mr for %lu\n", g_ptr.offset);
+#ifndef PAGE_FREE_LIST
         if (!handle->keep_the_mr){
             rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Regular_Page);
             delete mr;
         }
+#endif
         assert(handle->refs.load() == 0);
 //    delete mr;
     }
