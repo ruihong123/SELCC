@@ -89,7 +89,7 @@ LRUCache::~LRUCache() {
 #ifdef PAGE_FREE_LIST
 void LRUCache::init(){
     for (int i = 0; i < capacity_/kLeafPageSize+1; ++i) {
-        auto e = new LRUHandle();\
+        auto e = new LRUHandle();
         e->init();
         auto mr = new ibv_mr{};
         auto rdma_mg = RDMA_Manager::Get_Instance();
@@ -626,6 +626,7 @@ class ShardedLRUCache : public Cache {
     capacity_ = capacity;
     for (int s = 0; s < kNumShards; s++) {
       shard_[s].SetCapacity(per_shard);
+      shard_[s].init();
     }
   }
   ~ShardedLRUCache() override {}
