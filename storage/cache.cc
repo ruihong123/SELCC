@@ -460,12 +460,13 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
         }else{
             // Get from LRU free list.
             e = free_list_.next; // next is the orldest element in the free list
-            if (e){
+            if (e!=&free_list_){
                 // succeed to get free page
                 List_Remove(e);
             }else{
                 // Fail to get a free page from free page list, then get a LRU handle from the end of LRU list.
                 LRUHandle* old = lru_.next; // next is the oldest element in the free list
+                e = old;
                 assert(old->refs == 1);
                 // The function below can result in latch release and dirty page flush back in the critical path
                 List_Remove(e);
@@ -474,12 +475,11 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
                 e->refs--;
                 assert(e->refs == 0);
                 //Finish erase will only goes here, or directly return. it will never goes to next if clause
-                (*e->deleter)(e);
-                e = old;
+                (*e->deleter)(e); // must be synchronized with the RDMA write back.
             }
             if (value){
                 // This is for backward compatibility.
-                RDMA_Manager::Get_Instance()->Deallocate_Local_RDMA_Slot(((ibv_mr*)value)->addr, Regular_Page);
+                RDMA_Manager::Get_Instance()->Deallocate_Local_RDMA_Slot(((ibv_mr*)e->value)->addr, Regular_Page);
                 e->value = value;
             }
             e->remote_lock_status = 0;
@@ -517,11 +517,12 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
         //TODO: set the LRUHandle within the page, so that we can check the reference, during the direct access, or we reserver
         // a place hodler for the address pointer to the LRU handle of the page.
         LRUHandle* e = free_list_.next; // next is the orldest element in the free list
-        if (e) {
+        if (e!=&free_list_){
             List_Remove(e);
         }else{
             // Fail to get a free page from free page list, then get a LRU handle from the end of LRU list.
             LRUHandle* old = lru_.next; // next is the oldest element in the free list
+            e = old;
             assert(old->refs == 1);
             // The function below can result in latch release and dirty page flush back in the critical path
             List_Remove(e);
@@ -531,11 +532,10 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
             assert(e->refs == 0);
             //Finish erase will only goes here, or directly return. it will never goes to next if clause
             (*e->deleter)(e);
-            e = old;
         }
         if (value) {
             // This is for backward compatibility.
-            RDMA_Manager::Get_Instance()->Deallocate_Local_RDMA_Slot(((ibv_mr *) value)->addr, Regular_Page);
+            RDMA_Manager::Get_Instance()->Deallocate_Local_RDMA_Slot(((ibv_mr *) e->value)->addr, Regular_Page);
             e->value = value;
         }
         e->remote_lock_status = 0;
