@@ -2099,7 +2099,6 @@ re_read:
         if(!skip_cache) {
             ddms_->SELCC_Exclusive_Lock(page_buffer, page_addr, handle);
             assert(handle != nullptr);
-            printf("page buffer %p\n", page_buffer);
             fflush(stdout);
 #if ACCESS_MODE == 1
             assert(((ibv_mr *) handle->value)->addr == page_buffer);
