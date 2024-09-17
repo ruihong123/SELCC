@@ -32,9 +32,6 @@ namespace DSMEngine {
             }else if(handle->remote_lock_status == 2){
 
                 // TODO: shall we not consider the global lock word when flushing back the page?
-
-//            printf("release the write lock at %lu and write back data during the handle destroy\n ", lock_gptr.offset);
-//            ibv_mr* local_mr = (ibv_mr*)value;
                 assert(mr->addr!= nullptr );
 
 //                TODO: recover the assert below if we are testing the blind write operation.
@@ -62,7 +59,6 @@ namespace DSMEngine {
 //
 //            assert(false);
 //        }
-//    printf("Deallocate mr for %lu\n", g_ptr.offset);
 #ifndef PAGE_FREE_LIST
         if (!handle->keep_the_mr){
             rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Regular_Page);
