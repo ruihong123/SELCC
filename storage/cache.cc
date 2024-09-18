@@ -97,10 +97,7 @@ void LRUCache::init(){
         auto rdma_mg = RDMA_Manager::Get_Instance();
         rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
         e->value = mr;
-
-        free_list_mtx_.lock();
-        List_Append(&free_list_, e);
-        free_list_mtx_.unlock();
+        push_free_list(e);
     }
 }
 #endif
@@ -459,11 +456,8 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
             return reinterpret_cast<Cache::Handle*>(e);
         }else{
             // Get from LRU free list.
-            e = free_list_.next; // next is the orldest element in the free list
-            if (e!=&free_list_){
-                // succeed to get free page
-                List_Remove(e);
-            }else{
+            e = pop_free_list();
+            if (e==&free_list_){
                 // Fail to get a free page from free page list, then get a LRU handle from the end of LRU list.
                 LRUHandle* old = lru_.next; // next is the oldest element in the free list
                 table_.Remove(old->key(), old->hash);
@@ -521,10 +515,8 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
         SpinLock l(&mutex_);
         //TODO: set the LRUHandle within the page, so that we can check the reference, during the direct access, or we reserver
         // a place hodler for the address pointer to the LRU handle of the page.
-        LRUHandle* e = free_list_.next; // next is the orldest element in the free list
-        if (e!=&free_list_){
-            List_Remove(e);
-        }else{
+        LRUHandle* e = pop_free_list();
+        if (e==&free_list_){
             // Fail to get a free page from free page list, then get a LRU handle from the end of LRU list.
             LRUHandle* old = lru_.next; // next is the oldest element in the free list
             table_.Remove(old->key(), old->hash);
@@ -608,6 +600,22 @@ void LRUCache::Prune() {
       assert(erased);
     }
   }
+}
+void LRUCache::push_free_list(DSMEngine::LRUHandle *e) {
+    free_list_mtx_.lock();
+    List_Append(&free_list_, e);
+    free_list_size_++;
+    free_list_mtx_.unlock();
+}
+LRUHandle* LRUCache::pop_free_list() {
+    free_list_mtx_.lock();
+    LRUHandle* e = free_list_.next;
+    if (e != &free_list_){
+        List_Remove(e);
+    }
+    free_list_size_--;
+    free_list_mtx_.unlock();
+    return e;
 }
 
 

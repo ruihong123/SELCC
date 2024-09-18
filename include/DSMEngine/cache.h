@@ -423,6 +423,9 @@ public:
         SpinLock l(&mutex_);
         return usage_;
     }
+    //support concurrent access.
+    void push_free_list(LRUHandle* e);
+    LRUHandle* pop_free_list();
 
 private:
     void List_Remove(LRUHandle* e);
@@ -432,14 +435,15 @@ private:
         void Unref(LRUHandle *e);
     void Unref_Inv(LRUHandle *e);
 //    void Unref_WithoutLock(LRUHandle* e);
-        bool FinishErase(LRUHandle *e) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+    bool FinishErase(LRUHandle *e) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+    mutable SpinMutex mutex_;
 
     // Initialized before use.
     size_t capacity_;
 
     // mutex_ protects the following state.
 //  mutable port::RWMutex mutex_;
-    mutable SpinMutex free_list_mtx_;
     size_t usage_;
 
     // Dummy head of LRU list.
@@ -453,8 +457,9 @@ private:
 
     HandleTable table_;
 #ifdef PAGE_FREE_LIST
-    mutable SpinMutex mutex_;
+    mutable SpinMutex free_list_mtx_;
     LRUHandle free_list_;
+    size_t free_list_size_;
 #endif
 //    static std::atomic<uint64_t> counter;
 };
