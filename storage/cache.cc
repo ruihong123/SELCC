@@ -145,9 +145,7 @@ void LRUCache::Unref(LRUHandle *e, SpinLock *spin_l) {
             //Finish erase will only goes here, or directly return. it will never goes to next if clause
             assert(!e->in_cache);
             (*e->deleter)(e);
-            free_list_mtx_.lock();
-            List_Append(&free_list_, e);
-            free_list_mtx_.unlock();
+            push_free_list(e);
         } else if (e->in_cache && e->refs == 1) {
             // No longer in use; move to lru_ list.
             List_Remove(e);// remove from in_use list move to LRU list.
