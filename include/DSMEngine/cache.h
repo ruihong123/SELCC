@@ -432,7 +432,7 @@ private:
         void Unref(LRUHandle *e);
     void Unref_Inv(LRUHandle *e);
 //    void Unref_WithoutLock(LRUHandle* e);
-    bool FinishErase(LRUHandle *e, SpinLock *spin_l) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+        bool FinishErase(LRUHandle *e) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
     // Initialized before use.
     size_t capacity_;

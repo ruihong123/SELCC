@@ -466,11 +466,12 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
             }else{
                 // Fail to get a free page from free page list, then get a LRU handle from the end of LRU list.
                 LRUHandle* old = lru_.next; // next is the oldest element in the free list
+                table_.Remove(old->key(), old->hash);
                 e = old;
                 assert(old->refs == 1);
                 // The function below can result in latch release and dirty page flush back in the critical path
                 List_Remove(e);
-                e->in_cache = false;
+                e->in_cache = true;
                 usage_ -= e->charge;
                 e->refs--;
                 assert(e->refs == 0);
@@ -504,7 +505,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
                 e->in_cache = true;
                 List_Append(&in_use_, e);// Finally it will be pushed into LRU list
                 usage_ += charge;
-                FinishErase(table_.Insert(e), &l);//table_.Insert(e) will return LRUhandle with duplicate key as e, and then delete it by FinishErase
+                FinishErase(table_.Insert(e));//table_.Insert(e) will return LRUhandle with duplicate key as e, and then delete it by FinishErase
             } else {  // don't do caching. (capacity_==0 is supported and turns off caching.)
                 // next is read by key() in an assert, so it must be initialized
                 e->next = nullptr;
@@ -526,11 +527,12 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
         }else{
             // Fail to get a free page from free page list, then get a LRU handle from the end of LRU list.
             LRUHandle* old = lru_.next; // next is the oldest element in the free list
+            table_.Remove(old->key(), old->hash);
             e = old;
             assert(old->refs == 1);
+
             // The function below can result in latch release and dirty page flush back in the critical path
             List_Remove(e);
-            e->in_cache = false;
             usage_ -= e->charge;
             e->refs--;
             assert(e->refs == 0);
@@ -552,7 +554,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
         e->key_length = key.size();
         e->hash = hash;
         e->next_hash = nullptr;
-        e->in_cache = false;
+        e->in_cache = true;
         e->refs = 1;  // for the returned handle.
         assert(!e->next.load());
         assert(!e->prev.load());
@@ -561,7 +563,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
             e->in_cache = true;
             List_Append(&in_use_, e);// Finally it will be pushed into LRU list
             usage_ += charge;
-            FinishErase(table_.Insert(e), &l);//table_.Insert(e) will return LRUhandle with duplicate key as e, and then delete it by FinishErase
+            FinishErase(table_.Insert(e));//table_.Insert(e) will return LRUhandle with duplicate key as e, and then delete it by FinishErase
         } else {  // don't do caching. (capacity_==0 is supported and turns off caching.)
             // next is read by key() in an assert, so it must be initialized
             e->next = nullptr;
@@ -573,7 +575,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
 // If e != nullptr, finish removing *e from the table_cache;
 // it must have already been removed from the hash table.  Return whether e != nullptr.
 // Remove the handle from LRU and change the usage.
-bool LRUCache::FinishErase(LRUHandle *e, SpinLock *spin_l) {
+    bool LRUCache::FinishErase(LRUHandle *e) {
 
   if (e != nullptr) {
     assert(e->in_cache);
@@ -591,7 +593,7 @@ void LRUCache::Erase(const Slice& key, uint32_t hash) {
 //  MutexLock l(&mutex_);
 //  WriteLock l(&mutex_);
   SpinLock l(&mutex_);
-    FinishErase(table_.Remove(key, hash), &l);
+    FinishErase(table_.Remove(key, hash));
 }
 
 void LRUCache::Prune() {
@@ -601,7 +603,7 @@ void LRUCache::Prune() {
   while (lru_.next != &lru_) {
     LRUHandle* e = lru_.next;
     assert(e->refs == 1);
-    bool erased = FinishErase(table_.Remove(e->key(), e->hash), nullptr);
+    bool erased = FinishErase(table_.Remove(e->key(), e->hash));
     if (!erased) {  // to avoid unused variable when compiled NDEBUG
       assert(erased);
     }
