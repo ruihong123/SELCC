@@ -482,6 +482,9 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
                 RDMA_Manager::Get_Instance()->Deallocate_Local_RDMA_Slot(((ibv_mr*)e->value)->addr, Regular_Page);
                 e->value = value;
             }
+            assert(e->remote_lock_status == 0);
+            assert(e->remote_lock_urged == 0);
+            assert(e->read_lock_counter == 0);
             e->remote_lock_status = 0;
             e->remote_lock_urged = 0;
             e->gptr = *(GlobalAddress*)key.data();
@@ -489,6 +492,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
             e->charge = charge;
             e->key_length = key.size();
             e->hash = hash;
+            e->next_hash = nullptr;
             e->in_cache = true;
             assert(e->refs == 0);
             e->refs = 1;  // for the returned handle.
@@ -547,6 +551,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
         e->charge = charge;
         e->key_length = key.size();
         e->hash = hash;
+        e->next_hash = nullptr;
         e->in_cache = false;
         e->refs = 1;  // for the returned handle.
         assert(!e->next.load());
@@ -1590,7 +1595,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         }else{
             //The lock has been released by other threads.
         }
-        clear_states();
+        clear_release_states();
         state_mtx.unlock();
     }
 

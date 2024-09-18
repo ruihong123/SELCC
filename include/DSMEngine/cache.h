@@ -108,7 +108,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
 #endif
         void (*deleter)(Cache_Handle* handle);
         ~Cache_Handle(){}
-        void clear_states(){
+        void clear_release_states(){
 //            state_mtx.lock();
             lock_pending_num.store(0);
 //            read_lock_holder_num.store(0);
@@ -387,7 +387,7 @@ private:
                 count++;
             }
         }
-        assert(elems_ == count);
+        assert(elems_ == count);// the elems_ is larger than the actual count now. It is not correct.
         delete[] list_;
         list_ = new_list;
         length_ = new_length;

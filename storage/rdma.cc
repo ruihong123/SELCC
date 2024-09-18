@@ -7042,7 +7042,7 @@ void RDMA_Manager::fs_deserilization(
 #endif
                             handle->remote_lock_status.store(0);
                             reply_type = 1;
-                            handle->clear_states();
+                            handle->clear_release_states();
 
                         }
                     }else{
@@ -7123,7 +7123,7 @@ message_reply:
                             global_write_page_and_WdowntoR(page_mr, g_ptr,
                                                            page_mr->length, lock_gptr);
                             handle->remote_lock_status.store(1);
-                            handle->clear_states();
+                            handle->clear_release_states();
                             reply_type = 1;
 //                        printf("Release write lock %lu\n", g_ptr);
                         }
@@ -7135,8 +7135,6 @@ message_reply:
 
                     handle->rw_mtx.unlock();
                 }else{
-
-
                     handle->state_mtx.lock();
                     if (handle->remote_lock_status.load() == 2){
                         if (handle->starvation_priority < starv_level ){
@@ -7213,7 +7211,7 @@ message_reply:
                                                               page_mr->length, lock_gptr);
                                 handle->remote_lock_status.store(0);
                             }
-                            handle->clear_states();
+                            handle->clear_release_states();
 
                             reply_type = 1;
                             //todo: (1) implement a lock handover mechanism. if starvation level larger than 1.

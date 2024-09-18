@@ -46,6 +46,8 @@ namespace DSMEngine {
                 assert(page->global_lock);
 //                assert(handle->gptr == ((LeafPage<uint64_t,uint64_t>*)mr->addr)->hdr.this_page_g_ptr);
 
+                //TODO: make handle state change and page dirty content flush back a atomic function in Cache_handle class.
+
                 // RDMA write unlock and write back the data. THis shall be a sync write back, because the buffer will
                 // be handover to other cache entry after this function. It is possible that the page content is changed when the
                 // RDMA write back has not been finished. The write unlock for page invalidation can be a sync write back.
@@ -54,6 +56,7 @@ namespace DSMEngine {
             }else{
                 //An invalidated page, do nothing
             }
+            handle->clear_release_states();
 //        }else{
 //            //TODO: delete the  asserts below when you implement the strategy 2.
 //
@@ -66,7 +69,6 @@ namespace DSMEngine {
         }
 #endif
         assert(handle->refs.load() == 0);
-//    delete mr;
     }
 
     class DDSM {
