@@ -326,7 +326,7 @@ namespace DSMEngine{
 
 //            embedding_lock = 1;
         }
-        static uint64_t calculate_cardinality(uint64_t record_size, uint64_t page_size){
+        static uint64_t calculate_cardinality(uint64_t page_size, uint64_t record_size) {
             return (page_size - STRUCT_OFFSET(LeafPage<TKey COMMA Value>, data_[0]) - sizeof(uint8_t)) / record_size;
         }
 
@@ -412,7 +412,7 @@ namespace DSMEngine{
 
 //        void Data_page_search(const TKey &k, SearchResult <TKey, Value> &result, ibv_mr local_mr_copied,
 //                              GlobalAddress g_page_ptr, RecordSchema *record_scheme);
-        static uint64_t calculate_cardinality(uint64_t record_size, uint64_t page_size){
+        static uint64_t calculate_cardinality(uint64_t page_size, uint64_t record_size) {
 //            8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*schema_ptr_->GetSchemaSize() +1);
             return 8ull*(page_size - STRUCT_OFFSET(DataPage, data_[0]) - sizeof(uint64_t) - sizeof(uint8_t)) / (8ull*record_size +1);
         }
