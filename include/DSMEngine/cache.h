@@ -86,8 +86,8 @@ constexpr uint8_t Invalid_Node_ID = 255;
         std::atomic<uint16_t> write_lock_counter = 0;
 //        std::atomic<int> read_lock_holder_num = 0;
 //        std::atomic<int> lock_handover_count = 0;
-        std::atomic<bool> timer_on = false;
-        std::atomic<bool> timer_alarmed = false;
+//        std::atomic<bool> timer_on = false;
+//        std::atomic<bool> timer_alarmed = false;
         std::atomic<uint8_t > remote_lock_urged = 0; //1 writer invalidation urge, 2 reader invalidation urge.
         std::atomic<uint8_t > next_holder_id = 0;
         std::atomic<uint8_t > starvation_priority = 0;
@@ -113,8 +113,8 @@ constexpr uint8_t Invalid_Node_ID = 255;
             lock_pending_num.store(0);
 //            read_lock_holder_num.store(0);
 //            lock_handover_count.store(0);
-            timer_on.store(false);
-            timer_alarmed.store(false);
+//            timer_on.store(false);
+//            timer_alarmed.store(false);
             read_lock_counter.store(0);
             write_lock_counter.store(0);
             remote_lock_urged.store(0);
@@ -426,6 +426,7 @@ public:
     //support concurrent access.
     void push_free_list(LRUHandle* e);
     LRUHandle* pop_free_list();
+    bool need_eviction();
 
 private:
     void List_Remove(LRUHandle* e);
@@ -460,6 +461,7 @@ private:
     mutable SpinMutex free_list_mtx_;
     LRUHandle free_list_;
     size_t free_list_size_;
+    size_t free_list_trigger_limit_;
 #endif
 //    static std::atomic<uint64_t> counter;
 };

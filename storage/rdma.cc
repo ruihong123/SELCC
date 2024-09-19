@@ -4199,7 +4199,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                         cache_invalidation[RDMA_Manager::thread_id]++;
                     }
 #endif
-                    Writer_Invalidate_Modified_RPC(page_addr, write_invalidation_target, starvation_level, page_version);
+                    Writer_Invalidate_Modified_RPC(page_addr,
+                                                   nullptr, write_invalidation_target, starvation_level, page_version);
 
                 }else{
                     //It is okay to have a write invalidation target is itself, if we enable the async write unlock.
@@ -4397,7 +4398,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                         cache_invalidation[RDMA_Manager::thread_id]++;
                     }
 #endif
-                    Writer_Invalidate_Modified_RPC(page_addr, write_invalidation_target, starvation_level, 0);
+                    Writer_Invalidate_Modified_RPC(page_addr, nullptr, write_invalidation_target, starvation_level, 0);
 
                 }else{
                     //It is okay to have a write invalidation target is itself, if we enable the async write unlock.
@@ -5852,13 +5853,13 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
 }
 
 bool
-RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
-                                             uint64_t page_version) {
+RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *page_buffer, uint16_t target_node_id,
+                                             uint8_t starv_level, uint64_t page_version) {
 //    printf(" send write invalidation message to other nodes %p\n", global_ptr);
     RDMA_Request* send_pointer;
     ibv_mr* send_mr = Get_local_send_message_mr();
     ibv_mr* recv_mr = Get_local_receive_message_mr();
-//    ibv_mr* receive_mr = {};
+    ibv_mr* receive_mr = {};
 
     send_pointer = (RDMA_Request*)send_mr->addr;
     send_pointer->command = writer_invalidate_modified;
@@ -5892,6 +5893,9 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t 
     asm volatile ("sfence\n" : : );
     asm volatile ("lfence\n" : : );
     asm volatile ("mfence\n" : : );
+
+
+    //TODO make it wait for page forward.
     poll_reply_buffer(receive_pointer); // poll the receive for 2 entires
 
     return true;
@@ -7178,13 +7182,7 @@ message_reply:
             Header_Index<uint64_t>* header = (Header_Index<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
             if (header->p_type != P_Internal){
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
-//                        printf("Leaf node page %p's global lock state is %lu\n", g_ptr, ((LeafPage*)(page_mr->addr))->global_lock);
-
             }else{
-//                // Only the leaf page have eager cache coherence protocol.
-//                if (header->p_type == P_Internal){
-//                    assert(false);
-//                }
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, global_lock);
             }
             // double check locking

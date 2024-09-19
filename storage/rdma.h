@@ -475,8 +475,8 @@ class RDMA_Manager {
     void Prepare_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     void Commit_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     void Abort_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
-    bool Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
-                                        uint64_t page_version);
+    bool Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *page_buffer, uint16_t target_node_id,
+                                        uint8_t starv_level, uint64_t page_version);
     bool Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
                                         uint64_t page_version);
     bool Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level,

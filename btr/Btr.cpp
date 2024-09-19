@@ -83,7 +83,8 @@ namespace DSMEngine {
             }
         }
         assert(sizeof(InternalPage<Key>) <= kInternalPageSize);
-        leaf_cardinality_ = (kLeafPageSize - STRUCT_OFFSET(LeafPage<Key COMMA Value>, data_[0])) / scheme_ptr->GetSchemaSize();
+//        leaf_cardinality_ = (kLeafPageSize - STRUCT_OFFSET(LeafPage<Key COMMA Value>, data_[0])) / scheme_ptr->GetSchemaSize();
+        leaf_cardinality_ = LeafPage<Key,Value>::calculate_cardinality(kLeafPageSize, scheme_ptr->GetSchemaSize());
         print_verbose();
         assert(g_root_ptr.is_lock_free());
         cached_root_page_handle.store(nullptr);
@@ -107,7 +108,9 @@ namespace DSMEngine {
             }
         }
         assert(sizeof(InternalPage<Key>) <= kInternalPageSize);
-        leaf_cardinality_ = (kLeafPageSize - STRUCT_OFFSET(LeafPage<Key COMMA Value>, data_[0])) / scheme_ptr->GetSchemaSize();
+        // The end of page is the page forward check pointer.
+//        leaf_cardinality_ = (kLeafPageSize - STRUCT_OFFSET(LeafPage<Key COMMA Value>, data_[0]) - sizeof(uint8_t)) / scheme_ptr->GetSchemaSize();
+        leaf_cardinality_ = LeafPage<Key,Value>::calculate_cardinality(kLeafPageSize, scheme_ptr->GetSchemaSize());
         print_verbose();
         assert(g_root_ptr.is_lock_free());
 //    page_cache = NewLRUCache(define::kIndexCacheSize);

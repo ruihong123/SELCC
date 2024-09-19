@@ -55,6 +55,7 @@ uint64_t Calculate_cache_counters(){
 
 }
 #endif
+
 int TimePrintCounter[MAX_APP_THREAD];
 namespace DSMEngine {
 //std::atomic<uint64_t> LRUCache::counter = 0;
@@ -90,6 +91,8 @@ LRUCache::~LRUCache() {
 }
 #ifdef PAGE_FREE_LIST
 void LRUCache::init(){
+    size_t cache_line_limit = capacity_/kLeafPageSize+1;
+    free_list_trigger_limit_ = cache_line_limit * FREELIST_RATIO;
     for (int i = 0; i < capacity_/kLeafPageSize+1; ++i) {
         auto e = new LRUHandle();
         e->init();
@@ -99,6 +102,7 @@ void LRUCache::init(){
         e->value = mr;
         push_free_list(e);
     }
+
 }
 #endif
 //Can we use the lock within the handle to reduce the conflict here so that the critical seciton
@@ -615,6 +619,9 @@ LRUHandle* LRUCache::pop_free_list() {
     free_list_mtx_.unlock();
     return e;
 }
+bool LRUCache::need_eviction() {
+    return free_list_size_ < free_list_trigger_limit_;
+}
 
 
 
@@ -625,7 +632,10 @@ static const int kNumShards = 1 << kNumShardBits;
 class ShardedLRUCache : public Cache {
  private:
   LRUCache shard_[kNumShards];
-  port::Mutex id_mutex_;
+#ifdef PAGE_FREE_LIST
+    std::thread free_list_thread_s[FREELIST_THREAD_NUM];
+#endif
+    port::Mutex id_mutex_;
   uint64_t last_id_;
   size_t capacity_;
 
@@ -645,6 +655,31 @@ class ShardedLRUCache : public Cache {
       shard_[s].init();
 #endif
     }
+//      for (int i = 0; i < FREELIST_THREAD_NUM; ++i) {
+//          free_list_thread_s[i] = std::thread([this](){
+//                auto rdma_mg = RDMA_Manager::Get_Instance();
+//              // stage 1:
+//              // 1. check the free list size, if it is less than the threshold, then start the eviction.
+//              for(int i = 0; i < kNumShards; i++){
+//                  //TODO: try to think of a way making the most pending work request and also guaratee the correctness of the cache.
+//                  // Maximize the aysnchronous work request. there is a limit for 1 queue pair (16 pending RDMA read/atomic). However the overall pending request
+//                  // for RDMA atomic is much more. If one queue is satuated, we can quickly switch to another to continue filling in the request.
+//                  // beside, for the dirty page flush back, we need a buffer to avoid the page content being overwritten.
+//                  if (shard_[i].need_eviction()){
+//                      shard_[i].select_for_eviction();
+//                      // we can just enable the async flushing for the eviction by enable unsignaled work request for 15 work request and
+//                      // we make a signaled work request at the 16th work request. In this case, every work request only wait for 1/16 RDMA roundtrip time.
+//                  }
+//
+//              }
+//                // stage 2: poll the completion buffer for queue pair to every memory node, if there is a completion
+//
+//                // We can enable singnaled work request for the eviction, and keep
+//              for (int j = 0; j < rdma_mg->compute_nodes.size(); ++j) {
+//
+//              }
+//          });
+//      }
   }
   ~ShardedLRUCache() override {}
   size_t GetCapacity() override{
@@ -1010,10 +1045,11 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         if (remote_lock_urged.load() > 0) {
             uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
 //            printf("Lock starvation prevention code was executed stage 1\n");
-            if(lock_pending_num.load() > 0 && !timer_on){
-                timer_begin = std::chrono::high_resolution_clock::now();
-            }
-            if ( handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
+//            if(lock_pending_num.load() > 0 && !timer_on){
+//                timer_begin = std::chrono::high_resolution_clock::now();
+//            }
+//            || timer_alarmed.load()
+            if ( handover_degree > STARVATION_THRESHOLD ){
 //                printf("Lock starvation prevention code was executed stage 2, page_adr is %p\n", page_addr);
 //                fflush(stdout);
                 // make sure only one thread release the global latch successfully by double check lock.
@@ -1039,7 +1075,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         if (remote_lock_urged.load() > 0){
             lock_pending_num.fetch_add(1);
             uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
-            while (handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
+//            || timer_alarmed.load()
+            while (handover_degree > STARVATION_THRESHOLD ){
                 //wait here by no ops
                 handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
                 asm volatile("pause\n": : :"memory");
@@ -1414,12 +1451,13 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         if (remote_lock_urged.load() > 0) {
 //            printf("Lock starvation prevention code was executed stage 1\n");
             uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
-            if(lock_pending_num.load() > 0 && !timer_on){
-                timer_begin = std::chrono::high_resolution_clock::now();
-                timer_on.store(true);
-            }
+//            if(lock_pending_num.load() > 0 && !timer_on){
+//                timer_begin = std::chrono::high_resolution_clock::now();
+//                timer_on.store(true);
+//            }
             assert(remote_lock_status == 2);
-            if ( handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
+//            || timer_alarmed.load()
+            if ( handover_degree > STARVATION_THRESHOLD ){
                 Invalid_local_by_cached_mes(page_addr, page_size, lock_addr, mr, true);
             }
         }
@@ -1539,11 +1577,12 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         //the mechanism to avoid global lock starvation be local latch
         if (remote_lock_urged.load() > 0) {
             uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
-            if(lock_pending_num.load() > 0 && !timer_on){
-                timer_begin = std::chrono::high_resolution_clock::now();
-            }
+//            if(lock_pending_num.load() > 0 && !timer_on){
+//                timer_begin = std::chrono::high_resolution_clock::now();
+//            }
             assert(remote_lock_status == 2);
-            if ( handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
+//            || timer_alarmed.load()
+            if ( handover_degree > STARVATION_THRESHOLD ){
                 Invalid_local_by_cached_mes(page_addr, page_size, lock_addr, mr, true);
             }
         }

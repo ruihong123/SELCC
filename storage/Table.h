@@ -204,7 +204,8 @@ public:
           if (!gallocator->TrySELCC_Exclusive_Lock(page_buffer, *g_addr, handle)){
               return false;
           }
-          uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*schema_ptr_->GetSchemaSize() +1);
+//          uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*schema_ptr_->GetSchemaSize() +1);
+          uint64_t cardinality = DataPage::calculate_cardinality(schema_ptr_->GetSchemaSize(), kLeafPageSize);
           page = new(page_buffer) DataPage(*g_addr, cardinality, table_id_);
           (*locked_handles_)[*g_addr] = std::pair(handle, INSERT_ONLY);
 
@@ -217,7 +218,8 @@ public:
 //          if (!gallocator->TrySELCC_Exclusive_Lock(page_buffer, *g_addr, handle)){
 //              return false;
 //          }
-          uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*schema_ptr_->GetSchemaSize() +1);
+//          uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*schema_ptr_->GetSchemaSize() +1);
+            uint64_t cardinality = DataPage::calculate_cardinality(schema_ptr_->GetSchemaSize(), kLeafPageSize);
           page = new(page_buffer) DataPage(*g_addr, cardinality, table_id_);
       }
       assert(page->hdr.kDataCardinality > 0);
