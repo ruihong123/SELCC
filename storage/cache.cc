@@ -803,7 +803,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         if (remote_lock_urged.load() > 0){
             lock_pending_num.fetch_add(1);
             uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
-            while (handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
+//            || timer_alarmed.load()
+            while (handover_degree > STARVATION_THRESHOLD ){
                 //wait here by no ops
                 handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
                 asm volatile("pause\n": : :"memory");
@@ -1365,7 +1366,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         if (remote_lock_urged.load() > 0){
             lock_pending_num.fetch_add(1);
             uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
-            while (handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
+//            || timer_alarmed.load()
+            while (handover_degree > STARVATION_THRESHOLD ){
                 //wait here by no ops
                 handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
                 asm volatile("pause\n": : :"memory");
@@ -1473,7 +1475,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         if (remote_lock_urged.load() > 0){
             lock_pending_num.fetch_add(1);
             uint16_t handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
-            while (handover_degree > STARVATION_THRESHOLD || timer_alarmed.load()){
+//            || timer_alarmed.load()
+            while (handover_degree > STARVATION_THRESHOLD ){
                 //wait here by no ops
                 handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
                 asm volatile("pause\n": : :"memory");
