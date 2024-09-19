@@ -71,6 +71,27 @@ DSMEngine_EXPORT Cache* NewLRUCache(size_t capacity);
 constexpr uint8_t Invalid_Node_ID = 255;
 
     struct Cache_Handle {
+        struct PendingPageForward{
+            std::atomic<uint8_t > next_holder_id = Invalid_Node_ID;
+            std::atomic<void*> next_receive_buf = nullptr;
+            std::atomic<uint32_t> next_receive_rkey = 0;
+            std::atomic<uint8_t > starvation_priority = 0;
+            std::atomic<RDMA_Command_Type > next_inv_message_type = invalid_command_;
+            void SetStates(uint8_t next_holder_id, void* next_receive_buf, uint32_t next_receive_rkey, uint8_t starvation_priority, RDMA_Command_Type next_inv_message_type){
+                this->next_holder_id.store(next_holder_id);
+                this->next_receive_buf.store(next_receive_buf);
+                this->next_receive_rkey.store(next_receive_rkey);
+                this->starvation_priority.store(starvation_priority);
+                this->next_inv_message_type.store(next_inv_message_type);
+            }
+            void ClearStates(){
+                this->next_holder_id.store(Invalid_Node_ID);
+                this->next_receive_buf.store(nullptr);
+                this->next_receive_rkey.store(0);
+                this->starvation_priority.store(0);
+                this->next_inv_message_type.store(invalid_command_);
+            }
+        };
     public:
         void* value = nullptr; // NOTE: the value is the pointer to ibv_mr not the buffer!!!! Carefule.
         std::atomic<uint32_t> refs;     // References, if zero this cache is in the free list.
@@ -89,8 +110,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
 //        std::atomic<bool> timer_on = false;
 //        std::atomic<bool> timer_alarmed = false;
         std::atomic<uint8_t > remote_lock_urged = 0; //1 writer invalidation urge, 2 reader invalidation urge.
-        std::atomic<uint8_t > next_holder_id = 0;
-        std::atomic<uint8_t > starvation_priority = 0;
+        PendingPageForward pending_page_forward;
 //        std::atomic<uint8_t > remote_xlock_next = 0;
 //        std::atomic<uint8_t> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
         bool keep_the_mr = false;

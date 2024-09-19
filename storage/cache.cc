@@ -1591,7 +1591,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         }
         rw_mtx.unlock();
     }
-//shall be protected by latch outside
+// TODO: This function shall treat buffered invalidation message diffirently according to the message type.
     void Cache_Handle::Invalid_local_by_cached_mes(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
                                                     ibv_mr *mr, bool need_spin) {
         state_mtx.lock();

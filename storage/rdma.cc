@@ -7175,83 +7175,87 @@ message_reply:
         assert(page_cache_ != nullptr);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         uint8_t reply_type = 0;
-        if (handle){
-//            printf("writer invalid modified Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
-            auto* page_mr = (ibv_mr*)handle->value;
-            GlobalAddress lock_gptr = g_ptr;
-            Header_Index<uint64_t>* header = (Header_Index<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
-            if (header->p_type != P_Internal){
-                lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
-            }else{
-                lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, global_lock);
-            }
-            // double check locking
-            if (handle->remote_lock_status.load() > 0 && ((DataPage*)page_mr->addr)->hdr.p_version == receive_msg_buf->content.inv_message.p_version){
-//                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
-                if (handle->rw_mtx.try_lock()){
-                    if (starv_level >= handle->starvation_priority){
-                        if (handle->remote_lock_status.load() == 2){
-                            if (starv_level >0){
-#ifdef GLOBAL_HANDOVER
-//                                printf("Global lock for page %p handover from node %u to node %u part 1\n", g_ptr, node_id, target_node_id);
-//                                fflush( stdout );
-                                global_write_page_and_WHandover(page_mr, g_ptr,
-                                                                page_mr->length, target_node_id, lock_gptr);
-                                handle->remote_lock_status.store(0);
-#else
-                                global_write_page_and_Wunlock(page_mr, g_ptr,
-                                                              page_mr->length, lock_gptr, false);
-                                handle->remote_lock_status.store(0);
-#endif
+        ibv_mr* page_mr = nullptr;
+        GlobalAddress lock_gptr = g_ptr;
+        Header_Index<uint64_t>* header = nullptr;
+        if (!handle) {
+            reply_type = 2;  // Handle not found
+            goto message_reply;
+        }
 
-                            }else{
-                                global_write_page_and_Wunlock(page_mr, g_ptr,
-                                                              page_mr->length, lock_gptr);
-                                handle->remote_lock_status.store(0);
-                            }
-                            handle->clear_release_states();
+        page_mr = (ibv_mr*)handle->value;
+        header = (Header_Index<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
+        assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
+        assert(STRUCT_OFFSET(DataPage, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
 
-                            reply_type = 1;
-                            //todo: (1) implement a lock handover mechanism. if starvation level larger than 1.
-                            // (2) check whether there is lock urge, if so check whether the starvation_priority is larger than this.
-//                        printf("Release write lock %lu\n", g_ptr);
-                        }
-                    }
-                    else{
-                        handle->Invalid_local_by_cached_mes(g_ptr, page_mr->length, lock_gptr, page_mr, false);
-                    }
-
-                    handle->rw_mtx.unlock();
-                }else{
-
-                    handle->state_mtx.lock();
-                    if (handle->remote_lock_status.load() == 1){
-                        if (handle->starvation_priority < starv_level ){
-                            handle->starvation_priority = starv_level;
-                            handle->next_holder_id.store(target_node_id);
-                        }
-                        handle->remote_lock_urged.store(1);
-                        reply_type = 3;
-                    }
-                    handle->state_mtx.unlock();
-                }
-            }
+        if (handle->remote_lock_status.load() <= 0 ||
+            ((DataPage*)page_mr->addr)->hdr.p_version != receive_msg_buf->content.inv_message.p_version) {
             page_cache_->Release(handle);
-        }else{
-//                    printf("Release write lock Handle not found\n");
-        }
-    message_reply:
-
-        if (reply_type == 0){
             reply_type = 2;
+            goto message_reply;
         }
+        if (!handle->rw_mtx.try_lock()){
+            handle->state_mtx.lock();
+            if (handle->remote_lock_status.load() == 1){
+                if (handle->pending_page_forward.starvation_priority < starv_level ){
+
+//                    handle->pending_page_forward.starvation_priority = starv_level;
+//                    handle->pending_page_forward.next_holder_id.store(target_node_id);
+//                    handle->pending_page_forward.next_receive_buf.store(receive_msg_buf->buffer);
+//                    handle->pending_page_forward.next_receive_rkey.store(receive_msg_buf->rkey);
+//                    handle->pending_page_forward.next_inv_message_type.store(receive_msg_buf->command);
+                    handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
+                }
+                handle->remote_lock_urged.store(1);
+                reply_type = 3;
+            }
+            handle->state_mtx.unlock();
+
+
+            page_cache_->Release(handle);
+            reply_type = 2;
+            goto message_reply;
+        }
+        // double check locking
+                if (starv_level >= handle->starvation_priority){
+                    if (handle->remote_lock_status.load() == 2){
+                        if (starv_level >0){
+                            global_write_page_and_WHandover(page_mr, g_ptr,
+                                                            page_mr->length, target_node_id, lock_gptr);
+                            handle->remote_lock_status.store(0);
+
+
+                        }else{
+                            global_write_page_and_Wunlock(page_mr, g_ptr,
+                                                          page_mr->length, lock_gptr);
+                            handle->remote_lock_status.store(0);
+                        }
+                        handle->clear_release_states();
+
+                        reply_type = 1;
+                        //todo: (1) implement a lock handover mechanism. if starvation level larger than 1.
+                        // (2) check whether there is lock urge, if so check whether the starvation_priority is larger than this.
+//                        printf("Release write lock %lu\n", g_ptr);
+                    }
+                }
+                else{
+                    handle->Invalid_local_by_cached_mes(g_ptr, page_mr->length, lock_gptr, page_mr, false);
+                }
+
+                handle->rw_mtx.unlock();
+//            }else{
+//
+//
+//            }
+//        page_cache_->Release(handle);
+    message_reply:
         ibv_mr* local_mr = Get_local_send_message_mr();
         ((RDMA_ReplyXCompute* )local_mr->addr)->inv_reply_type = reply_type;
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
         RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(RDMA_ReplyXCompute),
                             target_node_id, qp_id, true);
         delete receive_msg_buf;
-    }
+        }
 
     void RDMA_Manager::Write_Invalidation_Message_Handler(void* thread_args) {
         BGThreadMetadata* p = static_cast<BGThreadMetadata*>(thread_args);
