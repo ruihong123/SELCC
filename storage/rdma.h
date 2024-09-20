@@ -215,7 +215,7 @@ struct sst_gc {
 };
 struct Invalid_Message{
     GlobalAddress page_addr;
-    uint64_t p_version;
+//    uint64_t p_version;
     uint8_t starvation_level;
 };
 //struct WUnlock_message{
@@ -481,7 +481,7 @@ class RDMA_Manager {
     bool Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
                                         uint64_t page_version);
     bool Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level,
-                                      uint64_t page_version, uint8_t pos);
+                                      uint8_t pos);
     bool Writer_Invalidate_Shared_RPC_Reply(uint8_t num_of_poll);
     bool Tuple_Read_2PC_RPC(uint16_t target_node_id, uint64_t primary_key, size_t table_id, size_t tuple_size,
                             char *&tuple_buffer, size_t access_type, bool log_enabled);

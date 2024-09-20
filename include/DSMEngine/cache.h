@@ -120,7 +120,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
         std::atomic<int> lock_pending_num = 0;
         std::chrono::time_point<std::chrono::high_resolution_clock> timer_begin;
         RWSpinLock rw_mtx; // low overhead rw spin lock and write have higher priority than read.
-        SpinMutex state_mtx; // clear state mutex
+        SpinMutex buffered_inv_mtx; // clear state mutex
         std::atomic<uint16_t> read_lock_counter = 0;
         std::atomic<uint16_t> write_lock_counter = 0;
 //        std::atomic<int> read_lock_holder_num = 0;
@@ -151,7 +151,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
         void (*deleter)(Cache_Handle* handle);
         ~Cache_Handle(){}
         void clear_pending_inv_states(){
-//            state_mtx.lock();
+//            buffered_inv_mtx.lock();
 //            lock_pending_num.store(0);
 //            read_lock_holder_num.store(0);
 //            lock_handover_count.store(0);
@@ -167,7 +167,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
 //#endif
 //            remote_xlock_next.store(0);
 //            strategy.store(1);
-//            state_mtx.unlock();
+//            buffered_inv_mtx.unlock();
         }
         void assert_no_handover_states(){
 #ifndef NDEBUG

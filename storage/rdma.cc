@@ -3697,7 +3697,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page);
             //Get the latest page version and make an invalidation message based on current version. (exact once)
-            page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
+//            page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
             target_compute_node_id = ((return_value >> 56) - 1)*2;
 //#ifndef NDEBUG
 //            assert((*((uint64_t *)page_buffer->addr+1) << 8) > 0);
@@ -3957,7 +3957,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         std::vector<uint16_t> read_invalidation_targets;
         uint8_t starvation_level = 0;
 
-        uint64_t page_version = ((DataPage*) local_mr->addr)->hdr.p_version;
+//        uint64_t page_version = ((DataPage*) local_mr->addr)->hdr.p_version;
 
 //        int invalidation_RPC_type = 0;
         read_invalidation_targets.clear();
@@ -3978,7 +3978,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             int i = 0;
             for (auto iter: read_invalidation_targets) {
                 //TODO: fill out the stavation level and the page version.
-                Writer_Invalidate_Shared_RPC(page_addr, iter, 0, page_version, i);
+                Writer_Invalidate_Shared_RPC(page_addr, iter, 0, i);
                 i++;
             }
 #ifdef PARALLEL_INVALIDATION
@@ -4172,7 +4172,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                             cache_invalidation[RDMA_Manager::thread_id]++;
                         }
 #endif
-                        Writer_Invalidate_Shared_RPC(page_addr, iter, starvation_level, page_version, i);
+                        Writer_Invalidate_Shared_RPC(page_addr, iter, starvation_level, i);
                     }else{
                         // This rare case is because under async read release, the cache mutex will be released before the read/write lock release.
                         // If there is another request comes in immediately for the same page before the lock release, this print
@@ -4288,7 +4288,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            }
             uint64_t cas_value = (*(uint64_t*) cas_buffer->addr);
             uint64_t write_byte = cas_value >> 56;
-            page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
+//            page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
             if (write_byte > 0){
                 invalidation_RPC_type = 2;
                 //The CAS record (ID/2+1), so we need to recover the real ID.
@@ -4374,7 +4374,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                             cache_invalidation[RDMA_Manager::thread_id]++;
                         }
 #endif
-                        Writer_Invalidate_Shared_RPC(page_addr, iter, starvation_level, 0, i);
+                        Writer_Invalidate_Shared_RPC(page_addr, iter, starvation_level, i);
                     }else{
                         // This rare case is because the cache mutex will be released before the read/write lock release.
                         // If there is another request comes in immediately for the same page before the lock release, this print
@@ -4450,8 +4450,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        assert(page_addr == page->hdr.this_page_g_ptr);
 #endif
         if ((*(uint64_t*) cas_buffer->addr) != compare){
-            page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
-            assert(page_version == 0);
+//            page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
+//            assert(page_version == 0);
             //TODO: The return may shows that this lock permission has already handover by the previous latch holde,
             // in this case we can jump out of the loop and just use the read buffer.
             if ((*(uint64_t*) cas_buffer->addr) >> 56 == swap >> 56){
@@ -4631,8 +4631,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         assert(STRUCT_OFFSET(DataPage, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
         post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         //Increase the page version before every page flush back.
-        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr.p_version));
-        ((DataPage*)page_buffer->addr)->hdr.p_version++;
+//        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr.p_version));
+//        ((DataPage*)page_buffer->addr)->hdr.p_version++;
         ibv_mr post_gl_page_local_mr = *page_buffer;
         post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
         page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
@@ -4762,8 +4762,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         ibv_mr post_gl_page_local_mr = *page_buffer;
         //Increase the page version before every page flush back.
-        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr.p_version));
-        ((DataPage*)page_buffer->addr)->hdr.p_version++;
+//        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr.p_version));
+//        ((DataPage*)page_buffer->addr)->hdr.p_version++;
         post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
         page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         assert(remote_lock_addr <= post_gl_page_addr - 8);
@@ -4896,8 +4896,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         ibv_mr post_gl_page_local_mr = *page_buffer;
         //Increase the page version before every page flush back.
-        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr.p_version));
-        ((DataPage*)page_buffer->addr)->hdr.p_version++;
+//        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr.p_version));
+//        ((DataPage*)page_buffer->addr)->hdr.p_version++;
         post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
         page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         assert(remote_lock_addr <= post_gl_page_addr - 8);
@@ -5872,7 +5872,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
     send_pointer->command = writer_invalidate_modified;
     send_pointer->content.inv_message.page_addr = global_ptr;
     send_pointer->content.inv_message.starvation_level = starv_level;
-    send_pointer->content.inv_message.p_version = page_version;
+//    send_pointer->content.inv_message.p_version = page_version;
     send_pointer->buffer = recv_mr->addr;
     send_pointer->rkey = recv_mr->rkey;
 //    send_pointer->buffer = receive_mr.addr;
@@ -5925,7 +5925,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
         send_pointer->command = reader_invalidate_modified;
         send_pointer->content.inv_message.page_addr = global_ptr;
         send_pointer->content.inv_message.starvation_level = starv_level;
-        send_pointer->content.inv_message.p_version = page_version;
+//        send_pointer->content.inv_message.p_version = page_version;
         send_pointer->buffer = recv_mr->addr;
         send_pointer->rkey = recv_mr->rkey;
 //        RDMA_ReplyXCompute* receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
@@ -5960,7 +5960,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
     }
 
     bool RDMA_Manager::Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level,
-                                                    uint64_t page_version, uint8_t pos) {
+                                                    uint8_t pos) {
         assert(target_node_id!= node_id);
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
@@ -5970,7 +5970,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
         send_pointer->command = writer_invalidate_shared;
         send_pointer->content.inv_message.page_addr = g_ptr;
         send_pointer->content.inv_message.starvation_level = starv_level;
-        send_pointer->content.inv_message.p_version = page_version;
+//        send_pointer->content.inv_message.p_version = page_version;
         send_pointer->buffer = (char*)recv_mr->addr + pos*sizeof(Page_Forward_Reply_Type);
         send_pointer->rkey = recv_mr->rkey;
 //        RDMA_ReplyXCompute* receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
@@ -7032,7 +7032,8 @@ void RDMA_Manager::fs_deserilization(
 //                assert(false);
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, global_lock);
             }
-            if (handle->remote_lock_status.load() > 0 && ((DataPage*)page_mr->addr)->hdr.p_version == receive_msg_buf->content.inv_message.p_version) {
+//            && ((DataPage*)page_mr->addr)->hdr.p_version == receive_msg_buf->content.inv_message.p_version
+            if (handle->remote_lock_status.load() > 0 ) {
                 //TODO: Use try lock instead of lock.
 //                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                 if(handle->rw_mtx.try_lock()){
@@ -7059,14 +7060,14 @@ void RDMA_Manager::fs_deserilization(
 
                         }
                     }else{
-                        handle->state_mtx.lock();
+                        handle->buffered_inv_mtx.lock();
                         handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
-                        handle->state_mtx.unlock();
+                        handle->buffered_inv_mtx.unlock();
                     }
                     handle->rw_mtx.unlock();
 
                 }else{
-                    handle->state_mtx.lock();
+                    handle->buffered_inv_mtx.lock();
                     if (handle->remote_lock_status.load() == 1){
                         if (handle->pending_page_forward.starvation_priority < starv_level ){
                             handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
@@ -7074,7 +7075,7 @@ void RDMA_Manager::fs_deserilization(
                         }
                         reply_type = pending;
                     }
-                    handle->state_mtx.unlock();
+                    handle->buffered_inv_mtx.unlock();
 
                     // In case that this node upgrade the lock to a Exclusive lock.
                     //TODO: do I need specify what is the state in orginal invlaidaotn message sender, other wise, this node may not know,
@@ -7129,9 +7130,9 @@ message_reply:
                 lock_gptr.offset = lock_gptr.offset + STRUCT_OFFSET(InternalPage<uint64_t>, global_lock);
             }
             // double check locking
-            if (handle->remote_lock_status.load() > 0 && ((DataPage*)page_mr->addr)->hdr.p_version == receive_msg_buf->content.inv_message.p_version){
+            if (handle->remote_lock_status.load() > 0 ){ // && ((DataPage*)page_mr->addr)->hdr.p_version == receive_msg_buf->content.inv_message.p_version
                 if (handle->rw_mtx.try_lock()){
-                    // TODO: maybe we need the state_mtx to protect the states.
+                    // TODO: maybe we need the buffered_inv_mtx to protect the states.
                     if (starv_level >= handle->pending_page_forward.starvation_priority){
                         if (handle->remote_lock_status.load() == 2){
                             global_write_page_and_WdowntoR(page_mr, g_ptr,
@@ -7143,14 +7144,14 @@ message_reply:
                         }
                     }
                     else{
-                        handle->state_mtx.lock();
+                        handle->buffered_inv_mtx.lock();
                         handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
-                        handle->state_mtx.unlock();
+                        handle->buffered_inv_mtx.unlock();
                     }
 
                     handle->rw_mtx.unlock();
                 }else{
-                    handle->state_mtx.lock();
+                    handle->buffered_inv_mtx.lock();
                     //TODO: the code below have some problems.
                     if (handle->remote_lock_status.load() == 2){
                         if (handle->pending_page_forward.starvation_priority < starv_level ){
@@ -7159,7 +7160,7 @@ message_reply:
                         }
                         reply_type = pending;
                     }
-                    handle->state_mtx.unlock();
+                    handle->buffered_inv_mtx.unlock();
 
                 }
             }
@@ -7199,17 +7200,16 @@ message_reply:
         assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
         assert(STRUCT_OFFSET(DataPage, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
 
-        if (handle->remote_lock_status.load() <= 0 ||
-            ((DataPage*)page_mr->addr)->hdr.p_version != receive_msg_buf->content.inv_message.p_version) {
-            page_cache_->Release(handle);
-            reply_type = dropped;
-            goto message_reply;
-        }
+//        if (handle->remote_lock_status.load() != 2 ) { // ||((DataPage*)page_mr->addr)->hdr.p_version != receive_msg_buf->content.inv_message.p_version
+//            page_cache_->Release(handle);
+//            reply_type = dropped;
+//            goto message_reply;
+//        }
         if (!handle->rw_mtx.try_lock()){
             // (Solved) problem 1. There is a potential bug that the message is cached locally, but never get processed. If one front-end thread just
             // finished the code from cache.cc:1063-1071. Then the message is pushed and will never get processed.
+            handle->buffered_inv_mtx.lock();
             if(handle->remote_lock_status.load() == 2){
-                handle->state_mtx.lock();
                 //  handle->lock_pending_num >0 is to avoid the case that the message is buffered but there is no local thread process it
                 // in the future.
                 if (handle->pending_page_forward.starvation_priority < starv_level ){
@@ -7221,55 +7221,57 @@ message_reply:
                     handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
                     handle->remote_urging_type.store(2);
                     reply_type = pending;
-                    handle->state_mtx.unlock();
+                    handle->buffered_inv_mtx.unlock();
                     page_cache_->Release(handle);
                     goto message_reply;
                 }
-                handle->state_mtx.unlock();
             }
+            handle->buffered_inv_mtx.unlock();
             reply_type = dropped;
             page_cache_->Release(handle);
             goto message_reply;
-        }
-        // THe lock has been acquired.
+        }else{
+            // THe lock has been acquired.
 
-        // there should be no buffered invalidation request
-        // TODO: problem 2: there could be unsolved invalidaiton message existed in the buffer.
-        // E.g., a thread just finished the code from cache.cc:1062. shared lock release and the invalidaton message
-        // comes in, before it update the lock to exclusive one.
+            // there should be no buffered invalidation request
+            // (Solved) problem 2: there could be unsolved invalidaiton message existed in the buffer.
+            // E.g., a thread just finished the code from cache.cc:1062. shared lock release and the invalidaton message
+            // comes in, before it update the lock to exclusive one.
 
-        //Possible solution, if detect there is a buffered invalidaton message check the priority and decide weather drop the old and process
-        // the starved one.
+            //Possible solution, if detect there is a buffered invalidaton message check the priority and decide weather drop the old and process
+            // the starved one.
 
 
-        handle->state_mtx.lock();
+            handle->buffered_inv_mtx.lock();
 
-        if (starv_level >= handle->pending_page_forward.starvation_priority){
-            if (handle->remote_lock_status.load() == 2){
+            if (starv_level >= handle->pending_page_forward.starvation_priority){
+                if (handle->remote_lock_status.load() == 2){
 
-                if ( handle->pending_page_forward.next_holder_id!= Invalid_Node_ID ){
-                    ibv_mr* local_mr = Get_local_send_message_mr();
-                    // drop the old invalidation message.
-                    handle->drop_buffered_inv_message(local_mr, this);
-                }
-                // push current invalidation message into the handle buffer.
-                handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
-                handle->remote_urging_type.store(2);
+                    if ( handle->pending_page_forward.next_holder_id!= Invalid_Node_ID ){
+                        ibv_mr* local_mr = Get_local_send_message_mr();
+                        // drop the old invalidation message.
+                        handle->drop_buffered_inv_message(local_mr, this);
+                    }
+                    // push current invalidation message into the handle buffer.
+                    handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
+                    handle->remote_urging_type.store(2);
 //                assert(handle->read_lock_counter == 0 && handle->write_lock_counter == 0);
-                handle->state_mtx.unlock();
-                reply_type = processed;
-                page_cache_->Release(handle);
-                goto message_reply;
+                    handle->buffered_inv_mtx.unlock();
+                    reply_type = processed;
+                    page_cache_->Release(handle);
+                    goto message_reply;
 
+                }
+            }else if (handle->pending_page_forward.next_holder_id != Invalid_Node_ID){
+                handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
             }
+            handle->buffered_inv_mtx.unlock();
+            reply_type = dropped;
+            page_cache_->Release(handle);
+            goto message_reply;
+
         }
-        else if (handle->pending_page_forward.next_holder_id != Invalid_Node_ID){
-            handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
-        }
-        handle->state_mtx.unlock();
-        reply_type = dropped;
-        page_cache_->Release(handle);
-//        goto message_reply;
+
 
     message_reply:
         ibv_mr* local_mr = nullptr;
@@ -7277,21 +7279,21 @@ message_reply:
 
         switch (reply_type) {
             case processed:
-                handle->state_mtx.lock();
+                handle->buffered_inv_mtx.lock();
                 //forward the page to concurrent writer.
                 handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
-                handle->state_mtx.unlock();
+                handle->buffered_inv_mtx.unlock();
                 handle->rw_mtx.unlock();
                 break;
             case pending:
                 // After install the buffered invalidation message, we can try the lock again incase that there is no pending
                 // reader/writer waiting for the local latch and the cached inv message never get processed
                 if (handle->rw_mtx.try_lock()){
-                    handle->state_mtx.lock();
+                    handle->buffered_inv_mtx.lock();
                     if (handle->pending_page_forward.next_holder_id != Invalid_Node_ID){
                         handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
                     }
-                    handle->state_mtx.unlock();
+                    handle->buffered_inv_mtx.unlock();
                     handle->rw_mtx.unlock();
                 }
                 break;
