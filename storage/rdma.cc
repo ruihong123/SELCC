@@ -7055,7 +7055,7 @@ void RDMA_Manager::fs_deserilization(
 #endif
                             handle->remote_lock_status.store(0);
                             reply_type = processed;
-                            handle->clear_release_states();
+                            handle->clear_pending_inv_states();
 
                         }
                     }else{
@@ -7137,7 +7137,7 @@ message_reply:
                             global_write_page_and_WdowntoR(page_mr, g_ptr,
                                                            page_mr->length, lock_gptr);
                             handle->remote_lock_status.store(1);
-                            handle->clear_release_states();
+                            handle->clear_pending_inv_states();
                             reply_type = processed;
 //                        printf("Release write lock %lu\n", g_ptr);
                         }
@@ -7252,12 +7252,8 @@ message_reply:
                     // drop the old invalidation message.
                     handle->drop_buffered_inv_message(local_mr, this);
                 }
-                global_write_page_and_WHandover(page_mr, g_ptr,
-                                                page_mr->length, target_node_id, lock_gptr);
-                handle->remote_lock_status.store(0);
-                assert(handle->read_lock_counter == 0 && handle->write_lock_counter == 0);
-                handle->clear_release_states();
-
+                handle->assert_no_handover_states();
+//                assert(handle->read_lock_counter == 0 && handle->write_lock_counter == 0);
                 handle->state_mtx.unlock();
                 reply_type = processed;
                 page_cache_->Release(handle);
@@ -7283,6 +7279,9 @@ message_reply:
                 local_mr = page_mr;
                 assert(local_mr->length == kLeafPageSize);
                 *(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) = reply_type;
+                // The sequence of this two RDMA message could be problematic, because we do not know,
+                // whether the global latch release will arrive sooner than the page forward. if not the next cache holder
+                // can find the old cach copy holder still there when releasing the latch.
                 RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, kLeafPageSize,
                                     target_node_id, qp_id, false);
                 // todo: maybe we don't need to flush back the page here?

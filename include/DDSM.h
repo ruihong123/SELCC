@@ -56,7 +56,7 @@ namespace DSMEngine {
             }else{
                 //An invalidated page, do nothing
             }
-            handle->clear_release_states();
+        handle->clear_pending_inv_states();
 //        }else{
 //            //TODO: delete the  asserts below when you implement the strategy 2.
 //

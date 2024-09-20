@@ -149,7 +149,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
 #endif
         void (*deleter)(Cache_Handle* handle);
         ~Cache_Handle(){}
-        void clear_release_states(){
+        void clear_pending_inv_states(){
 //            state_mtx.lock();
 //            lock_pending_num.store(0);
 //            read_lock_holder_num.store(0);

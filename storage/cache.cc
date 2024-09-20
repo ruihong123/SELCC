@@ -1683,7 +1683,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         }else{
             //The lock has been released by other threads.
         }
-        clear_release_states();
+        clear_pending_inv_states();
 //        state_mtx.unlock();
     }
 
@@ -1694,6 +1694,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
         rdma_mg->RDMA_Write_xcompute(local_mr, pending_page_forward.next_receive_buf, pending_page_forward.next_receive_rkey, sizeof(Page_Forward_Reply_Type),
                             pending_page_forward.next_holder_id, qp_id, true);
+        clear_pending_inv_states();
     }
 
 }  // namespace DSMEngine
