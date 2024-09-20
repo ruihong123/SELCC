@@ -7212,7 +7212,7 @@ message_reply:
                 handle->state_mtx.lock();
                 //  handle->lock_pending_num >0 is to avoid the case that the message is buffered but there is no local thread process it
                 // in the future.
-                if ( handle->lock_pending_num >0 && handle->pending_page_forward.starvation_priority < starv_level ){
+                if (handle->pending_page_forward.starvation_priority < starv_level ){
                     if ( handle->pending_page_forward.next_holder_id!= Invalid_Node_ID ){
                         ibv_mr* local_mr = Get_local_send_message_mr();
                         // drop the old invalidation message.
@@ -7275,22 +7275,22 @@ message_reply:
 
         switch (reply_type) {
             case processed:
+                handle->state_mtx.lock();
                 //forward the page to concurrent writer.
-                local_mr = page_mr;
-                assert(local_mr->length == kLeafPageSize);
-                *(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) = reply_type;
-                // The sequence of this two RDMA message could be problematic, because we do not know,
-                // whether the global latch release will arrive sooner than the page forward. if not the next cache holder
-                // can find the old cach copy holder still there when releasing the latch.
-                RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, kLeafPageSize,
-                                    target_node_id, qp_id, false);
-                // todo: maybe we don't need to flush back the page here?
-                global_write_page_and_WHandover(page_mr, g_ptr,
-                                                page_mr->length, target_node_id, lock_gptr);
-                handle->remote_lock_status.store(0);
+                handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
+                handle->state_mtx.unlock();
                 handle->rw_mtx.unlock();
                 break;
             case pending:
+                // After install the buffered invalidation message, we can try the lock again incase that there is no pending
+                // reader/writer waiting for the local latch and the cached inv message never get processed
+                if (handle->rw_mtx.try_lock()){
+                    handle->state_mtx.lock();
+                    if (handle->pending_page_forward.next_holder_id != Invalid_Node_ID){
+                        handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
+                    }
+                    handle->state_mtx.unlock();
+                }
                 break;
             case waiting:
                 assert(false);

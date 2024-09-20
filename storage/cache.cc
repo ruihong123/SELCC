@@ -1616,7 +1616,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         }
         rw_mtx.unlock();
     }
-// TODO: This function shall treat buffered invalidation message diffirently according to the message type.
+// TODO: This function shall be separated into three.
     void Cache_Handle::process_buffered_inv_message(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
                                                     ibv_mr *mr, bool need_spin) {
 //        state_mtx.lock();
@@ -1664,6 +1664,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 assert(local_mr->length == kLeafPageSize);
                 int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
                 *(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) = processed;
+                // The sequence of this two RDMA message could be problematic, because we do not know,
+                // whether the global latch release will arrive sooner than the page forward. if not the next cache holder
+                // can find the old cach copy holder still there when releasing the latch.
                 rdma_mg->RDMA_Write_xcompute(local_mr, pending_page_forward.next_receive_buf, pending_page_forward.next_receive_rkey, kLeafPageSize,
                                     pending_page_forward.next_holder_id, qp_id, false);
                 //TODO: The dirty page flush back here is not necessary.
@@ -1681,7 +1684,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             }
 
         }else{
-            //The lock has been released by other threads.
+
         }
         clear_pending_inv_states();
 //        state_mtx.unlock();
