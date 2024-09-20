@@ -1063,9 +1063,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 rw_mtx.lock(RDMA_Manager::thread_id+256);
                 handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
 
-                if ( handover_degree > STARVATION_THRESHOLD || lock_pending_num.load()==0){
+                if (remote_lock_urged.load() > 0 && (handover_degree > STARVATION_THRESHOLD || lock_pending_num.load()==0)){
                     //double check locking, it is possible that another thread comes in and also try to process the buffer inv message.
-                    assert_no_handover_states();
+                    assert_with_handover_states();
                     process_buffered_inv_message(page_addr, page_size, lock_addr, mr, true);
                 }
                 rw_mtx.unlock();
