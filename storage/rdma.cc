@@ -5882,7 +5882,9 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
     receive_pointer = (Page_Forward_Reply_Type*)((char*)page_buffer->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type));
     //Clear the reply buffer for the polling.
     *receive_pointer = waiting;
-
+#ifndef NDEBUG
+    memset(page_buffer->addr, 0, page_buffer->length);
+#endif
     //USE static ticket to minuimize the conflict.
     int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
     //TODO: no need to be signaled, can make it without completion.
