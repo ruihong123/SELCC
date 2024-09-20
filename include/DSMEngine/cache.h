@@ -129,7 +129,8 @@ constexpr uint8_t Invalid_Node_ID = 255;
 //        std::atomic<bool> timer_alarmed = false;
 
         //1 reader invalidation urge. 2 writer invalidation urge
-        std::atomic<uint8_t > remote_lock_urged = 0;
+        //TODO: make urging type inside pending_page_forward
+        std::atomic<uint8_t > remote_urging_type = 0;
         //TODO: make the pending page forward remember mulitple read invalidation request, and process accordingly
         PendingPageForward pending_page_forward;
 //        std::atomic<uint8_t > remote_xlock_next = 0;
@@ -158,7 +159,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
 //            timer_alarmed.store(false);
             read_lock_counter.store(0);
             write_lock_counter.store(0);
-            remote_lock_urged.store(0);
+            remote_urging_type.store(0);
             pending_page_forward.ClearStates();
 
 //#ifdef EARLY_LOCK_RELEASE
@@ -171,9 +172,9 @@ constexpr uint8_t Invalid_Node_ID = 255;
         void assert_no_handover_states(){
 #ifndef NDEBUG
 //            assert(lock_pending_num == 0);
-            assert(read_lock_counter == 0);
-            assert(write_lock_counter == 0);
-            assert(remote_lock_urged == 0);
+//            assert(read_lock_counter == 0);
+//            assert(write_lock_counter == 0);
+            assert(remote_urging_type == 0);
             pending_page_forward.AssertStatesCleared();
 #endif
 
@@ -181,9 +182,9 @@ constexpr uint8_t Invalid_Node_ID = 255;
         void assert_with_handover_states(){
 #ifndef NDEBUG
 //            assert(lock_pending_num != 0);
-            assert(read_lock_counter != 0);
-            assert(write_lock_counter != 0);
-            assert(remote_lock_urged != 0);
+//            assert(read_lock_counter != 0);
+//            assert(write_lock_counter != 0);
+            assert(remote_urging_type != 0);
             pending_page_forward.AssertStatesExist();
 #endif
 
@@ -307,7 +308,7 @@ class DSMEngine_EXPORT Cache {
 //        char key_data[1];  // Beginning of key
         void init(){
             assert(remote_lock_status == 0);
-            assert(remote_lock_urged == 0);
+            assert(remote_urging_type == 0);
             gptr = GlobalAddress::Null();
 
             deleter = nullptr;

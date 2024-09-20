@@ -7070,8 +7070,8 @@ void RDMA_Manager::fs_deserilization(
                     if (handle->remote_lock_status.load() == 1){
                         if (handle->pending_page_forward.starvation_priority < starv_level ){
                             handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
+                            handle->remote_urging_type.store(2);
                         }
-                        handle->remote_lock_urged.store(2);
                         reply_type = pending;
                     }
                     handle->state_mtx.unlock();
@@ -7155,8 +7155,8 @@ message_reply:
                     if (handle->remote_lock_status.load() == 2){
                         if (handle->pending_page_forward.starvation_priority < starv_level ){
                             handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
+                            handle->remote_urging_type.store(1);
                         }
-                        handle->remote_lock_urged.store(1);
                         reply_type = pending;
                     }
                     handle->state_mtx.unlock();
@@ -7219,7 +7219,7 @@ message_reply:
                         handle->drop_buffered_inv_message(local_mr, this);
                     }
                     handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
-                    handle->remote_lock_urged.store(2);
+                    handle->remote_urging_type.store(2);
                     reply_type = pending;
                     handle->state_mtx.unlock();
                     page_cache_->Release(handle);
