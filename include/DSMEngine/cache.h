@@ -151,7 +151,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
         ~Cache_Handle(){}
         void clear_release_states(){
 //            state_mtx.lock();
-            lock_pending_num.store(0);
+//            lock_pending_num.store(0);
 //            read_lock_holder_num.store(0);
 //            lock_handover_count.store(0);
 //            timer_on.store(false);
@@ -170,7 +170,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
         }
         void assert_no_handover_states(){
 #ifndef NDEBUG
-            assert(lock_pending_num == 0);
+//            assert(lock_pending_num == 0);
             assert(read_lock_counter == 0);
             assert(write_lock_counter == 0);
             assert(remote_lock_urged == 0);
@@ -180,7 +180,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
         }
         void assert_with_handover_states(){
 #ifndef NDEBUG
-            assert(lock_pending_num != 0);
+//            assert(lock_pending_num != 0);
             assert(read_lock_counter != 0);
             assert(write_lock_counter != 0);
             assert(remote_lock_urged != 0);

@@ -1066,7 +1066,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 if (remote_lock_urged.load() > 0 && (handover_degree > STARVATION_THRESHOLD || lock_pending_num.load()==0)){
                     //double check locking, it is possible that another thread comes in and also try to process the buffer inv message.
                     assert_with_handover_states();
+                    state_mtx.lock();
                     process_buffered_inv_message(page_addr, page_size, lock_addr, mr, true);
+                    state_mtx.unlock();
                 }
                 rw_mtx.unlock();
 
@@ -1472,7 +1474,16 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             assert(remote_lock_status == 2);
 //            || timer_alarmed.load()
             if ( handover_degree > STARVATION_THRESHOLD || lock_pending_num.load()==0){
+                if (handover_degree > STARVATION_THRESHOLD){
+                    printf("Process the cached invalidation message due to hitting the thredhold.\n");
+                    fflush(stdout);
+                } else{
+                    printf("Process the cached invalidation message due to no pending waiter.\n");
+                    fflush(stdout);
+                }
+                state_mtx.lock();
                 process_buffered_inv_message(page_addr, page_size, lock_addr, mr, true);
+                state_mtx.unlock();
             }
         }
         rw_mtx.unlock();
@@ -1598,7 +1609,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             assert(remote_lock_status == 2);
 //            || timer_alarmed.load()
             if ( handover_degree > STARVATION_THRESHOLD ){
+                state_mtx.lock();
                 process_buffered_inv_message(page_addr, page_size, lock_addr, mr, true);
+                state_mtx.unlock();
             }
         }
         rw_mtx.unlock();
@@ -1606,7 +1619,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 // TODO: This function shall treat buffered invalidation message diffirently according to the message type.
     void Cache_Handle::process_buffered_inv_message(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
                                                     ibv_mr *mr, bool need_spin) {
-        state_mtx.lock();
+//        state_mtx.lock();
         assert(remote_lock_status != 0);
         assert(remote_lock_urged != 0);
         if (this->remote_lock_status == 1){
@@ -1671,7 +1684,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             //The lock has been released by other threads.
         }
         clear_release_states();
-        state_mtx.unlock();
+//        state_mtx.unlock();
     }
 
     void Cache_Handle::drop_buffered_inv_message(ibv_mr *local_mr, RDMA_Manager *rdma_mg) {

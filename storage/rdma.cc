@@ -7059,7 +7059,9 @@ void RDMA_Manager::fs_deserilization(
 
                         }
                     }else{
+                        handle->state_mtx.lock();
                         handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
+                        handle->state_mtx.unlock();
                     }
                     handle->rw_mtx.unlock();
 
@@ -7141,8 +7143,9 @@ message_reply:
                         }
                     }
                     else{
+                        handle->state_mtx.lock();
                         handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
-
+                        handle->state_mtx.unlock();
                     }
 
                     handle->rw_mtx.unlock();
@@ -7203,10 +7206,13 @@ message_reply:
             goto message_reply;
         }
         if (!handle->rw_mtx.try_lock()){
-
+            // (Solved) problem 1. There is a potential bug that the message is cached locally, but never get processed. If one front-end thread just
+            // finished the code from cache.cc:1063-1071. Then the message is pushed and will never get processed.
             if(handle->remote_lock_status.load() == 2){
                 handle->state_mtx.lock();
-                if ( handle->pending_page_forward.starvation_priority < starv_level ){
+                //  handle->lock_pending_num >0 is to avoid the case that the message is buffered but there is no local thread process it
+                // in the future.
+                if ( handle->lock_pending_num >0 && handle->pending_page_forward.starvation_priority < starv_level ){
                     if ( handle->pending_page_forward.next_holder_id!= Invalid_Node_ID ){
                         ibv_mr* local_mr = Get_local_send_message_mr();
                         // drop the old invalidation message.
@@ -7228,44 +7234,45 @@ message_reply:
         // THe lock has been acquired.
 
         // there should be no buffered invalidation request
-        // TODO: When SELCC release a latch, it need to check whether there is pending
-        // waiter on the latch, if not, it need to check the local invbuffer and process it if no holder behind.
-        handle->assert_no_handover_states();
-        reply_type = processed;
+        // TODO: problem 2: there could be unsolved invalidaiton message existed in the buffer.
+        // E.g., a thread just finished the code from cache.cc:1062. shared lock release and the invalidaton message
+        // comes in, before it update the lock to exclusive one.
+
+        //Possible solution, if detect there is a buffered invalidaton message check the priority and decide weather drop the old and process
+        // the starved one.
 
 
+        handle->state_mtx.lock();
 
+        if (starv_level >= handle->pending_page_forward.starvation_priority){
+            if (handle->remote_lock_status.load() == 2){
 
-//        if (starv_level >= handle->starvation_priority){
-//            if (handle->remote_lock_status.load() == 2){
-//                if (starv_level >0){
-//                    global_write_page_and_WHandover(page_mr, g_ptr,
-//                                                    page_mr->length, target_node_id, lock_gptr);
-//                    handle->remote_lock_status.store(0);
-//
-//
-//                }else{
-//                    global_write_page_and_Wunlock(page_mr, g_ptr,
-//                                                  page_mr->length, lock_gptr);
-//                    handle->remote_lock_status.store(0);
-//                }
-//                handle->clear_release_states();
-//
-//                reply_type = processed;
-//                //todo: (1) implement a lock handover mechanism. if starvation level larger than 1.
-//                // (2) check whether there is lock urge, if so check whether the starvation_priority is larger than this.
-////                        printf("Release write lock %lu\n", g_ptr);
-//            }
-//        }
-//        else{
-//            handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
-//        }
+                if ( handle->pending_page_forward.next_holder_id!= Invalid_Node_ID ){
+                    ibv_mr* local_mr = Get_local_send_message_mr();
+                    // drop the old invalidation message.
+                    handle->drop_buffered_inv_message(local_mr, this);
+                }
+                global_write_page_and_WHandover(page_mr, g_ptr,
+                                                page_mr->length, target_node_id, lock_gptr);
+                handle->remote_lock_status.store(0);
+                assert(handle->read_lock_counter == 0 && handle->write_lock_counter == 0);
+                handle->clear_release_states();
 
-//            }else{
-//
-//
-//            }
-//        page_cache_->Release(handle);
+                handle->state_mtx.unlock();
+                reply_type = processed;
+                page_cache_->Release(handle);
+                goto message_reply;
+
+            }
+        }
+        else if (handle->pending_page_forward.next_holder_id != Invalid_Node_ID){
+            handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
+        }
+        handle->state_mtx.unlock();
+        reply_type = dropped;
+        page_cache_->Release(handle);
+//        goto message_reply;
+
     message_reply:
         ibv_mr* local_mr = nullptr;
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
