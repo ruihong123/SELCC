@@ -7204,10 +7204,12 @@ message_reply:
 
             if(handle->remote_lock_status.load() == 2){
                 handle->state_mtx.lock();
-                if (handle->pending_page_forward.starvation_priority < starv_level ){
-                    ibv_mr* local_mr = Get_local_send_message_mr();
-                    // drop the old invalidation message.
-                    handle->drop_buffered_inv_message(local_mr, nullptr);
+                if ( handle->pending_page_forward.starvation_priority < starv_level ){
+                    if ( handle->pending_page_forward.next_holder_id!= Invalid_Node_ID ){
+                        ibv_mr* local_mr = Get_local_send_message_mr();
+                        // drop the old invalidation message.
+                        handle->drop_buffered_inv_message(local_mr, this);
+                    }
                     handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
                     handle->remote_lock_urged.store(2);
                     reply_type = pending;
