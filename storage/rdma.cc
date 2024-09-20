@@ -7252,7 +7252,9 @@ message_reply:
                     // drop the old invalidation message.
                     handle->drop_buffered_inv_message(local_mr, this);
                 }
-                handle->assert_no_handover_states();
+                // push current invalidation message into the handle buffer.
+                handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
+                handle->remote_urging_type.store(2);
 //                assert(handle->read_lock_counter == 0 && handle->write_lock_counter == 0);
                 handle->state_mtx.unlock();
                 reply_type = processed;
@@ -7290,6 +7292,7 @@ message_reply:
                         handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
                     }
                     handle->state_mtx.unlock();
+                    handle->rw_mtx.unlock();
                 }
                 break;
             case waiting:
