@@ -91,6 +91,24 @@ constexpr uint8_t Invalid_Node_ID = 255;
                 this->starvation_priority.store(0);
                 this->next_inv_message_type.store(invalid_command_);
             }
+            void AssertStatesCleared(){
+#ifndef NDEBUG
+                assert(this->next_holder_id == Invalid_Node_ID);
+                assert(this->next_receive_buf == nullptr);
+                assert(this->next_receive_rkey == 0);
+                assert(this->starvation_priority == 0);
+                assert(this->next_inv_message_type == invalid_command_);
+#endif
+            }
+            void AssertStatesExist(){
+#ifndef NDEBUG
+                assert(this->next_holder_id != Invalid_Node_ID);
+                assert(this->next_receive_buf != nullptr);
+                assert(this->next_receive_rkey != 0);
+                assert(this->starvation_priority != 0);
+                assert(this->next_inv_message_type != invalid_command_);
+#endif
+            }
         };
     public:
         void* value = nullptr; // NOTE: the value is the pointer to ibv_mr not the buffer!!!! Carefule.
@@ -109,7 +127,10 @@ constexpr uint8_t Invalid_Node_ID = 255;
 //        std::atomic<int> lock_handover_count = 0;
 //        std::atomic<bool> timer_on = false;
 //        std::atomic<bool> timer_alarmed = false;
-        std::atomic<uint8_t > remote_lock_urged = 0; //1 writer invalidation urge, 2 reader invalidation urge.
+
+        //1 reader invalidation urge. 2 writer invalidation urge
+        std::atomic<uint8_t > remote_lock_urged = 0;
+        //TODO: make the pending page forward remember mulitple read invalidation request, and process accordingly
         PendingPageForward pending_page_forward;
 //        std::atomic<uint8_t > remote_xlock_next = 0;
 //        std::atomic<uint8_t> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
@@ -138,14 +159,34 @@ constexpr uint8_t Invalid_Node_ID = 255;
             read_lock_counter.store(0);
             write_lock_counter.store(0);
             remote_lock_urged.store(0);
-            next_holder_id.store(Invalid_Node_ID);
-            starvation_priority.store(0);
+            pending_page_forward.ClearStates();
+
 //#ifdef EARLY_LOCK_RELEASE
 //            mr_in_use = false;
 //#endif
 //            remote_xlock_next.store(0);
 //            strategy.store(1);
 //            state_mtx.unlock();
+        }
+        void assert_no_handover_states(){
+#ifndef NDEBUG
+            assert(lock_pending_num == 0);
+            assert(read_lock_counter == 0);
+            assert(write_lock_counter == 0);
+            assert(remote_lock_urged == 0);
+            pending_page_forward.AssertStatesCleared();
+#endif
+
+        }
+        void assert_with_handover_states(){
+#ifndef NDEBUG
+            assert(lock_pending_num != 0);
+            assert(read_lock_counter != 0);
+            assert(write_lock_counter != 0);
+            assert(remote_lock_urged != 0);
+            pending_page_forward.AssertStatesExist();
+#endif
+
         }
         void reader_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
         bool try_reader_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
@@ -159,14 +200,15 @@ constexpr uint8_t Invalid_Node_ID = 255;
         void upgrade_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
 
         void updater_writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
-        void invalidate_current_entry(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *mr, ibv_mr* cas_mr);
+//        void invalidate_current_entry(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *mr, ibv_mr* cas_mr);
         // Blind write, carefully used.
         void writer_pre_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
         void writer_post_access(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr, ibv_mr *&mr);
         bool global_Rlock_update(ibv_mr *local_mr, GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt = nullptr,
                                  int coro_id = 0);
-        void Invalid_local_by_cached_mes(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
-                                         ibv_mr *mr, bool need_spin);
+        void process_buffered_inv_message(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
+                                          ibv_mr *mr, bool need_spin);
+        void drop_buffered_inv_message(ibv_mr *local_mr, RDMA_Manager *rdma_mg);
     };
 
 class DSMEngine_EXPORT Cache {

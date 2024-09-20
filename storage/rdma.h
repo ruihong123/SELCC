@@ -258,8 +258,9 @@ struct RDMA_Request {
   uint32_t imm_num; // 0 for Compaction threads signal, 1 for Flushing threads signal.
 //  Options opt;
 } __attribute__((packed));
+enum Page_Forward_Reply_Type: uint8_t  {waiting = 0, processed = 1, dropped = 2, pending = 3};
 struct RDMA_ReplyXCompute {
-    uint8_t inv_reply_type; // 0 not received, 1 message processed at the scene, 2 the target handle is not found or found invalidated, 3 message was pushed in the handle.
+    Page_Forward_Reply_Type inv_reply_type; // 0 not received, 1 message processed at the scene, 2 the target handle is not found or found invalidated, 3 message was pushed in the handle.
     uint8_t toPC_reply_type; // 0 not received, 1 commit, 2 abort.
     uint16_t to_fill_blank2;
 } __attribute__((packed));
@@ -475,8 +476,8 @@ class RDMA_Manager {
     void Prepare_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     void Commit_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     void Abort_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
-    bool Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *page_buffer, uint16_t target_node_id,
-                                        uint8_t starv_level, uint64_t page_version);
+    Page_Forward_Reply_Type Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *page_buffer, uint16_t target_node_id,
+                                                           uint8_t starv_level, uint64_t page_version);
     bool Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
                                         uint64_t page_version);
     bool Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level,
@@ -608,7 +609,11 @@ class RDMA_Manager {
                              int coro_id = 0);
 
 
-
+    static void clear_page_forward_flag(char* page_addr){
+        Page_Forward_Reply_Type* p = reinterpret_cast<Page_Forward_Reply_Type*>((char*)page_addr +kLeafPageSize -
+                                                                                                  sizeof(Page_Forward_Reply_Type));
+        *p = waiting;
+    }
     bool global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
                                                  ibv_mr *cas_buffer, int r_times = -1, CoroContext *cxt= nullptr, int coro_id = 0);
     void global_Wlock_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
@@ -679,7 +684,8 @@ class RDMA_Manager {
       std::map<void*, In_Use_Array*>& remote_mem_bitmap, ibv_mr* local_mr);
   //  void mem_pool_serialization
   bool poll_reply_buffer(RDMA_Reply* rdma_reply);
-  static bool poll_reply_buffer(volatile RDMA_ReplyXCompute * rdma_reply);
+  static Page_Forward_Reply_Type poll_reply_buffer(volatile Page_Forward_Reply_Type* reply_buffer);
+  static bool poll_reply_buffer(RDMA_ReplyXCompute * rdma_reply);
   void Set_message_handling_func(std::function<void(uint32_t)> &&func);
   void register_message_handling_thread(uint32_t handler_id);
     void join_all_handling_thread();

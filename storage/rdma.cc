@@ -304,36 +304,32 @@ bool RDMA_Manager::poll_reply_buffer(RDMA_Reply* rdma_reply) {
     asm volatile ("sfence\n" : : );
     asm volatile ("lfence\n" : : );
     asm volatile ("mfence\n" : : );
-//    std::fprintf(stderr, "Polling reply buffer\r");
-//    std::fflush(stderr);
-//    counter++;
-//    if (counter == 1000000){
-//      printf("Polling not get a result\n");
-//      return false;
-//    }
-
   }
   return true;
 }
-    bool RDMA_Manager::poll_reply_buffer(volatile RDMA_ReplyXCompute* rdma_reply) {
-        volatile uint8_t * check_byte = &(rdma_reply->inv_reply_type);
+    bool RDMA_Manager::poll_reply_buffer(RDMA_ReplyXCompute* rdma_reply) {
+        volatile Page_Forward_Reply_Type * check_byte = &(rdma_reply->inv_reply_type);
 //  size_t counter = 0;
-        while(!*check_byte){
+        while(*check_byte == waiting){
             _mm_clflush(check_byte);
             asm volatile ("sfence\n" : : );
             asm volatile ("lfence\n" : : );
             asm volatile ("mfence\n" : : );
-//            std::fprintf(stderr, "Polling RDMA_ReplyXCompute buffer\r");
-//            std::fflush(stderr);
-//    counter++;
-//    if (counter == 1000000){
-//      printf("Polling not get a result\n");
-//      return false;
-//    }
-
         }
-        return true;
+        return *check_byte;
     }
+    Page_Forward_Reply_Type RDMA_Manager::poll_reply_buffer(volatile Page_Forward_Reply_Type* reply_buff) {
+
+//  size_t counter = 0;
+        while(*reply_buff == waiting){
+            _mm_clflush(reply_buff);
+            asm volatile ("sfence\n" : : );
+            asm volatile ("lfence\n" : : );
+            asm volatile ("mfence\n" : : );
+        }
+        return *reply_buff;
+    }
+
     void RDMA_Manager::Set_message_handling_func(std::function<void(uint32_t )> &&func) {
         message_handling_func = std::move(func);
     }
@@ -4199,9 +4195,13 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                         cache_invalidation[RDMA_Manager::thread_id]++;
                     }
 #endif
-                    Writer_Invalidate_Modified_RPC(page_addr,
-                                                   nullptr, write_invalidation_target, starvation_level, page_version);
-
+                    auto reply = Writer_Invalidate_Modified_RPC(page_addr,
+                                                   page_buffer, write_invalidation_target, starvation_level, page_version);
+                    if (reply == processed){
+                        //The invlaidation message is processed and page has been forwarded.
+                        ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
+                        return true;
+                    }
                 }else{
                     //It is okay to have a write invalidation target is itself, if we enable the async write unlock.
                     printf(" Write invalidation target is itself, this is rare case,, page_addr is %p, retry_cnt is %lu\n", page_addr, retry_cnt);
@@ -4398,8 +4398,13 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                         cache_invalidation[RDMA_Manager::thread_id]++;
                     }
 #endif
-                    Writer_Invalidate_Modified_RPC(page_addr, nullptr, write_invalidation_target, starvation_level, 0);
-
+                    auto reply = Writer_Invalidate_Modified_RPC(page_addr,
+                                                                page_buffer, write_invalidation_target, starvation_level, page_version);
+                    if (reply == processed){
+                        //The invlaidation message is processed and page has been forwarded.
+                        ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
+                        return;
+                    }
                 }else{
                     //It is okay to have a write invalidation target is itself, if we enable the async write unlock.
                     printf(" Write invalidation target is itself, this is rare case,, page_addr is %p, retry_cnt is %lu\n", page_addr, retry_cnt);
@@ -5852,14 +5857,16 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
   return true;
 }
 
-bool
+Page_Forward_Reply_Type
 RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *page_buffer, uint16_t target_node_id,
                                              uint8_t starv_level, uint64_t page_version) {
 //    printf(" send write invalidation message to other nodes %p\n", global_ptr);
     RDMA_Request* send_pointer;
     ibv_mr* send_mr = Get_local_send_message_mr();
-    ibv_mr* recv_mr = Get_local_receive_message_mr();
-    ibv_mr* receive_mr = {};
+    ibv_mr* recv_mr = page_buffer;
+//    clear_page_forward_flag(static_cast<char *>(page_buffer->addr));
+
+//    ibv_mr* receive_mr = {};
 
     send_pointer = (RDMA_Request*)send_mr->addr;
     send_pointer->command = writer_invalidate_modified;
@@ -5871,10 +5878,10 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
 //    send_pointer->buffer = receive_mr.addr;
 //    send_pointer->rkey = receive_mr.rkey;
 
-    RDMA_ReplyXCompute* receive_pointer;
-    receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
+    Page_Forward_Reply_Type* receive_pointer;
+    receive_pointer = (Page_Forward_Reply_Type*)((char*)page_buffer->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type));
     //Clear the reply buffer for the polling.
-    *receive_pointer = {};
+    *receive_pointer = waiting;
 
     //USE static ticket to minuimize the conflict.
     int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
@@ -5896,9 +5903,9 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
 
 
     //TODO make it wait for page forward.
-    poll_reply_buffer(receive_pointer); // poll the receive for 2 entires
+    auto reply = poll_reply_buffer(receive_pointer);
 
-    return true;
+    return reply;
 }
 
     bool
@@ -5923,8 +5930,8 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
 //    send_pointer->buffer = receive_mr.addr;
 //    send_pointer->rkey = receive_mr.rkey;
 
-    RDMA_ReplyXCompute* receive_pointer;
-    receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
+        Page_Forward_Reply_Type* receive_pointer;
+    receive_pointer = (Page_Forward_Reply_Type*)recv_mr->addr;
         //Clear the reply buffer for the polling.
     *receive_pointer = {};
 
@@ -5956,20 +5963,20 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
         RDMA_Request* send_pointer;
         ibv_mr* send_mr = Get_local_send_message_mr();
         ibv_mr* recv_mr = Get_local_read_mr();
-        assert(recv_mr->length >= sizeof(RDMA_ReplyXCompute)*56);
+        assert(recv_mr->length >= sizeof(Page_Forward_Reply_Type)*56);
         send_pointer = (RDMA_Request*)send_mr->addr;
         send_pointer->command = writer_invalidate_shared;
         send_pointer->content.inv_message.page_addr = g_ptr;
         send_pointer->content.inv_message.starvation_level = starv_level;
         send_pointer->content.inv_message.p_version = page_version;
-        send_pointer->buffer = (char*)recv_mr->addr + pos*sizeof(RDMA_ReplyXCompute);
+        send_pointer->buffer = (char*)recv_mr->addr + pos*sizeof(Page_Forward_Reply_Type);
         send_pointer->rkey = recv_mr->rkey;
 //        RDMA_ReplyXCompute* receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
 //    send_pointer->buffer = receive_mr.addr;
 //    send_pointer->rkey = receive_mr.rkey;
 
-    RDMA_ReplyXCompute* receive_pointer;
-    receive_pointer = (RDMA_ReplyXCompute*)((char*)recv_mr->addr + pos*sizeof(RDMA_ReplyXCompute));
+        Page_Forward_Reply_Type* receive_pointer;
+    receive_pointer = (Page_Forward_Reply_Type*)((char*)recv_mr->addr + pos*sizeof(Page_Forward_Reply_Type));
         //Clear the reply buffer for the polling.
     *receive_pointer = {};
 
@@ -5994,10 +6001,10 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
     }
     bool RDMA_Manager::Writer_Invalidate_Shared_RPC_Reply(uint8_t num_of_poll){
         ibv_mr* recv_mr = Get_local_read_mr();
-        RDMA_ReplyXCompute* receive_pointer;
+        Page_Forward_Reply_Type* receive_pointer;
 
         for (int i = 0; i < num_of_poll; ++i) {
-            receive_pointer = (RDMA_ReplyXCompute*)((char*)recv_mr->addr + i*sizeof(RDMA_ReplyXCompute));
+            receive_pointer = (Page_Forward_Reply_Type*)((char*)recv_mr->addr + i*sizeof(Page_Forward_Reply_Type));
             asm volatile ("sfence\n" : : );
             asm volatile ("lfence\n" : : );
             asm volatile ("mfence\n" : : );
@@ -7008,7 +7015,7 @@ void RDMA_Manager::fs_deserilization(
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         //The template will not impact the offset of level in the header so we can random give the tempalate a Type to access the leve in ther header.
         assert(STRUCT_OFFSET(Header_Index<uint64_t>, level) == STRUCT_OFFSET(Header_Index<char>, level));
-        uint8_t reply_type = 0;
+        Page_Forward_Reply_Type reply_type = waiting;
         if (handle) {
 //            printf("writer invalid Shared lock Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
             ibv_mr *page_mr = (ibv_mr *) handle->value;
@@ -7027,7 +7034,7 @@ void RDMA_Manager::fs_deserilization(
                 //TODO: Use try lock instead of lock.
 //                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                 if(handle->rw_mtx.try_lock()){
-                    if (starv_level >= handle->starvation_priority){
+                    if (starv_level >= handle->pending_page_forward.starvation_priority){
                         if ( handle->remote_lock_status.load() == 1){
                             // Asyc lock releasing, with the local latch of handle on,
                             // THe latch will be released by a callback when the aysnc functin is finished.
@@ -7045,24 +7052,23 @@ void RDMA_Manager::fs_deserilization(
 //                            handle->last_modifier_thread_id = thread_id;
 #endif
                             handle->remote_lock_status.store(0);
-                            reply_type = 1;
+                            reply_type = processed;
                             handle->clear_release_states();
 
                         }
                     }else{
-                        handle->Invalid_local_by_cached_mes(g_ptr, page_mr->length, lock_gptr, page_mr, false);
+                        handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
                     }
                     handle->rw_mtx.unlock();
 
                 }else{
                     handle->state_mtx.lock();
                     if (handle->remote_lock_status.load() == 1){
-                        if (handle->starvation_priority < starv_level ){
-                            handle->starvation_priority = starv_level;
-                            handle->next_holder_id = Invalid_Node_ID;
+                        if (handle->pending_page_forward.starvation_priority < starv_level ){
+                            handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
                         }
-                        handle->remote_lock_urged.store(1);
-                        reply_type = 3;
+                        handle->remote_lock_urged.store(2);
+                        reply_type = pending;
                     }
                     handle->state_mtx.unlock();
 
@@ -7081,12 +7087,12 @@ void RDMA_Manager::fs_deserilization(
         }
 message_reply:
         if (reply_type == 0){
-            reply_type = 2;
+            reply_type = dropped;
         }
         ibv_mr* local_mr = Get_local_send_message_mr();
-        ((RDMA_ReplyXCompute* )local_mr->addr)->inv_reply_type = reply_type;
+        *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
-        RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(RDMA_ReplyXCompute),
+        RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
                             target_node_id, qp_id, true);
         delete receive_msg_buf;
 
@@ -7098,7 +7104,7 @@ message_reply:
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         assert(page_cache_ != nullptr);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
-        uint8_t reply_type = 0;
+        Page_Forward_Reply_Type reply_type = waiting;
         if (handle){
 //            printf("Reader invalid modified Handle found %u, %lu\n", handle->gptr.nodeID, handle->gptr.offset);
             auto* page_mr = (ibv_mr*)handle->value;
@@ -7120,33 +7126,33 @@ message_reply:
             }
             // double check locking
             if (handle->remote_lock_status.load() > 0 && ((DataPage*)page_mr->addr)->hdr.p_version == receive_msg_buf->content.inv_message.p_version){
-//                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                 if (handle->rw_mtx.try_lock()){
-                    if (starv_level >= handle->starvation_priority){
+                    // TODO: maybe we need the state_mtx to protect the states.
+                    if (starv_level >= handle->pending_page_forward.starvation_priority){
                         if (handle->remote_lock_status.load() == 2){
                             global_write_page_and_WdowntoR(page_mr, g_ptr,
                                                            page_mr->length, lock_gptr);
                             handle->remote_lock_status.store(1);
                             handle->clear_release_states();
-                            reply_type = 1;
+                            reply_type = processed;
 //                        printf("Release write lock %lu\n", g_ptr);
                         }
                     }
                     else{
-                        handle->Invalid_local_by_cached_mes(g_ptr, page_mr->length, lock_gptr, page_mr, false);
+                        handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
 
                     }
 
                     handle->rw_mtx.unlock();
                 }else{
                     handle->state_mtx.lock();
+                    //TODO: the code below have some problems.
                     if (handle->remote_lock_status.load() == 2){
-                        if (handle->starvation_priority < starv_level ){
-                            handle->starvation_priority = starv_level;
-                            handle->next_holder_id = Invalid_Node_ID;
+                        if (handle->pending_page_forward.starvation_priority < starv_level ){
+                            handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
                         }
-                        handle->remote_lock_urged.store(2);
-                        reply_type = 3;
+                        handle->remote_lock_urged.store(1);
+                        reply_type = pending;
                     }
                     handle->state_mtx.unlock();
 
@@ -7158,12 +7164,12 @@ message_reply:
         }
     message_reply:
         if (reply_type == 0){
-            reply_type = 2;
+            reply_type = dropped;
         }
         ibv_mr* local_mr = Get_local_send_message_mr();
-        ((RDMA_ReplyXCompute* )local_mr->addr)->inv_reply_type = reply_type;
+        *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
-        RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(RDMA_ReplyXCompute),
+        RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
                             target_node_id, qp_id, true);
         delete receive_msg_buf;
     }
@@ -7174,12 +7180,12 @@ message_reply:
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         assert(page_cache_ != nullptr);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
-        uint8_t reply_type = 0;
+        Page_Forward_Reply_Type reply_type = waiting;
         ibv_mr* page_mr = nullptr;
         GlobalAddress lock_gptr = g_ptr;
         Header_Index<uint64_t>* header = nullptr;
         if (!handle) {
-            reply_type = 2;  // Handle not found
+            reply_type = dropped;  // Handle not found
             goto message_reply;
         }
 
@@ -7191,69 +7197,106 @@ message_reply:
         if (handle->remote_lock_status.load() <= 0 ||
             ((DataPage*)page_mr->addr)->hdr.p_version != receive_msg_buf->content.inv_message.p_version) {
             page_cache_->Release(handle);
-            reply_type = 2;
+            reply_type = dropped;
             goto message_reply;
         }
         if (!handle->rw_mtx.try_lock()){
-            handle->state_mtx.lock();
-            if (handle->remote_lock_status.load() == 1){
+
+            if(handle->remote_lock_status.load() == 2){
+                handle->state_mtx.lock();
                 if (handle->pending_page_forward.starvation_priority < starv_level ){
-
-//                    handle->pending_page_forward.starvation_priority = starv_level;
-//                    handle->pending_page_forward.next_holder_id.store(target_node_id);
-//                    handle->pending_page_forward.next_receive_buf.store(receive_msg_buf->buffer);
-//                    handle->pending_page_forward.next_receive_rkey.store(receive_msg_buf->rkey);
-//                    handle->pending_page_forward.next_inv_message_type.store(receive_msg_buf->command);
+                    ibv_mr* local_mr = Get_local_send_message_mr();
+                    // drop the old invalidation message.
+                    handle->drop_buffered_inv_message(local_mr, nullptr);
                     handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
+                    handle->remote_lock_urged.store(2);
+                    reply_type = pending;
+                    handle->state_mtx.unlock();
+                    page_cache_->Release(handle);
+                    goto message_reply;
                 }
-                handle->remote_lock_urged.store(1);
-                reply_type = 3;
+                handle->state_mtx.unlock();
             }
-            handle->state_mtx.unlock();
-
-
+            reply_type = dropped;
             page_cache_->Release(handle);
-            reply_type = 2;
             goto message_reply;
         }
-        // double check locking
-                if (starv_level >= handle->starvation_priority){
-                    if (handle->remote_lock_status.load() == 2){
-                        if (starv_level >0){
-                            global_write_page_and_WHandover(page_mr, g_ptr,
-                                                            page_mr->length, target_node_id, lock_gptr);
-                            handle->remote_lock_status.store(0);
+        // THe lock has been acquired.
+
+        // there should be no buffered invalidation request
+        // TODO: When SELCC release a latch, it need to check whether there is pending
+        // waiter on the latch, if not, it need to check the local invbuffer and process it if no holder behind.
+        handle->assert_no_handover_states();
+        reply_type = processed;
 
 
-                        }else{
-                            global_write_page_and_Wunlock(page_mr, g_ptr,
-                                                          page_mr->length, lock_gptr);
-                            handle->remote_lock_status.store(0);
-                        }
-                        handle->clear_release_states();
 
-                        reply_type = 1;
-                        //todo: (1) implement a lock handover mechanism. if starvation level larger than 1.
-                        // (2) check whether there is lock urge, if so check whether the starvation_priority is larger than this.
-//                        printf("Release write lock %lu\n", g_ptr);
-                    }
-                }
-                else{
-                    handle->Invalid_local_by_cached_mes(g_ptr, page_mr->length, lock_gptr, page_mr, false);
-                }
 
-                handle->rw_mtx.unlock();
+//        if (starv_level >= handle->starvation_priority){
+//            if (handle->remote_lock_status.load() == 2){
+//                if (starv_level >0){
+//                    global_write_page_and_WHandover(page_mr, g_ptr,
+//                                                    page_mr->length, target_node_id, lock_gptr);
+//                    handle->remote_lock_status.store(0);
+//
+//
+//                }else{
+//                    global_write_page_and_Wunlock(page_mr, g_ptr,
+//                                                  page_mr->length, lock_gptr);
+//                    handle->remote_lock_status.store(0);
+//                }
+//                handle->clear_release_states();
+//
+//                reply_type = processed;
+//                //todo: (1) implement a lock handover mechanism. if starvation level larger than 1.
+//                // (2) check whether there is lock urge, if so check whether the starvation_priority is larger than this.
+////                        printf("Release write lock %lu\n", g_ptr);
+//            }
+//        }
+//        else{
+//            handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
+//        }
+
 //            }else{
 //
 //
 //            }
 //        page_cache_->Release(handle);
     message_reply:
-        ibv_mr* local_mr = Get_local_send_message_mr();
-        ((RDMA_ReplyXCompute* )local_mr->addr)->inv_reply_type = reply_type;
+        ibv_mr* local_mr = nullptr;
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
-        RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(RDMA_ReplyXCompute),
-                            target_node_id, qp_id, true);
+
+        switch (reply_type) {
+            case processed:
+                //forward the page to concurrent writer.
+                local_mr = page_mr;
+                assert(local_mr->length == kLeafPageSize);
+                *(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) = reply_type;
+                RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, kLeafPageSize,
+                                    target_node_id, qp_id, false);
+                // todo: maybe we don't need to flush back the page here?
+                global_write_page_and_WHandover(page_mr, g_ptr,
+                                                page_mr->length, target_node_id, lock_gptr);
+                handle->remote_lock_status.store(0);
+                handle->rw_mtx.unlock();
+                break;
+            case pending:
+                break;
+            case waiting:
+                assert(false);
+                break;
+            case dropped:
+                local_mr = Get_local_send_message_mr();
+                *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
+                RDMA_Write_xcompute(local_mr, (char*)receive_msg_buf->buffer + kLeafPageSize - sizeof(Page_Forward_Reply_Type), receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
+                                    target_node_id, qp_id, true);
+                break;
+            default:
+                assert(false);
+                break;
+
+        }
+
         delete receive_msg_buf;
         }
 

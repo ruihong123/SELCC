@@ -113,7 +113,7 @@ extern bool Show_Me_The_Print;
 //#define TIMEPRINT
 #define ROCKSDB_PTHREAD_ADAPTIVE_MUTEX
 #define RECEIVE_OUTSTANDING_SIZE 128 // used to be 1024
-#define SEND_OUTSTANDING_SIZE_XCOMPUTE 32
+#define SEND_OUTSTANDING_SIZE_XCOMPUTE 32 //todo: enlarge this
 #define SEND_OUTSTANDING_SIZE 8 // Increase this if we have a lot of async ops
 //#define ASYNC_UNLOCK
 #define INVALIDATION_STATISTICS
