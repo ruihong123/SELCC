@@ -7239,6 +7239,7 @@ message_reply:
         switch (reply_type) {
             case processed:
                 printf("Node %u processed the writer invalidate shared message from node %u over data %p, message processed, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+
                 break;
             case pending:
                 printf("Node %u pending the writer invalidate shared message from node %u over data %p, message pending, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
@@ -7249,6 +7250,7 @@ message_reply:
             default:
                 assert(false);
         }
+        fflush(stdout);
         ibv_mr* local_mr = Get_local_send_message_mr();
         *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
