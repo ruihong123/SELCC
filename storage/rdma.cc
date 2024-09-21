@@ -6044,9 +6044,12 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
     asm volatile ("mfence\n" : : );
 
 
-    //TODO make it wait for page forward.
+
     auto reply = poll_reply_buffer(receive_pointer);
 
+    //TODO: Let the invalidation message processor rerun pending when the message is insert to the message buffer in the cache frame.
+    // If the message returns a pending we can keep upgrading the starvation level and also prevent
+    // the invalidation message from never being replied.
     return reply;
 }
 
@@ -7334,14 +7337,14 @@ message_reply:
 
         switch (reply_type) {
             case processed:
-                printf("Node %u processed the writer invalidate shared message from node %u over data %p, message processed, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+                printf("Node %u processed the reader invalidate modified message from node %u over data %p, message processed, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
 
                 break;
             case pending:
-                printf("Node %u pending the writer invalidate shared message from node %u over data %p, message pending, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+                printf("Node %u pending the  reader invalidate modified message from node %u over data %p, message pending, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
                 break;
             case dropped:
-                printf("Node %u dropped the writer invalidate shared message from node %u over data %p, message dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+                printf("Node %u dropped the  reader invalidate modified message from node %u over data %p, message dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
                 break;
             default:
                 assert(false);
