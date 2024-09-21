@@ -5935,7 +5935,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
         Page_Forward_Reply_Type* receive_pointer;
     receive_pointer = (Page_Forward_Reply_Type*)recv_mr->addr;
         //Clear the reply buffer for the polling.
-    *receive_pointer = {};
+    *receive_pointer = waiting;
 
         //USE static ticket to minuimize the conflict.
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
@@ -5980,7 +5980,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
         Page_Forward_Reply_Type* receive_pointer;
     receive_pointer = (Page_Forward_Reply_Type*)((char*)recv_mr->addr + pos*sizeof(Page_Forward_Reply_Type));
         //Clear the reply buffer for the polling.
-    *receive_pointer = {};
+    *receive_pointer = waiting;
 
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
 
@@ -7290,6 +7290,8 @@ message_reply:
                 handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
                 handle->buffered_inv_mtx.unlock();
                 handle->rw_mtx.unlock();
+                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get processed\n", node_id, target_node_id, g_ptr);
+                fflush(stdout);
                 break;
             case pending:
                 // After install the buffered invalidation message, we can try the lock again incase that there is no pending
@@ -7302,6 +7304,8 @@ message_reply:
                     handle->buffered_inv_mtx.unlock();
                     handle->rw_mtx.unlock();
                 }
+                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get pending\n", node_id, target_node_id, g_ptr);
+                fflush(stdout);
                 break;
             case waiting:
                 assert(false);
@@ -7311,6 +7315,8 @@ message_reply:
                 *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
                 RDMA_Write_xcompute(local_mr, (char*)receive_msg_buf->buffer + kLeafPageSize - sizeof(Page_Forward_Reply_Type), receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
                                     target_node_id, qp_id, true);
+                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get dropped\n", node_id, target_node_id, g_ptr);
+                fflush(stdout);
                 break;
             default:
                 assert(false);
