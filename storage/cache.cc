@@ -1080,8 +1080,15 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 return;
             }
         }
+        // In case that there is no following reader and writer, process the buffered invalidation message.
+        // we need to check whether this is the only reader or writer on this cache line.
+        // TODO: try to make lock_pending num inside the userspace read write lock?
+//        auto pending_num = lock_pending_num.load();
+//        if (rw_mtx.unlock_shared() == 1 && pending_num == 0){
+//            rw_mtx.lock(RDMA_Manager::thread_id+256);
+//            rw_mtx.unlock();
+//        }
         rw_mtx.unlock_shared();
-
 
 
     }
@@ -1700,6 +1707,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         *((Page_Forward_Reply_Type*)local_mr->addr) = dropped;
 
         int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+        printf("Drop the buffered invalidation message, target %u, buffer addr %p, rkey %u\n",
+               pending_page_forward.next_holder_id.load(), pending_page_forward.next_receive_buf.load(), pending_page_forward.next_receive_rkey.load());
+        fflush(stdout);
         rdma_mg->RDMA_Write_xcompute(local_mr, pending_page_forward.next_receive_buf, pending_page_forward.next_receive_rkey, sizeof(Page_Forward_Reply_Type),
                             pending_page_forward.next_holder_id, qp_id, true);
         clear_pending_inv_states();

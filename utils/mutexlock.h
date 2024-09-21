@@ -192,9 +192,9 @@ public:
     }
 
 
-    void unlock_shared() {
+    int unlock_shared() {
         assert(readers_count.load(std::memory_order_relaxed) > 0);
-        readers_count.fetch_sub(1, std::memory_order_release);
+        return readers_count.fetch_sub(1, std::memory_order_release);
     }
 };
 
