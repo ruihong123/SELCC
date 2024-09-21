@@ -73,20 +73,20 @@ constexpr uint8_t Invalid_Node_ID = 255;
     struct Cache_Handle {
         struct PendingPageForward{
             std::atomic<uint8_t > next_holder_id = Invalid_Node_ID;
-            std::atomic<void*> next_receive_buf = nullptr;
+            std::atomic<void*> next_receive_page_buf = nullptr;
             std::atomic<uint32_t> next_receive_rkey = 0;
             std::atomic<uint8_t > starvation_priority = 0;
             std::atomic<RDMA_Command_Type > next_inv_message_type = invalid_command_;
             void SetStates(uint8_t next_holder_id, void* next_receive_buf, uint32_t next_receive_rkey, uint8_t starvation_priority, RDMA_Command_Type next_inv_message_type){
                 this->next_holder_id.store(next_holder_id);
-                this->next_receive_buf.store(next_receive_buf);
+                this->next_receive_page_buf.store(next_receive_buf);
                 this->next_receive_rkey.store(next_receive_rkey);
                 this->starvation_priority.store(starvation_priority);
                 this->next_inv_message_type.store(next_inv_message_type);
             }
             void ClearStates(){
                 this->next_holder_id.store(Invalid_Node_ID);
-                this->next_receive_buf.store(nullptr);
+                this->next_receive_page_buf.store(nullptr);
                 this->next_receive_rkey.store(0);
                 this->starvation_priority.store(0);
                 this->next_inv_message_type.store(invalid_command_);
@@ -94,7 +94,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
             void AssertStatesCleared(){
 #ifndef NDEBUG
                 assert(this->next_holder_id == Invalid_Node_ID);
-                assert(this->next_receive_buf == nullptr);
+                assert(this->next_receive_page_buf == nullptr);
                 assert(this->next_receive_rkey == 0);
                 assert(this->starvation_priority == 0);
                 assert(this->next_inv_message_type == invalid_command_);
@@ -103,7 +103,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
             void AssertStatesExist(){
 #ifndef NDEBUG
                 assert(this->next_holder_id != Invalid_Node_ID);
-                assert(this->next_receive_buf != nullptr);
+                assert(this->next_receive_page_buf != nullptr);
                 assert(this->next_receive_rkey != 0);
                 assert(this->starvation_priority != 0);
                 assert(this->next_inv_message_type != invalid_command_);

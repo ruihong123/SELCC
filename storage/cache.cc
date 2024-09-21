@@ -1679,8 +1679,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 // The sequence of this two RDMA message could be problematic, because we do not know,
                 // whether the global latch release will arrive sooner than the page forward. if not the next cache holder
                 // can find the old cach copy holder still there when releasing the latch.
-                rdma_mg->RDMA_Write_xcompute(local_mr, pending_page_forward.next_receive_buf, pending_page_forward.next_receive_rkey, kLeafPageSize,
-                                    pending_page_forward.next_holder_id, qp_id, false);
+                rdma_mg->RDMA_Write_xcompute(local_mr, pending_page_forward.next_receive_page_buf, pending_page_forward.next_receive_rkey, kLeafPageSize,
+                                             pending_page_forward.next_holder_id, qp_id, false);
                 //TODO: The dirty page flush back here is not necessary.
                 rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, pending_page_forward.next_holder_id.load(), lock_addr,
                                                              false, nullptr);
@@ -1708,10 +1708,11 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
         int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
         printf("Drop the buffered invalidation message, target %u, buffer addr %p, rkey %u\n",
-               pending_page_forward.next_holder_id.load(), pending_page_forward.next_receive_buf.load(), pending_page_forward.next_receive_rkey.load());
+               pending_page_forward.next_holder_id.load(), pending_page_forward.next_receive_page_buf.load(), pending_page_forward.next_receive_rkey.load());
         fflush(stdout);
-        rdma_mg->RDMA_Write_xcompute(local_mr, pending_page_forward.next_receive_buf, pending_page_forward.next_receive_rkey, sizeof(Page_Forward_Reply_Type),
-                            pending_page_forward.next_holder_id, qp_id, true);
+        void* buffer = (char*)pending_page_forward.next_receive_page_buf.load() + kLeafPageSize - sizeof(Page_Forward_Reply_Type);
+        rdma_mg->RDMA_Write_xcompute(local_mr, buffer, pending_page_forward.next_receive_rkey, sizeof(Page_Forward_Reply_Type),
+                                     pending_page_forward.next_holder_id, qp_id, true);
         clear_pending_inv_states();
     }
 
