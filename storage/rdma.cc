@@ -7014,6 +7014,8 @@ void RDMA_Manager::fs_deserilization(
         GlobalAddress g_ptr = receive_msg_buf->content.inv_message.page_addr;
         uint8_t starv_level = receive_msg_buf->content.inv_message.starvation_level;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
+        printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p\n", node_id, target_node_id, g_ptr);
+        fflush(stdout);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         //The template will not impact the offset of level in the header so we can random give the tempalate a Type to access the leve in ther header.
         assert(STRUCT_OFFSET(Header_Index<uint64_t>, level) == STRUCT_OFFSET(Header_Index<char>, level));
@@ -7091,7 +7093,7 @@ void RDMA_Manager::fs_deserilization(
 //                    printf("Writer_Inv_Shared_handler Handle not found\n");
         }
 message_reply:
-        if (reply_type == 0){
+        if (reply_type == waiting){
             reply_type = dropped;
         }
         ibv_mr* local_mr = Get_local_send_message_mr();
@@ -7108,6 +7110,8 @@ message_reply:
         uint8_t starv_level = receive_msg_buf->content.inv_message.starvation_level;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         assert(page_cache_ != nullptr);
+        printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p\n", node_id, target_node_id, g_ptr);
+        fflush(stdout);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         Page_Forward_Reply_Type reply_type = waiting;
         if (handle){
@@ -7185,6 +7189,8 @@ message_reply:
         uint8_t starv_level = receive_msg_buf->content.inv_message.starvation_level;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         assert(page_cache_ != nullptr);
+        printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p\n", node_id, target_node_id, g_ptr);
+        fflush(stdout);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         Page_Forward_Reply_Type reply_type = waiting;
         ibv_mr* page_mr = nullptr;

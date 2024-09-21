@@ -1055,7 +1055,12 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //            || timer_alarmed.load()
             // If the lock handover time exceeds the threshold or no pending waiter for this cache line locally,
             // then we process the cached inv message.
-            if ( handover_degree > STARVATION_THRESHOLD || lock_pending_num.load()==0){
+            //|| lock_pending_num.load()==0
+            // for reader access, lock pending num = 0 does not mean that the access on this data cool down.
+            // we need some other mechanism to avoid the sudden cool down problem on previously read skewed data.
+            // the sudden cool down read skewed data will cause buffered invalidation message not being processed, making
+            // other compute node wait for endless time.
+            if ( handover_degree > STARVATION_THRESHOLD ){
 //                printf("Lock starvation prevention code was executed stage 2, page_adr is %p\n", page_addr);
 //                fflush(stdout);
                 // make sure only one thread release the global latch successfully by double check lock.
