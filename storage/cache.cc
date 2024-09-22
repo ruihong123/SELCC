@@ -1164,6 +1164,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //                cache_hit_valid[RDMA_Manager::thread_id][0]++;
                 if (!global_Rlock_update(mr, lock_addr, cas_mr)){
                     remote_lock_status.store(0);
+                    //TODO: try to clear the outdated buffered inv message. as the latch state has been changed.
+                    drop_buffered_inv_message(page_addr, page_size, lock_addr, mr);
+
                     //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
                     // is problematice if we want to upgrade the lock during a transaction.
                     // May be we can take advantage of the lock starvation bit to solve this problem.

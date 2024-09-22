@@ -215,7 +215,7 @@ struct sst_gc {
 };
 struct Invalid_Message{
     GlobalAddress page_addr;
-//    uint64_t p_version;
+    bool pending_reminder; // 0 for not pending, 1 for pending. if 1, the message can only update the priority of old request or forcing the invalidaiton message process the forgotten inv message.
     uint8_t starvation_level;
 };
 //struct WUnlock_message{
@@ -476,8 +476,9 @@ class RDMA_Manager {
     void Prepare_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     void Commit_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     void Abort_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
-    Page_Forward_Reply_Type Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *page_buffer, uint16_t target_node_id,
-                                                           uint8_t starv_level, uint64_t page_version);
+    Page_Forward_Reply_Type
+    Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *page_buffer, uint16_t target_node_id,
+                                   uint8_t &starv_level, uint64_t page_version, uint64_t &retry_cnt);
     bool Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
                                         uint64_t page_version);
     bool Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level,

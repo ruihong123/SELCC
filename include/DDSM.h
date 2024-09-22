@@ -13,8 +13,8 @@ namespace DSMEngine {
         // there is definitely no other thread accessing it if a page is destroyed (refs == 0)
         assert(handle->refs.load() == 0);
         auto rdma_mg = RDMA_Manager::Get_Instance(nullptr);
-//    Key
-        // Do we need the lock during this deleter? Answer: Probably not, because it is guaratee to have only on thread comes here.
+        //TODO: we need to check whether the cache handle have buffered inv message, if so we need to process it.
+        // However, this shall rarely happen.
         auto mr = (ibv_mr*) handle->value;
 //        if (handle->strategy == 1){
             GlobalAddress lock_gptr = handle->gptr;
@@ -56,6 +56,7 @@ namespace DSMEngine {
             }else{
                 //An invalidated page, do nothing
             }
+
         handle->clear_pending_inv_states();
 //        }else{
 //            //TODO: delete the  asserts below when you implement the strategy 2.

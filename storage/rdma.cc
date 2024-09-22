@@ -4265,7 +4265,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                     }
 #endif
                     auto reply = Writer_Invalidate_Modified_RPC(page_addr,
-                                                   page_buffer, write_invalidation_target, starvation_level, page_version);
+                                                                page_buffer, write_invalidation_target,
+                                                                starvation_level, page_version, retry_cnt);
                     if (reply == processed){
                         //The invlaidation message is processed and page has been forwarded.
                         ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
@@ -4468,7 +4469,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                     }
 #endif
                     auto reply = Writer_Invalidate_Modified_RPC(page_addr,
-                                                                page_buffer, write_invalidation_target, starvation_level, page_version);
+                                                                page_buffer, write_invalidation_target,
+                                                                starvation_level, page_version, retry_cnt);
                     if (reply == processed){
                         //The invlaidation message is processed and page has been forwarded.
                         ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
@@ -6001,7 +6003,7 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
 
 Page_Forward_Reply_Type
 RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *page_buffer, uint16_t target_node_id,
-                                             uint8_t starv_level, uint64_t page_version) {
+                                             uint8_t& starv_level, uint64_t page_version, uint64_t &retry_cnt) {
 //    printf(" send write invalidation message to other nodes %p\n", global_ptr);
     RDMA_Request* send_pointer;
     ibv_mr* send_mr = Get_local_send_message_mr();
@@ -6009,12 +6011,30 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
 //    clear_page_forward_flag(static_cast<char *>(page_buffer->addr));
 
 //    ibv_mr* receive_mr = {};
+    if(retry_cnt < 20){
+//                port::AsmVolatilePause();
+        //do nothing
+    }else if (retry_cnt <40){
+        starv_level = 1;
 
+    }else if (retry_cnt <80){
+        starv_level = 2;
+    }
+    else if (retry_cnt <160){
+        starv_level = 3;
+    }else if (retry_cnt <200){
+        starv_level = 4;
+    } else if (retry_cnt <1000){
+        starv_level = 5;
+    } else{
+        starv_level = 255 > 5+ retry_cnt/1000? (5+ retry_cnt/1000): 255;
+    }
     send_pointer = (RDMA_Request*)send_mr->addr;
     send_pointer->command = writer_invalidate_modified;
+    send_pointer->content.inv_message.pending_reminder = false;
+inv_resend:
     send_pointer->content.inv_message.page_addr = global_ptr;
     send_pointer->content.inv_message.starvation_level = starv_level;
-//    send_pointer->content.inv_message.p_version = page_version;
     send_pointer->buffer = recv_mr->addr;
     send_pointer->rkey = recv_mr->rkey;
 //    send_pointer->buffer = receive_mr.addr;
@@ -6048,11 +6068,29 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
 
 
     auto reply = poll_reply_buffer(receive_pointer);
+    if (reply == pending){
+        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL < 1){
+            if (starv_level <= 2){
+                spin_wait_us(8);
+            }else if (starv_level <= 4){
+                //No sleep if the starvation level is high.
+                spin_wait_us(4);
+            }else if (starv_level <= 6){
+                spin_wait_us(2);
+            }else{
 
-    //TODO: Let the invalidation message processor rerun pending when the message is insert to the message buffer in the cache frame.
-    // If the message returns a pending we can keep upgrading the starvation level and also prevent
-    // the invalidation message from never being replied.
-    return reply;
+            }
+        }
+        // mimic the latency for 2 combined RDMA operations.
+        spin_wait_us(5);
+        send_pointer->content.inv_message.pending_reminder = true;
+        goto inv_resend;
+    }else
+    {
+        assert(reply == processed || reply == dropped);
+        return reply;
+    }
+
 }
 
     bool
@@ -7363,6 +7401,7 @@ message_reply:
 //        printf("Writer_Inv_Modified_handler\n");
         GlobalAddress g_ptr = receive_msg_buf->content.inv_message.page_addr;
         uint8_t starv_level = receive_msg_buf->content.inv_message.starvation_level;
+        bool pending_reminder = receive_msg_buf->content.inv_message.pending_reminder;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         assert(page_cache_ != nullptr);
         printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p\n", node_id, target_node_id, g_ptr);
@@ -7392,10 +7431,20 @@ message_reply:
             // finished the code from cache.cc:1063-1071. Then the message is pushed and will never get processed.
             handle->buffered_inv_mtx.lock();
             if(handle->remote_lock_status.load() == 2){
+                if (pending_reminder && handle->pending_page_forward.next_holder_id == target_node_id){
+                    assert(receive_msg_buf->buffer == handle->pending_page_forward.next_receive_page_buf);
+                    assert(receive_msg_buf->rkey == handle->pending_page_forward.next_receive_rkey);
+                    handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
+                    handle->remote_urging_type.store(2);
+                    handle->buffered_inv_mtx.unlock();
+                    page_cache_->Release(handle);
+                    delete receive_msg_buf;
+                    return; // do not release the lock here.
+                }
                 //  handle->lock_pending_num >0 is to avoid the case that the message is buffered but there is no local thread process it
                 // in the future.
                 if (handle->pending_page_forward.starvation_priority < starv_level ){
-                    if ( handle->pending_page_forward.next_holder_id!= Invalid_Node_ID ){
+                    if ( handle->pending_page_forward.next_holder_id!= Invalid_Node_ID){
                         ibv_mr* local_mr = Get_local_send_message_mr();
                         // drop the old invalidation message.
                         handle->drop_buffered_inv_message(local_mr, this);
@@ -7413,6 +7462,15 @@ message_reply:
             page_cache_->Release(handle);
             goto message_reply;
         }else{
+            // the && handle->pending_page_forward.next_holder_id == target_node_id can actually be commented out.
+            if (pending_reminder && handle->pending_page_forward.next_holder_id == target_node_id){
+                //force the pending inv message get processed
+                reply_type = processed;
+                //do not release the lock here!!!!!!
+                page_cache_->Release(handle);
+                goto message_reply;
+            }
+
             // THe lock has been acquired.
 
             // there should be no buffered invalidation request
@@ -7481,9 +7539,17 @@ message_reply:
                     }
                     handle->buffered_inv_mtx.unlock();
                     handle->rw_mtx.unlock();
+                    printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get processed\n", node_id, target_node_id, g_ptr);
+                    fflush(stdout);
+                }else{
+                    local_mr = Get_local_send_message_mr();
+                    *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
+                    RDMA_Write_xcompute(local_mr, (char*)receive_msg_buf->buffer + kLeafPageSize - sizeof(Page_Forward_Reply_Type), receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
+                                        target_node_id, qp_id, true);
+                    printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get pending, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+                    fflush(stdout);
                 }
-                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get pending, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
-                fflush(stdout);
+
                 break;
             case waiting:
                 assert(false);
