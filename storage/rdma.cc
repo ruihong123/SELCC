@@ -4891,18 +4891,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 tasks->handles[*counter] = handle;
                 async_succeed = true;
             }
-
-
-//            printf("Release write lock for %lu\n",page_addr);
             //TODO: it could be spuriously failed because of the FAA.so we can not have async
         }else{
-//            printf("This code path shall not be entered\n");
-
 //#ifndef NDEBUG
             uint64_t retry_cnt = 0;
 //#endif
 
-//        rdma_mg->RDMA_Write(page_addr, page_buffer, page_size, IBV_SEND_SIGNALED ,1, Internal_and_Leaf);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
             retry:
 //#ifndef NDEBUG
@@ -4938,7 +4932,17 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             assert(page_addr.nodeID == remote_lock_addr.nodeID);
             Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-            assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (compare >> 56));
+#ifndef NDEBUG
+            if(((*(uint64_t*) local_CAS_mr->addr) >> 56) != (add >> 56)){
+                printf("RDMA write handover move too fast, resulting in spurious latch word mismatch\n");
+                usleep(40);
+                //RDMA read the latch word again and see if it is the same as the compare value.
+                RDMA_Read(remote_lock_addr, local_CAS_mr, 8, IBV_SEND_SIGNALED,1, Regular_Page);
+
+                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
+//                goto retry;
+            }
+#endif
 //            if((*(uint64_t*) local_CAS_mr->addr) != compare){
 ////                printf("RDMA write lock unlock happen with RDMA faa FOR rdma READ LOCK\n");
 //                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (compare >> 56));
