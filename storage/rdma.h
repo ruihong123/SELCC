@@ -258,7 +258,7 @@ struct RDMA_Request {
   uint32_t imm_num; // 0 for Compaction threads signal, 1 for Flushing threads signal.
 //  Options opt;
 } __attribute__((packed));
-enum Page_Forward_Reply_Type: uint8_t  {waiting = 0, processed = 1, dropped = 2, pending = 3};
+enum Page_Forward_Reply_Type: uint8_t  {waiting = 0, processed = 1, dropped = 2, pending = 3, received = 4};
 struct RDMA_ReplyXCompute {
     Page_Forward_Reply_Type inv_reply_type; // 0 not received, 1 message processed at the scene, 2 the target handle is not found or found invalidated, 3 message was pushed in the handle.
     uint8_t toPC_reply_type; // 0 not received, 1 commit, 2 abort.
@@ -479,9 +479,10 @@ class RDMA_Manager {
     void Abort_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     Page_Forward_Reply_Type
     Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *page_buffer, uint16_t target_node_id,
-                                   uint8_t &starv_level, uint64_t page_version, uint64_t &retry_cnt);
-    bool Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, uint16_t target_node_id, uint8_t starv_level,
-                                        uint64_t page_version);
+                                   uint8_t &starv_level, uint64_t &retry_cnt);
+    Page_Forward_Reply_Type
+    Reader_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *page_mr, uint16_t target_node_id,
+                                   uint8_t &starv_level, uint64_t &retry_cnt);
     bool Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level,
                                       uint8_t pos);
     bool Writer_Invalidate_Shared_RPC_Reply(uint8_t num_of_poll);

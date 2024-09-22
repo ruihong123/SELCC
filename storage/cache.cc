@@ -1660,28 +1660,20 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //                    }
         }else if (this->remote_lock_status == 2){
             if (remote_urging_type == 1 && buffer_inv_message.next_inv_message_type == reader_invalidate_modified){
+                ibv_mr* local_mr = mr;
+                assert(local_mr->length == kLeafPageSize);
+                int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+                *(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) = processed;
+
                 //cache downgrade from Modified to Shared rather than release the lock.
                 rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr);
+                rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf, buffer_inv_message.next_receive_rkey, kLeafPageSize,
+                                             buffer_inv_message.next_holder_id, qp_id, false);
                 remote_lock_status.store(1);
             }else if (remote_urging_type == 2 && buffer_inv_message.next_inv_message_type == writer_invalidate_modified){
 //                        printf("Lock starvation prevention code was executed stage 3\n");
                 assert(buffer_inv_message.next_holder_id != Invalid_Node_ID);
-
-//                if (buffer_inv_message.starvation_priority == 0 ){
-//                    // lock release to a specific writer
-//                    rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
-//                    remote_lock_status.store(0);
-//                    //TODO: why we need to spin wait here?
-////                    if (need_spin){
-////                        spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
-////                    }
-//
-//                }else{
-//#ifdef GLOBAL_HANDOVER
-//                    printf("Global lock for page %p handover from node %u to node %u part 2, starvation level is %d\n", page_addr, rdma_mg->node_id, next_holder_id.load(), starvation_priority.load());
-//                    fflush( stdout );
                     assert(buffer_inv_message.next_holder_id != RDMA_Manager::node_id);
-
                 ibv_mr* local_mr = mr;
                 assert(local_mr->length == kLeafPageSize);
                 int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
@@ -1707,16 +1699,18 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             }else{
                 printf("Buffered invalidation message type is %u, but the lock status now is %u\n", buffer_inv_message.next_inv_message_type.load(), remote_lock_status.load());
                 fflush(stdout);
+                assert(false);
             }
 
         }else{
-
+            assert(false);
         }
         clear_pending_inv_states();
 //        buffered_inv_mtx.unlock();
     }
 
     void Cache_Handle::drop_buffered_inv_message(ibv_mr *local_mr, RDMA_Manager *rdma_mg) {
+        assert(buffer_inv_message.next_inv_message_type != writer_invalidate_shared);
 
         *((Page_Forward_Reply_Type*)local_mr->addr) = dropped;
 
