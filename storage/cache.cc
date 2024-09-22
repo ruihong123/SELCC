@@ -1635,6 +1635,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         assert(remote_lock_status != 0);
         assert(remote_urging_type != 0);
         if (this->remote_lock_status == 1){
+            assert(remote_urging_type == 2);
 //            printf("High pririty invalidation message receive, target gcl is %p\n", page_addr);
 //            fflush(stdout);
             rdma_mg->global_RUnlock(lock_addr, rdma_mg->Get_local_CAS_mr(), false, nullptr, nullptr, 0);
@@ -1649,11 +1650,11 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             }
 //                    }
         }else if (this->remote_lock_status == 2){
-            if (remote_urging_type == 1){
+            if (remote_urging_type == 1 && pending_page_forward.next_inv_message_type == reader_invalidate_modified){
                 //cache downgrade from Modified to Shared rather than release the lock.
                 rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr);
                 remote_lock_status.store(1);
-            }else{
+            }else if (remote_urging_type == 2 && pending_page_forward.next_inv_message_type == writer_invalidate_modified){
 //                        printf("Lock starvation prevention code was executed stage 3\n");
                 assert(pending_page_forward.next_holder_id != Invalid_Node_ID);
 
