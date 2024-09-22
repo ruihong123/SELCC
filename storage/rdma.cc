@@ -7212,7 +7212,7 @@ void RDMA_Manager::fs_deserilization(
             if (handle->remote_lock_status.load() > 0 ) {
                 //TODO: Use try lock instead of lock.
 //                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
-                if(handle->rw_mtx.try_lock()){
+                if(handle->rw_mtx.try_lock(64)){
                     if (starv_level >= handle->pending_page_forward.starvation_priority){
                         if ( handle->remote_lock_status.load() == 1){
                             // Asyc lock releasing, with the local latch of handle on,
@@ -7324,7 +7324,7 @@ message_reply:
             }
             // double check locking
             if (handle->remote_lock_status.load() > 0 ){ // && ((DataPage*)page_mr->addr)->hdr.p_version == receive_msg_buf->content.inv_message.p_version
-                if (handle->rw_mtx.try_lock()){
+                if (handle->rw_mtx.try_lock(48)){
                     // TODO: maybe we need the buffered_inv_mtx to protect the states.
                     if (starv_level >= handle->pending_page_forward.starvation_priority){
                         if (handle->remote_lock_status.load() == 2){
@@ -7417,7 +7417,7 @@ message_reply:
 //            reply_type = dropped;
 //            goto message_reply;
 //        }
-        if (!handle->rw_mtx.try_lock()){
+        if (!handle->rw_mtx.try_lock(32)){
             // (Solved) problem 1. There is a potential bug that the message is cached locally, but never get processed. If one front-end thread just
             // finished the code from cache.cc:1063-1071. Then the message is pushed and will never get processed.
             handle->buffered_inv_mtx.lock();
