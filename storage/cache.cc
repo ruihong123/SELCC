@@ -1686,14 +1686,15 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 assert(local_mr->length == kLeafPageSize);
                 int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
                 *(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) = processed;
+
+                //TODO: The dirty page flush back here is not necessary.
+                rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, pending_page_forward.next_holder_id.load(), lock_addr,
+                                                             false, nullptr);
                 // The sequence of this two RDMA message could be problematic, because we do not know,
                 // whether the global latch release will arrive sooner than the page forward. if not the next cache holder
                 // can find the old cach copy holder still there when releasing the latch.
                 rdma_mg->RDMA_Write_xcompute(local_mr, pending_page_forward.next_receive_page_buf, pending_page_forward.next_receive_rkey, kLeafPageSize,
                                              pending_page_forward.next_holder_id, qp_id, false);
-                //TODO: The dirty page flush back here is not necessary.
-                rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, pending_page_forward.next_holder_id.load(), lock_addr,
-                                                             false, nullptr);
                 remote_lock_status.store(0);
 //#else
 //                    rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
