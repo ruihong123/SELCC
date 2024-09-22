@@ -7321,8 +7321,8 @@ message_reply:
                         if (handle->pending_page_forward.starvation_priority < starv_level ){
                             handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
                             handle->remote_urging_type.store(1);
+                            reply_type = pending;
                         }
-                        reply_type = pending;
                     }
                     handle->buffered_inv_mtx.unlock();
 
@@ -7440,6 +7440,7 @@ message_reply:
 //                assert(handle->read_lock_counter == 0 && handle->write_lock_counter == 0);
                     handle->buffered_inv_mtx.unlock();
                     reply_type = processed;
+                    //do not release the lock here!!!!!!
                     page_cache_->Release(handle);
                     goto message_reply;
 
@@ -7448,6 +7449,7 @@ message_reply:
                 handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
             }
             handle->buffered_inv_mtx.unlock();
+            handle->rw_mtx.unlock();
             reply_type = dropped;
             page_cache_->Release(handle);
             goto message_reply;
