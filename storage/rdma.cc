@@ -6246,9 +6246,7 @@ inv_resend:
 //        send_pointer->content.inv_message.p_version = page_version;
         send_pointer->buffer = (char*)recv_mr->addr + pos*sizeof(Page_Forward_Reply_Type);
         send_pointer->rkey = recv_mr->rkey;
-//        RDMA_ReplyXCompute* receive_pointer = (RDMA_ReplyXCompute*)recv_mr->addr;
-//    send_pointer->buffer = receive_mr.addr;
-//    send_pointer->rkey = receive_mr.rkey;
+
 
         Page_Forward_Reply_Type* receive_pointer;
     receive_pointer = (Page_Forward_Reply_Type*)((char*)recv_mr->addr + pos*sizeof(Page_Forward_Reply_Type));
@@ -7387,7 +7385,7 @@ void RDMA_Manager::fs_deserilization(
 //        bool pending_reminder = receive_msg_buf->content.inv_message.pending_reminder;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         assert(page_cache_ != nullptr);
-        printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p\n", node_id, target_node_id, g_ptr);
+        printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p\n", node_id, target_node_id, g_ptr);
         fflush(stdout);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         Page_Forward_Reply_Type reply_type = waiting;
@@ -7464,11 +7462,11 @@ void RDMA_Manager::fs_deserilization(
 
                 local_mr = Get_local_send_message_mr();
                 *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
-                RDMA_Write_xcompute(local_mr, (char*)receive_msg_buf->buffer + kLeafPageSize - sizeof(Page_Forward_Reply_Type), receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
+                RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
                                     target_node_id, qp_id, true);
                 handle->buffered_inv_mtx.unlock();
                 handle->rw_mtx.unlock();
-                printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get processed\n", node_id, target_node_id, g_ptr);
+                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get processed\n", node_id, target_node_id, g_ptr);
                 fflush(stdout);
                 break;
             case pending:
@@ -7480,9 +7478,9 @@ void RDMA_Manager::fs_deserilization(
             case dropped:
                 local_mr = Get_local_send_message_mr();
                 *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
-                RDMA_Write_xcompute(local_mr, (char*)receive_msg_buf->buffer + kLeafPageSize - sizeof(Page_Forward_Reply_Type), receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
+                RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
                                     target_node_id, qp_id, true);
-                printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
                 fflush(stdout);
                 break;
             default:
