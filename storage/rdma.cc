@@ -7410,11 +7410,12 @@ void RDMA_Manager::fs_deserilization(
                 //  handle->lock_pending_num >0 is to avoid the case that the message is buffered but there is no local thread process it
                 // in the future.
                 if (handle->buffer_inv_message.starvation_priority < starv_level ){
-                    assert(handle->remote_urging_type == 2);
-                    assert(handle->buffer_inv_message.next_inv_message_type == writer_invalidate_shared);
                     if (handle->buffer_inv_message.next_holder_id == Invalid_Node_ID){
                         handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
                         handle->remote_urging_type.store(2);
+                    }else{
+                        assert(handle->remote_urging_type == 2);
+                        assert(handle->buffer_inv_message.next_inv_message_type == writer_invalidate_shared);
                     }
                 }
             }
