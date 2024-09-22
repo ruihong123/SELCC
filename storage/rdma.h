@@ -420,15 +420,16 @@ static void spin_wait_ns(int64_t time){
         asm volatile("pause\n": : :"memory");
     }
 }
-void spin_wait_us(int64_t time){
-    TimeMeasurer timer;
-    timer.StartTimer();
-    timer.EndTimer();
-    while(timer.GetElapsedMicroSeconds() < time){
-        timer.EndTimer();
+static void spin_wait_us(int64_t time){
+    TimeMeasurer* timer = new TimeMeasurer();
+    timer->StartTimer();
+    timer->EndTimer();
+    while(timer->GetElapsedMicroSeconds() < time){
+        timer->EndTimer();
 
         asm volatile("pause\n": : :"memory");
     }
+    delete timer;
 }
 class Cache;
 class Cache_Handle;
