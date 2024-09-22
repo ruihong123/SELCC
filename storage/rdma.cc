@@ -6016,6 +6016,21 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
 //    clear_page_forward_flag(static_cast<char *>(page_buffer->addr));
 
 //    ibv_mr* receive_mr = {};
+
+
+//    send_pointer->buffer = receive_mr.addr;
+//    send_pointer->rkey = receive_mr.rkey;
+
+    Page_Forward_Reply_Type* receive_pointer;
+    receive_pointer = (Page_Forward_Reply_Type*)((char*)page_buffer->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type));
+    //Clear the reply buffer for the polling.
+    *receive_pointer = waiting;
+#ifndef NDEBUG
+    memset(page_buffer->addr, 0, page_buffer->length);
+#endif
+    //USE static ticket to minuimize the conflict.
+    int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+inv_resend:
     if(retry_cnt < 20){
 //                port::AsmVolatilePause();
         //do nothing
@@ -6041,19 +6056,6 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
     send_pointer->content.inv_message.starvation_level = starv_level;
     send_pointer->buffer = recv_mr->addr;
     send_pointer->rkey = recv_mr->rkey;
-//    send_pointer->buffer = receive_mr.addr;
-//    send_pointer->rkey = receive_mr.rkey;
-
-    Page_Forward_Reply_Type* receive_pointer;
-    receive_pointer = (Page_Forward_Reply_Type*)((char*)page_buffer->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type));
-    //Clear the reply buffer for the polling.
-    *receive_pointer = waiting;
-#ifndef NDEBUG
-    memset(page_buffer->addr, 0, page_buffer->length);
-#endif
-    //USE static ticket to minuimize the conflict.
-    int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
-inv_resend:
     //TODO: no need to be signaled, can make it without completion.
     post_send_xcompute(send_mr, target_node_id, qp_id);
     ibv_wc wc[2] = {};
@@ -6061,31 +6063,59 @@ inv_resend:
     asm volatile ("lfence\n" : : );
     asm volatile ("mfence\n" : : );
 
+    while(*receive_pointer == waiting){
+        _mm_clflush(receive_pointer);
+        asm volatile ("sfence\n" : : );
+        asm volatile ("lfence\n" : : );
+        asm volatile ("mfence\n" : : );
 
-    // todo: move the time spinning within the poll_reply_buffer.
-    auto reply = poll_reply_buffer(receive_pointer);
-    if (reply == pending){
-        if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL < 1){
-            if (starv_level <= 2){
-                spin_wait_us(8);
+    }
+    if (*receive_pointer == pending){
+        TimeMeasurer timer;
+        timer.StartTimer();
+        timer.EndTimer();
+        uint64_t  count = 0;
+        while(*receive_pointer == pending){
+            _mm_clflush(receive_pointer);
+            asm volatile ("sfence\n" : : );
+            asm volatile ("lfence\n" : : );
+            asm volatile ("mfence\n" : : );
+            if(count++ > 10){
+                timer.EndTimer();
+                count = 0;
+            }
+            if (starv_level <= 2 ){
+                if (timer.GetElapsedMicroSeconds() > 13){
+                    send_pointer->content.inv_message.pending_reminder = true;
+                    goto inv_resend;
+                }
+
             }else if (starv_level <= 4){
-                //No sleep if the starvation level is high.
-                spin_wait_us(4);
+                if (timer.GetElapsedMicroSeconds() > 9){
+                    send_pointer->content.inv_message.pending_reminder = true;
+                    goto inv_resend;
+                }
             }else if (starv_level <= 6){
-                spin_wait_us(2);
+                if (timer.GetElapsedMicroSeconds() > 7){
+                    send_pointer->content.inv_message.pending_reminder = true;
+                    goto inv_resend;
+                }
+            }else if (starv_level <= 12){
+                if (timer.GetElapsedMicroSeconds() > 4){
+                    send_pointer->content.inv_message.pending_reminder = true;
+                    goto inv_resend;
+                }
             }else{
-
+                if (timer.GetElapsedMicroSeconds() > 2){
+                    send_pointer->content.inv_message.pending_reminder = true;
+                    goto inv_resend;
+                }
             }
         }
-        // mimic the latency for 2 combined RDMA operations.
-        spin_wait_us(5);
-        send_pointer->content.inv_message.pending_reminder = true;
-        goto inv_resend;
-    }else
-    {
-        assert(reply == processed || reply == dropped);
-        return reply;
     }
+
+    assert(*receive_pointer == processed || *receive_pointer == dropped);
+    return *receive_pointer;
 
 }
 
@@ -7218,7 +7248,7 @@ void RDMA_Manager::fs_deserilization(
                 //TODO: Use try lock instead of lock.
 //                std::unique_lock<std::shared_mutex> lck(handle->rw_mtx);
                 if(handle->rw_mtx.try_lock(64)){
-                    if (starv_level >= handle->pending_page_forward.starvation_priority){
+                    if (starv_level >= handle->buffer_inv_message.starvation_priority){
                         if ( handle->remote_lock_status.load() == 1){
                             // Asyc lock releasing, with the local latch of handle on,
                             // THe latch will be released by a callback when the aysnc functin is finished.
@@ -7250,8 +7280,8 @@ void RDMA_Manager::fs_deserilization(
                 }else{
                     handle->buffered_inv_mtx.lock();
                     if (handle->remote_lock_status.load() == 1){
-                        if (handle->pending_page_forward.starvation_priority < starv_level ){
-                            handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
+                        if (handle->buffer_inv_message.starvation_priority < starv_level ){
+                            handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
                             handle->remote_urging_type.store(2);
                         }
                         reply_type = pending;
@@ -7331,7 +7361,7 @@ message_reply:
             if (handle->remote_lock_status.load() > 0 ){ // && ((DataPage*)page_mr->addr)->hdr.p_version == receive_msg_buf->content.inv_message.p_version
                 if (handle->rw_mtx.try_lock(48)){
                     // TODO: maybe we need the buffered_inv_mtx to protect the states.
-                    if (starv_level >= handle->pending_page_forward.starvation_priority){
+                    if (starv_level >= handle->buffer_inv_message.starvation_priority){
                         if (handle->remote_lock_status.load() == 2){
                             global_write_page_and_WdowntoR(page_mr, g_ptr,
                                                            page_mr->length, lock_gptr);
@@ -7352,8 +7382,14 @@ message_reply:
                     handle->buffered_inv_mtx.lock();
                     //TODO: the code below have some problems.
                     if (handle->remote_lock_status.load() == 2){
-                        if (handle->pending_page_forward.starvation_priority < starv_level ){
-                            handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
+                        if (handle->buffer_inv_message.starvation_priority < starv_level ){
+                            if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID){
+                                ibv_mr* local_mr = Get_local_send_message_mr();
+                                // drop the old invalidation message.
+                                handle->drop_buffered_inv_message(local_mr, this);
+                            }
+                            // TODO: need to drop previous buffered message, if it is writer_inv_modified.
+                            handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
                             handle->remote_urging_type.store(1);
                             reply_type = pending;
                         }
@@ -7416,21 +7452,15 @@ message_reply:
         header = (Header_Index<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
         assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
         assert(STRUCT_OFFSET(DataPage, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
-
-//        if (handle->remote_lock_status.load() != 2 ) { // ||((DataPage*)page_mr->addr)->hdr.p_version != receive_msg_buf->content.inv_message.p_version
-//            page_cache_->Release(handle);
-//            reply_type = dropped;
-//            goto message_reply;
-//        }
         if (!handle->rw_mtx.try_lock(32)){
             // (Solved) problem 1. There is a potential bug that the message is cached locally, but never get processed. If one front-end thread just
             // finished the code from cache.cc:1063-1071. Then the message is pushed and will never get processed.
             handle->buffered_inv_mtx.lock();
             if(handle->remote_lock_status.load() == 2){
-                if (pending_reminder && handle->pending_page_forward.next_holder_id == target_node_id){
-                    assert(receive_msg_buf->buffer == handle->pending_page_forward.next_receive_page_buf);
-                    assert(receive_msg_buf->rkey == handle->pending_page_forward.next_receive_rkey);
-                    handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
+                if (pending_reminder && handle->buffer_inv_message.next_holder_id == target_node_id){
+                    assert(receive_msg_buf->buffer == handle->buffer_inv_message.next_receive_page_buf);
+                    assert(receive_msg_buf->rkey == handle->buffer_inv_message.next_receive_rkey);
+                    handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
                     handle->remote_urging_type.store(2);
                     handle->buffered_inv_mtx.unlock();
                     page_cache_->Release(handle);
@@ -7439,13 +7469,13 @@ message_reply:
                 }
                 //  handle->lock_pending_num >0 is to avoid the case that the message is buffered but there is no local thread process it
                 // in the future.
-                if (handle->pending_page_forward.starvation_priority < starv_level ){
-                    if ( handle->pending_page_forward.next_holder_id!= Invalid_Node_ID){
+                if (handle->buffer_inv_message.starvation_priority < starv_level ){
+                    if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID){
                         ibv_mr* local_mr = Get_local_send_message_mr();
                         // drop the old invalidation message.
                         handle->drop_buffered_inv_message(local_mr, this);
                     }
-                    handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
+                    handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
                     handle->remote_urging_type.store(2);
                     reply_type = pending;
                     handle->buffered_inv_mtx.unlock();
@@ -7458,8 +7488,8 @@ message_reply:
             page_cache_->Release(handle);
             goto message_reply;
         }else{
-            // the && handle->pending_page_forward.next_holder_id == target_node_id can actually be commented out.
-            if (pending_reminder && handle->pending_page_forward.next_holder_id == target_node_id){
+            // the && handle->buffer_inv_message.next_holder_id == target_node_id can actually be commented out.
+            if (pending_reminder && handle->buffer_inv_message.next_holder_id == target_node_id){
                 //force the pending inv message get processed
                 reply_type = processed;
                 //do not release the lock here!!!!!!
@@ -7480,16 +7510,16 @@ message_reply:
 
             handle->buffered_inv_mtx.lock();
 
-            if (starv_level >= handle->pending_page_forward.starvation_priority){
+            if (starv_level >= handle->buffer_inv_message.starvation_priority){
                 if (handle->remote_lock_status.load() == 2){
 
-                    if ( handle->pending_page_forward.next_holder_id!= Invalid_Node_ID ){
+                    if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID ){
                         ibv_mr* local_mr = Get_local_send_message_mr();
                         // drop the old invalidation message.
                         handle->drop_buffered_inv_message(local_mr, this);
                     }
                     // push current invalidation message into the handle buffer.
-                    handle->pending_page_forward.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
+                    handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
                     handle->remote_urging_type.store(2);
 //                assert(handle->read_lock_counter == 0 && handle->write_lock_counter == 0);
                     handle->buffered_inv_mtx.unlock();
@@ -7499,7 +7529,7 @@ message_reply:
                     goto message_reply;
 
                 }
-            }else if (handle->pending_page_forward.next_holder_id != Invalid_Node_ID){
+            }else if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID){
                 handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
             }
             handle->buffered_inv_mtx.unlock();
@@ -7530,7 +7560,7 @@ message_reply:
                 // reader/writer waiting for the local latch and the cached inv message never get processed
                 if (handle->rw_mtx.try_lock()){
                     handle->buffered_inv_mtx.lock();
-                    if (handle->pending_page_forward.next_holder_id != Invalid_Node_ID){
+                    if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID){
                         handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
                     }
                     handle->buffered_inv_mtx.unlock();

@@ -129,10 +129,10 @@ constexpr uint8_t Invalid_Node_ID = 255;
 //        std::atomic<bool> timer_alarmed = false;
 
         //1 reader invalidation urge. 2 writer invalidation urge
-        //TODO: make urging type inside pending_page_forward
+        //TODO: make urging type inside buffer_inv_message
         std::atomic<uint8_t > remote_urging_type = 0;
         //TODO: make the pending page forward remember mulitple read invalidation request, and process accordingly
-        PendingPageForward pending_page_forward;
+        PendingPageForward buffer_inv_message;
 //        std::atomic<uint8_t > remote_xlock_next = 0;
 //        std::atomic<uint8_t> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
         bool keep_the_mr = false;
@@ -160,7 +160,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
             read_lock_counter.store(0);
             write_lock_counter.store(0);
             remote_urging_type.store(0);
-            pending_page_forward.ClearStates();
+            buffer_inv_message.ClearStates();
 
 //#ifdef EARLY_LOCK_RELEASE
 //            mr_in_use = false;
@@ -175,7 +175,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
 //            assert(read_lock_counter == 0);
 //            assert(write_lock_counter == 0);
             assert(remote_urging_type == 0);
-            pending_page_forward.AssertStatesCleared();
+            buffer_inv_message.AssertStatesCleared();
 #endif
 
         }
@@ -185,7 +185,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
 //            assert(read_lock_counter != 0);
 //            assert(write_lock_counter != 0);
             assert(remote_urging_type != 0);
-            pending_page_forward.AssertStatesExist();
+            buffer_inv_message.AssertStatesExist();
 #endif
 
         }

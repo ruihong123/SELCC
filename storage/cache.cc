@@ -1167,8 +1167,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
                     remote_lock_status.store(0);
                     //TODO: try to clear the outdated buffered inv message. as the latch state has been changed.
-                    if (pending_page_forward.next_holder_id != Invalid_Node_ID){
-                        assert(pending_page_forward.next_inv_message_type == writer_invalidate_shared);
+                    if (buffer_inv_message.next_holder_id != Invalid_Node_ID){
+                        assert(buffer_inv_message.next_inv_message_type == writer_invalidate_shared);
                         clear_pending_inv_states();
                     }
                     buffered_inv_mtx.unlock();
@@ -1655,19 +1655,19 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             // Since this scenario will happen rarely, then we think this method can relieve the latch starvation to some extense.
 //                    if (remote_urging_type.load() > 1){
             if (need_spin){
-                spin_wait_us(STARV_SPIN_BASE* (1 + pending_page_forward.starvation_priority.load()));
+                spin_wait_us(STARV_SPIN_BASE* (1 + buffer_inv_message.starvation_priority.load()));
             }
 //                    }
         }else if (this->remote_lock_status == 2){
-            if (remote_urging_type == 1 && pending_page_forward.next_inv_message_type == reader_invalidate_modified){
+            if (remote_urging_type == 1 && buffer_inv_message.next_inv_message_type == reader_invalidate_modified){
                 //cache downgrade from Modified to Shared rather than release the lock.
                 rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr);
                 remote_lock_status.store(1);
-            }else if (remote_urging_type == 2 && pending_page_forward.next_inv_message_type == writer_invalidate_modified){
+            }else if (remote_urging_type == 2 && buffer_inv_message.next_inv_message_type == writer_invalidate_modified){
 //                        printf("Lock starvation prevention code was executed stage 3\n");
-                assert(pending_page_forward.next_holder_id != Invalid_Node_ID);
+                assert(buffer_inv_message.next_holder_id != Invalid_Node_ID);
 
-//                if (pending_page_forward.starvation_priority == 0 ){
+//                if (buffer_inv_message.starvation_priority == 0 ){
 //                    // lock release to a specific writer
 //                    rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
 //                    remote_lock_status.store(0);
@@ -1680,7 +1680,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //#ifdef GLOBAL_HANDOVER
 //                    printf("Global lock for page %p handover from node %u to node %u part 2, starvation level is %d\n", page_addr, rdma_mg->node_id, next_holder_id.load(), starvation_priority.load());
 //                    fflush( stdout );
-                    assert(pending_page_forward.next_holder_id != RDMA_Manager::node_id);
+                    assert(buffer_inv_message.next_holder_id != RDMA_Manager::node_id);
 
                 ibv_mr* local_mr = mr;
                 assert(local_mr->length == kLeafPageSize);
@@ -1688,13 +1688,13 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 *(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) = processed;
 
                 //TODO: The dirty page flush back here is not necessary.
-                rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, pending_page_forward.next_holder_id.load(), lock_addr,
-                                                             false, nullptr);
+                rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, buffer_inv_message.next_holder_id.load(), lock_addr,
+                                                         false, nullptr);
                 // The sequence of this two RDMA message could be problematic, because we do not know,
                 // whether the global latch release will arrive sooner than the page forward. if not the next cache holder
                 // can find the old cach copy holder still there when releasing the latch.
-                rdma_mg->RDMA_Write_xcompute(local_mr, pending_page_forward.next_receive_page_buf, pending_page_forward.next_receive_rkey, kLeafPageSize,
-                                             pending_page_forward.next_holder_id, qp_id, false);
+                rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf, buffer_inv_message.next_receive_rkey, kLeafPageSize,
+                                             buffer_inv_message.next_holder_id, qp_id, false);
                 remote_lock_status.store(0);
 //#else
 //                    rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
@@ -1704,6 +1704,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //                            spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
 //                }
 
+            }else{
+                printf("Buffered invalidation message type is %u, but the lock status now is %u\n", buffer_inv_message.next_inv_message_type.load(), remote_lock_status.load());
+                fflush(stdout);
             }
 
         }else{
@@ -1719,12 +1722,12 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
         int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
         printf("Drop the buffered invalidation message, target %u, buffer addr %p, rkey %u\n",
-               pending_page_forward.next_holder_id.load(), pending_page_forward.next_receive_page_buf.load(), pending_page_forward.next_receive_rkey.load());
+               buffer_inv_message.next_holder_id.load(), buffer_inv_message.next_receive_page_buf.load(), buffer_inv_message.next_receive_rkey.load());
         fflush(stdout);
         //todo: assert the message is writer invalid modified.
-        void* buffer = (char*)pending_page_forward.next_receive_page_buf.load() + kLeafPageSize - sizeof(Page_Forward_Reply_Type);
-        rdma_mg->RDMA_Write_xcompute(local_mr, buffer, pending_page_forward.next_receive_rkey, sizeof(Page_Forward_Reply_Type),
-                                     pending_page_forward.next_holder_id, qp_id, true);
+        void* buffer = (char*)buffer_inv_message.next_receive_page_buf.load() + kLeafPageSize - sizeof(Page_Forward_Reply_Type);
+        rdma_mg->RDMA_Write_xcompute(local_mr, buffer, buffer_inv_message.next_receive_rkey, sizeof(Page_Forward_Reply_Type),
+                                     buffer_inv_message.next_holder_id, qp_id, true);
         clear_pending_inv_states();
     }
 

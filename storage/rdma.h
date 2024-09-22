@@ -420,7 +420,7 @@ static void spin_wait_ns(int64_t time){
         asm volatile("pause\n": : :"memory");
     }
 }
-static void spin_wait_us(int64_t time){
+void spin_wait_us(int64_t time){
     TimeMeasurer timer;
     timer.StartTimer();
     timer.EndTimer();
