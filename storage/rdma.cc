@@ -6032,7 +6032,6 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
     send_pointer = (RDMA_Request*)send_mr->addr;
     send_pointer->command = writer_invalidate_modified;
     send_pointer->content.inv_message.pending_reminder = false;
-inv_resend:
     send_pointer->content.inv_message.page_addr = global_ptr;
     send_pointer->content.inv_message.starvation_level = starv_level;
     send_pointer->buffer = recv_mr->addr;
@@ -6049,24 +6048,16 @@ inv_resend:
 #endif
     //USE static ticket to minuimize the conflict.
     int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+inv_resend:
     //TODO: no need to be signaled, can make it without completion.
     post_send_xcompute(send_mr, target_node_id, qp_id);
     ibv_wc wc[2] = {};
-    assert(send_pointer->command!= create_qp_);
-
-//    if (poll_completion_xcompute(wc, 1, std::string("main"), true, target_node_id, qp_id)){
-//        fprintf(stderr, "failed to poll send for remote memory register\n");
-//        return false;
-//    }
-//  asm volatile ("sfence\n" : : );
-//  asm volatile ("lfence\n" : : );
-//  asm volatile ("mfence\n" : : );
     asm volatile ("sfence\n" : : );
     asm volatile ("lfence\n" : : );
     asm volatile ("mfence\n" : : );
 
 
-
+    // todo: move the time spinning within the poll_reply_buffer.
     auto reply = poll_reply_buffer(receive_pointer);
     if (reply == pending){
         if (retry_cnt % INVALIDATION_INTERVAL >  4 || retry_cnt % INVALIDATION_INTERVAL < 1){
