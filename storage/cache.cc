@@ -1072,6 +1072,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                     //double check locking, it is possible that another thread comes in and also try to process the buffer inv message.
                     assert_with_handover_states();
                     buffered_inv_mtx.lock();
+                    printf("Node %u handover over data %p times out, process the buffered inv message, the processed inv message prirority is %u\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.starvation_priority.load());
                     process_buffered_inv_message(page_addr, page_size, lock_addr, mr, true);
                     buffered_inv_mtx.unlock();
                 }
