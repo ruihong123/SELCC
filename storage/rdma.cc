@@ -4087,11 +4087,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             for (uint32_t i = 1; i < 56; ++i) {
                 uint32_t  remain_bit = (cas_value >> i)%2;
                 //return false if we find the readlock of this node has already been released.
-                if ((i-1)*2 == node_id && remain_bit == 0){
-                    //The path is actually impossible, because the lock is hold outside the lock state can not be changed.
-                    assert(false);
-                    return false;
-                }
+//                if ((i-1)*2 == node_id && remain_bit == 0){
+//                    //The path is actually impossible, because the lock is hold outside the lock state can not be changed.
+//                    assert(false);
+//                    return false;
+//                }
                 if (remain_bit == 1 && (i-1)*2 != node_id){
 
                     read_invalidation_targets.push_back((i-1)*2);
@@ -4178,7 +4178,21 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             PostreadTotal.fetch_add(duration.count());
             Postreadcounter.fetch_add(1);
 #endif
-            assert((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) != 0);
+
+#ifndef NDEBUG
+            if((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0){
+
+                usleep(50);
+                //RDMA read the latch word again and see if it is the same as the compare value.
+                RDMA_Read(lock_addr, cas_buffer, 8, IBV_SEND_SIGNALED,1, Regular_Page);
+
+                assert((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
+                printf("RDMA write to raeder handover move too fast, resulting in spurious latch word mismatch\n");
+                fflush(stdout);
+                //                goto retry;
+            }
+#endif
+//            assert((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) != 0);
         }
 //        uint64_t return_data = (*(uint64_t*) cas_buffer->addr);
 //        assert((return_data & (1ull << (RDMA_Manager::node_id/2 + 1))) != 0);
@@ -4941,7 +4955,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 #ifndef NDEBUG
             if(((*(uint64_t*) local_CAS_mr->addr) >> 56) != (compare >> 56)){
 
-                usleep(40);
+                usleep(50);
                 //RDMA read the latch word again and see if it is the same as the compare value.
                 RDMA_Read(remote_lock_addr, local_CAS_mr, 8, IBV_SEND_SIGNALED,1, Regular_Page);
 
