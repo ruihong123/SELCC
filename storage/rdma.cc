@@ -4098,10 +4098,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //                    invalidation_RPC_type = 1;
                 }
             }
-            if (!read_invalidation_targets.empty()){
-                goto retry;
-            }
-            assert(false);
+            goto retry;
+//            if (!read_invalidation_targets.empty()){
+//                goto retry;
+//            }
+//            assert(false);
         }
 //        ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
 //        printf("Lock update successful page global addr is %p\n", page_addr);
