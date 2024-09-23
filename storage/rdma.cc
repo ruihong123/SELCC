@@ -7403,23 +7403,26 @@ void RDMA_Manager::fs_deserilization(
         assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
         assert(STRUCT_OFFSET(DataPage, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
         if (!handle->rw_mtx.try_lock(48)){
-            // (Solved) problem 1. There is a potential bug that the message is cached locally, but never get processed. If one front-end thread just
-            // finished the code from cache.cc:1063-1071. Then the message is pushed and will never get processed.
-            handle->buffered_inv_mtx.lock();
-            if(handle->remote_lock_status.load() == 1){
-                //  handle->lock_pending_num >0 is to avoid the case that the message is buffered but there is no local thread process it
-                // in the future.
-                if (handle->buffer_inv_message.starvation_priority < starv_level ){
-                    if (handle->buffer_inv_message.next_holder_id == Invalid_Node_ID){
-                        handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
+            //double check locking to reduce the lock conflict on buffered_inv_mtx
+            if(handle->remote_lock_status.load() == 1) {
+                handle->buffered_inv_mtx.lock();
+                if (handle->remote_lock_status.load() == 1) {
+                    //  handle->lock_pending_num >0 is to avoid the case that the message is buffered but there is no local thread process it
+                    // in the future.
+//                if (handle->buffer_inv_message.starvation_priority < starv_level ){
+                    if (handle->buffer_inv_message.next_holder_id == Invalid_Node_ID) {
+                        handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer,
+                                                             receive_msg_buf->rkey, starv_level,
+                                                             receive_msg_buf->command);
                         handle->remote_urging_type.store(2);
-                    }else{
+                    } else {
                         assert(handle->remote_urging_type == 2);
                         assert(handle->buffer_inv_message.next_inv_message_type == writer_invalidate_shared);
                     }
+//                }
                 }
+                handle->buffered_inv_mtx.unlock();
             }
-            handle->buffered_inv_mtx.unlock();
             reply_type = dropped;
             page_cache_->Release(handle);
             goto message_reply;
@@ -7519,35 +7522,41 @@ void RDMA_Manager::fs_deserilization(
         if (!handle->rw_mtx.try_lock(48)){
             // (Solved) problem 1. There is a potential bug that the message is cached locally, but never get processed. If one front-end thread just
             // finished the code from cache.cc:1063-1071. Then the message is pushed and will never get processed.
-            handle->buffered_inv_mtx.lock();
-            if(handle->remote_lock_status.load() == 2){
-                if (pending_reminder && handle->buffer_inv_message.next_holder_id == target_node_id){
-                    assert(receive_msg_buf->buffer == handle->buffer_inv_message.next_receive_page_buf);
-                    assert(receive_msg_buf->rkey == handle->buffer_inv_message.next_receive_rkey);
-                    handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
-                    handle->remote_urging_type.store(1);
-                    handle->buffered_inv_mtx.unlock();
-                    page_cache_->Release(handle);
-                    delete receive_msg_buf;
-                    return; // do not release the lock here.
-                }
-                //  handle->lock_pending_num >0 is to avoid the case that the message is buffered but there is no local thread process it
-                // in the future.
-                if (handle->buffer_inv_message.starvation_priority < starv_level ){
-                    if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID){
-                        ibv_mr* local_mr = Get_local_send_message_mr();
-                        // drop the old invalidation message.
-                        handle->drop_buffered_inv_message(local_mr, this);
+            if(handle->remote_lock_status.load() == 2) {
+                handle->buffered_inv_mtx.lock();
+                if (handle->remote_lock_status.load() == 2) {
+                    if (pending_reminder && handle->buffer_inv_message.next_holder_id == target_node_id) {
+                        assert(receive_msg_buf->buffer == handle->buffer_inv_message.next_receive_page_buf);
+                        assert(receive_msg_buf->rkey == handle->buffer_inv_message.next_receive_rkey);
+                        handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer,
+                                                             receive_msg_buf->rkey, starv_level,
+                                                             receive_msg_buf->command);
+                        handle->remote_urging_type.store(1);
+                        handle->buffered_inv_mtx.unlock();
+                        page_cache_->Release(handle);
+                        delete receive_msg_buf;
+                        return; // do not release the lock here.
                     }
-                    handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
-                    handle->remote_urging_type.store(1);
-                    reply_type = pending;
-                    handle->buffered_inv_mtx.unlock();
-                    page_cache_->Release(handle);
-                    goto message_reply;
+                    //  handle->lock_pending_num >0 is to avoid the case that the message is buffered but there is no local thread process it
+                    // in the future.
+                    if (handle->buffer_inv_message.starvation_priority < starv_level) {
+                        if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID) {
+                            ibv_mr *local_mr = Get_local_send_message_mr();
+                            // drop the old invalidation message.
+                            handle->drop_buffered_inv_message(local_mr, this);
+                        }
+                        handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer,
+                                                             receive_msg_buf->rkey, starv_level,
+                                                             receive_msg_buf->command);
+                        handle->remote_urging_type.store(1);
+                        reply_type = pending;
+                        handle->buffered_inv_mtx.unlock();
+                        page_cache_->Release(handle);
+                        goto message_reply;
+                    }
                 }
+                handle->buffered_inv_mtx.unlock();
             }
-            handle->buffered_inv_mtx.unlock();
             reply_type = dropped;
             page_cache_->Release(handle);
             goto message_reply;
@@ -7686,35 +7695,41 @@ void RDMA_Manager::fs_deserilization(
         if (!handle->rw_mtx.try_lock(32)){
             // (Solved) problem 1. There is a potential bug that the message is cached locally, but never get processed. If one front-end thread just
             // finished the code from cache.cc:1063-1071. Then the message is pushed and will never get processed.
-            handle->buffered_inv_mtx.lock();
-            if(handle->remote_lock_status.load() == 2){
-                if (pending_reminder && handle->buffer_inv_message.next_holder_id == target_node_id){
-                    assert(receive_msg_buf->buffer == handle->buffer_inv_message.next_receive_page_buf);
-                    assert(receive_msg_buf->rkey == handle->buffer_inv_message.next_receive_rkey);
-                    handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
-                    handle->remote_urging_type.store(2);
-                    handle->buffered_inv_mtx.unlock();
-                    page_cache_->Release(handle);
-                    delete receive_msg_buf;
-                    return; // do not release the lock here.
-                }
-                //  handle->lock_pending_num >0 is to avoid the case that the message is buffered but there is no local thread process it
-                // in the future.
-                if (handle->buffer_inv_message.starvation_priority < starv_level ){
-                    if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID){
-                        ibv_mr* local_mr = Get_local_send_message_mr();
-                        // drop the old invalidation message.
-                        handle->drop_buffered_inv_message(local_mr, this);
+            if(handle->remote_lock_status.load() == 2) {
+                handle->buffered_inv_mtx.lock();
+                if (handle->remote_lock_status.load() == 2) {
+                    if (pending_reminder && handle->buffer_inv_message.next_holder_id == target_node_id) {
+                        assert(receive_msg_buf->buffer == handle->buffer_inv_message.next_receive_page_buf);
+                        assert(receive_msg_buf->rkey == handle->buffer_inv_message.next_receive_rkey);
+                        handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer,
+                                                             receive_msg_buf->rkey, starv_level,
+                                                             receive_msg_buf->command);
+                        handle->remote_urging_type.store(2);
+                        handle->buffered_inv_mtx.unlock();
+                        page_cache_->Release(handle);
+                        delete receive_msg_buf;
+                        return; // do not release the lock here.
                     }
-                    handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer, receive_msg_buf->rkey, starv_level, receive_msg_buf->command);
-                    handle->remote_urging_type.store(2);
-                    reply_type = pending;
-                    handle->buffered_inv_mtx.unlock();
-                    page_cache_->Release(handle);
-                    goto message_reply;
+                    //  handle->lock_pending_num >0 is to avoid the case that the message is buffered but there is no local thread process it
+                    // in the future.
+                    if (handle->buffer_inv_message.starvation_priority < starv_level) {
+                        if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID) {
+                            ibv_mr *local_mr = Get_local_send_message_mr();
+                            // drop the old invalidation message.
+                            handle->drop_buffered_inv_message(local_mr, this);
+                        }
+                        handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer,
+                                                             receive_msg_buf->rkey, starv_level,
+                                                             receive_msg_buf->command);
+                        handle->remote_urging_type.store(2);
+                        reply_type = pending;
+                        handle->buffered_inv_mtx.unlock();
+                        page_cache_->Release(handle);
+                        goto message_reply;
+                    }
                 }
+                handle->buffered_inv_mtx.unlock();
             }
-            handle->buffered_inv_mtx.unlock();
             reply_type = dropped;
             page_cache_->Release(handle);
             goto message_reply;

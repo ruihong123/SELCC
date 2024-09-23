@@ -1600,7 +1600,15 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         assert(remote_lock_status.load() == 1);
         bool succfully_updated = rdma_mg->global_Rlock_update(local_mr, lock_addr, cas_buffer, cxt, coro_id);
         if (succfully_updated){
+            buffered_inv_mtx.lock();
+            if (buffer_inv_message.next_holder_id != Invalid_Node_ID){
+                printf("Node %u Upgrade lock from shared to modified, clear the buffered inv message on cache line %p\n", RDMA_Manager::node_id, page_addr);
+                assert(buffer_inv_message.next_inv_message_type == writer_invalidate_shared);
+                clear_pending_inv_states();
+            }
             remote_lock_status.store(2);
+            buffered_inv_mtx.unlock();
+
 //            assert(gptr == (((LeafPage<uint64_t ,uint64_t>*)(((ibv_mr*)value)->addr))->hdr.this_page_g_ptr));
             return true;
         }else{
