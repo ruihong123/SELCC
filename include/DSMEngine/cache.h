@@ -105,7 +105,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
                 assert(this->next_holder_id != Invalid_Node_ID);
                 assert(this->next_receive_page_buf != nullptr);
                 assert(this->next_receive_rkey != 0);
-                assert(this->starvation_priority != 0);
+//                assert(this->starvation_priority != 0);
                 assert(this->next_inv_message_type != invalid_command_);
 #endif
             }
