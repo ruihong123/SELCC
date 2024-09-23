@@ -1163,7 +1163,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 cache_miss[RDMA_Manager::thread_id][0]++;
 //                cache_hit_valid[RDMA_Manager::thread_id][0]++;
                 if (!global_Rlock_update(mr, lock_addr, cas_mr)){
-                    assert(remote_lock_status.load() == 1);
+                    assert(remote_lock_status.load() == 0);
                     buffered_inv_mtx.lock();
                     //TODO: try to clear the outdated buffered inv message. as the latch state has been changed.
                     if (buffer_inv_message.next_holder_id != Invalid_Node_ID){
