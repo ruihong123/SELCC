@@ -3709,9 +3709,13 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //#endif
 
                 //TODO: change the function below to Reader_Invalidate_Modified_RPC.
-                Reader_Invalidate_Modified_RPC(page_addr,
+                auto ret = Reader_Invalidate_Modified_RPC(page_addr,
                                                page_buffer, target_compute_node_id, starvation_level,
                                                retry_cnt);
+                if (ret == processed){
+                    return true;
+                }
+                assert(ret == dropped);
 
             }else{
                 // THis could happen if we enable async write unlock. one thread unlock and another thread acqurie the lock.
@@ -4961,7 +4965,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
     }
 
     bool RDMA_Manager::global_write_page_and_WdowntoR(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
-                                                     GlobalAddress remote_lock_addr, bool async, Cache_Handle* handle) {
+                                                      GlobalAddress remote_lock_addr, uint8_t next_holder_id,
+                                                      bool async,
+                                                      Cache_Handle *handle) {
 
         //TODO: If we want to use async unlock, we need to enlarge the max outstand work request that the queue pair support.
         struct ibv_send_wr sr[2];
@@ -4990,9 +4996,13 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             *(uint64_t*) local_CAS_mr->addr = 0;
             //TODO: Can we make the RDMA unlock based on RDMA FAA? In this case, we can use async
             // lock releasing to reduce the RDMA ROUND trips in the protocol
-            volatile uint64_t add = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
-            volatile uint64_t substract = (~add) + 1;
-            add = (1ull << (RDMA_Manager::node_id/2 +1));
+            volatile uint64_t this_node_exclusive = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            volatile uint64_t this_node_shared = (1ull << (RDMA_Manager::node_id/2 +1));
+            volatile uint64_t inv_sender_shared = (1ull << (next_holder_id/2 +1));
+            assert(this_node_shared != inv_sender_shared);
+
+            volatile uint64_t substract = (~(this_node_exclusive)) + 1;
+            volatile uint64_t add = this_node_shared + inv_sender_shared;
             // The code below is to prevent a work request overflow in the send queue, since we enable
             // async lock releasing.
             Async_Tasks * tasks = (Async_Tasks *)async_tasks.at(page_addr.nodeID)->Get();
@@ -5061,9 +5071,13 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        assert(*(uint64_t *)local_CAS_mr->addr == 1);
             //We can apply async unlock here to reduce the latency.
 //            uint64_t swap = 0;
-            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
-            volatile uint64_t substract = (~compare) + 1;
-            uint64_t add = (1ull << (RDMA_Manager::node_id/2 +1));
+            volatile uint64_t this_node_exclusive = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            volatile uint64_t this_node_shared = (1ull << (RDMA_Manager::node_id/2 +1));
+            volatile uint64_t inv_sender_shared = (1ull << (next_holder_id/2 +1));
+            assert(this_node_shared != inv_sender_shared);
+
+            volatile uint64_t substract = (~(this_node_exclusive)) + 1;
+            volatile uint64_t add = this_node_shared + inv_sender_shared;
             //TODO: USE rdma faa to release the write lock to avoid continuous spurious unlock resulting from the concurrent read lock request.
             Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract + add, IBV_SEND_SIGNALED, Regular_Page);
 
@@ -5074,7 +5088,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             assert(page_addr.nodeID == remote_lock_addr.nodeID);
             Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-            assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (compare >> 56));
+            assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (this_node_exclusive >> 56));
 //            if((*(uint64_t*) local_CAS_mr->addr) != compare){
 ////                printf("RDMA write lock unlock happen with RDMA faa FOR rdma READ LOCK\n");
 //                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (compare >> 56));

@@ -1678,7 +1678,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 *(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) = processed;
 
                 //cache downgrade from Modified to Shared rather than release the lock.
-                rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr);
+                rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr, buffer_inv_message.next_holder_id.load());
                 rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf, buffer_inv_message.next_receive_rkey, kLeafPageSize,
                                              buffer_inv_message.next_holder_id, qp_id, false);
                 remote_lock_status.store(1);

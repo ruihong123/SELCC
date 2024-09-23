@@ -633,7 +633,8 @@ class RDMA_Manager {
     bool global_write_page_and_WHandover(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, uint8_t next_holder_id,
                                          GlobalAddress remote_lock_addr, bool async = false, Cache_Handle* handle = nullptr);
     bool global_write_page_and_WdowntoR(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
-                                       GlobalAddress remote_lock_addr, bool async = false, Cache_Handle* handle = nullptr);
+                                        GlobalAddress remote_lock_addr, uint8_t next_holder_id, bool async = false,
+                                        Cache_Handle *handle = nullptr);
     void global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                        GlobalAddress remote_lock_addr, CoroContext *cxt = nullptr, int coro_id = 0, bool async = false);
     void global_unlock_addr(GlobalAddress remote_lock_add, CoroContext *cxt= nullptr, int coro_id = 0, bool async = false);
