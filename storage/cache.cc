@@ -1163,9 +1163,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 cache_miss[RDMA_Manager::thread_id][0]++;
 //                cache_hit_valid[RDMA_Manager::thread_id][0]++;
                 if (!global_Rlock_update(mr, lock_addr, cas_mr)){
+                    assert(remote_lock_status.load() == 1);
                     buffered_inv_mtx.lock();
-
-                    remote_lock_status.store(0);
                     //TODO: try to clear the outdated buffered inv message. as the latch state has been changed.
                     if (buffer_inv_message.next_holder_id != Invalid_Node_ID){
                         printf("Node %u Upgrade lock from shared to modified, clear the buffered inv message on cache line %p\n", RDMA_Manager::node_id, page_addr);
@@ -1268,7 +1267,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //                cache_hit_valid[RDMA_Manager::thread_id][0]++;
             if (!global_Rlock_update(mr, lock_addr, cas_mr)){
                 rw_mtx.unlock();
-                remote_lock_status.store(0);
+//                remote_lock_status.store(0);
                 return false;
                 //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
                 // is problematice if we want to upgrade the lock during a transaction.
@@ -1367,7 +1366,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 cache_miss[RDMA_Manager::thread_id][0]++;
 //                cache_hit_valid[RDMA_Manager::thread_id][0]++;
                 if (!global_Rlock_update(mr, lock_addr, cas_mr)){
-                    remote_lock_status.store(0);
+//                    remote_lock_status.store(0);
                     rw_mtx.unlock();
                     return false;
                     //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
@@ -1459,7 +1458,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 cache_miss[RDMA_Manager::thread_id][0]++;
 //                cache_hit_valid[RDMA_Manager::thread_id][0]++;
                 if (!global_Rlock_update(mr, lock_addr, cas_mr)){
-                    remote_lock_status.store(0);
+//                    remote_lock_status.store(0);
                     //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
                     // is problematice if we want to upgrade the lock during a transaction.
                     // May be we can take advantage of the lock starvation bit to solve this problem.
@@ -1600,6 +1599,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         assert(remote_lock_status.load() == 1);
         bool succfully_updated = rdma_mg->global_Rlock_update(local_mr, lock_addr, cas_buffer, cxt, coro_id);
         if (succfully_updated){
+            // TODO: we need to make the lock status update out side this function.
             buffered_inv_mtx.lock();
             if (buffer_inv_message.next_holder_id != Invalid_Node_ID){
                 printf("Node %u Upgrade lock from shared to modified, clear the buffered inv message on cache line %p\n", RDMA_Manager::node_id, page_addr);
@@ -1613,6 +1613,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             return true;
         }else{
             assert(remote_lock_status.load() == 1);
+            remote_lock_status.store(0);
+
             return false;
 
         }
