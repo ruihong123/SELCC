@@ -1168,7 +1168,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                     remote_lock_status.store(0);
                     //TODO: try to clear the outdated buffered inv message. as the latch state has been changed.
                     if (buffer_inv_message.next_holder_id != Invalid_Node_ID){
-                        printf("Upgrade lock from shared to modified, clear the buffered inv message\n");
+                        printf("Node %u Upgrade lock from shared to modified, clear the buffered inv message on cache line %p\n", RDMA_Manager::node_id, page_addr);
                         assert(buffer_inv_message.next_inv_message_type == writer_invalidate_shared);
                         clear_pending_inv_states();
                     }
