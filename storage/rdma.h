@@ -632,6 +632,8 @@ class RDMA_Manager {
                                        GlobalAddress remote_lock_addr, bool async = false, Cache_Handle* handle = nullptr);
     bool global_write_page_and_WHandover(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, uint8_t next_holder_id,
                                          GlobalAddress remote_lock_addr, bool async = false, Cache_Handle* handle = nullptr);
+    bool global_WHandover(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, uint8_t next_holder_id,
+                                         GlobalAddress remote_lock_addr, bool async = false, Cache_Handle* handle = nullptr);
     bool global_write_page_and_WdowntoR(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
                                         GlobalAddress remote_lock_addr, uint8_t next_holder_id, bool async = false,
                                         Cache_Handle *handle = nullptr);

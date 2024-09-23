@@ -1676,11 +1676,11 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 assert(local_mr->length == kLeafPageSize);
                 int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
                 *(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) = processed;
-
-                //cache downgrade from Modified to Shared rather than release the lock.
-                rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr, buffer_inv_message.next_holder_id.load());
                 rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf, buffer_inv_message.next_receive_rkey, kLeafPageSize,
                                              buffer_inv_message.next_holder_id, qp_id, false);
+                //cache downgrade from Modified to Shared rather than release the lock.
+                rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr, buffer_inv_message.next_holder_id.load());
+
                 remote_lock_status.store(1);
             }else if (remote_urging_type == 2 && buffer_inv_message.next_inv_message_type == writer_invalidate_modified){
 //                        printf("Lock starvation prevention code was executed stage 3\n");
@@ -1691,14 +1691,15 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
                 *(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) = processed;
 
+                rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf, buffer_inv_message.next_receive_rkey, kLeafPageSize,
+                                             buffer_inv_message.next_holder_id, qp_id, false);
                 //TODO: The dirty page flush back here is not necessary.
                 rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, buffer_inv_message.next_holder_id.load(), lock_addr,
                                                          false, nullptr);
                 // The sequence of this two RDMA message could be problematic, because we do not know,
                 // whether the global latch release will arrive sooner than the page forward. if not the next cache holder
                 // can find the old cach copy holder still there when releasing the latch.
-                rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf, buffer_inv_message.next_receive_rkey, kLeafPageSize,
-                                             buffer_inv_message.next_holder_id, qp_id, false);
+
                 remote_lock_status.store(0);
 //#else
 //                    rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
