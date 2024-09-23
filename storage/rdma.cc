@@ -4182,7 +4182,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
 #ifndef NDEBUG
             if((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0){
-
+                uint64_t old_cas = *(uint64_t*)cas_buffer->addr;
                 usleep(100);
                 //RDMA read the latch word again and see if it is the same as the compare value.
                 RDMA_Read(lock_addr, cas_buffer, 8, IBV_SEND_SIGNALED,1, Regular_Page);
