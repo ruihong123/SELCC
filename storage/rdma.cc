@@ -4186,9 +4186,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 usleep(100);
                 //RDMA read the latch word again and see if it is the same as the compare value.
                 RDMA_Read(lock_addr, cas_buffer, 8, IBV_SEND_SIGNALED,1, Regular_Page);
-
                 assert((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
-                printf("RDMA write to raeder handover move too fast, resulting in spurious latch word mismatch\n");
+                printf("RDMA write to reader handover move too fast, resulting in spurious latch word mismatch\n");
                 fflush(stdout);
                 //                goto retry;
             }
@@ -4499,7 +4498,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                     }
                 }else{
                     //It is okay to have a write invalidation target is itself, if we enable the async write unlock.
-                    printf(" Write invalidation target is itself, this is rare case,, page_addr is %p, retry_cnt is %lu\n", page_addr, retry_cnt);
+                    printf(" Write invalidation target is itself, this is because the previous latch release is async, and has not arrived yet,, page_addr is %p, retry_cnt is %lu\n", page_addr, retry_cnt);
                 }
             }
 
@@ -4549,10 +4548,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             if ((*(uint64_t*) cas_buffer->addr) >> 56 == swap >> 56){
                 // >> 56 in case there are concurrent reader
                 //Other computen node handover for me
-//                printf("Global latch handover received at %p, this node is %u\n", page_addr, RDMA_Manager::node_id);
-//                fflush(stdout);
-                ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
-                return;
+                printf("Lock acquirisition find itself already hold global exclusive latch at %p, this node is %u\n", page_addr, RDMA_Manager::node_id);
+                fflush(stdout);
+//                ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
+//                return;
             }
             if (last_CAS_return != (*(uint64_t*) cas_buffer->addr)){
                 // someone else have acquire the latch, immediately issue a invalidation in the next loop.
