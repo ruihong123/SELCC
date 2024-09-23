@@ -4182,13 +4182,21 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
 #ifndef NDEBUG
             if((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0){
+                size_t count = 0;
+
+            retry_check:
+                count++;
                 uint64_t old_cas = *(uint64_t*)cas_buffer->addr;
                 usleep(100);
                 //RDMA read the latch word again and see if it is the same as the compare value.
                 RDMA_Read(lock_addr, cas_buffer, 8, IBV_SEND_SIGNALED,1, Regular_Page);
-                assert((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
-                printf("NodeID %u RDMA write to reader handover move too fast, resulting in spurious latch word mismatch\n", node_id);
-                fflush(stdout);
+                if((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) != 0){
+
+                    printf("NodeID %u RDMA write to reader handover move too fast, resulting in spurious latch word mismatch\n", node_id);
+                    fflush(stdout);
+                    goto retry_check;
+                }
+                printf("Have retry %lu times\n", count);
                 //                goto retry;
             }
 #endif
@@ -7826,7 +7834,7 @@ void RDMA_Manager::fs_deserilization(
                     }
                     handle->buffered_inv_mtx.unlock();
                     handle->rw_mtx.unlock();
-                    printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get processed\n", node_id, target_node_id, g_ptr);
+                    printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get processed 1\n", node_id, target_node_id, g_ptr);
                     fflush(stdout);
                 }else{
                     local_mr = Get_local_send_message_mr();
