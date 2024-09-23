@@ -4187,7 +4187,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 //RDMA read the latch word again and see if it is the same as the compare value.
                 RDMA_Read(lock_addr, cas_buffer, 8, IBV_SEND_SIGNALED,1, Regular_Page);
                 assert((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
-                printf("RDMA write to reader handover move too fast, resulting in spurious latch word mismatch\n");
+                printf("NodeID %u RDMA write to reader handover move too fast, resulting in spurious latch word mismatch\n", node_id);
                 fflush(stdout);
                 //                goto retry;
             }
@@ -4960,7 +4960,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 RDMA_Read(remote_lock_addr, local_CAS_mr, 8, IBV_SEND_SIGNALED,1, Regular_Page);
 
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
-                printf("RDMA write handover move too fast, resulting in spurious latch word mismatch\n");
+                printf("Node ID %u RDMA write handover move too fast, resulting in spurious latch word mismatch\n", RDMA_Manager::node_id);
                 fflush(stdout);
                 //                goto retry;
             }
@@ -5104,7 +5104,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 RDMA_Read(remote_lock_addr, local_CAS_mr, 8, IBV_SEND_SIGNALED,1, Regular_Page);
 
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
-                printf("RDMA write handover move too fast, resulting in spurious latch word mismatch\n");
+                printf("Nodeid %u RDMA write handover move too fast, resulting in spurious latch word mismatch\n", node_id);
                 fflush(stdout);
                 //                goto retry;
             }
@@ -5257,7 +5257,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 assert((*(uint64_t*)local_CAS_mr->addr & this_node_shared) != 0);
                 assert(((*(uint64_t*)local_CAS_mr->addr) >> 56) == 0);
 //                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == add >> 56);
-                printf("RDMA write to write handover move too fast, resulting in spurious latch word mismatch\n");
+                printf("Nodeid %u RDMA write to write handover move too fast, resulting in spurious latch word mismatch\n", RDMA_Manager::node_id);
                 fflush(stdout);
                 //                goto retry;
             }
