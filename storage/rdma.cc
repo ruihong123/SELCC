@@ -7471,7 +7471,7 @@ void RDMA_Manager::fs_deserilization(
                                     target_node_id, qp_id, true);
                 handle->buffered_inv_mtx.unlock();
                 handle->rw_mtx.unlock();
-                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get processed\n", node_id, target_node_id, g_ptr);
+                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get processed, priority is %u\n", node_id, target_node_id, g_ptr, starv_level);
                 fflush(stdout);
                 break;
             case pending:
