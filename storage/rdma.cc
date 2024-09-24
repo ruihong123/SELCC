@@ -4193,7 +4193,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 usleep(100);
                 //RDMA read the latch word again and see if it is the same as the compare value.
                 RDMA_Read(lock_addr, cas_buffer, 8, IBV_SEND_SIGNALED,1, Regular_Page);
-                if((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) != 0 || (*(uint64_t*)cas_buffer->addr >> 56 ) > 0){
+                if((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) != 0){
 
                     printf("NodeID %u RDMA write to reader handover over data %p move too fast, resulting in spurious latch word mismatch, latch word is %p\n", node_id, lock_addr, old_cas);
                     fflush(stdout);
@@ -4975,7 +4975,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 //RDMA read the latch word again and see if it is the same as the compare value.
                 RDMA_Read(remote_lock_addr, local_CAS_mr, 8, IBV_SEND_SIGNALED,1, Regular_Page);
                 // todo: may be we need to ignore this assertion?
-                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
+                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) != (add >> 56));
                 printf("Node ID %u RDMA write handover move too fast, resulting in spurious latch word mismatch\n", RDMA_Manager::node_id);
                 fflush(stdout);
                 //                goto retry;
@@ -7689,7 +7689,7 @@ void RDMA_Manager::fs_deserilization(
                 *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
                 RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
                                     target_node_id, qp_id, true);
-                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+//                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
                 fflush(stdout);
                 break;
             default:
@@ -7862,7 +7862,7 @@ void RDMA_Manager::fs_deserilization(
                 *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
                 RDMA_Write_xcompute(local_mr, (char*)receive_msg_buf->buffer + kLeafPageSize - sizeof(Page_Forward_Reply_Type), receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
                                     target_node_id, qp_id, true);
-                printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+//                printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
                 fflush(stdout);
                 break;
             default:
@@ -8035,7 +8035,7 @@ void RDMA_Manager::fs_deserilization(
                 *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
                 RDMA_Write_xcompute(local_mr, (char*)receive_msg_buf->buffer + kLeafPageSize - sizeof(Page_Forward_Reply_Type), receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
                                     target_node_id, qp_id, true);
-                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+//                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
                 fflush(stdout);
                 break;
             default:
