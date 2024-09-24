@@ -4302,7 +4302,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                                                                 page_buffer, write_invalidation_target,
                                                                 starvation_level, retry_cnt);
                     if (reply == processed){
-                        printf("Node %u try to acquire exclusive latch and successfully get forwarded page over data %p\n", RDMA_Manager::node_id, page_addr);
+                        printf("Node %u try to acquire exclusive latch from node %u and successfully get forwarded page over data %p\n", RDMA_Manager::node_id, write_invalidation_target, page_addr);
                         fflush(stdout);
                         //The invlaidation message is processed and page has been forwarded.
                         ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
@@ -7590,8 +7590,8 @@ void RDMA_Manager::fs_deserilization(
 //        bool pending_reminder = receive_msg_buf->content.inv_message.pending_reminder;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         assert(page_cache_ != nullptr);
-        printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p\n", node_id, target_node_id, g_ptr);
-        fflush(stdout);
+//        printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p\n", node_id, target_node_id, g_ptr);
+//        fflush(stdout);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         Page_Forward_Reply_Type reply_type = waiting;
         ibv_mr* page_mr = nullptr;
@@ -7707,8 +7707,8 @@ void RDMA_Manager::fs_deserilization(
         bool pending_reminder = receive_msg_buf->content.inv_message.pending_reminder;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         assert(page_cache_ != nullptr);
-        printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p\n", node_id, target_node_id, g_ptr);
-        fflush(stdout);
+//        printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p\n", node_id, target_node_id, g_ptr);
+//        fflush(stdout);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         Page_Forward_Reply_Type reply_type = waiting;
         ibv_mr* page_mr = nullptr;
@@ -7880,8 +7880,8 @@ void RDMA_Manager::fs_deserilization(
         bool pending_reminder = receive_msg_buf->content.inv_message.pending_reminder;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         assert(page_cache_ != nullptr);
-        printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p\n", node_id, target_node_id, g_ptr);
-        fflush(stdout);
+//        printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p\n", node_id, target_node_id, g_ptr);
+//        fflush(stdout);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         Page_Forward_Reply_Type reply_type = waiting;
         ibv_mr* page_mr = nullptr;
