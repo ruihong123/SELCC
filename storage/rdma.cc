@@ -4117,8 +4117,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
     bool
     RDMA_Manager::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, bool async, Cache::Handle *handle,
                                  CoroContext *cxt, int coro_id) {
-//        printf("realse global reader lock on address: %u, %lu, this nodeid: %u\n", lock_addr.nodeID, lock_addr.offset-8, node_id);
-//        fflush(stdout);
+
         //TODO: Change (RDMA_Manager::node_id/2 +1) to (RDMA_Manager::node_id/2)
         uint64_t add = (1ull << (RDMA_Manager::node_id/2 +1));
         uint64_t substract = (~add) + 1;
@@ -4196,8 +4195,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 RDMA_Read(lock_addr, cas_buffer, 8, IBV_SEND_SIGNALED,1, Regular_Page);
                 if((*(uint64_t*)cas_buffer->addr & (1ull << (RDMA_Manager::node_id/2 + 1))) != 0 || (*(uint64_t*)cas_buffer->addr >> 56 ) > 0){
 
-                    printf("NodeID %u RDMA write to reader handover move too fast, resulting in spurious latch word mismatch\n", node_id);
+                    printf("NodeID %u RDMA write to reader handover move too fast, resulting in spurious latch word mismatch, latch word is %p\n", node_id, old_cas);
                     fflush(stdout);
+                    if (count >10){
+                        assert(false);
+                    }
                     goto retry_check;
                 }
                 printf("Have retry %lu times\n", count);
