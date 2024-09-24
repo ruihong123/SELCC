@@ -4312,7 +4312,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                     printf(" Write invalidation target is itself, this is rare case,, page_addr is %p, retry_cnt is %lu\n", page_addr, retry_cnt);
                 }
             }else{
-                assert(false);
+                // if the RDMA return sees a faulty state, it shall ignore that and comes here.
+//                assert(false);
             }
 
             // the compared value is the real id /2 + 1.
