@@ -4216,7 +4216,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
 #endif
 
-
     bool RDMA_Manager::global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
                                                                GlobalAddress lock_addr, ibv_mr *cas_buffer, int r_times, CoroContext *cxt,
                                                                int coro_id) {
@@ -4376,7 +4375,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 //Other computen node handover for me
 //                printf("Global latch handover received at %p, this node is %u\n", page_addr, RDMA_Manager::node_id);
 //                fflush(stdout);
-                return true;
+//                return true;
+                spin_wait_us(10);
+                goto retry;
             }
             if (last_CAS_return != (*(uint64_t*) cas_buffer->addr)){
                 // someone else have acquire the latch, immediately issue a invalidation in the next loop.
@@ -4402,17 +4403,29 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 goto retry;
             }
 //            uint64_t read_bit_pos = 0;
+
+
+
+
+
             for (uint32_t i = 1; i < 56; ++i) {
                 uint32_t  remain_bit = (cas_value >> i)%2;
-                if (remain_bit == 1){
-                    read_invalidation_targets.push_back((i-1)*2);
-                    invalidation_RPC_type = 1;
-                }
+                    if (remain_bit == 1){
+                        if (i > compute_nodes.size()){
+                            //an faulty intermidiate state for reader invalidate writer and then lock update (release) is detected.
+                            // wait for state transfer.
+                            goto retry;
+                        }
+                        read_invalidation_targets.push_back((i-1)*2);
+                        invalidation_RPC_type = 1;
+                    }
+
             }
             if (!read_invalidation_targets.empty()){
 //                assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
                 goto retry;
             }
+            assert(false);
         }
         ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
         return true;
