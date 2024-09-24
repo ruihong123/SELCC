@@ -1679,14 +1679,15 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 assert(local_mr->length == kLeafPageSize);
                 int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
                 *(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) = processed;
+                rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf, buffer_inv_message.next_receive_rkey, kLeafPageSize,
+                                             buffer_inv_message.next_holder_id, qp_id, false);
                 auto time_begin = std::chrono::high_resolution_clock::now();
                 //cache downgrade from Modified to Shared rather than release the lock.
                 rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr, buffer_inv_message.next_holder_id.load());
                 auto time_end = std::chrono::high_resolution_clock::now();
                 printf("Time elapse for cache downgrade over cl %p is %lu\n", page_addr, std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_begin).count());
 
-                rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf, buffer_inv_message.next_receive_rkey, kLeafPageSize,
-                                             buffer_inv_message.next_holder_id, qp_id, false);
+
 
                 fflush(stdout);
 
