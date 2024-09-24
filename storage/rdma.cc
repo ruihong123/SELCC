@@ -7844,8 +7844,8 @@ void RDMA_Manager::fs_deserilization(
                 handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
                 handle->buffered_inv_mtx.unlock();
                 handle->rw_mtx.unlock();
-                printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get processed\n", node_id, target_node_id, g_ptr);
-                fflush(stdout);
+//                printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get processed\n", node_id, target_node_id, g_ptr);
+//                fflush(stdout);
                 break;
             case pending:
                 // After install the buffered invalidation message, we can try the lock again incase that there is no pending
@@ -7857,8 +7857,7 @@ void RDMA_Manager::fs_deserilization(
                     }
                     handle->buffered_inv_mtx.unlock();
                     handle->rw_mtx.unlock();
-                    printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get processed 1\n", node_id, target_node_id, g_ptr);
-                    fflush(stdout);
+
                 }else{
                     local_mr = Get_local_send_message_mr();
                     *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
@@ -8018,8 +8017,8 @@ void RDMA_Manager::fs_deserilization(
                 handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
                 handle->buffered_inv_mtx.unlock();
                 handle->rw_mtx.unlock();
-                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get processed\n", node_id, target_node_id, g_ptr);
-                fflush(stdout);
+//                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get processed\n", node_id, target_node_id, g_ptr);
+//                fflush(stdout);
                 break;
             case pending:
                 // After install the buffered invalidation message, we can try the lock again incase that there is no pending
@@ -8031,8 +8030,7 @@ void RDMA_Manager::fs_deserilization(
                     }
                     handle->buffered_inv_mtx.unlock();
                     handle->rw_mtx.unlock();
-                    printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get processed\n", node_id, target_node_id, g_ptr);
-                    fflush(stdout);
+
                 }else{
                     local_mr = Get_local_send_message_mr();
                     *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;

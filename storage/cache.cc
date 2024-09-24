@@ -1686,9 +1686,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr, buffer_inv_message.next_holder_id.load());
                 auto time_end = std::chrono::high_resolution_clock::now();
                 printf("Time elapse for cache downgrade over cl %p is %lu\n", page_addr, std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_begin).count());
-
-
-
+                printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get processed\n", RDMA_Manager::node_id, buffer_inv_message.next_holder_id.load(), gptr);
                 fflush(stdout);
 
                 remote_lock_status.store(1);
@@ -1711,6 +1709,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf, buffer_inv_message.next_receive_rkey, kLeafPageSize,
                                              buffer_inv_message.next_holder_id, qp_id, false);
                 remote_lock_status.store(0);
+                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get processed\n", RDMA_Manager::node_id, buffer_inv_message.next_holder_id.load(), gptr);
+                fflush(stdout);
 //#else
 //                    rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
 //                            remote_lock_status.store(0);
