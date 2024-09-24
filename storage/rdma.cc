@@ -2820,7 +2820,7 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
             memset(&sge, 0, sizeof(sge));
             sge.addr = (uintptr_t)async_buf->addr;
             sge.length = msg_size;
-            sge.lkey = local_mr->lkey;
+            sge.lkey = async_buf->lkey;
             if (is_inline){
                 sr.send_flags = IBV_SEND_INLINE;
             }
