@@ -4970,11 +4970,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             Batch_Submit_WRs(sr, 1, page_addr.nodeID);
 #ifndef NDEBUG
             if(((*(uint64_t*) local_CAS_mr->addr) >> 56) != (compare >> 56)){
-
+                uint64_t old_cas = (*(uint64_t*) local_CAS_mr->addr);
                 usleep(50);
                 //RDMA read the latch word again and see if it is the same as the compare value.
                 RDMA_Read(remote_lock_addr, local_CAS_mr, 8, IBV_SEND_SIGNALED,1, Regular_Page);
-
+                // todo: may be we need to ignore this assertion?
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
                 printf("Node ID %u RDMA write handover move too fast, resulting in spurious latch word mismatch\n", RDMA_Manager::node_id);
                 fflush(stdout);
