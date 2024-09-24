@@ -1706,7 +1706,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 // The sequence of this two RDMA message could be problematic, because we do not know,
                 // whether the global latch release will arrive sooner than the page forward. if not the next cache holder
                 // can find the old cach copy holder still there when releasing the latch.
-                rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf, buffer_inv_message.next_receive_rkey, kLeafPageSize,
+                rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf,
+                                             buffer_inv_message.next_receive_rkey, kLeafPageSize,
                                              buffer_inv_message.next_holder_id, qp_id, false);
                 remote_lock_status.store(0);
                 printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get processed\n", RDMA_Manager::node_id, buffer_inv_message.next_holder_id.load(), gptr);

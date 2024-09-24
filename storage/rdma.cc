@@ -8049,7 +8049,7 @@ void RDMA_Manager::fs_deserilization(
                 *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
                 RDMA_Write_xcompute(local_mr, (char*)receive_msg_buf->buffer + kLeafPageSize - sizeof(Page_Forward_Reply_Type), receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
                                     target_node_id, qp_id, true);
-//                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
                 fflush(stdout);
                 break;
             default:
