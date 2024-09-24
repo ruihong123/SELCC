@@ -1738,7 +1738,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         *((Page_Forward_Reply_Type*)local_mr->addr) = dropped;
 
         int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
-        printf("Drop the buffered invalidation message, target %u, buffer addr %p, rkey %u\n",
+        printf("Node %u Drop the buffered invalidation message, target %u, buffer addr %p, rkey %u\n", RDMA_Manager::node_id,
                buffer_inv_message.next_holder_id.load(), buffer_inv_message.next_receive_page_buf.load(), buffer_inv_message.next_receive_rkey.load());
         fflush(stdout);
         //todo: assert the message is writer invalid modified.

@@ -6251,6 +6251,9 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
 //#endif
     //USE static ticket to minuimize the conflict.
     int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+    send_pointer = (RDMA_Request*)send_mr->addr;
+    send_pointer->command = writer_invalidate_modified;
+    send_pointer->content.inv_message.pending_reminder = false;
 inv_resend:
     if(retry_cnt < 20){
 //                port::AsmVolatilePause();
@@ -6270,9 +6273,7 @@ inv_resend:
     } else{
         starv_level = 255 > 5+ retry_cnt/1000? (5+ retry_cnt/1000): 255;
     }
-    send_pointer = (RDMA_Request*)send_mr->addr;
-    send_pointer->command = writer_invalidate_modified;
-    send_pointer->content.inv_message.pending_reminder = false;
+
     send_pointer->content.inv_message.page_addr = global_ptr;
     send_pointer->content.inv_message.starvation_level = starv_level;
     send_pointer->buffer = recv_mr->addr;
@@ -6362,6 +6363,9 @@ inv_resend:
 //        memset(page_mr->addr, 0, page_mr->length);
 //#endif
         //USE static ticket to minuimize the conflict.
+        send_pointer = (RDMA_Request*)send_mr->addr;
+        send_pointer->command = reader_invalidate_modified;
+        send_pointer->content.inv_message.pending_reminder = false;
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
         inv_resend:
         if(retry_cnt < 20){
@@ -6382,9 +6386,7 @@ inv_resend:
         } else{
             starv_level = 255 > 5+ retry_cnt/1000? (5+ retry_cnt/1000): 255;
         }
-        send_pointer = (RDMA_Request*)send_mr->addr;
-        send_pointer->command = reader_invalidate_modified;
-        send_pointer->content.inv_message.pending_reminder = false;
+
         send_pointer->content.inv_message.page_addr = global_ptr;
         send_pointer->content.inv_message.starvation_level = starv_level;
         send_pointer->buffer = recv_mr->addr;
@@ -7931,6 +7933,7 @@ void RDMA_Manager::fs_deserilization(
                     //  handle->lock_pending_num >0 is to avoid the case that the message is buffered but there is no local thread process it
                     // in the future.
                     if (handle->buffer_inv_message.starvation_priority < starv_level) {
+                        assert(handle->buffer_inv_message.next_holder_id != target_node_id);
                         if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID) {
                             ibv_mr *local_mr = Get_local_send_message_mr();
                             // drop the old invalidation message.
