@@ -1694,10 +1694,10 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //                        printf("Lock starvation prevention code was executed stage 3\n");
                 assert(buffer_inv_message.next_holder_id != Invalid_Node_ID);
                     assert(buffer_inv_message.next_holder_id != RDMA_Manager::node_id);
-                ibv_mr* local_mr = rdma_mg->Get_local_read_mr();
-                //TODO: Since the page forward is asynchronous, we need to use a local buffer to support the asynchronous RDMA page forward.
-                memccpy(local_mr->addr, mr->addr, kLeafPageSize);
                 ibv_mr* local_mr = mr;
+//                //TODO: Since the page forward is asynchronous, we need to use a local buffer to support the asynchronous RDMA page forward.
+//                memccpy(local_mr->addr, mr->addr, kLeafPageSize);
+//                ibv_mr* local_mr = mr;
                 assert(local_mr->length == kLeafPageSize);
                 int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
                 *(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) = processed;
