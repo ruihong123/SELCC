@@ -1497,10 +1497,11 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //            || timer_alarmed.load()
             if ( handover_degree > STARVATION_THRESHOLD || lock_pending_num.load()==0){
                 if (handover_degree > STARVATION_THRESHOLD){
-                    printf("Process the cached invalidation message due to hitting the thredhold.\n");
+                    printf("Node %u Process the cached invalidation message over %p from node %u due to hitting the thredhold.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
                     fflush(stdout);
                 } else{
-                    printf("Process the cached invalidation message due to no pending waiter.\n");
+                    printf("Node %u Process the cached invalidation message over %p from node %u due to no pending waiter.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
+
                     fflush(stdout);
                 }
                 buffered_inv_mtx.lock();
@@ -1657,6 +1658,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         assert(remote_urging_type != 0);
         if (this->remote_lock_status == 1){
             assert(remote_urging_type == 2);
+            assert(buffer_inv_message.next_inv_message_type == writer_invalidate_shared);
 //            printf("High pririty invalidation message receive, target gcl is %p\n", page_addr);
 //            fflush(stdout);
             rdma_mg->global_RUnlock(lock_addr, rdma_mg->Get_local_CAS_mr(), false, nullptr, nullptr, 0);
