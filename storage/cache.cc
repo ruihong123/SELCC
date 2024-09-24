@@ -1710,7 +1710,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                                              buffer_inv_message.next_receive_rkey, kLeafPageSize,
                                              buffer_inv_message.next_holder_id, qp_id, false);
                 remote_lock_status.store(0);
-                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get processed\n", RDMA_Manager::node_id, buffer_inv_message.next_holder_id.load(), gptr);
+                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p "
+                       "get processed, target buffer addr is %p\n", RDMA_Manager::node_id, buffer_inv_message.next_holder_id.load(),
+                       gptr, buffer_inv_message.next_receive_page_buf.load());
                 fflush(stdout);
 //#else
 //                    rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
