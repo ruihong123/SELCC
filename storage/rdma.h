@@ -105,19 +105,7 @@ struct Registered_qp_config {
   uint16_t node_id;
 } __attribute__((packed));
 
-class Async_Tasks {
-public:
-    uint32_t counter = 0;
-    void* handles[SEND_OUTSTANDING_SIZE] = {nullptr};
-//    void clear(){
-//        for (int i = 0; i < counter; ++i) {
-////            handles[i]
-//            handles[i] = nullptr;
-//        }
-//        counter = 0;
-//        memset(handles, 0, SEND_OUTSTANDING_SIZE*8);
-//    }
-};
+
 
 struct Registered_qp_config_xcompute {
     uint32_t qp_num[NUM_QP_ACCROSS_COMPUTE]; /* QP numbers */
@@ -437,6 +425,49 @@ class Memory_Node_Keeper;
 class RDMA_Manager {
 
  public:
+    class Async_Tasks {
+        public:
+        uint32_t counter = 0;
+        void* handles[ATOMIC_OUTSTANDING_SIZE] = {nullptr};
+        ibv_mr* mrs[ATOMIC_OUTSTANDING_SIZE] = {nullptr};
+        Async_Tasks(){
+            auto rdma_mg = RDMA_Manager::Get_Instance();
+            for (int i = 0; i < ATOMIC_OUTSTANDING_SIZE; ++i) {
+                auto mr = new ibv_mr{};
+                rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
+                mrs[i] = mr;
+            }
+        }
+        ~Async_Tasks(){
+            auto rdma_mg = RDMA_Manager::Get_Instance();
+            for (int i = 0; i < ATOMIC_OUTSTANDING_SIZE; ++i) {
+                rdma_mg->Deallocate_Local_RDMA_Slot(mrs[i]->addr, Regular_Page);
+            }
+        }
+
+    };
+
+    class Async_Xcompute_Tasks {
+        public:
+        uint32_t counter = 0;
+//        void* handles[SEND_OUTSTANDING_SIZE_XCOMPUTE] = {nullptr};
+        ibv_mr* mrs[SEND_OUTSTANDING_SIZE_XCOMPUTE - 1] = {nullptr};
+        Async_Xcompute_Tasks(){
+            auto rdma_mg = RDMA_Manager::Get_Instance();
+            for (int i = 0; i < ATOMIC_OUTSTANDING_SIZE; ++i) {
+                auto mr = new ibv_mr{};
+                rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
+                mrs[i] = mr;
+            }
+        }
+        ~Async_Xcompute_Tasks(){
+            auto rdma_mg = RDMA_Manager::Get_Instance();
+            for (int i = 0; i < ATOMIC_OUTSTANDING_SIZE; ++i) {
+                rdma_mg->Deallocate_Local_RDMA_Slot(mrs[i]->addr, Regular_Page);
+            }
+        }
+
+    };
   friend class Memory_Node_Keeper;
   friend class DBImpl;
   RDMA_Manager(config_t config, size_t remote_block_size);
@@ -737,6 +768,7 @@ class RDMA_Manager {
   std::map<uint16_t, ThreadLocalPtr*> local_write_compact_qp_info;
     std::map<uint16_t, std::array<ibv_qp*, NUM_QP_ACCROSS_COMPUTE>*> qp_xcompute;
     std::map<uint16_t, std::array<std::atomic<uint16_t>, NUM_QP_ACCROSS_COMPUTE*2>*> qp_xcompute_os_c;
+    std::map<uint16_t,std::array<Async_Xcompute_Tasks, NUM_QP_ACCROSS_COMPUTE>*> qp_xcompute_asyncT;
     std::map<uint16_t, std::array<SpinMutex, NUM_QP_ACCROSS_COMPUTE>*> qp_xcompute_mtx;
     std::map<uint16_t, std::array<ibv_cq*, NUM_QP_ACCROSS_COMPUTE*2>*> cq_xcompute;
 //    std::map<uint16_t, Registered_qp_config_xcompute*> qp_xcompute_info;
@@ -943,7 +975,7 @@ class RDMA_Manager {
   int post_receive(ibv_mr** mr_list, size_t sge_size, std::string qp_type,
                    uint16_t target_node_id);
     int post_receive_xcompute(ibv_mr *mr, uint16_t target_node_id, int num_of_qp);
-    int post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int num_of_qp);
+    int post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int num_of_qp, size_t msg_size);
 
         int post_send(ibv_mr** mr_list, size_t sge_size, std::string qp_type,
                 uint16_t target_node_id);
@@ -1022,6 +1054,8 @@ class RDMA_Manager {
     return rc;
   }  // For a non-thread-local queue pair, send_cq==true poll the cq of send queue, send_cq==false poll the cq of receive queue
 };
+
+
 
 }
 #endif

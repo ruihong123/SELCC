@@ -1037,7 +1037,7 @@ bool RDMA_Manager::Get_Remote_qp_Info_Then_Connect(uint16_t target_node_id) {
   } else
     memset(&my_gid, 0, sizeof my_gid);
   /* exchange using TCP sockets info required to connect QPs */
-  ibv_qp* qp = create_qp(target_node_id, true, qp_type, SEND_OUTSTANDING_SIZE, RECEIVE_OUTSTANDING_SIZE);
+  ibv_qp* qp = create_qp(target_node_id, true, qp_type, ATOMIC_OUTSTANDING_SIZE, RECEIVE_OUTSTANDING_SIZE);
   local_con_data.qp_num = htonl(res->qp_map[target_node_id]->qp_num);
   local_con_data.lid = htons(res->port_attr.lid);
   memcpy(local_con_data.gid, &my_gid, 16);
@@ -1136,6 +1136,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
     auto* qp_arr = new  std::array<ibv_qp*, NUM_QP_ACCROSS_COMPUTE>();
     auto* temp_counter = new std::array<std::atomic<uint16_t>, NUM_QP_ACCROSS_COMPUTE*2>();
     auto* temp_mtx_arr = new std::array<SpinMutex, NUM_QP_ACCROSS_COMPUTE>();
+    auto* temp_mtx_async = new std::array<Async_Xcompute_Tasks, NUM_QP_ACCROSS_COMPUTE>();
     for (int i = 0; i < NUM_QP_ACCROSS_COMPUTE; ++i) {
         (*temp_counter)[i].store(0);
     }
@@ -1156,6 +1157,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
     cq_xcompute.insert({target_node_id, cq_arr});
     qp_xcompute.insert({target_node_id, qp_arr});
     qp_xcompute_os_c.insert({target_node_id, temp_counter});
+    qp_xcompute_asyncT.insert({target_node_id, temp_mtx_async});
     qp_xcompute_mtx.insert({target_node_id, temp_mtx_arr});
     // we need lock for post_receive_xcompute because qp_xcompute is not thread safe.
     printf("Prepare receive mr for %hu", target_node_id);
@@ -2103,7 +2105,7 @@ int RDMA_Manager::modify_qp_to_rtr(struct ibv_qp* qp, uint32_t remote_qpn,
   attr.path_mtu = IBV_MTU_4096;
   attr.dest_qp_num = remote_qpn;
   attr.rq_psn = 0;
-  attr.max_dest_rd_atomic = SEND_OUTSTANDING_SIZE; //destination should have a larger pending entries. than the qp send outstanding
+  attr.max_dest_rd_atomic = ATOMIC_OUTSTANDING_SIZE; //destination should have a larger pending entries. than the qp send outstanding
   attr.min_rnr_timer = 0xc;
   attr.ah_attr.is_global = 0;
   attr.ah_attr.dlid = dlid;
@@ -2790,11 +2792,7 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
         struct ibv_sge sge;
         struct ibv_send_wr* bad_wr = NULL;
         int rc = 0;
-        /* prepare the scatter/gather entry */
-        memset(&sge, 0, sizeof(sge));
-        sge.addr = (uintptr_t)local_mr->addr;
-        sge.length = msg_size;
-        sge.lkey = local_mr->lkey;
+
         /* prepare the send work request */
         memset(&sr, 0, sizeof(sr));
         sr.next = NULL;
@@ -2814,6 +2812,15 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
         bool need_signal =  pending_num >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1;
 //        bool need_signal = true; // Let's first test it with all signalled RDMA. Delete it after the debug
         if (!need_signal){
+            ibv_mr* async_buf = (*qp_xcompute_asyncT.at(target_node_id))[num_of_qp].mrs[pending_num];
+            assert(local_mr->length >= msg_size);
+            assert(async_buf->length >= msg_size);
+            memcpy(async_buf->addr, local_mr->addr, msg_size);
+            /* prepare the scatter/gather entry */
+            memset(&sge, 0, sizeof(sge));
+            sge.addr = (uintptr_t)async_buf->addr;
+            sge.length = msg_size;
+            sge.lkey = local_mr->lkey;
             if (is_inline){
                 sr.send_flags = IBV_SEND_INLINE;
             }
@@ -2821,6 +2828,11 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
             rc = ibv_post_send(qp, &sr, &bad_wr);
         }
         else{
+            /* prepare the scatter/gather entry */
+            memset(&sge, 0, sizeof(sge));
+            sge.addr = (uintptr_t)local_mr->addr;
+            sge.length = msg_size;
+            sge.lkey = local_mr->lkey;
             if (is_inline){
                 sr.send_flags = IBV_SEND_SIGNALED|IBV_SEND_INLINE;
             }else{
@@ -3988,7 +4000,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 counter = new uint32_t(0);
                 async_tasks[lock_addr.nodeID]->Reset(counter);
             }
-            if ( UNLIKELY((*counter % (SEND_OUTSTANDING_SIZE/2 - 1)) == 1)){
+            if ( UNLIKELY((*counter % (ATOMIC_OUTSTANDING_SIZE/2 - 1)) == 1)){
                 RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page);
             }else{
                 RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Regular_Page);
@@ -4153,10 +4165,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 async_tasks[lock_addr.nodeID]->Reset(tasks);
             }
             uint32_t* counter = &tasks->counter;
-            if ( UNLIKELY(*counter >= (SEND_OUTSTANDING_SIZE/2 - 1))){
+            if ( UNLIKELY(*counter >= (ATOMIC_OUTSTANDING_SIZE / 2 - 1))){
                 RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page);
                 //TODO: clear all the async tasks. for the handle. We need to release the local latch and release the handle.
-                for (int i = 0; i < (SEND_OUTSTANDING_SIZE/2 - 1); ++i) {
+                for (int i = 0; i < (ATOMIC_OUTSTANDING_SIZE / 2 - 1); ++i) {
                     auto* handle_temp = (Cache::Handle*)tasks->handles[i];
                     assert(handle_temp != nullptr);
                     handle_temp->rw_mtx.unlock();
@@ -4775,7 +4787,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             uint32_t* counter = &tasks->counter;
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
-            if ( UNLIKELY(*counter >= (SEND_OUTSTANDING_SIZE/2 - 1))){
+            if ( UNLIKELY(*counter >= (ATOMIC_OUTSTANDING_SIZE / 2 - 1))){
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Regular_Page);
                 sr[0].next = &sr[1];
 
@@ -4783,7 +4795,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
                 Batch_Submit_WRs(sr, 1, page_addr.nodeID);
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
-                for (int i = 0; i < (SEND_OUTSTANDING_SIZE/2 - 1); ++i) {
+                for (int i = 0; i < (ATOMIC_OUTSTANDING_SIZE / 2 - 1); ++i) {
                     auto* handle_temp = (Cache::Handle*)tasks->handles[i];
                     assert(handle_temp != nullptr);
                     handle_temp->rw_mtx.unlock();
@@ -4907,7 +4919,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             uint32_t* counter = &tasks->counter;
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
-            if ( UNLIKELY(*counter >= (SEND_OUTSTANDING_SIZE/2 - 1))){
+            if ( UNLIKELY(*counter >= (ATOMIC_OUTSTANDING_SIZE / 2 - 1))){
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract + add, IBV_SEND_SIGNALED, Regular_Page);
                 sr[0].next = &sr[1];
 
@@ -4916,7 +4928,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 Batch_Submit_WRs(sr, 1, page_addr.nodeID);
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
 
-                for (int i = 0; i < (SEND_OUTSTANDING_SIZE/2 - 1); ++i) {
+                for (int i = 0; i < (ATOMIC_OUTSTANDING_SIZE / 2 - 1); ++i) {
                     auto* handle_temp = (Cache::Handle*)tasks->handles[i];
                     assert(handle_temp != nullptr);
                     handle_temp->rw_mtx.unlock();
@@ -5051,7 +5063,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             uint32_t* counter = &tasks->counter;
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
-            if ( UNLIKELY(*counter >= (SEND_OUTSTANDING_SIZE/2 - 1))){
+            if ( UNLIKELY(*counter >= (ATOMIC_OUTSTANDING_SIZE / 2 - 1))){
                 Prepare_WR_FAA(sr[0], sge[0], remote_lock_addr, local_CAS_mr, substract + add, IBV_SEND_SIGNALED, Regular_Page);
 //                sr[0].next = &sr[1];
 
@@ -5060,7 +5072,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 Batch_Submit_WRs(sr, 1, page_addr.nodeID);
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
 
-                for (int i = 0; i < (SEND_OUTSTANDING_SIZE/2 - 1); ++i) {
+                for (int i = 0; i < (ATOMIC_OUTSTANDING_SIZE / 2 - 1); ++i) {
                     auto* handle_temp = (Cache::Handle*)tasks->handles[i];
                     assert(handle_temp != nullptr);
                     handle_temp->rw_mtx.unlock();
@@ -5197,7 +5209,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             uint32_t* counter = &tasks->counter;
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
-            if ( UNLIKELY(*counter >= (SEND_OUTSTANDING_SIZE/2 - 1))){
+            if ( UNLIKELY(*counter >= (ATOMIC_OUTSTANDING_SIZE / 2 - 1))){
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract +add, IBV_SEND_SIGNALED, Regular_Page);
                 sr[0].next = &sr[1];
 
@@ -5205,7 +5217,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
                 Batch_Submit_WRs(sr, 1, page_addr.nodeID);
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
-                for (int i = 0; i < (SEND_OUTSTANDING_SIZE/2 - 1); ++i) {
+                for (int i = 0; i < (ATOMIC_OUTSTANDING_SIZE / 2 - 1); ++i) {
                     auto* handle_temp = (Cache::Handle*)tasks->handles[i];
                     assert(handle_temp != nullptr);
                     handle_temp->rw_mtx.unlock();
@@ -5779,29 +5791,11 @@ int RDMA_Manager::post_receive_xcompute(ibv_mr *mr, uint16_t target_node_id, int
 //    return rc;
 //}
 
-    int RDMA_Manager::post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int num_of_qp) {
+    int RDMA_Manager::post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int num_of_qp, size_t msg_size) {
         struct ibv_send_wr sr;
         struct ibv_sge sge;
         struct ibv_send_wr* bad_wr = NULL;
         int rc = 0;
-
-        //  if (!rdma_config.server_name) {
-        //    /* prepare the scatter/gather entry */
-
-        memset(&sge, 0, sizeof(sge));
-        sge.addr = (uintptr_t)mr->addr;
-        assert(mr->length != 0);
-//    printf("The length of the mr is %lu", mr->length);
-        sge.length = mr->length;
-        sge.lkey = mr->lkey;
-        //  }
-        //  else {
-        //    /* prepare the scatter/gather entry */
-        //    memset(&sge, 0, sizeof(sge));
-        //    sge.addr = (uintptr_t)res->receive_buf;
-        //    sge.length = sizeof(T);
-        //    sge.lkey = res->mr_receive->lkey;
-        //  }
 
         /* prepare the send work request */
         memset(&sr, 0, sizeof(sr));
@@ -5817,12 +5811,30 @@ int RDMA_Manager::post_receive_xcompute(ibv_mr *mr, uint16_t target_node_id, int
         bool need_signal =  pending_num >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1;
 //        bool need_signal = true; // Let's first test it with all signalled RDMA.
         if (!need_signal){
+            ibv_mr* async_buf = (*qp_xcompute_asyncT.at(target_node_id))[num_of_qp].mrs[pending_num];
+            assert(mr->length >= msg_size);
+            assert(async_buf->length >= msg_size);
+            memcpy(async_buf->addr, mr->addr, msg_size);
+            memset(&sge, 0, sizeof(sge));
+            sge.addr = (uintptr_t)async_buf->addr;
+            assert(mr->length != 0);
+//    printf("The length of the mr is %lu", mr->length);
+            sge.length = msg_size;
+            sge.lkey = async_buf->lkey;
+
             sr.send_flags = IBV_SEND_INLINE;
             ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
             rc = ibv_post_send(qp, &sr, &bad_wr);
 
         }
         else{
+            memset(&sge, 0, sizeof(sge));
+            sge.addr = (uintptr_t)mr->addr;
+            assert(mr->length != 0);
+//    printf("The length of the mr is %lu", mr->length);
+            sge.length = msg_size;
+            sge.lkey = mr->lkey;
+
             sr.send_flags = IBV_SEND_SIGNALED|IBV_SEND_INLINE;
             ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
             rc = ibv_post_send(qp, &sr, &bad_wr);
@@ -6275,7 +6287,7 @@ inv_resend:
     send_pointer->buffer = recv_mr->addr;
     send_pointer->rkey = recv_mr->rkey;
     //TODO: no need to be signaled, can make it without completion.
-    post_send_xcompute(send_mr, target_node_id, qp_id);
+    post_send_xcompute(send_mr, target_node_id, qp_id, sizeof(RDMA_Request));
     ibv_wc wc[2] = {};
     asm volatile ("sfence\n" : : );
     asm volatile ("lfence\n" : : );
@@ -6391,7 +6403,7 @@ inv_resend:
         send_pointer->buffer = recv_mr->addr;
         send_pointer->rkey = recv_mr->rkey;
         //TODO: no need to be signaled, can make it without completion.
-        post_send_xcompute(send_mr, target_node_id, qp_id);
+        post_send_xcompute(send_mr, target_node_id, qp_id, sizeof(RDMA_Request));
         ibv_wc wc[2] = {};
         asm volatile ("sfence\n" : : );
         asm volatile ("lfence\n" : : );
@@ -6475,7 +6487,7 @@ inv_resend:
 
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
 
-        post_send_xcompute(send_mr, target_node_id, qp_id);
+        post_send_xcompute(send_mr, target_node_id, qp_id, sizeof(RDMA_Request));
         ibv_wc wc[2] = {};
         assert(send_pointer->command!= create_qp_);
         // Check the completion outside this function
@@ -6530,7 +6542,7 @@ inv_resend:
 
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
 
-        post_send_xcompute(send_mr, target_node_id, qp_id);
+        post_send_xcompute(send_mr, target_node_id, qp_id, sizeof(RDMA_Request));
         ibv_wc wc[2] = {};
         assert(send_pointer->command!= create_qp_);
 //        printf("Tuple read request sent from %u to %u\n", node_id, target_node_id);
@@ -6575,7 +6587,7 @@ inv_resend:
 
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
 
-        post_send_xcompute(send_mr, target_node_id, qp_id);
+        post_send_xcompute(send_mr, target_node_id, qp_id, sizeof(RDMA_Request));
         ibv_wc wc[2] = {};
         assert(send_pointer->command!= create_qp_);
 //        printf("Prepare request sent from %u to %u\n", node_id, target_node_id);
@@ -6621,7 +6633,7 @@ inv_resend:
 
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
 
-        post_send_xcompute(send_mr, target_node_id, qp_id);
+        post_send_xcompute(send_mr, target_node_id, qp_id, sizeof(RDMA_Request));
         ibv_wc wc[2] = {};
         assert(send_pointer->command!= create_qp_);
 //        printf("Commit request sent from %u to %u\n", node_id, target_node_id);
@@ -6653,7 +6665,7 @@ inv_resend:
 
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
 
-        post_send_xcompute(send_mr, target_node_id, qp_id);
+        post_send_xcompute(send_mr, target_node_id, qp_id, sizeof(RDMA_Request));
         ibv_wc wc[2] = {};
         assert(send_pointer->command!= create_qp_);
 //        printf("Abort request sent from %u to %u\n", node_id, target_node_id);
@@ -6704,7 +6716,7 @@ inv_resend:
 //    RDMA_Reply* receive_pointer;
 
         //Use node 1 memory node as the place to store the temporary QP information
-        post_send_xcompute(send_mr, target_memory_node_id, 0);
+        post_send_xcompute(send_mr, target_memory_node_id, 0, sizeof(RDMA_Request));
 
         asm volatile ("sfence\n" : : );
         asm volatile ("lfence\n" : : );
@@ -6715,7 +6727,7 @@ inv_resend:
 
     bool RDMA_Manager::Remote_Query_Pair_Connection(std::string& qp_type,
                                                 uint16_t target_node_id) {
-  ibv_qp* qp = create_qp(target_node_id, false, qp_type, SEND_OUTSTANDING_SIZE, 1);// No need for receive queue.
+  ibv_qp* qp = create_qp(target_node_id, false, qp_type, ATOMIC_OUTSTANDING_SIZE, 1);// No need for receive queue.
 
   union ibv_gid my_gid;
   int rc;
