@@ -6232,9 +6232,9 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
     receive_pointer = (Page_Forward_Reply_Type*)((char*)page_buffer->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type));
     //Clear the reply buffer for the polling.
     *receive_pointer = waiting;
-#ifndef NDEBUG
-    memset(page_buffer->addr, 0, page_buffer->length);
-#endif
+//#ifndef NDEBUG
+//    memset(page_buffer->addr, 0, page_buffer->length);
+//#endif
     //USE static ticket to minuimize the conflict.
     int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
 inv_resend:
@@ -6344,9 +6344,9 @@ inv_resend:
         receive_pointer = (Page_Forward_Reply_Type*)((char*)page_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type));
         //Clear the reply buffer for the polling.
         *receive_pointer = waiting;
-#ifndef NDEBUG
-        memset(page_mr->addr, 0, page_mr->length);
-#endif
+//#ifndef NDEBUG
+//        memset(page_mr->addr, 0, page_mr->length);
+//#endif
         //USE static ticket to minuimize the conflict.
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
         inv_resend:

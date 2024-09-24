@@ -1699,7 +1699,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 assert(local_mr->length == kLeafPageSize);
                 int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
                 *(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) = processed;
-
+                // TODO: need to use a local buffer to support the asynchronous RDMA page forward.
                 rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf, buffer_inv_message.next_receive_rkey, kLeafPageSize,
                                              buffer_inv_message.next_holder_id, qp_id, false);
                 //TODO: The dirty page flush back here is not necessary.
