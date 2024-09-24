@@ -4372,11 +4372,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         if ((*(uint64_t*) cas_buffer->addr) != compare){
 //            assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
             if ((*(uint64_t*) cas_buffer->addr) >> 56 == swap >> 56){
-                // >> 56 in case there are concurrent reader
-                //Other computen node handover for me
-//                printf("Global latch handover received at %p, this node is %u\n", page_addr, RDMA_Manager::node_id);
-//                fflush(stdout);
-//                return true;
                 spin_wait_us(10);
                 goto retry;
             }
@@ -6254,6 +6249,7 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
     send_pointer = (RDMA_Request*)send_mr->addr;
     send_pointer->command = writer_invalidate_modified;
     send_pointer->content.inv_message.pending_reminder = false;
+    bool was_pending = false;
 inv_resend:
     if(retry_cnt < 20){
 //                port::AsmVolatilePause();
@@ -6290,9 +6286,9 @@ inv_resend:
         asm volatile ("sfence\n" : : );
         asm volatile ("lfence\n" : : );
         asm volatile ("mfence\n" : : );
-
     }
     if (*receive_pointer == pending){
+        was_pending = true;
         TimeMeasurer timer;
         timer.StartTimer();
         timer.EndTimer();
@@ -6335,7 +6331,10 @@ inv_resend:
             }
         }
     }
-
+    if (was_pending && *receive_pointer == dropped){
+        printf("Inv message send from NOde %u to Node %u over data %p was pending and then get dropped\n", node_id, target_node_id, global_ptr);
+        fflush(stdout);
+    }
     assert(*receive_pointer == processed || *receive_pointer == dropped);
     return *receive_pointer;
 
