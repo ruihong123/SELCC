@@ -1684,7 +1684,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 //cache downgrade from Modified to Shared rather than release the lock.
                 rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr, buffer_inv_message.next_holder_id.load());
                 auto time_end = std::chrono::high_resolution_clock::now();
-                printf("Time elapse for cache downgrade is %lu\n", std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_begin).count());
+                printf("Time elapse for cache downgrade over cl %p is %lu\n", page_addr, std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_begin).count());
                 fflush(stdout);
 
                 remote_lock_status.store(1);
