@@ -2811,7 +2811,7 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
         mtx->lock();
         auto pending_num = os_start->fetch_add(1);
         bool need_signal =  pending_num >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1;
-//        bool need_signal = true; // Let's first test it with all signalled RDMA. Delete it after the debug
+        bool need_signal = true; // Let's first test it with all signalled RDMA. Delete it after the debug
         if (!need_signal){
             ibv_mr* async_buf = (*qp_xcompute_asyncT.at(target_node_id))[num_of_qp].mrs[pending_num];
             assert(local_mr->length >= msg_size);
