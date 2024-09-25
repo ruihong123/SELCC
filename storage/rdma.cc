@@ -4393,10 +4393,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 spin_wait_us(10);
                 goto retry;
             }
-            if (last_CAS_return != (*(uint64_t*) cas_buffer->addr)){
-                // someone else have acquire the latch, immediately issue a invalidation in the next loop.
-                retry_cnt = retry_cnt/INVALIDATION_INTERVAL;
-            }
+//            if (last_CAS_return != (*(uint64_t*) cas_buffer->addr)){
+//                // someone else have acquire the latch, immediately issue an invalidation in the next loop.
+//                retry_cnt = retry_cnt/INVALIDATION_INTERVAL;
+//            }
             last_CAS_return = (*(uint64_t*) cas_buffer->addr);
             // clear the invalidation targets
             read_invalidation_targets.clear();
@@ -4428,6 +4428,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                         if (i > compute_nodes.size()){
                             //an faulty intermidiate state for reader invalidate writer and then lock update (release) is detected.
                             // wait for state transfer.
+                            read_invalidation_targets.clear();
                             goto retry;
                         }
                         read_invalidation_targets.push_back((i-1)*2);
