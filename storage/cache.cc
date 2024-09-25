@@ -1716,8 +1716,6 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 // can find the old cach copy holder still there when releasing the latch.
                 assert(*(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) == processed);
 
-                assert(*(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) == processed);
-
 
                 remote_lock_status.store(0);
                 printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p "
