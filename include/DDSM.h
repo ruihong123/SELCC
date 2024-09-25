@@ -16,6 +16,9 @@ namespace DSMEngine {
         //TODO: we need to check whether the cache handle have buffered inv message, if so we need to process it.
         // However, this shall rarely happen.
         auto mr = (ibv_mr*) handle->value;
+        if (handle->buffer_inv_message.next_holder_id!= Invalid_Node_ID){
+            handle->process_buffered_inv_message(handle->gptr, kLeafPageSize, handle->gptr, (ibv_mr*)handle->value, false);
+        }
 //        if (handle->strategy == 1){
             GlobalAddress lock_gptr = handle->gptr;
             //TODO: Figure out Leafpage or internal page?
