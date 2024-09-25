@@ -7974,7 +7974,7 @@ void RDMA_Manager::fs_deserilization(
                             handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer,
                                                                  receive_msg_buf->rkey, starv_level,
                                                                  receive_msg_buf->command);
-                            handle->remote_urging_type.store(1);
+                            handle->remote_urging_type.store(2);
 //                            page_cache_->Release(handle);
 
                         }

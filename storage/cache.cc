@@ -1650,7 +1650,6 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         }
         rw_mtx.unlock();
     }
-// TODO: This function shall be separated into three.
     void Cache_Handle::process_buffered_inv_message(GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
                                                     ibv_mr *mr, bool need_spin) {
 //        buffered_inv_mtx.lock();
