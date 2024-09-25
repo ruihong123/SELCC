@@ -630,8 +630,8 @@ class RDMA_Manager {
     bool global_Rlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
                                                     ibv_mr *cas_buffer, int r_time = 0, CoroContext *cxt= nullptr, int coro_id = 0);
 #endif
-    bool global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, bool async = false, Cache_Handle* handle = nullptr,
-                        CoroContext *cxt = nullptr, int coro_id = 0);
+    bool
+    global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, bool async = false, Cache_Handle *handle = nullptr);
     //TODO: there is a potential lock upgrade deadlock, how to solve it?
     // potential solution: If not upgrade the lock after sending the message, the node should
     // unlock the read lock and then acquire the write lock by seperated RDMAs.
@@ -639,8 +639,7 @@ class RDMA_Manager {
 
     //Currently, we first invalidate other 's read lock and use CAS to upgrate the lock
     // Then here is the question, what if two node try to upgrade the lock at the same time.
-    bool global_Rlock_update(ibv_mr *local_mr, GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt = nullptr,
-                             int coro_id = 0);
+    bool global_Rlock_update(ibv_mr *local_mr, GlobalAddress lock_addr, ibv_mr *cas_buffer);
 
 
     static void clear_page_forward_flag(char* page_addr){

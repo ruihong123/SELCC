@@ -42,7 +42,7 @@ uint64_t kKeySpace = 2ull*1024ull*1024ull*1024ull; // bigdata
 //uint64_t kKeySpace = 50*1024*1024; //cloudlab
 double kWarmRatio = 0.8;
 
-bool use_zipf = false;
+bool use_zipf = true;
 double zipfan =0.99;
 
 std::thread th[kMaxThread];

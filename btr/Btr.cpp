@@ -871,7 +871,7 @@ namespace DSMEngine {
     bool Btr<Key,Value>::global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
                                              Cache::Handle *handle) {
         assert(handle->remote_lock_status.load() == 1);
-        bool succfully_updated = rdma_mg->global_Rlock_update(nullptr, lock_addr, cas_buffer, cxt, coro_id);
+        bool succfully_updated = rdma_mg->global_Rlock_update(nullptr, lock_addr, cas_buffer);
         if (succfully_updated){
             handle->remote_lock_status.store(2);
             assert(handle->gptr == (((LeafPage<Key,Value>*)(((ibv_mr*)handle->value)->addr))->hdr.this_page_g_ptr));
@@ -896,7 +896,7 @@ namespace DSMEngine {
     template <typename Key, typename Value>
     void Btr<Key,Value>::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
                                         Cache::Handle *handle) {
-        rdma_mg->global_RUnlock(lock_addr, cas_buffer, false, nullptr, cxt, coro_id);
+        rdma_mg->global_RUnlock(lock_addr, cas_buffer, false, nullptr);
         handle->remote_lock_status.store(0);
     }
 

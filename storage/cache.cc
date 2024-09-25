@@ -1599,7 +1599,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
     Cache_Handle::global_Rlock_update(ibv_mr * local_mr, GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt,
                                        int coro_id) {
         assert(remote_lock_status.load() == 1);
-        bool succfully_updated = rdma_mg->global_Rlock_update(local_mr, lock_addr, cas_buffer, cxt, coro_id);
+        bool succfully_updated = rdma_mg->global_Rlock_update(local_mr, lock_addr, cas_buffer);
         if (succfully_updated){
             // TODO: we need to make the lock status update out side this function.
             buffered_inv_mtx.lock();
