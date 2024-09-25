@@ -4319,8 +4319,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                                                                 page_buffer, write_invalidation_target,
                                                                 starvation_level, retry_cnt);
                     if (reply == processed){
-                        printf("Node %u try to acquire exclusive latch from node %u and successfully get forwarded page over data %p\n", RDMA_Manager::node_id, write_invalidation_target, page_addr);
-                        fflush(stdout);
+//                        printf("Node %u try to acquire exclusive latch from node %u and successfully get forwarded page over data %p\n", RDMA_Manager::node_id, write_invalidation_target, page_addr);
+//                        fflush(stdout);
                         //The invlaidation message is processed and page has been forwarded.
                         ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
                         return true;
@@ -6353,8 +6353,8 @@ inv_resend:
     }
     if (was_pending && *receive_pointer == dropped){
         auto page = (LeafPage<uint64_t,uint64_t>*)(page_buffer->addr);
-        printf("Inv message send from NOde %u to Node %u over data %p was pending and then get dropped\n", node_id, target_node_id, global_ptr);
-        fflush(stdout);
+//        printf("Inv message send from NOde %u to Node %u over data %p was pending and then get dropped\n", node_id, target_node_id, global_ptr);
+//        fflush(stdout);
         assert(page->hdr.this_page_g_ptr == GlobalAddress::Null());
         assert(page->hdr.p_type == P_Plain);
     }
@@ -7714,8 +7714,8 @@ void RDMA_Manager::fs_deserilization(
                                     target_node_id, qp_id, true, true);
                 handle->buffered_inv_mtx.unlock();
                 handle->rw_mtx.unlock();
-                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get processed, priority is %u\n", node_id, target_node_id, g_ptr, starv_level);
-                fflush(stdout);
+//                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get processed, priority is %u\n", node_id, target_node_id, g_ptr, starv_level);
+//                fflush(stdout);
                 break;
             case pending:
                 assert(false);
@@ -7911,8 +7911,8 @@ void RDMA_Manager::fs_deserilization(
                 assert(!pending_reminder);
                 handle->buffered_inv_mtx.unlock();
 
-                printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get pending, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
-                fflush(stdout);
+//                printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get pending, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+//                fflush(stdout);
 //                }
 
                 break;
@@ -8103,8 +8103,8 @@ void RDMA_Manager::fs_deserilization(
                                     target_node_id, qp_id, true, false);
                 handle->buffered_inv_mtx.unlock();
                 assert(!pending_reminder);
-                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get pending, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
-                fflush(stdout);
+//                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get pending, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+//                fflush(stdout);
 //                }
 
                 break;

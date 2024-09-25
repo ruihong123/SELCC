@@ -1686,9 +1686,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr, buffer_inv_message.next_holder_id.load());
                 auto time_end = std::chrono::high_resolution_clock::now();
 
-                printf("Time elapse for cache downgrade over cl %p is %lu\n", page_addr, std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_begin).count());
-                printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get processed\n", RDMA_Manager::node_id, buffer_inv_message.next_holder_id.load(), gptr);
-                fflush(stdout);
+//                printf("Time elapse for cache downgrade over cl %p is %lu\n", page_addr, std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_begin).count());
+//                printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get processed\n", RDMA_Manager::node_id, buffer_inv_message.next_holder_id.load(), gptr);
+//                fflush(stdout);
 
                 remote_lock_status.store(1);
             }else if (remote_urging_type == 2 && buffer_inv_message.next_inv_message_type == writer_invalidate_modified){
@@ -1718,10 +1718,10 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
 
                 remote_lock_status.store(0);
-                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p "
-                       "get processed, target buffer addr is %p\n", RDMA_Manager::node_id, buffer_inv_message.next_holder_id.load(),
-                       gptr, buffer_inv_message.next_receive_page_buf.load());
-                fflush(stdout);
+//                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p "
+//                       "get processed, target buffer addr is %p\n", RDMA_Manager::node_id, buffer_inv_message.next_holder_id.load(),
+//                       gptr, buffer_inv_message.next_receive_page_buf.load());
+//                fflush(stdout);
 //#else
 //                    rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
 //                            remote_lock_status.store(0);
@@ -1749,10 +1749,10 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         *((Page_Forward_Reply_Type*)local_mr->addr) = dropped;
 
         int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
-        printf("Node %u Drop the buffered invalidation message over data %p, target %u, buffer addr %p, rkey %u\n",
-               RDMA_Manager::node_id, gptr, buffer_inv_message.next_holder_id.load(),
-               buffer_inv_message.next_receive_page_buf.load(), buffer_inv_message.next_receive_rkey.load());
-        fflush(stdout);
+//        printf("Node %u Drop the buffered invalidation message over data %p, target %u, buffer addr %p, rkey %u\n",
+//               RDMA_Manager::node_id, gptr, buffer_inv_message.next_holder_id.load(),
+//               buffer_inv_message.next_receive_page_buf.load(), buffer_inv_message.next_receive_rkey.load());
+//        fflush(stdout);
         //todo: assert the message is writer invalid modified.
         void* buffer = (char*)buffer_inv_message.next_receive_page_buf.load() + kLeafPageSize - sizeof(Page_Forward_Reply_Type);
         rdma_mg->RDMA_Write_xcompute(local_mr, buffer, buffer_inv_message.next_receive_rkey,
