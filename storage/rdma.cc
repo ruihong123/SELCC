@@ -2814,6 +2814,7 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
         bool need_signal = true; // Let's first test it with all signalled RDMA. Delete it after the debug
         if (!need_signal){
             ibv_mr* async_buf = (*qp_xcompute_asyncT.at(target_node_id))[num_of_qp].mrs[pending_num];
+
             assert(local_mr->length >= msg_size);
             assert(async_buf->length >= msg_size);
             memcpy(async_buf->addr, local_mr->addr, msg_size);
@@ -2827,6 +2828,8 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
             }
             ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
             rc = ibv_post_send(qp, &sr, &bad_wr);
+            assert(*(Page_Forward_Reply_Type* ) ((char*)async_buf->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) == processed);
+
         }
         else{
             /* prepare the scatter/gather entry */
