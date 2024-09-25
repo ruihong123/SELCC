@@ -1707,7 +1707,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                                              buffer_inv_message.next_receive_rkey, kLeafPageSize,
                                              buffer_inv_message.next_holder_id, qp_id, false, true);
                 //TODO: The dirty page flush back here is not necessary.
-                rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, buffer_inv_message.next_holder_id.load(), lock_addr,
+//                rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, buffer_inv_message.next_holder_id.load(), lock_addr,
+//                                                         false, nullptr);
+                rdma_mg->global_WHandover(mr, page_addr, page_size, buffer_inv_message.next_holder_id.load(), lock_addr,
                                                          false, nullptr);
                 // The sequence of this two RDMA message could be problematic, because we do not know,
                 // whether the global latch release will arrive sooner than the page forward. if not the next cache holder
