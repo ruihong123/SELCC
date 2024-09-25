@@ -91,7 +91,7 @@ function run_bench() {
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server_tpcc" &
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server" &
     ssh -o StrictHostKeyChecking=no $node "pkill -f btree_bench" &
-#    ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*" &
+    ssh -o StrictHostKeyChecking=no $node "rm $home_dir/scripts/log*" &
     ssh -o StrictHostKeyChecking=no $node "rm $home_dir/debug/logdump.txt" &
     ssh -o StrictHostKeyChecking=no $node "rm $home_dir/release/logdump.txt" &
 #    ssh ${ssh_opts} $node "sudo mkdir /mnt/core_dump && sudo mkfs.ext4 /dev/sda4 && sudo mount /dev/sda4 /mnt/core_dump"

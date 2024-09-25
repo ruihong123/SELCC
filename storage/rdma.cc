@@ -2788,7 +2788,7 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
 
     int RDMA_Manager::RDMA_Write_xcompute(ibv_mr *local_mr, void *addr, uint32_t rkey, size_t msg_size,
                                           uint16_t target_node_id,
-                                          int num_of_qp, bool is_inline) {
+                                          int num_of_qp, bool is_inline, bool async) {
         struct ibv_send_wr sr;
         struct ibv_sge sge;
         struct ibv_send_wr* bad_wr = NULL;
@@ -2811,7 +2811,11 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
         mtx->lock();
         auto pending_num = os_start->fetch_add(1);
 //        bool need_signal =  pending_num >= SEND_OUTSTANDING_SIZE_XCOMPUTE - 1;
+
         bool need_signal = true; // Let's first test it with all signalled RDMA. Delete it after the debug
+        if (!async){
+            need_signal = true;
+        }
         if (!need_signal){
             ibv_mr* async_buf = (*qp_xcompute_asyncT.at(target_node_id))[num_of_qp].mrs[pending_num];
 
@@ -7703,8 +7707,9 @@ void RDMA_Manager::fs_deserilization(
 
                 local_mr = Get_local_send_message_mr();
                 *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
-                RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
-                                    target_node_id, qp_id, true);
+                RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey,
+                                    sizeof(Page_Forward_Reply_Type),
+                                    target_node_id, qp_id, true, true);
                 handle->buffered_inv_mtx.unlock();
                 handle->rw_mtx.unlock();
                 printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get processed, priority is %u\n", node_id, target_node_id, g_ptr, starv_level);
@@ -7719,8 +7724,9 @@ void RDMA_Manager::fs_deserilization(
             case dropped:
                 local_mr = Get_local_send_message_mr();
                 *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
-                RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
-                                    target_node_id, qp_id, true);
+                RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey,
+                                    sizeof(Page_Forward_Reply_Type),
+                                    target_node_id, qp_id, true, true);
 //                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
                 fflush(stdout);
                 break;
@@ -7758,21 +7764,30 @@ void RDMA_Manager::fs_deserilization(
         if (!handle->rw_mtx.try_lock(48)){
             // (Solved) problem 1. There is a potential bug that the message is cached locally, but never get processed. If one front-end thread just
             // finished the code from cache.cc:1063-1071. Then the message is pushed and will never get processed.
+
+            //TODO: It seems that pending reminder have a lot of bugs.
             if(handle->remote_lock_status.load() == 2) {
                 handle->buffered_inv_mtx.lock();
                 if (handle->remote_lock_status.load() == 2) {
-                    if (pending_reminder && handle->buffer_inv_message.next_holder_id == target_node_id) {
-                        assert(receive_msg_buf->buffer == handle->buffer_inv_message.next_receive_page_buf);
-                        assert(receive_msg_buf->rkey == handle->buffer_inv_message.next_receive_rkey);
-                        handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer,
-                                                             receive_msg_buf->rkey, starv_level,
-                                                             receive_msg_buf->command);
-                        handle->remote_urging_type.store(1);
+                    if (pending_reminder){
+                        if (handle->buffer_inv_message.next_holder_id == target_node_id) {
+                            assert(receive_msg_buf->buffer == handle->buffer_inv_message.next_receive_page_buf);
+                            assert(receive_msg_buf->rkey == handle->buffer_inv_message.next_receive_rkey);
+                            // update the priority
+                            handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer,
+                                                                 receive_msg_buf->rkey, starv_level,
+                                                                 receive_msg_buf->command);
+                            handle->remote_urging_type.store(1);
+                            handle->buffered_inv_mtx.unlock();
+                            page_cache_->Release(handle);
+
+                        }
                         handle->buffered_inv_mtx.unlock();
+                        reply_type = dropped;
                         page_cache_->Release(handle);
-                        delete receive_msg_buf;
-                        return; // do not release the lock here.
+                        goto message_reply;
                     }
+
                     //  handle->lock_pending_num >0 is to avoid the case that the message is buffered but there is no local thread process it
                     // in the future.
                     if (handle->buffer_inv_message.starvation_priority < starv_level) {
@@ -7785,8 +7800,10 @@ void RDMA_Manager::fs_deserilization(
                                                              receive_msg_buf->rkey, starv_level,
                                                              receive_msg_buf->command);
                         handle->remote_urging_type.store(1);
+                        assert(!pending_reminder);
                         reply_type = pending;
-                        handle->buffered_inv_mtx.unlock();
+                        // We do not release the buffered_inv_mtx to guaratee that pending flag will arrived before the processed flag
+//                        handle->buffered_inv_mtx.unlock();
                         page_cache_->Release(handle);
                         goto message_reply;
                     }
@@ -7797,14 +7814,19 @@ void RDMA_Manager::fs_deserilization(
             page_cache_->Release(handle);
             goto message_reply;
         }else{
-            // the && handle->buffer_inv_message.next_holder_id == target_node_id can actually be commented out.
-            if (pending_reminder && handle->buffer_inv_message.next_holder_id == target_node_id){
-                //force the pending inv message get processed
-                reply_type = processed;
-                //do not release the lock here!!!!!!
-                page_cache_->Release(handle);
-                goto message_reply;
+            if (pending_reminder){
+                if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID){
+                    reply_type = processed;
+                    page_cache_->Release(handle);
+                    goto message_reply;
+                }else{
+                    reply_type = dropped;
+                    handle->rw_mtx.unlock();
+                    page_cache_->Release(handle);
+                    goto message_reply;
+                }
             }
+
 
             // THe lock has been acquired.
 
@@ -7818,7 +7840,6 @@ void RDMA_Manager::fs_deserilization(
 
 
             handle->buffered_inv_mtx.lock();
-
             if (starv_level >= handle->buffer_inv_message.starvation_priority){
                 if (handle->remote_lock_status.load() == 2){
 
@@ -7865,36 +7886,48 @@ void RDMA_Manager::fs_deserilization(
 //                fflush(stdout);
                 break;
             case pending:
+                // TODO: what if the pending message is processed before we send the reply message back, this can result
+                // in the processed flag overwritten by the pending flag.
+                assert(!pending_reminder);
                 // After install the buffered invalidation message, we can try the lock again incase that there is no pending
                 // reader/writer waiting for the local latch and the cached inv message never get processed
-                if (handle->rw_mtx.try_lock()){
-                    handle->buffered_inv_mtx.lock();
-                    if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID){
-                        handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
-                    }
-                    handle->buffered_inv_mtx.unlock();
-                    handle->rw_mtx.unlock();
+//                if (handle->rw_mtx.try_lock()){
+//                    handle->buffered_inv_mtx.lock();
+//                    if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID){
+//                        handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
+//                    }
+//                    handle->buffered_inv_mtx.unlock();
+//                    handle->rw_mtx.unlock();
+//
+//                }else{
+                local_mr = Get_local_send_message_mr();
+                *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
+                RDMA_Write_xcompute(local_mr, (char *) receive_msg_buf->buffer + kLeafPageSize -
+                                              sizeof(Page_Forward_Reply_Type), receive_msg_buf->rkey,
+                                    sizeof(Page_Forward_Reply_Type),
+                                    target_node_id, qp_id, true, false);
+                assert(!pending_reminder);
+                handle->buffered_inv_mtx.unlock();
 
-                }else{
-                    local_mr = Get_local_send_message_mr();
-                    *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
-                    RDMA_Write_xcompute(local_mr, (char*)receive_msg_buf->buffer + kLeafPageSize - sizeof(Page_Forward_Reply_Type), receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
-                                        target_node_id, qp_id, true);
-                    printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get pending, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
-                    fflush(stdout);
-                }
+                printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get pending, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+                fflush(stdout);
+//                }
 
                 break;
             case waiting:
                 assert(false);
                 break;
             case dropped:
-                local_mr = Get_local_send_message_mr();
-                *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
-                RDMA_Write_xcompute(local_mr, (char*)receive_msg_buf->buffer + kLeafPageSize - sizeof(Page_Forward_Reply_Type), receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
-                                    target_node_id, qp_id, true);
+                if (!pending_reminder){
+                    local_mr = Get_local_send_message_mr();
+                    *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
+                    RDMA_Write_xcompute(local_mr,
+                                        (char *) receive_msg_buf->buffer + kLeafPageSize - sizeof(Page_Forward_Reply_Type),
+                                        receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
+                                        target_node_id, qp_id, true);
+                }
 //                printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
-                fflush(stdout);
+//                fflush(stdout);
                 break;
             default:
                 assert(false);
@@ -7933,17 +7966,22 @@ void RDMA_Manager::fs_deserilization(
             if(handle->remote_lock_status.load() == 2) {
                 handle->buffered_inv_mtx.lock();
                 if (handle->remote_lock_status.load() == 2) {
-                    if (pending_reminder && handle->buffer_inv_message.next_holder_id == target_node_id) {
-                        assert(receive_msg_buf->buffer == handle->buffer_inv_message.next_receive_page_buf);
-                        assert(receive_msg_buf->rkey == handle->buffer_inv_message.next_receive_rkey);
-                        handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer,
-                                                             receive_msg_buf->rkey, starv_level,
-                                                             receive_msg_buf->command);
-                        handle->remote_urging_type.store(2);
+                    if (pending_reminder){
+                        if (handle->buffer_inv_message.next_holder_id == target_node_id) {
+                            assert(receive_msg_buf->buffer == handle->buffer_inv_message.next_receive_page_buf);
+                            assert(receive_msg_buf->rkey == handle->buffer_inv_message.next_receive_rkey);
+                            // update the priority
+                            handle->buffer_inv_message.SetStates(target_node_id, receive_msg_buf->buffer,
+                                                                 receive_msg_buf->rkey, starv_level,
+                                                                 receive_msg_buf->command);
+                            handle->remote_urging_type.store(1);
+                            page_cache_->Release(handle);
+
+                        }
                         handle->buffered_inv_mtx.unlock();
+                        reply_type = dropped;
                         page_cache_->Release(handle);
-                        delete receive_msg_buf;
-                        return; // do not release the lock here.
+                        goto message_reply;
                     }
                     //  handle->lock_pending_num >0 is to avoid the case that the message is buffered but there is no local thread process it
                     // in the future.
@@ -7959,7 +7997,9 @@ void RDMA_Manager::fs_deserilization(
                                                              receive_msg_buf->command);
                         handle->remote_urging_type.store(2);
                         reply_type = pending;
-                        handle->buffered_inv_mtx.unlock();
+                        // We do not release the buffered_inv_mtx to guaratee that pending flag will arrived before the processed flag
+                        assert(!pending_reminder);
+//                        handle->buffered_inv_mtx.unlock();
                         page_cache_->Release(handle);
                         goto message_reply;
                     }
@@ -7971,15 +8011,20 @@ void RDMA_Manager::fs_deserilization(
             goto message_reply;
         }else{
             // the && handle->buffer_inv_message.next_holder_id == target_node_id can actually be commented out.
-            if (pending_reminder && handle->buffer_inv_message.next_holder_id == target_node_id){
-                //force the pending inv message get processed
-                reply_type = processed;
-                //do not release the lock here!!!!!!
-                page_cache_->Release(handle);
-                goto message_reply;
+            if (pending_reminder){
+                if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID){
+                    reply_type = processed;
+                    page_cache_->Release(handle);
+                    goto message_reply;
+                }else{
+                    reply_type = dropped;
+                    handle->rw_mtx.unlock();
+                    page_cache_->Release(handle);
+                    goto message_reply;
+                }
             }
 
-            // THe lock has been acquired.
+            // THe rw lock has been acquired.
 
             // there should be no buffered invalidation request
             // (Solved) problem 2: there could be unsolved invalidaiton message existed in the buffer.
@@ -7988,10 +8033,7 @@ void RDMA_Manager::fs_deserilization(
 
             //Possible solution, if detect there is a buffered invalidaton message check the priority and decide weather drop the old and process
             // the starved one.
-
-
             handle->buffered_inv_mtx.lock();
-
             if (starv_level >= handle->buffer_inv_message.starvation_priority){
                 if (handle->remote_lock_status.load() == 2){
 
@@ -8038,34 +8080,45 @@ void RDMA_Manager::fs_deserilization(
 //                fflush(stdout);
                 break;
             case pending:
+                assert(!pending_reminder);
                 // After install the buffered invalidation message, we can try the lock again incase that there is no pending
                 // reader/writer waiting for the local latch and the cached inv message never get processed
-                if (handle->rw_mtx.try_lock()){
-                    handle->buffered_inv_mtx.lock();
-                    if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID){
-                        handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
-                    }
-                    handle->buffered_inv_mtx.unlock();
-                    handle->rw_mtx.unlock();
+//                if (handle->rw_mtx.try_lock()){
+//                    handle->buffered_inv_mtx.lock();
+//                    if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID){
+//                        handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
+//                    }
+//                    handle->buffered_inv_mtx.unlock();
+//                    handle->rw_mtx.unlock();
+//
+//                }else{
 
-                }else{
-                    local_mr = Get_local_send_message_mr();
-                    *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
-                    RDMA_Write_xcompute(local_mr, (char*)receive_msg_buf->buffer + kLeafPageSize - sizeof(Page_Forward_Reply_Type), receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
-                                        target_node_id, qp_id, true);
-                    printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get pending, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
-                    fflush(stdout);
-                }
+                local_mr = Get_local_send_message_mr();
+                *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
+                RDMA_Write_xcompute(local_mr, (char *) receive_msg_buf->buffer + kLeafPageSize -
+                                              sizeof(Page_Forward_Reply_Type), receive_msg_buf->rkey,
+                                    sizeof(Page_Forward_Reply_Type),
+                                    target_node_id, qp_id, true, false);
+                handle->buffered_inv_mtx.unlock();
+                assert(!pending_reminder);
+                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get pending, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+                fflush(stdout);
+//                }
 
                 break;
             case waiting:
                 assert(false);
                 break;
             case dropped:
-                local_mr = Get_local_send_message_mr();
-                *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
-                RDMA_Write_xcompute(local_mr, (char*)receive_msg_buf->buffer + kLeafPageSize - sizeof(Page_Forward_Reply_Type), receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
-                                    target_node_id, qp_id, true);
+                if (!pending_reminder){
+                    local_mr = Get_local_send_message_mr();
+                    *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
+                    RDMA_Write_xcompute(local_mr,
+                                        (char *) receive_msg_buf->buffer + kLeafPageSize - sizeof(Page_Forward_Reply_Type),
+                                        receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
+                                        target_node_id, qp_id, true);
+                }
+
 //                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
 //                fflush(stdout);
                 break;

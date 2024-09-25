@@ -1684,8 +1684,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 //cache downgrade from Modified to Shared rather than release the lock.
                 rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr, buffer_inv_message.next_holder_id.load());
                 auto time_end = std::chrono::high_resolution_clock::now();
-                rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf, buffer_inv_message.next_receive_rkey, kLeafPageSize,
-                                             buffer_inv_message.next_holder_id, qp_id, false);
+                rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf,
+                                             buffer_inv_message.next_receive_rkey, kLeafPageSize,
+                                             buffer_inv_message.next_holder_id, qp_id, false, true);
                 printf("Time elapse for cache downgrade over cl %p is %lu\n", page_addr, std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_begin).count());
                 printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get processed\n", RDMA_Manager::node_id, buffer_inv_message.next_holder_id.load(), gptr);
                 fflush(stdout);
@@ -1713,7 +1714,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 assert(*(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) == processed);
                 rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf,
                                              buffer_inv_message.next_receive_rkey, kLeafPageSize,
-                                             buffer_inv_message.next_holder_id, qp_id, false);
+                                             buffer_inv_message.next_holder_id, qp_id, false, true);
                 assert(*(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) == processed);
 
 
@@ -1755,8 +1756,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         fflush(stdout);
         //todo: assert the message is writer invalid modified.
         void* buffer = (char*)buffer_inv_message.next_receive_page_buf.load() + kLeafPageSize - sizeof(Page_Forward_Reply_Type);
-        rdma_mg->RDMA_Write_xcompute(local_mr, buffer, buffer_inv_message.next_receive_rkey, sizeof(Page_Forward_Reply_Type),
-                                     buffer_inv_message.next_holder_id, qp_id, true);
+        rdma_mg->RDMA_Write_xcompute(local_mr, buffer, buffer_inv_message.next_receive_rkey,
+                                     sizeof(Page_Forward_Reply_Type),
+                                     buffer_inv_message.next_holder_id, qp_id, true, true);
         clear_pending_inv_states();
     }
 
