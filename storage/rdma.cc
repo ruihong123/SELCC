@@ -7778,8 +7778,8 @@ void RDMA_Manager::fs_deserilization(
                                                                  receive_msg_buf->rkey, starv_level,
                                                                  receive_msg_buf->command);
                             handle->remote_urging_type.store(1);
-                            handle->buffered_inv_mtx.unlock();
-                            page_cache_->Release(handle);
+//                            handle->buffered_inv_mtx.unlock();
+//                            page_cache_->Release(handle);
 
                         }
                         handle->buffered_inv_mtx.unlock();
@@ -7975,7 +7975,7 @@ void RDMA_Manager::fs_deserilization(
                                                                  receive_msg_buf->rkey, starv_level,
                                                                  receive_msg_buf->command);
                             handle->remote_urging_type.store(1);
-                            page_cache_->Release(handle);
+//                            page_cache_->Release(handle);
 
                         }
                         handle->buffered_inv_mtx.unlock();
