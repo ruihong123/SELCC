@@ -2828,8 +2828,6 @@ int RDMA_Manager::RDMA_Write(void* addr, uint32_t rkey, ibv_mr* local_mr,
             }
             ibv_qp* qp = static_cast<ibv_qp*>((*qp_xcompute.at(target_node_id))[num_of_qp]);
             rc = ibv_post_send(qp, &sr, &bad_wr);
-            assert(*(Page_Forward_Reply_Type* ) ((char*)async_buf->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) == processed);
-
         }
         else{
             /* prepare the scatter/gather entry */
@@ -6257,9 +6255,9 @@ RDMA_Manager::Writer_Invalidate_Modified_RPC(GlobalAddress global_ptr, ibv_mr *p
     receive_pointer = (Page_Forward_Reply_Type*)((char*)page_buffer->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type));
     //Clear the reply buffer for the polling.
     *receive_pointer = waiting;
-//#ifndef NDEBUG
-//    memset(page_buffer->addr, 0, page_buffer->length);
-//#endif
+#ifndef NDEBUG
+    memset(page_buffer->addr, 0, page_buffer->length);
+#endif
     //USE static ticket to minuimize the conflict.
     int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
     send_pointer = (RDMA_Request*)send_mr->addr;
@@ -6348,8 +6346,11 @@ inv_resend:
         }
     }
     if (was_pending && *receive_pointer == dropped){
+        auto page = (LeafPage<uint64_t,uint64_t>*)(page_buffer->addr);
         printf("Inv message send from NOde %u to Node %u over data %p was pending and then get dropped\n", node_id, target_node_id, global_ptr);
         fflush(stdout);
+        assert(page->hdr.this_page_g_ptr == GlobalAddress::Null());
+        assert(page->hdr.p_type == P_Plain);
     }
     assert(*receive_pointer == processed || *receive_pointer == dropped);
     return *receive_pointer;
