@@ -1137,6 +1137,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
     auto* temp_counter = new std::array<std::atomic<uint16_t>, NUM_QP_ACCROSS_COMPUTE*2>();
     auto* temp_mtx_arr = new std::array<SpinMutex, NUM_QP_ACCROSS_COMPUTE>();
     auto* temp_mtx_async = new std::array<Async_Xcompute_Tasks, NUM_QP_ACCROSS_COMPUTE>();
+    assert((*temp_mtx_async)[0].mrs[0]!= nullptr);
     for (int i = 0; i < NUM_QP_ACCROSS_COMPUTE; ++i) {
         (*temp_counter)[i].store(0);
     }

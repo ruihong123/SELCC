@@ -454,15 +454,15 @@ class RDMA_Manager {
         ibv_mr* mrs[SEND_OUTSTANDING_SIZE_XCOMPUTE - 1] = {nullptr};
         Async_Xcompute_Tasks(){
             auto rdma_mg = RDMA_Manager::Get_Instance();
-            for (int i = 0; i < ATOMIC_OUTSTANDING_SIZE; ++i) {
-                auto mr = new ibv_mr{};
+            for (int i = 0; i < SEND_OUTSTANDING_SIZE_XCOMPUTE - 1; ++i) {
+                ibv_mr* mr = new ibv_mr{};
                 rdma_mg->Allocate_Local_RDMA_Slot(*mr, Regular_Page);
                 mrs[i] = mr;
             }
         }
         ~Async_Xcompute_Tasks(){
             auto rdma_mg = RDMA_Manager::Get_Instance();
-            for (int i = 0; i < ATOMIC_OUTSTANDING_SIZE; ++i) {
+            for (int i = 0; i < SEND_OUTSTANDING_SIZE_XCOMPUTE - 1; ++i) {
                 rdma_mg->Deallocate_Local_RDMA_Slot(mrs[i]->addr, Regular_Page);
             }
         }
