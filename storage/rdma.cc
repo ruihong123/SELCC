@@ -4140,48 +4140,24 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
-//        *(uint64_t *)cas_buffer->addr = (1ull << RDMA_Manager::node_id/2);
-
-        retry:
-//        retry_cnt++;
-//
-//        if (retry_cnt > 300000) {
-//            std::cout << "Deadlock " << lock_addr << std::endl;
-//
-//            std::cout << GetMemoryNodeNum() << ", "
-//                      << " locked by node  " << (conflict_tag) << std::endl;
-//            assert(false);
-//            exit(0);
-//        }
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
         bool async_succeed = false;
-        //Only the second RDMA issue a completion
-//        RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-        // TODO: Read unlock do not need to wait for the completion. However, if we consider partial failure recovery,
-        //  we need to consider to implement an synchronized RDMA Read unlocking function.
-//        RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Internal_and_Leaf);
         if (async){
-            assert(false);
             Async_Tasks * tasks = (Async_Tasks *)async_tasks.at(lock_addr.nodeID)->Get();
             if (UNLIKELY(!tasks)){
                 tasks = new Async_Tasks();
                 async_tasks[lock_addr.nodeID]->Reset(tasks);
             }
             uint32_t* counter = &tasks->counter;
-            if ( UNLIKELY(*counter >= (ATOMIC_OUTSTANDING_SIZE / 2 - 1))){
+            if ( UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 2)){
                 RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page);
                 //TODO: clear all the async tasks. for the handle. We need to release the local latch and release the handle.
-                for (int i = 0; i < (ATOMIC_OUTSTANDING_SIZE / 2 - 1); ++i) {
-                    auto* handle_temp = (Cache::Handle*)tasks->handles[i];
-                    assert(handle_temp != nullptr);
-                    handle_temp->rw_mtx.unlock();
-                    page_cache_->Release(handle_temp);
-                    tasks->handles[i] = nullptr;
-                }
+
                 *counter = 0;
             }else{
-                RDMA_FAA(lock_addr, cas_buffer, substract, 0, 0, Regular_Page);
+                ibv_mr* async_cas = tasks->mrs[*counter];
+                RDMA_FAA(lock_addr, async_cas, substract, 0, 0, Regular_Page);
                 *counter = *counter + 1;
                 tasks->handles[*counter] = handle;
                 async_succeed = true;
@@ -4774,8 +4750,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // Page write back shall never utilize async unlock. because we can not guarantee, whether the page will be overwritten by
         // another thread before the unlock. It is possible this cache buffer is reused by other cache entry.
         if (async){
-            assert(false);
-            Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Regular_Page);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
             *(uint64_t*) local_CAS_mr->addr = 0;
             //TODO: Can we make the RDMA unlock based on RDMA FAA? In this case, we can use async
@@ -4792,7 +4766,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             uint32_t* counter = &tasks->counter;
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
-            if ( UNLIKELY(*counter >= (ATOMIC_OUTSTANDING_SIZE / 2 - 1))){
+            if (UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 2)){
+                Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Regular_Page);
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Regular_Page);
                 sr[0].next = &sr[1];
 
@@ -4800,22 +4775,21 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
                 Batch_Submit_WRs(sr, 1, page_addr.nodeID);
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
-                for (int i = 0; i < (ATOMIC_OUTSTANDING_SIZE / 2 - 1); ++i) {
-                    auto* handle_temp = (Cache::Handle*)tasks->handles[i];
-                    assert(handle_temp != nullptr);
-                    handle_temp->rw_mtx.unlock();
-                    page_cache_->Release(handle_temp);
-                    tasks->handles[i] = nullptr;
-                }
                 *counter = 0;
             }else{
-                Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, 0, Regular_Page);
+                ibv_mr* async_cas = tasks->mrs[*counter];
+                ibv_mr* async_buf = tasks->mrs[*counter+1];
+                assert(async_buf->length >= page_size);
+                memcpy(async_buf->addr, post_gl_page_local_mr.addr, page_size);
+
+                Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, async_buf, page_size, 0, Regular_Page);
+                Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, async_cas, substract, 0, Regular_Page);
                 sr[0].next = &sr[1];
 
                 *(uint64_t *)local_CAS_mr->addr = 0;
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
                 Batch_Submit_WRs(sr, 0, page_addr.nodeID);
-                *counter = *counter + 1;
+                *counter = *counter + 2;
                 tasks->handles[*counter] = handle;
                 async_succeed = true;
             }
@@ -4839,18 +4813,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //#endif
 
             //TODO: check whether the page's global lock is still write lock
-            //  0909/2023: the code below seems sometime will get stuck.
             Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Regular_Page);
-
             *(uint64_t *)local_CAS_mr->addr = 0;
-            //TODO: THe RDMA write unlock can not be guaranteed to be finished after the page write.
-            // The RDMA CAS be started strictly after the RDMA write at the remote NIC according to
-            // https://docs.nvidia.com/networking/display/MLNXOFEDv451010/Out-of-Order+%28OOO%29+Data+Placement+Experimental+Verbs
-            // So it's better to make Unlock another RDMA CAS.
-//        rdma_mg->RDMA_CAS( remote_lock_addr, local_CAS_mr, 1,0, IBV_SEND_SIGNALED,1, Internal_and_Leaf);
-//        assert(*(uint64_t *)local_CAS_mr->addr == 1);
-            //We can apply async unlock here to reduce the latency.
-//            uint64_t swap = 0;
             uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
             volatile uint64_t substract = (~compare) + 1;
             //TODO: USE rdma faa to release the write lock to avoid continuous spurious unlock resulting from the concurrent read lock request.
@@ -5049,7 +5013,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // Page write back shall never utilize async unlock. because we can not guarantee, whether the page will be overwritten by
         // another thread before the unlock. It is possible this cache buffer is reused by other cache entry.
         if (async){
-            assert(false);
 //            Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Regular_Page);
             ibv_mr* local_CAS_mr = Get_local_CAS_mr();
             *(uint64_t*) local_CAS_mr->addr = 0;
@@ -5068,7 +5031,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             uint32_t* counter = &tasks->counter;
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
-            if ( UNLIKELY(*counter >= (ATOMIC_OUTSTANDING_SIZE / 2 - 1))){
+            if ( UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 2)){
                 Prepare_WR_FAA(sr[0], sge[0], remote_lock_addr, local_CAS_mr, substract + add, IBV_SEND_SIGNALED, Regular_Page);
 //                sr[0].next = &sr[1];
 
@@ -5076,25 +5039,16 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
                 Batch_Submit_WRs(sr, 1, page_addr.nodeID);
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
-
-                for (int i = 0; i < (ATOMIC_OUTSTANDING_SIZE / 2 - 1); ++i) {
-                    auto* handle_temp = (Cache::Handle*)tasks->handles[i];
-                    assert(handle_temp != nullptr);
-                    handle_temp->rw_mtx.unlock();
-                    page_cache_->Release(handle_temp);
-                    tasks->handles[i] = nullptr;
-                }
                 *counter = 0;
 
             }else{
-                Prepare_WR_FAA(sr[0], sge[0], remote_lock_addr, local_CAS_mr, substract + add, 0, Regular_Page);
+                ibv_mr* async_cas = tasks->mrs[*counter];
+                Prepare_WR_FAA(sr[0], sge[0], remote_lock_addr, async_cas, substract + add, 0, Regular_Page);
 //                sr[0].next = &sr[1];
-
-                *(uint64_t *)local_CAS_mr->addr = 0;
+                *(uint64_t *)async_cas->addr = 0;
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
                 Batch_Submit_WRs(sr, 0, page_addr.nodeID);
                 *counter = *counter + 1;
-                tasks->handles[*counter] = handle;
                 async_succeed = true;
             }
             //TODO: it could be spuriously failed because of the FAA.so we can not have async
@@ -5230,16 +5184,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 ibv_mr* async_buf = tasks->mrs[*counter+1];
                 memcpy(async_buf->addr, post_gl_page_local_mr.addr, page_size);
                 Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, async_buf, page_size, 0, Regular_Page);
-
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, async_cas, substract +add, 0, Regular_Page);
-
                 sr[0].next = &sr[1];
-
-                *(uint64_t *)local_CAS_mr->addr = 0;
+                *(uint64_t *)async_cas->addr = 0;
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
                 Batch_Submit_WRs(sr, 0, page_addr.nodeID);
                 *counter = *counter + 2;
-//                tasks->handles[*counter] = handle;
                 async_succeed = true;
             }
 //            printf("Release write lock for %lu\n",page_addr);
