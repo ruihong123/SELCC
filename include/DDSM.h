@@ -28,7 +28,7 @@ namespace DSMEngine {
 
                 // RDMA read unlock
 //            printf("release the read lock during the handle destroy\n ");
-                rdma_mg->global_RUnlock(lock_gptr, rdma_mg->Get_local_CAS_mr(), false, nullptr);
+                rdma_mg->global_RUnlock(lock_gptr, rdma_mg->Get_local_CAS_mr());
 //                handle->last_modifier_thread_id = 256;
                 handle->remote_lock_status.store(0);
 
@@ -54,7 +54,7 @@ namespace DSMEngine {
                 // RDMA write unlock and write back the data. THis shall be a sync write back, because the buffer will
                 // be handover to other cache entry after this function. It is possible that the page content is changed when the
                 // RDMA write back has not been finished. The write unlock for page invalidation can be a sync write back.
-                rdma_mg->global_write_page_and_Wunlock(mr, handle->gptr, kLeafPageSize, lock_gptr, false);
+                rdma_mg->global_write_page_and_Wunlock(mr, handle->gptr, kLeafPageSize, lock_gptr);
                 handle->remote_lock_status.store(0);
             }else{
                 //An invalidated page, do nothing

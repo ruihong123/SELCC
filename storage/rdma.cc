@@ -4064,7 +4064,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // todo: the read lock release and then lock acquire is not atomic. we need to develop and atomic way
         // for the lock upgrading to gurantee the correctness of 2 phase locking.
         if (retry_cnt > 1){
-            global_RUnlock(lock_addr, cas_buffer, false, nullptr);
+            // Can not put async unlock here, because the async unlock can result in the assertion fault in the following
+            // global exclusive latch acquisition
+            // todo: make it async unlock.
+            global_RUnlock(lock_addr, cas_buffer, false);
 //            printf("Lock upgrade failed, release the lock, address is %p\n", lock_addr);
 //            fflush(stdout);
             return false;
