@@ -53,9 +53,9 @@
 
 #define DIR_MESSAGE_NR 128
 
-#define kInternalPageSize (2*1024 + 8)
+#define kInternalPageSize (2*1024 - 8)
 
-#define kLeafPageSize (2*1024 + 8)
+#define kLeafPageSize (2*1024 - 8)
 #define kDataPageSize kLeafPageSize
 
 #define KEY_PADDING 12
