@@ -4793,7 +4793,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
                 Batch_Submit_WRs(sr, 0, page_addr.nodeID);
                 *counter = *counter + 2;
-                tasks->handles[*counter] = handle;
+//                tasks->handles[*counter] = handle;
                 async_succeed = true;
             }
 
