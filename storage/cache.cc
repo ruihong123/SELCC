@@ -1497,12 +1497,11 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //            || timer_alarmed.load()
             if ( handover_degree > STARVATION_THRESHOLD || lock_pending_num.load()==0){
                 if (handover_degree > STARVATION_THRESHOLD){
-                    printf("Node %u Process the cached invalidation message over %p from node %u due to hitting the thredhold.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
-                    fflush(stdout);
+//                    printf("Node %u Process the cached invalidation message over %p from node %u due to hitting the thredhold.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
+//                    fflush(stdout);
                 } else{
-                    printf("Node %u Process the cached invalidation message over %p from node %u due to no pending waiter.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
-
-                    fflush(stdout);
+//                    printf("Node %u Process the cached invalidation message over %p from node %u due to no pending waiter.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
+//                    fflush(stdout);
                 }
                 buffered_inv_mtx.lock();
                 process_buffered_inv_message(page_addr, page_size, lock_addr, mr, true);
@@ -1681,10 +1680,11 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf,
                                              buffer_inv_message.next_receive_rkey, kLeafPageSize,
                                              buffer_inv_message.next_holder_id, qp_id, false, true);
-                auto time_begin = std::chrono::high_resolution_clock::now();
+//                auto time_begin = std::chrono::high_resolution_clock::now();
                 //cache downgrade from Modified to Shared rather than release the lock.
-                rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr, buffer_inv_message.next_holder_id.load());
-                auto time_end = std::chrono::high_resolution_clock::now();
+                rdma_mg->global_write_page_and_WdowntoR(mr, page_addr, page_size, lock_addr, buffer_inv_message.next_holder_id.load(),
+                                                        true);
+//                auto time_end = std::chrono::high_resolution_clock::now();
 
 //                printf("Time elapse for cache downgrade over cl %p is %lu\n", page_addr, std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_begin).count());
 //                printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get processed\n", RDMA_Manager::node_id, buffer_inv_message.next_holder_id.load(), gptr);
