@@ -115,6 +115,7 @@ extern bool Show_Me_The_Print;
 #define RECEIVE_OUTSTANDING_SIZE 128 // used to be 1024
 #define SEND_OUTSTANDING_SIZE_XCOMPUTE 32 //todo: enlarge this
 #define ATOMIC_OUTSTANDING_SIZE 16 // Increase this if we have a lot of async ops
+#define MAX_INLINE_SIZE 256
 //#define ASYNC_UNLOCK
 #define INVALIDATION_STATISTICS
 #define ACCESS_MODE 1 // 0 No cache no sharding, 1 cache with CC protocol, 2 sharding.
@@ -124,7 +125,7 @@ extern bool Show_Me_The_Print;
 #define PAGE_FREE_LIST
 #define FREELIST_RATIO 0.01
 #define FREELIST_THREAD_NUM 2
-#define DIRTY_AWARED_FLUSH_BACK
+#define DIRTY_ONLY_FLUSH
 //#define OPS_TIMER
 #include "port/thread_annotations.h"
 

@@ -118,7 +118,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
         GlobalAddress gptr = GlobalAddress::Null();
         // TODO: the variable below can be removed.
         std::atomic<int> lock_pending_num = 0;
-        std::chrono::time_point<std::chrono::high_resolution_clock> timer_begin;
+//        std::chrono::time_point<std::chrono::high_resolution_clock> timer_begin;
         RWSpinLock rw_mtx; // low overhead rw spin lock and write have higher priority than read.
         SpinMutex buffered_inv_mtx; // clear state mutex
         std::atomic<uint16_t> read_lock_counter = 0;
@@ -133,6 +133,11 @@ constexpr uint8_t Invalid_Node_ID = 255;
         std::atomic<uint8_t > remote_urging_type = 0;
         //TODO: make the pending page forward remember mulitple read invalidation request, and process accordingly
         PendingPageForward buffer_inv_message;
+//#ifdef DIRTY_ONLY_FLUSH
+// store the dirty boundary in the page content.
+//        uint16_t dirty_upper_bound = 0;
+//        uint16_t dirty_lower_bound = 0;
+//#endif
 //        std::atomic<uint8_t > remote_xlock_next = 0;
 //        std::atomic<uint8_t> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
         bool keep_the_mr = false;

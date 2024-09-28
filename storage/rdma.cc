@@ -1716,8 +1716,9 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
     qp_init_attr.recv_cq = cq1;
   qp_init_attr.cap.max_send_wr = send_outstanding_num;
   qp_init_attr.cap.max_recv_wr = recv_outstanding_num;
-  qp_init_attr.cap.max_send_sge = 5;
-  qp_init_attr.cap.max_recv_sge = 5;
+  qp_init_attr.cap.max_send_sge = 2;
+  qp_init_attr.cap.max_recv_sge = 2;
+  qp_init_attr.cap.max_inline_data = MAX_INLINE_SIZE;
   //  qp_init_attr.cap.max_inline_data = -1;
   ibv_qp* qp = ibv_create_qp(res->pd, &qp_init_attr);
   if (!qp) {
@@ -1788,7 +1789,7 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
             qp_init_attr.cap.max_recv_wr = RECEIVE_OUTSTANDING_SIZE; // this can be down graded if we have the invalidation message with reply
             qp_init_attr.cap.max_send_sge = 2;
             qp_init_attr.cap.max_recv_sge = 2;
-            qp_init_attr.cap.max_inline_data = 256;
+            qp_init_attr.cap.max_inline_data = MAX_INLINE_SIZE;
             ibv_qp* qp = ibv_create_qp(res->pd, &qp_init_attr);
             (*qp_arr)[i] = qp;
             if (!qp) {
@@ -4729,27 +4730,40 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
     }
 #endif
     bool RDMA_Manager::global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
-                                                     GlobalAddress remote_lock_addr, bool async, Cache_Handle* handle) {
+                                                     GlobalAddress remote_lock_addr, Cache_Handle *handle, bool async) {
 
         //TODO: If we want to use async unlock, we need to enlarge the max outstand work request that the queue pair support.
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
-        GlobalAddress post_gl_page_addr{};
-        post_gl_page_addr.nodeID = page_addr.nodeID;
-//        assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
-        //The header should be the same offset in Leaf or INternal nodes
-        assert(STRUCT_OFFSET(LeafPage<int COMMA int>, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
-        assert(STRUCT_OFFSET(InternalPage<int>, hdr) == STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
-        assert(STRUCT_OFFSET(DataPage, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
-        post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
-        //Increase the page version before every page flush back.
-//        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr.p_version));
-//        ((DataPage*)page_buffer->addr)->hdr.p_version++;
-        ibv_mr post_gl_page_local_mr = *page_buffer;
-        post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
-        page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
-        assert(remote_lock_addr <= post_gl_page_addr - 8);
+        GlobalAddress tbFlushed_gaddr{};
+        ibv_mr tbFlushed_local_mr = *page_buffer;
+        auto page = (LeafPage<uint64_t,uint64_t>*)(page_buffer->addr);
+        assert(STRUCT_OFFSET(LeafPage<int COMMA int>, hdr.dirty_upper_bound) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr.dirty_upper_bound));
+        if (page->hdr.dirty_upper_bound == 0){
+            // this means the page does not participate the optimization of dirty-only flush back.
+            tbFlushed_gaddr.nodeID = page_addr.nodeID;
+            //The header should be the same offset in Leaf or INternal nodes
+            assert(STRUCT_OFFSET(LeafPage<int COMMA int>, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
+            assert(STRUCT_OFFSET(InternalPage<int>, hdr) == STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
+            assert(STRUCT_OFFSET(DataPage, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
+            tbFlushed_gaddr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
+            //Increase the page version before every page flush back.
+            tbFlushed_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
+            page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
+        }else{
+            assert(page->hdr.dirty_lower_bound == 0);
+            assert(page->hdr.dirty_lower_bound > sizeof(uint64_t ));
+            tbFlushed_gaddr.nodeID = page_addr.nodeID;
+            tbFlushed_gaddr.offset = page_addr.offset + page->hdr.dirty_lower_bound;
+            tbFlushed_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + page->hdr.dirty_lower_bound);
+            page_size = page->hdr.dirty_upper_bound - page->hdr.dirty_lower_bound;
+            page->hdr.dirty_lower_bound = 0;
+            page->hdr.dirty_upper_bound = 0;
+        }
+
+        assert(remote_lock_addr <= tbFlushed_gaddr - 8);
         bool async_succeed = false;
+        size_t send_flags = page_size <= MAX_INLINE_SIZE ? IBV_SEND_INLINE:0;
         // Page write back shall never utilize async unlock. because we can not guarantee, whether the page will be overwritten by
         // another thread before the unlock. It is possible this cache buffer is reused by other cache entry.
         if (async){
@@ -4770,7 +4784,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
             if (UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 2)){
-                Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Regular_Page);
+                Prepare_WR_Write(sr[0], sge[0], tbFlushed_gaddr, &tbFlushed_local_mr, page_size, send_flags, Regular_Page);
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Regular_Page);
                 sr[0].next = &sr[1];
 
@@ -4783,9 +4797,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 ibv_mr* async_cas = tasks->mrs[*counter];
                 ibv_mr* async_buf = tasks->mrs[*counter+1];
                 assert(async_buf->length >= page_size);
-                memcpy(async_buf->addr, post_gl_page_local_mr.addr, page_size);
+                memcpy(async_buf->addr, tbFlushed_local_mr.addr, page_size);
 
-                Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, async_buf, page_size, 0, Regular_Page);
+                Prepare_WR_Write(sr[0], sge[0], tbFlushed_gaddr, async_buf, page_size, send_flags, Regular_Page);
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, async_cas, substract, 0, Regular_Page);
                 sr[0].next = &sr[1];
 
@@ -4816,7 +4830,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //#endif
 
             //TODO: check whether the page's global lock is still write lock
-            Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Regular_Page);
+            Prepare_WR_Write(sr[0], sge[0], tbFlushed_gaddr, &tbFlushed_local_mr, page_size, send_flags, Regular_Page);
             *(uint64_t *)local_CAS_mr->addr = 0;
             uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
             volatile uint64_t substract = (~compare) + 1;
@@ -5131,20 +5145,33 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         //TODO: If we want to use async unlock, we need to enlarge the max outstand work request that the queue pair support.
         struct ibv_send_wr sr[2];
         struct ibv_sge sge[2];
-        GlobalAddress post_gl_page_addr{};
-        post_gl_page_addr.nodeID = page_addr.nodeID;
-//        assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
-        //The header should be the same offset in Leaf or INternal nodes
-        assert(STRUCT_OFFSET(LeafPage<int COMMA int>, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
-        assert(STRUCT_OFFSET(InternalPage<int>, hdr) == STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
-        post_gl_page_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
-        ibv_mr post_gl_page_local_mr = *page_buffer;
-        //Increase the page version before every page flush back.
-//        assert(STRUCT_OFFSET(DataPage, hdr.p_version) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr.p_version));
-//        ((DataPage*)page_buffer->addr)->hdr.p_version++;
-        post_gl_page_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
-        page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
-        assert(remote_lock_addr <= post_gl_page_addr - 8);
+        GlobalAddress tbFlushed_gaddr{};
+        ibv_mr tbFlushed_local_mr = *page_buffer;
+        auto page = (LeafPage<uint64_t,uint64_t>*)(page_buffer->addr);
+        assert(STRUCT_OFFSET(LeafPage<int COMMA int>, hdr.dirty_upper_bound) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr.dirty_upper_bound));
+        if (page->hdr.dirty_upper_bound == 0){
+            tbFlushed_gaddr.nodeID = page_addr.nodeID;
+            //The header should be the same offset in Leaf or INternal nodes
+            assert(STRUCT_OFFSET(LeafPage<int COMMA int>, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
+            assert(STRUCT_OFFSET(InternalPage<int>, hdr) == STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
+            assert(STRUCT_OFFSET(DataPage, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
+            tbFlushed_gaddr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
+            //Increase the page version before every page flush back.
+            tbFlushed_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
+            page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
+        }else{
+            assert(page->hdr.dirty_lower_bound == 0);
+            assert(page->hdr.dirty_lower_bound > sizeof(uint64_t ));
+            tbFlushed_gaddr.nodeID = page_addr.nodeID;
+            tbFlushed_gaddr.offset = page_addr.offset + page->hdr.dirty_lower_bound;
+            tbFlushed_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + page->hdr.dirty_lower_bound);
+            page_size = page->hdr.dirty_upper_bound - page->hdr.dirty_lower_bound;
+            page->hdr.dirty_lower_bound = 0;
+            page->hdr.dirty_upper_bound = 0;
+        }
+
+        size_t send_flags = (page_size <= MAX_INLINE_SIZE) ? IBV_SEND_INLINE:0;
+//        assert(send_flags == 0);
         bool async_succeed = false;
         // Page write back shall never utilize async unlock. because we can not guarantee, whether the page will be overwritten by
         // another thread before the unlock. It is possible this cache buffer is reused by other cache entry.
@@ -5172,7 +5199,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
             if ( UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 2)){
-                Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Regular_Page);
+                Prepare_WR_Write(sr[0], sge[0], tbFlushed_gaddr, &tbFlushed_local_mr, page_size, send_flags, Regular_Page);
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract +add, IBV_SEND_SIGNALED, Regular_Page);
                 sr[0].next = &sr[1];
 
@@ -5185,8 +5212,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
                 ibv_mr* async_cas = tasks->mrs[*counter];
                 ibv_mr* async_buf = tasks->mrs[*counter+1];
-                memcpy(async_buf->addr, post_gl_page_local_mr.addr, page_size);
-                Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, async_buf, page_size, 0, Regular_Page);
+                memcpy(async_buf->addr, tbFlushed_local_mr.addr, page_size);
+                Prepare_WR_Write(sr[0], sge[0], tbFlushed_gaddr, async_buf, page_size, send_flags, Regular_Page);
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, async_cas, substract +add, 0, Regular_Page);
                 sr[0].next = &sr[1];
                 *(uint64_t *)async_cas->addr = 0;
@@ -5215,7 +5242,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             //TODO: check whether the page's global lock is still write lock
             //  0909/2023: the code below seems sometime will get stuck.
-            Prepare_WR_Write(sr[0], sge[0], post_gl_page_addr, &post_gl_page_local_mr, page_size, 0, Regular_Page);
+            Prepare_WR_Write(sr[0], sge[0], tbFlushed_gaddr, &tbFlushed_local_mr, page_size, send_flags, Regular_Page);
 
             *(uint64_t *)local_CAS_mr->addr = 0;
             volatile uint64_t this_node_exclusive = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;

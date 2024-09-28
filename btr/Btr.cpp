@@ -903,7 +903,7 @@ namespace DSMEngine {
     template <typename Key, typename Value> void Btr<Key,Value>::global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
                                                                                                GlobalAddress lock_addr,
                                                                                                CoroContext *cxt, int coro_id, Cache::Handle *handle, bool async) {
-        rdma_mg->global_write_page_and_Wunlock(page_buffer, page_addr, size, lock_addr, async);
+        rdma_mg->global_write_page_and_Wunlock(page_buffer, page_addr, size, lock_addr, handle, async);
         handle->remote_lock_status.store(0);
     }
     template <typename Key, typename Value> void Btr<Key,Value>::global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
@@ -2605,7 +2605,10 @@ re_read:
             rdma_mg->RDMA_Write(sibling_addr, sibling_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
             rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Regular_Page);
             delete sibling_mr;
-
+#ifdef DIRTY_ONLY_FLUSH
+            // After split, the whole page is dirty.
+            page->hdr.reset_dirty_bounds();
+#endif
         }
         ddms_->SELCC_Exclusive_UnLock(page_addr,handle);
 //        handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);

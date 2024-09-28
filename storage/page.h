@@ -54,6 +54,8 @@ namespace DSMEngine{
     class Header_Index {
     public:
         Page_Type p_type = P_Plain;
+        uint16_t dirty_upper_bound = 0;
+        uint16_t dirty_lower_bound = 0;
 //        uint64_t p_version = 0;
         GlobalAddress this_page_g_ptr;
         //=============================
@@ -82,12 +84,27 @@ namespace DSMEngine{
         Header_Index() {
             leftmost_ptr = GlobalAddress::Null();
             sibling_ptr = GlobalAddress::Null();
+            dirty_upper_bound = 0;
+            dirty_lower_bound = 0;
             last_index = -1;
             valid_page = true;
             lowest = kKeyMin<T>;
             highest = kKeyMax<T>;
         }
-
+        void merge_dirty_bounds(uint16_t dirty_lower, uint16_t dirty_upper) {
+            assert(dirty_lower_bound <= dirty_upper_bound);
+            if (dirty_upper_bound == 0) {
+                dirty_upper_bound = dirty_upper;
+                dirty_lower_bound = dirty_lower;
+                return;
+            }
+            dirty_upper_bound = std::max(dirty_upper_bound, dirty_upper);
+            dirty_lower_bound = std::min(dirty_lower_bound, dirty_lower);
+        }
+        void reset_dirty_bounds() {
+            dirty_upper_bound = 0;
+            dirty_lower_bound = 0;
+        }
         void debug() const {
             std::cout << "leftmost=" << leftmost_ptr << ", "
                       << "sibling=" << sibling_ptr << ", "
@@ -347,6 +364,8 @@ namespace DSMEngine{
     class Header {
     public:
         Page_Type p_type = P_Data;
+        uint16_t dirty_upper_bound = 0;
+        uint16_t dirty_lower_bound = 0;
 //        uint64_t p_version = 0;
         GlobalAddress this_page_g_ptr;
         // =============================
@@ -356,8 +375,24 @@ namespace DSMEngine{
         uint32_t kDataCardinality;
         uint32_t table_id;
         Header() {
+            dirty_upper_bound = 0;
+            dirty_lower_bound = 0;
             number_of_records = 0;
             table_id = 0;
+        }
+        void merge_dirty_bounds(uint16_t dirty_lower, uint16_t dirty_upper) {
+            assert(dirty_lower_bound <= dirty_upper_bound);
+            if (dirty_upper_bound == 0) {
+                dirty_upper_bound = dirty_upper;
+                dirty_lower_bound = dirty_lower;
+                return;
+            }
+            dirty_upper_bound = std::max(dirty_upper_bound, dirty_upper);
+            dirty_lower_bound = std::min(dirty_lower_bound, dirty_lower);
+        }
+        void reset_dirty_bounds() {
+            dirty_upper_bound = 0;
+            dirty_lower_bound = 0;
         }
     } __attribute__ ((aligned (8)));
 

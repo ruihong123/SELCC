@@ -487,6 +487,10 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
 //            e->remote_lock_status = 0;
 //            e->remote_urging_type = 0;
             e->gptr = *(GlobalAddress*)key.data();
+//#ifdef DIRTY_ONLY_FLUSH
+//            e->dirty_upper_bound = 0;
+//            e->dirty_lower_bound = 0;
+//#endif
             e->deleter = deleter;
             e->charge = charge;
             e->key_length = key.size();
@@ -544,7 +548,10 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
 //        e->remote_lock_status = 0;
 //        e->remote_urging_type = 0;
         e->gptr = *(GlobalAddress*)key.data();
-
+//#ifdef DIRTY_ONLY_FLUSH
+//        e->dirty_upper_bound = 0;
+//        e->dirty_lower_bound = 0;
+//#endif
         e->value = value;
         e->deleter = deleter;
         e->charge = charge;

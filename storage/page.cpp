@@ -186,19 +186,8 @@ namespace DSMEngine {
 //        Key split_key;
 //        GlobalAddress sibling_addr = GlobalAddress::Null();
         if (!is_update) { // insert and shift
-//            if ((k & ((1ull << 40) -1)) == 0){
-//                printf("Internal Node Insert position for key %p is %d, this node_id is %lu\n", k, insert_index,
-//                       RDMA_Manager::node_id);
-//                fflush(stdout);
-//            }
-            // The update should mark the page version change because this will make the page state in consistent.
-//      __atomic_fetch_add(&page->front_version, 1, __ATOMIC_SEQ_CST);
-//      page->front_version++;
-            //TODO(potential bug): double check the memory fence, there could be out of order
-            // execution preventing the version lock.
-//      asm volatile ("sfence\n" : : );
-//      asm volatile ("lfence\n" : : );
-//      asm volatile ("mfence" : : : "memory");
+            hdr.reset_dirty_bounds();
+            //TODO: calculate the dirty range when insert a new entry.
             for (int i = cnt; i > insert_index; --i) {
                 records[i].key = records[i - 1].key;
                 records[i].ptr = records[i - 1].ptr;
@@ -211,20 +200,12 @@ namespace DSMEngine {
             uint16_t last_index_prev = hdr.last_index;
 #endif
             hdr.last_index++;
-
-
-//#ifndef NDEBUG
-//      assert(last_index_memo == page->hdr.last_index);
-//#endif
-//      asm volatile ("sfence\n" : : );
-// THe last index could be the same for several print because we may not insert to the end all the time.
-//        printf("last_index of page offset %lu is %hd, page level is %d, page is %p, the last index content is %lu %p, version should be, the key is %lu\n"
-//               , page_addr.offset,  page->hdr.last_index, page->hdr.level, page, page->records[page->hdr.last_index].key, page->records[page->hdr.last_index].ptr, k);
             assert(hdr.last_index == last_index_prev + 1);
             assert(records[hdr.last_index].ptr != GlobalAddress::Null());
             assert(records[hdr.last_index].key != 0);
-//  assert(page->records[page->hdr.last_index] != GlobalAddress::Null());
             cnt = hdr.last_index + 1;
+        } else{
+
         }
 
         return cnt == kInternalCardinality;
@@ -367,18 +348,7 @@ namespace DSMEngine {
         assert(hdr.kLeafCardinality > 0);
         int tuple_length = record_scheme->GetSchemaSize();
 
-//#ifndef NDEBUG
-//        if (hdr.last_index >= 0){
-//            char* tuple_last = data_ + hdr.last_index*tuple_length;
-//            auto r_last = Record(record_scheme,tuple_last);
-//            TKey last_key;
-//            r_last.GetPrimaryKey(&last_key);
-//            assert(k < hdr.highest );
-//            assert(last_key < hdr.highest);
-//        }
-//
-//#endif
-//        int kLeafCardinality = record_scheme->GetLeafCardi();
+
         char* tuple_start;
         tuple_start = data_ + 0*tuple_length;
 
@@ -413,6 +383,10 @@ namespace DSMEngine {
                     assert(v.size() == r.GetRecordSize());
                     memcpy(r.data_ptr_, v.data(), r.GetRecordSize());
                     is_update = true;
+#ifdef DIRTY_ONLY_FLUSH
+                    hdr.merge_dirty_bounds(tuple_start - (char*)this, tuple_start - (char*)this + r.GetRecordSize());
+#endif
+                    assert(cnt < hdr.kLeafCardinality);
                     return cnt == hdr.kLeafCardinality;
                 }
             }
@@ -428,6 +402,10 @@ namespace DSMEngine {
                 assert(v.size() == r.GetRecordSize());
                 memcpy(r.data_ptr_, v.data(), r.GetRecordSize());
                 is_update = true;
+#ifdef DIRTY_ONLY_FLUSH
+                hdr.merge_dirty_bounds(tuple_start - (char*)this, tuple_start - (char*)this + r.GetRecordSize());
+#endif
+                assert(cnt < hdr.kLeafCardinality);
                 return cnt == hdr.kLeafCardinality;
             }
 
@@ -454,28 +432,13 @@ namespace DSMEngine {
             assert(v.size() == r.GetRecordSize());
             r.ReSetRecord(v.data_reference(), v.size());
         }
-
-//    memcpy(r.value_padding, padding, VALUE_PADDING);
-//            r.f_version++;
-//            r.r_version = r.f_version;
         cnt++;
         hdr.last_index++;
         assert(hdr.last_index < hdr.kLeafCardinality);
-//        }
-//#ifndef NDEBUG
-//        auto tuple_last = data_ + insert_index*tuple_length;
-//        if ((k & ((1ull << 40) -1)) == 0){
-//            printf("Leafnode Insert position for key %p is %d, this node id %lu \n", k, insert_index, RDMA_Manager::node_id);
-//            fflush(stdout);
-//        }
-//        auto r_last2 = Record(record_scheme,tuple_last);
-//        TKey last_key;
-//        r_last2.GetPrimaryKey(&last_key);
-////        assert(k < hdr.highest  );
-//        assert(k == last_key);
-//#endif
-//        printf("Page store function finished, page pointer is %p, last index is %d\n", hdr.this_page_g_ptr, hdr.last_index);
-//        fflush(stdout);
+#ifdef DIRTY_ONLY_FLUSH
+        // If the page get inserted, then the dirty range is the whole page.
+        hdr.merge_dirty_bounds(sizeof(uint64_t), kLeafPageSize);
+#endif
         return cnt == hdr.kLeafCardinality;
 #else
         for (int i = 0; i < kLeafCardinality; ++i) {
@@ -557,6 +520,12 @@ namespace DSMEngine {
         g_addr = GADD(hdr.this_page_g_ptr, STRUCT_OFFSET(DataPage, data_) + bitmap_size + offset);
         data_buffer = data_ + bitmap_size + offset;
         hdr.number_of_records++;
+        // TODO enable the dirty flush.
+//#ifdef DIRTY_ONLY_FLUSH
+//        hdr.merge_dirty_bounds(STRUCT_OFFSET(DataPage, data_) + bitmap_size + offset, STRUCT_OFFSET(DataPage, data_) + bitmap_size + offset + tuple_length);
+////        hdr.dirty_upper_bound = 8;
+////        hdr.dirty_lower_bound = STRUCT_OFFSET(DataPage, data_) + bitmap_size + offset + tuple_length;
+//#endif
         cnt = hdr.number_of_records;
         return true;
     }

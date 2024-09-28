@@ -547,6 +547,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     alloc->SELCC_Shared_UnLock(target_cache_line, handle);
 
                 } else {
+                    assert(false);
                     void* page_buffer;
                     Cache::Handle* handle;
                     memset(buf, i, item_size);
@@ -612,11 +613,22 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                         cache_line_offset += STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, data_[0]);
                     }
                     alloc->SELCC_Exclusive_Lock(page_buffer, target_cache_line, handle);
+                    auto page = (LeafPage<uint64_t COMMA uint64_t>*)page_buffer;
+#ifdef DIRTY_ONLY_FLUSH
+                    page->hdr.merge_dirty_bounds(cache_line_offset, cache_line_offset+item_size);
+#endif
+
 #ifndef NDEBUG
                     if (((DataPage*)page_buffer)->hdr.this_page_g_ptr == GlobalAddress::Null()){
                         ((DataPage*)page_buffer)->hdr.this_page_g_ptr = target_cache_line;
+                        page->hdr.merge_dirty_bounds(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, hdr.this_page_g_ptr), STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, hdr.this_page_g_ptr)+
+                                                                                                                            sizeof(GlobalAddress));
+
                     } else{
                         assert(((DataPage*)page_buffer)->hdr.this_page_g_ptr == target_cache_line);
+#ifdef DIRTY_ONLY_FLUSH
+                        page->hdr.merge_dirty_bounds(cache_line_offset, cache_line_offset+item_size);
+#endif
                     }
 #endif
                     // Can not write to random place because we can not hurt the metadata in the page.
@@ -644,6 +656,8 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                         cache_line_offset += STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, data_[0]);
                     }
                     alloc->SELCC_Exclusive_Lock(page_buffer, target_cache_line, handle);
+                    auto page = (LeafPage<uint64_t COMMA uint64_t>*)page_buffer;
+                    page->hdr.merge_dirty_bounds(cache_line_offset, cache_line_offset+item_size);
                     // Can not write to random place because we can not hurt the metadata in the page.
                     memcpy((char*)page_buffer + (cache_line_offset), buf, item_size);
                     alloc->SELCC_Exclusive_UnLock(target_cache_line, handle);
