@@ -5035,9 +5035,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             *(uint64_t*) local_CAS_mr->addr = 0;
             //TODO: Can we make the RDMA unlock based on RDMA FAA? In this case, we can use async
             // lock releasing to reduce the RDMA ROUND trips in the protocol
-            volatile uint64_t add = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
-            volatile uint64_t substract = (~add) + 1;
-            add = ((uint64_t)next_holder_id/2 +1) << 56;
+            volatile uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            volatile uint64_t substract = (~compare) + 1;
+            volatile uint64_t add = ((uint64_t)next_holder_id/2 +1) << 56;
             // The code below is to prevent a work request overflow in the send queue, since we enable
             // async lock releasing.
             Async_Tasks * tasks = (Async_Tasks *)async_tasks.at(page_addr.nodeID)->Get();
@@ -5055,7 +5055,20 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 *(uint64_t *)local_CAS_mr->addr = 0;
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
                 Batch_Submit_WRs(sr, 1, page_addr.nodeID);
-                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
+//                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
+#ifndef NDEBUG
+                if(((*(uint64_t*) local_CAS_mr->addr) >> 56) != (compare >> 56)){
+
+                    usleep(100);
+                    //RDMA read the latch word again and see if it is the same as the compare value.
+                    RDMA_Read(remote_lock_addr, local_CAS_mr, 8, IBV_SEND_SIGNALED,1, Regular_Page);
+
+                    assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
+                    printf("Nodeid %u RDMA write handover move too fast, resulting in spurious latch word mismatch\n", node_id);
+                    fflush(stdout);
+                    //                goto retry;
+                }
+#endif
                 *counter = 0;
 
             }else{
