@@ -630,7 +630,7 @@ LRUHandle* LRUCache::pop_free_list() {
     return e;
 }
 bool LRUCache::need_eviction() {
-    return free_list_size_ < free_list_trigger_limit_;
+    return free_list_size_ <= free_list_trigger_limit_;
 }
 
 void LRUCache::prepare_free_list() {
@@ -666,7 +666,7 @@ std::pair<LRUHandle*, LRUHandle*> LRUCache::bulk_remove_LRU_list(size_t size) {
 //    SpinLock l(&mutex_);
     LRUHandle* start_handle = lru_.next; // oldest
     LRUHandle* end_handle = lru_.next;
-    for (size_t i = 0; i < size - 1; ++i) {
+    for (size_t i = 1; i < size; ++i) {
         end_handle = end_handle->next;
     }
     end_handle->next.load()->prev = start_handle->prev.load();
