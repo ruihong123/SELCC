@@ -4186,6 +4186,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 tasks->handles[*counter] = handle;
                 async_succeed = true;
             }
+            try_poll_completions_xcompute()
 #endif
         } else{
 #ifdef GETANALYSIS

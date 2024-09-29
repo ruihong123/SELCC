@@ -636,8 +636,8 @@ bool LRUCache::need_eviction() {
 void LRUCache::prepare_free_list() {
     SpinLock lck1(&mutex_);
     if (need_eviction()){
-        size_t recycle_num = free_list_trigger_limit_ - free_list_size_;
-        if(recycle_num == 0){
+        int recycle_num = free_list_trigger_limit_ - free_list_size_;
+        if(recycle_num <= 0){
             return;
         }
         auto start_end_pair = bulk_remove_LRU_list(recycle_num);

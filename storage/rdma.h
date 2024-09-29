@@ -427,14 +427,48 @@ class RDMA_Manager {
  public:
     class Async_Tasks {
         public:
+        void* handles[ATOMIC_OUTSTANDING_SIZE] = {nullptr};
+        ibv_mr* mrs[ATOMIC_OUTSTANDING_SIZE] = {nullptr};
 #if ASYNC_PLAN == 1
         uint32_t counter = 0;
 #else
         uint32_t head = 0;
         uint32_t tail = 0;
+        size_t max_size = ATOMIC_OUTSTANDING_SIZE;
+        ibv_mr* enqueue() {
+            if (is_full()) {
+                return nullptr;
+            }
+            head = (head + 1) % max_size;
+            return mrs[head];
+        }
+
+        void dequeue(size_t num) {
+            assert(size() >= num);
+            if (is_empty()) {
+                throw std::runtime_error("Buffer is empty");
+            }
+
+            tail = (tail + num) % max_size;
+//            return item;
+        }
+
+        bool is_empty() {
+            return head == tail;
+        }
+        // current logic can at most have ATOMIC_OUTSTANDING_SIZE - 1 elements in the queue.
+        bool is_full() {
+            return (head + 1) % max_size == tail;
+        }
+
+        size_t size() {
+            if (tail <= head) {
+                return head - tail;
+            }
+            return max_size - tail + head;
+        }
 #endif
-        void* handles[ATOMIC_OUTSTANDING_SIZE] = {nullptr};
-        ibv_mr* mrs[ATOMIC_OUTSTANDING_SIZE] = {nullptr};
+
         Async_Tasks(){
             auto rdma_mg = RDMA_Manager::Get_Instance();
             for (int i = 0; i < ATOMIC_OUTSTANDING_SIZE; ++i) {
