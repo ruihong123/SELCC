@@ -4761,6 +4761,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         auto page = (LeafPage<uint64_t,uint64_t>*)(page_buffer->addr);
         assert(STRUCT_OFFSET(LeafPage<int COMMA int>, hdr.dirty_upper_bound) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr.dirty_upper_bound));
         if (page->hdr.dirty_upper_bound == 0){
+            assert(page->hdr.dirty_lower_bound == 0);
             // this means the page does not participate the optimization of dirty-only flush back.
             tbFlushed_gaddr.nodeID = page_addr.nodeID;
             //The header should be the same offset in Leaf or INternal nodes
@@ -4772,7 +4773,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             tbFlushed_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
             page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         }else{
-            assert(page->hdr.dirty_lower_bound == 0);
             assert(page->hdr.dirty_lower_bound > sizeof(uint64_t ));
             tbFlushed_gaddr.nodeID = page_addr.nodeID;
             tbFlushed_gaddr.offset = page_addr.offset + page->hdr.dirty_lower_bound;
@@ -5184,6 +5184,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         auto page = (LeafPage<uint64_t,uint64_t>*)(page_buffer->addr);
         assert(STRUCT_OFFSET(LeafPage<int COMMA int>, hdr.dirty_upper_bound) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr.dirty_upper_bound));
         if (page->hdr.dirty_upper_bound == 0){
+            assert(page->hdr.dirty_lower_bound == 0);
             tbFlushed_gaddr.nodeID = page_addr.nodeID;
             //The header should be the same offset in Leaf or INternal nodes
             assert(STRUCT_OFFSET(LeafPage<int COMMA int>, hdr) == STRUCT_OFFSET(LeafPage<char COMMA char>, hdr));
@@ -5194,7 +5195,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             tbFlushed_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
             page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         }else{
-            assert(page->hdr.dirty_lower_bound == 0);
             assert(page->hdr.dirty_lower_bound > sizeof(uint64_t ));
             tbFlushed_gaddr.nodeID = page_addr.nodeID;
             tbFlushed_gaddr.offset = page_addr.offset + page->hdr.dirty_lower_bound;
