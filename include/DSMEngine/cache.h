@@ -498,7 +498,7 @@ public:
     bool need_eviction();
     void prepare_free_list();
     std::pair<LRUHandle*, LRUHandle*> bulk_remove_LRU_list(size_t size);
-    void bulk_insert_free_list(std::pair<LRUHandle*, LRUHandle*> start_end);
+    void bulk_insert_free_list(std::pair<LRUHandle *, LRUHandle *> start_end, size_t size);
 
 private:
     void List_Remove(LRUHandle* e);

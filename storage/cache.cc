@@ -653,7 +653,7 @@ void LRUCache::prepare_free_list() {
 
         }
         SpinLock lck2(&free_list_mtx_);
-        bulk_insert_free_list(start_end_pair);
+        bulk_insert_free_list(start_end_pair, recycle_num);
     }
 
 
@@ -681,11 +681,12 @@ std::pair<LRUHandle*, LRUHandle*> LRUCache::bulk_remove_LRU_list(size_t size) {
 #endif
     return std::make_pair(start_handle, end_handle);
 }
-void LRUCache::bulk_insert_free_list(std::pair<LRUHandle*, LRUHandle*> start_end){
+void LRUCache::bulk_insert_free_list(std::pair<LRUHandle *, LRUHandle *> start_end, size_t size) {
     start_end.second->next.store(&free_list_);
     start_end.first->prev.store(free_list_.prev);
     free_list_.prev.store(start_end.second);
     start_end.first->prev.load()->next.store(start_end.first);
+    free_list_size_ += size;
 //    e->next = list;
 //    e->prev.store(list->prev);
 //    e->prev.load()->next = e;
