@@ -635,24 +635,27 @@ bool LRUCache::need_eviction() {
 
 void LRUCache::prepare_free_list() {
     SpinLock lck1(&mutex_);
-    size_t recycle_num = free_list_trigger_limit_ - free_list_size_;
-    auto start_end_pair = bulk_remove_LRU_list(recycle_num);
-    auto e = start_end_pair.first;
-    // todo: current type of aysnchronous work request mechanismi is not the optimial one, we can still optmize it.
-    while (e != nullptr){
-        table_.Remove(e->key(), e->hash);
-        e = e->next;
-    }
-    lck1.Unlock();
-    e = start_end_pair.first;
-    while (e != nullptr){
-        e->refs--;
-        (*e->deleter)(e);
-        e = e->next;
+    if (need_eviction()){
+        size_t recycle_num = free_list_trigger_limit_ - free_list_size_;
+        auto start_end_pair = bulk_remove_LRU_list(recycle_num);
+        auto e = start_end_pair.first;
+        // todo: current type of aysnchronous work request mechanismi is not the optimial one, we can still optmize it.
+        while (e != nullptr){
+            table_.Remove(e->key(), e->hash);
+            e = e->next;
+        }
+        lck1.Unlock();
+        e = start_end_pair.first;
+        while (e != nullptr){
+            e->refs--;
+            (*e->deleter)(e);
+            e = e->next;
 
+        }
+        SpinLock lck2(&free_list_mtx_);
+        bulk_insert_free_list(start_end_pair);
     }
-    SpinLock lck2(&free_list_mtx_);
-    bulk_insert_free_list(start_end_pair);
+
 
 
 }
@@ -670,7 +673,12 @@ std::pair<LRUHandle*, LRUHandle*> LRUCache::bulk_remove_LRU_list(size_t size) {
     start_handle->prev.load()->next = end_handle->next.load();
     end_handle->next = nullptr;
     start_handle->prev = nullptr;
-    assert(start_handle->next.load()->next != start_handle);
+#ifndef NDEBUG
+        if (size >1){
+            assert(start_handle->next.load()->next != start_handle);
+
+        }
+#endif
     return std::make_pair(start_handle, end_handle);
 }
 void LRUCache::bulk_insert_free_list(std::pair<LRUHandle*, LRUHandle*> start_end){
