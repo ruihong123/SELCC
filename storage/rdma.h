@@ -427,7 +427,12 @@ class RDMA_Manager {
  public:
     class Async_Tasks {
         public:
+#if ASYNC_PLAN == 1
         uint32_t counter = 0;
+#else
+        uint32_t head = 0;
+        uint32_t tail = 0;
+#endif
         void* handles[ATOMIC_OUTSTANDING_SIZE] = {nullptr};
         ibv_mr* mrs[ATOMIC_OUTSTANDING_SIZE] = {nullptr};
         Async_Tasks(){

@@ -4148,6 +4148,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         struct ibv_sge sge[2];
         bool async_succeed = false;
         if (async){
+#if ASYNC_PLAN == 1
             Async_Tasks * tasks = (Async_Tasks *)async_tasks.at(lock_addr.nodeID)->Get();
             if (UNLIKELY(!tasks)){
                 tasks = new Async_Tasks();
@@ -4166,6 +4167,26 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 tasks->handles[*counter] = handle;
                 async_succeed = true;
             }
+#else
+            Async_Tasks * tasks = (Async_Tasks *)async_tasks.at(lock_addr.nodeID)->Get();
+            if (UNLIKELY(!tasks)){
+                tasks = new Async_Tasks();
+                async_tasks[lock_addr.nodeID]->Reset(tasks);
+            }
+            uint32_t* counter = &tasks->counter;
+            if ( UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 2)){
+                RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page);
+                //TODO: clear all the async tasks. for the handle. We need to release the local latch and release the handle.
+
+                *counter = 0;
+            }else{
+                ibv_mr* async_cas = tasks->mrs[*counter];
+                RDMA_FAA(lock_addr, async_cas, substract, 0, 0, Regular_Page);
+                *counter = *counter + 1;
+                tasks->handles[*counter] = handle;
+                async_succeed = true;
+            }
+#endif
         } else{
 #ifdef GETANALYSIS
 
