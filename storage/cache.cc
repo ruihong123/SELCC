@@ -723,7 +723,7 @@ class ShardedLRUCache : public Cache {
               // stage 1:
               // 1. check the free list size, if it is less than the threshold, then start the eviction.
               while (!bg_exit_signal_){
-                  size_t j = rand_r(reinterpret_cast<unsigned int *>(seed)) % kNumShards;
+                  size_t j = rand_r(&seed) % kNumShards;
                   //TODO: try to think of a way making the most pending work request and also guaratee the correctness of the cache.
                   // Maximize the aysnchronous work request. there is a limit for 1 queue pair (16 pending RDMA read/atomic). However the overall pending request
                   // for RDMA atomic is much more. If one queue is satuated, we can quickly switch to another to continue filling in the request.
