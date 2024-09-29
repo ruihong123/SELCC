@@ -637,7 +637,9 @@ void LRUCache::prepare_free_list() {
     SpinLock lck1(&mutex_);
     if (need_eviction()){
         size_t recycle_num = free_list_trigger_limit_ - free_list_size_;
-        assert(recycle_num > 0);
+        if(recycle_num == 0){
+            return;
+        }
         auto start_end_pair = bulk_remove_LRU_list(recycle_num);
         auto e = start_end_pair.first;
         // todo: current type of aysnchronous work request mechanismi is not the optimial one, we can still optmize it.
