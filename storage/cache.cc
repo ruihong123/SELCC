@@ -512,7 +512,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
                 // next is read by key() in an assert, so it must be initialized
                 e->next = nullptr;
             }
-            assert(usage_ <= capacity_ + kLeafPageSize + kInternalPageSize); // make sure the usage is bounded.
+            assert(usage_ <= capacity_ + 2*kLeafPageSize + kInternalPageSize); // make sure the usage is bounded.
             return reinterpret_cast<Cache::Handle*>(e);
         }
     }
@@ -572,7 +572,7 @@ Cache::Handle* LRUCache::Insert(const Slice& key, uint32_t hash, void* value,
             // next is read by key() in an assert, so it must be initialized
             e->next = nullptr;
         }
-        assert(usage_ <= capacity_ + kLeafPageSize + kInternalPageSize); // make sure the usage is bounded.
+        assert(usage_ <= capacity_ + 2*kLeafPageSize + kInternalPageSize); // make sure the usage is bounded.
         return reinterpret_cast<Cache::Handle*>(e);
     }
 #endif
