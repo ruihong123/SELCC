@@ -630,17 +630,20 @@ LRUHandle* LRUCache::pop_free_list() {
     return e;
 }
 bool LRUCache::need_eviction() {
-    return free_list_size_ <= free_list_trigger_limit_;
+    return free_list_size_ < free_list_trigger_limit_;
 }
 
 void LRUCache::prepare_free_list() {
     SpinLock lck1(&mutex_);
     if (need_eviction()){
         size_t recycle_num = free_list_trigger_limit_ - free_list_size_;
+        assert(recycle_num > 0);
         auto start_end_pair = bulk_remove_LRU_list(recycle_num);
         auto e = start_end_pair.first;
         // todo: current type of aysnchronous work request mechanismi is not the optimial one, we can still optmize it.
         while (e != nullptr){
+            e->in_cache = false;
+            usage_ -= e->charge;
             table_.Remove(e->key(), e->hash);
             e = e->next;
         }
@@ -673,12 +676,7 @@ std::pair<LRUHandle*, LRUHandle*> LRUCache::bulk_remove_LRU_list(size_t size) {
     start_handle->prev.load()->next = end_handle->next.load();
     end_handle->next = nullptr;
     start_handle->prev = nullptr;
-    auto e = start_handle;
-    while (e!= nullptr){
-        e->in_cache = false;
-        usage_ -= e->charge;
-        e = e->next;
-    }
+
 #ifndef NDEBUG
         if (size >1){
             assert(start_handle->next.load()->next != start_handle);
