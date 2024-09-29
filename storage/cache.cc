@@ -633,7 +633,57 @@ bool LRUCache::need_eviction() {
     return free_list_size_ < free_list_trigger_limit_;
 }
 
+void LRUCache::prepare_free_list() {
+    SpinLock lck1(&mutex_);
+    size_t recycle_num = free_list_trigger_limit_ - free_list_size_;
+    auto start_end_pair = bulk_remove_LRU_list(recycle_num);
+    auto e = start_end_pair.first;
+    // todo: current type of aysnchronous work request mechanismi is not the optimial one, we can still optmize it.
+    while (e != nullptr){
+        table_.Remove(e->key(), e->hash);
+        e = e->next;
+    }
+    lck1.Unlock();
+    e = start_end_pair.first;
+    while (e != nullptr){
+        e->refs--;
+        (*e->deleter)(e);
+        e = e->next;
 
+    }
+    SpinLock lck2(&free_list_mtx_);
+    bulk_insert_free_list(start_end_pair);
+
+
+}
+
+
+// should be protected by mutex_ outside the function.
+std::pair<LRUHandle*, LRUHandle*> LRUCache::bulk_remove_LRU_list(size_t size) {
+//    SpinLock l(&mutex_);
+    LRUHandle* start_handle = lru_.next; // oldest
+    LRUHandle* end_handle = lru_.next;
+    for (size_t i = 0; i < size - 1; ++i) {
+        end_handle = end_handle->next;
+    }
+    end_handle->next.load()->prev = start_handle->prev.load();
+    start_handle->prev.load()->next = end_handle->next.load();
+    end_handle->next = nullptr;
+    start_handle->prev = nullptr;
+    assert(start_handle->next.load()->next != start_handle);
+    return std::make_pair(start_handle, end_handle);
+}
+void LRUCache::bulk_insert_free_list(std::pair<LRUHandle*, LRUHandle*> start_end){
+    start_end.second->next.store(&free_list_);
+    start_end.first->prev.store(free_list_.prev);
+    free_list_.prev.store(start_end.second);
+    start_end.first->prev.load()->next.store(start_end.first);
+//    e->next = list;
+//    e->prev.store(list->prev);
+//    e->prev.load()->next = e;
+//    e->next.load()->prev = e;
+
+}
 
 
 static const int kNumShardBits = 7;
@@ -644,6 +694,7 @@ class ShardedLRUCache : public Cache {
   LRUCache shard_[kNumShards];
 #ifdef PAGE_FREE_LIST
     std::thread free_list_thread_s[FREELIST_THREAD_NUM];
+    bool bg_exit_signal_ = false;
 #endif
     port::Mutex id_mutex_;
   uint64_t last_id_;
@@ -665,33 +716,33 @@ class ShardedLRUCache : public Cache {
       shard_[s].init();
 #endif
     }
-//      for (int i = 0; i < FREELIST_THREAD_NUM; ++i) {
-//          free_list_thread_s[i] = std::thread([this](){
-//                auto rdma_mg = RDMA_Manager::Get_Instance();
-//              // stage 1:
-//              // 1. check the free list size, if it is less than the threshold, then start the eviction.
-//              for(int i = 0; i < kNumShards; i++){
-//                  //TODO: try to think of a way making the most pending work request and also guaratee the correctness of the cache.
-//                  // Maximize the aysnchronous work request. there is a limit for 1 queue pair (16 pending RDMA read/atomic). However the overall pending request
-//                  // for RDMA atomic is much more. If one queue is satuated, we can quickly switch to another to continue filling in the request.
-//                  // beside, for the dirty page flush back, we need a buffer to avoid the page content being overwritten.
-//                  if (shard_[i].need_eviction()){
-//                      shard_[i].select_for_eviction();
-//                      // we can just enable the async flushing for the eviction by enable unsignaled work request for 15 work request and
-//                      // we make a signaled work request at the 16th work request. In this case, every work request only wait for 1/16 RDMA roundtrip time.
-//                  }
-//
-//              }
-//                // stage 2: poll the completion buffer for queue pair to every memory node, if there is a completion
-//
-//                // We can enable singnaled work request for the eviction, and keep
-//              for (int j = 0; j < rdma_mg->compute_nodes.size(); ++j) {
-//
-//              }
-//          });
-//      }
+      for (unsigned int i = 0; i < FREELIST_THREAD_NUM; ++i) {
+          free_list_thread_s[i] = std::thread([this](unsigned int seed){
+                auto rdma_mg = RDMA_Manager::Get_Instance();
+//              srand(seed);
+              // stage 1:
+              // 1. check the free list size, if it is less than the threshold, then start the eviction.
+              while (!bg_exit_signal_){
+                  size_t j = rand_r(reinterpret_cast<unsigned int *>(seed)) % kNumShards;
+                  //TODO: try to think of a way making the most pending work request and also guaratee the correctness of the cache.
+                  // Maximize the aysnchronous work request. there is a limit for 1 queue pair (16 pending RDMA read/atomic). However the overall pending request
+                  // for RDMA atomic is much more. If one queue is satuated, we can quickly switch to another to continue filling in the request.
+                  // beside, for the dirty page flush back, we need a buffer to avoid the page content being overwritten.
+                  if (shard_[j].need_eviction()){
+                      shard_[j].prepare_free_list();
+                      // we can just enable the async flushing for the eviction by enable unsignaled work request for 15 work request and
+                      // we make a signaled work request at the 16th work request. In this case, every work request only wait for 1/16 RDMA roundtrip time.
+                  }
+              }
+
+
+          }, i);
+          free_list_thread_s[i].detach();
+      }
   }
-  ~ShardedLRUCache() override {}
+  ~ShardedLRUCache() override {
+      bg_exit_signal_ = true;
+  }
   size_t GetCapacity() override{
       return capacity_;
   }

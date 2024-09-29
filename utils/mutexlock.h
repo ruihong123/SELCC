@@ -239,7 +239,7 @@ class SpinLock {
 
  private:
   SpinMutex *const mu_;
-  thread_local static bool owns;
+  thread_local static bool owns;// we need to make sure every thread can only acquire one spinlock at the same time.
 
 
 };

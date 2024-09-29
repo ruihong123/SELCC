@@ -403,6 +403,7 @@ public:
         return result;
     }
 
+
 private:
     // The table consists of an array of buckets where each bucket is
     // a linked list of table_cache entries that hash into the bucket.
@@ -495,6 +496,9 @@ public:
     void push_free_list(LRUHandle* e);
     LRUHandle* pop_free_list();
     bool need_eviction();
+    void prepare_free_list();
+    std::pair<LRUHandle*, LRUHandle*> bulk_remove_LRU_list(size_t size);
+    void bulk_insert_free_list(std::pair<LRUHandle*, LRUHandle*> start_end);
 
 private:
     void List_Remove(LRUHandle* e);
