@@ -4773,7 +4773,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             tbFlushed_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
             page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         }else{
-            assert(page->hdr.dirty_lower_bound > sizeof(uint64_t ));
+            assert(page->hdr.dirty_lower_bound >= sizeof(uint64_t ));
             tbFlushed_gaddr.nodeID = page_addr.nodeID;
             tbFlushed_gaddr.offset = page_addr.offset + page->hdr.dirty_lower_bound;
             tbFlushed_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + page->hdr.dirty_lower_bound);
@@ -5195,7 +5195,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             tbFlushed_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + STRUCT_OFFSET(LeafPage<int COMMA int>, hdr));
             page_size -=  STRUCT_OFFSET(LeafPage<int COMMA int>, hdr);
         }else{
-            assert(page->hdr.dirty_lower_bound > sizeof(uint64_t ));
+            assert(page->hdr.dirty_lower_bound >= sizeof(uint64_t ));
             tbFlushed_gaddr.nodeID = page_addr.nodeID;
             tbFlushed_gaddr.offset = page_addr.offset + page->hdr.dirty_lower_bound;
             tbFlushed_local_mr.addr = reinterpret_cast<void*>((uint64_t)page_buffer->addr + page->hdr.dirty_lower_bound);
