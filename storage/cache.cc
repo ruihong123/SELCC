@@ -673,6 +673,12 @@ std::pair<LRUHandle*, LRUHandle*> LRUCache::bulk_remove_LRU_list(size_t size) {
     start_handle->prev.load()->next = end_handle->next.load();
     end_handle->next = nullptr;
     start_handle->prev = nullptr;
+    auto e = start_handle;
+    while (e!= nullptr){
+        e->in_cache = false;
+        usage_ -= e->charge;
+        e = e->next;
+    }
 #ifndef NDEBUG
         if (size >1){
             assert(start_handle->next.load()->next != start_handle);
