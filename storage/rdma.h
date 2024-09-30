@@ -435,13 +435,15 @@ class RDMA_Manager {
         uint32_t head = 0;
         uint32_t tail = 0;
         size_t max_size = ATOMIC_OUTSTANDING_SIZE;
-        ibv_mr* enqueue() {
+        ibv_mr* try_enqueue() {
             if (is_full()) {
                 return nullptr;
             }
             head = (head + 1) % max_size;
             return mrs[head];
         }
+
+
 
         void dequeue(size_t num) {
             assert(size() >= num);
@@ -466,6 +468,17 @@ class RDMA_Manager {
                 return head - tail;
             }
             return max_size - tail + head;
+        }
+        ibv_mr* enqueue(RDMA_Manager* rdma_mg, GlobalAddress lock_addr) {
+            auto temp_mr = try_enqueue();
+            while (!temp_mr) {
+                ibv_wc wc[ATOMIC_OUTSTANDING_SIZE] = {};
+                std::string qptype = "default";
+                int result = rdma_mg->try_poll_completions(wc, ATOMIC_OUTSTANDING_SIZE, qptype, true, lock_addr.nodeID);
+                dequeue(result);
+                temp_mr = try_enqueue();
+            }
+            return temp_mr;
         }
 #endif
 
