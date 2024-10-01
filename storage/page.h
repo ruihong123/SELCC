@@ -65,7 +65,7 @@ namespace DSMEngine{
         // only 0 in the root node.
         //TODO: reserve struture or pointer for the invalidation bit (if not valid, a RDMA read is required),
         // globale address (for checking whether this page is what we want) cache handle pointer.
-        bool valid_page;
+//        bool valid_page;
         int16_t last_index;
         uint8_t level;
 
@@ -87,7 +87,7 @@ namespace DSMEngine{
             dirty_upper_bound = 0;
             dirty_lower_bound = 0;
             last_index = -1;
-            valid_page = true;
+//            valid_page = true;
             lowest = kKeyMin<T>;
             highest = kKeyMax<T>;
         }
@@ -219,7 +219,7 @@ namespace DSMEngine{
             hdr.leftmost_ptr = left;
             hdr.level = level;
 //            hdr.p_version = 0;
-            hdr.valid_page = true;
+//            hdr.valid_page = true;
 //            global_lock = 0;
             records[0].key = key;
             records[0].ptr = right;
@@ -246,50 +246,50 @@ namespace DSMEngine{
 //            embedding_lock = 1;
         }
 
-        void check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
-            uint8_t expected = 0;
-            assert(page_mr->addr == this);
-            if (!hdr.valid_page ){
-
-                ibv_mr temp_mr = *page_mr;
-                GlobalAddress temp_page_add = page_addr;
-                temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
-                temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
-                temp_mr.length = temp_mr.length - RDMA_OFFSET;
-            invalidation_reread:
-                rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-RDMA_OFFSET, IBV_SEND_SIGNALED, 1, Regular_Page);
-                // If the global lock is in use, then this read page should be in a inconsistent state.
-                if (global_lock != 1){
-                    // with a lock the remote side can not be inconsistent.
-                    assert(false);
-                    goto invalidation_reread;
-                }
-                __atomic_store_n(&hdr.valid_page, false, (int)std::memory_order_seq_cst);
-
-
-            }
-        }
-        bool check_whether_globallock_is_unlocked() const {
-
-            bool succ = global_lock ==0;
-#ifdef CONFIG_ENABLE_CRC
-            auto cal_crc =
-        CityHash32((char *)&front_version, (&rear_version) - (&front_version));
-    succ = cal_crc == this->crc;
-#endif
-
-
-//            succ = succ && (rear_version == front_version);
-            if (!succ) {
-                // this->debug();
-            }
-//#ifndef NDEBUG
-//            if (front_version == 0 && succ){
-//                printf("check version pass, with 0\n");
+//        void check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
+//            uint8_t expected = 0;
+//            assert(page_mr->addr == this);
+//            if (!hdr.valid_page ){
+//
+//                ibv_mr temp_mr = *page_mr;
+//                GlobalAddress temp_page_add = page_addr;
+//                temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
+//                temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
+//                temp_mr.length = temp_mr.length - RDMA_OFFSET;
+//            invalidation_reread:
+//                rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-RDMA_OFFSET, IBV_SEND_SIGNALED, 1, Regular_Page);
+//                // If the global lock is in use, then this read page should be in a inconsistent state.
+//                if (global_lock != 1){
+//                    // with a lock the remote side can not be inconsistent.
+//                    assert(false);
+//                    goto invalidation_reread;
+//                }
+//                __atomic_store_n(&hdr.valid_page, false, (int)std::memory_order_seq_cst);
+//
+//
 //            }
+//        }
+//        bool check_whether_globallock_is_unlocked() const {
+//
+//            bool succ = global_lock ==0;
+//#ifdef CONFIG_ENABLE_CRC
+//            auto cal_crc =
+//        CityHash32((char *)&front_version, (&rear_version) - (&front_version));
+//    succ = cal_crc == this->crc;
 //#endif
-            return succ;
-        }
+//
+//
+////            succ = succ && (rear_version == front_version);
+//            if (!succ) {
+//                // this->debug();
+//            }
+////#ifndef NDEBUG
+////            if (front_version == 0 && succ){
+////                printf("check version pass, with 0\n");
+////            }
+////#endif
+//            return succ;
+//        }
 
         void debug() const {
             std::cout << "InternalPage@ ";
