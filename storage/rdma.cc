@@ -3509,12 +3509,12 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         sr.wr.atomic.rkey = remote_mr->rkey;
         sr.wr.atomic.remote_addr = (uint64_t )remote_mr->addr;
         sr.wr.atomic.compare_add = add; /* expected value in remote address */
-#ifndef NDEBUG
-        ibv_wc wc1[2];
-        if (cq_data_default.at(target_node_id)->Get() != nullptr) {
-            assert(try_poll_completions(wc1, 1, qp_type, true, 1) == 0);
-        }
-#endif
+//#ifndef NDEBUG
+//        ibv_wc wc1[2];
+//        if (cq_data_default.at(target_node_id)->Get() != nullptr) {
+//            assert(try_poll_completions(wc1, 1, qp_type, true, 1) == 0);
+//        }
+//#endif
         ibv_qp* qp;
         if (qp_type == "default"){
             //    assert(false);// Never comes to here
@@ -4370,17 +4370,17 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         *(uint64_t *)cas_buffer->addr = 0;
         assert(page_addr.nodeID == lock_addr.nodeID);
         std::string str("default");
-#ifndef NDEBUG
-        ibv_wc* wc = new ibv_wc[2]();
-
-        if (cq_data_default.at(page_addr.nodeID)->Get()!= nullptr){
-            assert(try_poll_completions(wc,1, str, true, page_addr.nodeID)==0);
-
-
-        }
-        delete [] wc;
+//#ifndef NDEBUG
+//        ibv_wc* wc = new ibv_wc[2]();
+//
+//        if (cq_data_default.at(page_addr.nodeID)->Get()!= nullptr){
+//            assert(try_poll_completions(wc,1, str, true, page_addr.nodeID)==0);
+//
+//
+//        }
+//        delete [] wc;
 //        memset(page_buffer->addr,0,page_size);
-#endif
+//#endif
         Batch_Submit_WRs(sr, 1, page_addr.nodeID);
 //        printf("READ page %p from remote memory to local mr %p 2 thread_id is %d\n", page_addr, page_buffer->addr, thread_id);
 

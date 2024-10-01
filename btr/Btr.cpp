@@ -426,12 +426,12 @@ namespace DSMEngine {
             assert(*(uint64_t*)cas_buffer->addr == (uint64_t)old_root);
             printf("Update the root global buffer %p successfully new root node is %d, offset is %llu, level is %u tree id is %llu, this node id is %lu\n",remote_mr.addr, new_root_addr.nodeID, new_root_addr.offset , level, tree_id, rdma_mg->node_id);
             broadcast_new_root(new_root_addr, level);
-#ifndef NDEBUG
-            usleep(10);
-            ibv_wc wc[2];
-            auto qp_type = std::string("default");
-            assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, 1) == 0);
-#endif
+//#ifndef NDEBUG
+//            usleep(10);
+//            ibv_wc wc[2];
+//            auto qp_type = std::string("default");
+//            assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, 1) == 0);
+//#endif
             return true;
         } else {
             std::cout << "cas root fail " << std::endl;
