@@ -4176,7 +4176,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            uint32_t* counter = &tasks->counter;
             auto temp_mr = tasks->enqueue(this, lock_addr);
             assert(temp_mr);
-            RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 0, Regular_Page);
+            std::string qp_type = "write_local_flush";
+            RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 0, Regular_Page, qp_type);
             async_succeed = true;
 
 //            if ( UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 2)){
@@ -4849,10 +4850,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             memcpy(async_buf->addr, tbFlushed_local_mr.addr, page_size);
             assert(async_cas);
             assert(async_buf);
+            std::string qp_type = "write_local_flush";
             Prepare_WR_Write(sr[0], sge[0], tbFlushed_gaddr, async_buf, page_size, send_flags|IBV_SEND_SIGNALED, Regular_Page);
             Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, async_cas, substract, IBV_SEND_SIGNALED, Regular_Page);
             *(uint64_t *)async_cas->addr = 0;
-            Batch_Submit_WRs(sr, 0, page_addr.nodeID);
+            Batch_Submit_WRs(sr, 0, page_addr.nodeID, qp_type);
             async_succeed = true;
 #endif
 //            printf("Release write lock for %lu\n",page_addr);
@@ -5136,8 +5138,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 }
                 auto async_cas = tasks->enqueue(this, page_addr);
                 assert(async_cas);
+                std::string qp_type = "write_local_flush";
                 *(uint64_t *)async_cas->addr = 0;
-                RDMA_FAA(remote_lock_addr, async_cas, substract + add, IBV_SEND_SIGNALED, 0, Regular_Page);
+                RDMA_FAA(remote_lock_addr, async_cas, substract + add, IBV_SEND_SIGNALED, 0, Regular_Page, qp_type);
                 async_succeed = true;
 #endif
 
@@ -5307,10 +5310,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             memcpy(async_buf->addr, tbFlushed_local_mr.addr, page_size);
             assert(async_cas);
             assert(async_buf);
+            std::string qp_type = "write_local_flush";
             Prepare_WR_Write(sr[0], sge[0], tbFlushed_gaddr, async_buf, page_size, send_flags|IBV_SEND_SIGNALED, Regular_Page);
             Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, async_cas, substract + add, IBV_SEND_SIGNALED, Regular_Page);
             *(uint64_t *)async_cas->addr = 0;
-            Batch_Submit_WRs(sr, 0, page_addr.nodeID);
+            Batch_Submit_WRs(sr, 0, page_addr.nodeID, qp_type);
             async_succeed = true;
 #endif
 //            printf("Release write lock for %lu\n",page_addr);

@@ -812,8 +812,7 @@ class RDMA_Manager {
   std::shared_mutex qp_cq_map_mutex;
   //  ThreadLocalPtr* t_local_1;
   //TODO: clean up the thread local queue pair,the btree may not need so much thread local queue pair
-  std::map<uint16_t, ThreadLocalPtr*> qp_local_write_flush;
-  std::map<uint16_t, ThreadLocalPtr*> cq_local_write_flush;
+
   std::map<uint16_t, ThreadLocalPtr*> local_write_flush_qp_info;
   std::map<uint16_t, ThreadLocalPtr*> qp_local_write_compact;
   std::map<uint16_t, ThreadLocalPtr*> cq_local_write_compact;
@@ -826,6 +825,8 @@ class RDMA_Manager {
 //    std::map<uint16_t, Registered_qp_config_xcompute*> qp_xcompute_info;
   std::map<uint16_t, ThreadLocalPtr*> qp_data_default;
   std::map<uint16_t, ThreadLocalPtr*> cq_data_default;
+    std::map<uint16_t, ThreadLocalPtr*> qp_local_write_flush;
+    std::map<uint16_t, ThreadLocalPtr*> cq_local_write_flush;
   std::map<uint16_t, ThreadLocalPtr*> local_read_qp_info;
     std::map<uint16_t, ThreadLocalPtr*> async_tasks;
     ThreadLocalPtr* read_buffer;
