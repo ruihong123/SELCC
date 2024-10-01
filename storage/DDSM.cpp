@@ -318,7 +318,7 @@ namespace DSMEngine {
         lock_addr.nodeID = page_addr.nodeID;
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
-        rdma_mg->global_RUnlock(lock_addr, cas_mr);
+        rdma_mg->global_RUnlock(lock_addr, cas_mr, false);
         delete[] (char*)handle->value;
         delete handle;
     }
@@ -379,7 +379,7 @@ namespace DSMEngine {
         lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, global_lock);
         ibv_mr *local_mr = rdma_mg->Get_local_read_mr();
         memcpy(local_mr->addr, handle->value, kLeafPageSize);
-        rdma_mg->global_write_page_and_Wunlock(local_mr, page_addr, kLeafPageSize, lock_addr);
+        rdma_mg->global_write_page_and_Wunlock(local_mr, page_addr, kLeafPageSize, lock_addr, false);
         delete[] (char*)handle->value;
         delete handle;
 
