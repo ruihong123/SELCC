@@ -473,7 +473,7 @@ class RDMA_Manager {
             auto temp_mr = try_enqueue();
             while (!temp_mr) {
                 ibv_wc wc[ATOMIC_OUTSTANDING_SIZE] = {};
-                std::string qptype = "default";
+                std::string qptype = "write_local_flush";
                 int result = rdma_mg->try_poll_completions(wc, ATOMIC_OUTSTANDING_SIZE, qptype, true, lock_addr.nodeID);
                 dequeue(result);
                 temp_mr = try_enqueue();
