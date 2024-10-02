@@ -4850,6 +4850,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             assert(async_cas);
             assert(async_buf);
             std::string qp_type = "write_local_flush";
+            printf("Enqueue async write unlock for %lu\n",page_addr);
+            fflush(stdout);
             Prepare_WR_Write(sr[0], sge[0], tbFlushed_gaddr, async_buf, page_size, send_flags|IBV_SEND_SIGNALED, Regular_Page);
             Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, async_cas, substract, IBV_SEND_SIGNALED, Regular_Page);
             *(uint64_t *)async_cas->addr = 0;
