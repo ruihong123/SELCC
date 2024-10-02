@@ -53,7 +53,7 @@
 
 #define DIR_MESSAGE_NR 128
 
-#define kInternalPageSize (2048 + 8)
+#define kInternalPageSize (512 + 8)
 
 #define kLeafPageSize (512 + 8)
 #define kDataPageSize kLeafPageSize
