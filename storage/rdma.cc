@@ -3317,7 +3317,6 @@ void RDMA_Manager::Prepare_WR_Write(ibv_send_wr &sr, ibv_sge &sge, GlobalAddress
             }
             rc = ibv_post_send(qp, sr, &bad_wr);
         }else if (qp_type == "write_local_flush"){
-//            assert(false);
             qp = static_cast<ibv_qp*>(qp_local_write_flush.at(target_node_id)->Get());
             if (qp == NULL) {
                 Remote_Query_Pair_Connection(qp_type,target_node_id);

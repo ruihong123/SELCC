@@ -447,7 +447,7 @@ class RDMA_Manager {
 
         void dequeue(size_t num) {
             assert(size() >= num);
-            if (is_empty()) {
+            if (num > 0 && is_empty()) {
                 throw std::runtime_error("Buffer is empty");
             }
 
