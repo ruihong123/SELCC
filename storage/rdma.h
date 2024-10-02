@@ -438,6 +438,7 @@ class RDMA_Manager {
         size_t ingested_counter;
         ibv_mr* try_enqueue() {
             if (is_full()) {
+                assert(size() == max_size - 1);
                 return nullptr;
             }
             head = (head + 1) % max_size;
@@ -448,11 +449,14 @@ class RDMA_Manager {
 
         void dequeue(size_t num) {
             assert(size() >= num);
+            auto old_size = size();
             if (num > 0 && is_empty()) {
                 throw std::runtime_error("Buffer is empty");
             }
 
             tail = (tail + num) % max_size;
+            auto new_size = size();
+            assert(new_size == old_size - num);
 //            return item;
         }
 
