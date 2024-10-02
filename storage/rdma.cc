@@ -1672,7 +1672,7 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
 
   /* each side will send only one WR, so Completion Queue with 1 entry is enough
    */
-  int cq_size = 1024;
+  int cq_size = 128;
   // cq1 send queue, cq2 receive queue
   ibv_cq* cq1 = ibv_create_cq(res->ib_ctx, cq_size, NULL, NULL, 0);
   ibv_cq* cq2;
@@ -1760,8 +1760,7 @@ ibv_qp * RDMA_Manager::create_qp(uint16_t target_node_id, bool seperated_cq, std
                                      std::array<ibv_qp *, NUM_QP_ACCROSS_COMPUTE> *qp_arr) {
         struct ibv_qp_init_attr qp_init_attr;
         assert(target_node_id%2 == 0);
-        /* each side will send only one WR, so Completion Queue with 1 entry is enough
-         */
+        //TODO: optimize the cq size for xcompute channel.
         int cq_size = 1024;
         // cq1 send queue, cq2 receive queue
         std::unique_lock<std::shared_mutex> l(qp_cq_map_mutex);
@@ -6135,14 +6134,16 @@ int RDMA_Manager::try_poll_completions(ibv_wc* wc_p,
   poll_result = ibv_poll_cq(cq, num_entries, &wc_p[poll_num]);
 #ifndef NDEBUG
   if (poll_result > 0){
-    if (wc_p[poll_result-1].status !=
-    IBV_WC_SUCCESS)  // TODO:: could be modified into check all the entries in the array
-    {
-      fprintf(stderr,
-              "Node %d number %d got bad completion with status: 0x%x, vendor syndrome: 0x%x\n",
-              node_id, poll_result-1, wc_p[poll_result-1].status, wc_p[poll_result-1].vendor_err);
-      assert(false);
-    }
+      for (int i = 0; i < poll_result; ++i) {
+          if (wc_p[i].status !=IBV_WC_SUCCESS)
+          {
+              fprintf(stderr,
+                      "Node %d number %d got bad completion with status: 0x%x, vendor syndrome: 0x%x\n",
+                      node_id, poll_result-1, wc_p[poll_result-1].status, wc_p[poll_result-1].vendor_err);
+              assert(false);
+          }
+      }
+
 //      printf("Get a completion from try queue\n");
 
   }
