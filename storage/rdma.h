@@ -488,7 +488,8 @@ class RDMA_Manager {
                 assert(result < ATOMIC_OUTSTANDING_SIZE);
                 signalled_counter= signalled_counter+result;
                 if (result>0){
-                    printf("poll %d from completion queue, head is %u tail is %u, signal counter is %u, issued counter is %u \n", result, head, tail, signalled_counter, issued_counter);
+                    //TODO: ADD thread id into print. need to understand what thread have issued wr more than 1000
+                    printf("Node %u thread %d poll %d from completion queue, head is %u tail is %u, signal counter is %u, issued counter is %u \n", rdma_mg->node_id, rdma_mg->get_thread_id(), result, head, tail, signalled_counter, issued_counter);
                     fflush(stdout);
                     polled_number.push_back(result);
                 }
@@ -798,9 +799,17 @@ class RDMA_Manager {
   void Set_message_handling_func(std::function<void(uint32_t)> &&func);
   void register_message_handling_thread(uint32_t handler_id);
     void join_all_handling_thread();
+    int get_thread_id(){
+        if (thread_id == 0){
+            int thread_num = thread_num_generater.fetch_add(1);
+            thread_id = thread_num;
+        }
+        return thread_id;
+    }
   // TODO: Make all the variable more smart pointers.
 //#ifndef NDEBUG
     static thread_local int thread_id;
+    std::atomic<int > thread_num_generater = 0;
     static thread_local int qp_inc_ticket;
 //#endif
   resources* res = nullptr;

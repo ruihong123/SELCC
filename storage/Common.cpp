@@ -19,7 +19,7 @@ void bindCore(uint16_t thread_id) {
 //    if (rc != 0) {
 //        printf("can't bind core!");
 //    }
-
+    thread_id = DSMEngine::RDMA_Manager::Get_Instance()->thread_num_generater.fetch_add(1);
     DSMEngine::RDMA_Manager::thread_id = thread_id;
 }
 
