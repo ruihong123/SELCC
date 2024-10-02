@@ -436,8 +436,8 @@ class RDMA_Manager {
         uint32_t tail = 0;
         size_t max_size = ATOMIC_OUTSTANDING_SIZE;
 #ifndef NDEBUG
-        size_t issued_counter = 0;
-        size_t signalled_counter;
+        uint32_t issued_counter = 0;
+        uint32_t signalled_counter = 0;
         std::vector<uint16_t > polled_number;
 #endif
         ibv_mr* try_enqueue() {
@@ -488,7 +488,7 @@ class RDMA_Manager {
                 assert(result < ATOMIC_OUTSTANDING_SIZE);
                 signalled_counter= signalled_counter+result;
                 if (result>0){
-                    printf("poll %d from completion queue, head is %u tail is %u\n", result, head, tail);
+                    printf("poll %d from completion queue, head is %u tail is %u, signal counter is %u, issued counter is %u \n", result, head, tail, signalled_counter, issued_counter);
                     fflush(stdout);
                     polled_number.push_back(result);
                 }
