@@ -292,6 +292,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                 memset_buffer[i%MEMSET_GRANULARITY] = data[i];
                 assert(data[i].offset <= 64ull*1024ull*1024*1024);
                 printf("Memset a key %d\n", i);
+                fflush(stdout);
                 ddsm->memSet((const char*)&i, sizeof(i), (const char*)memset_buffer, sizeof(GlobalAddress) * MEMSET_GRANULARITY);
 //                    assert(i%MEMSET_GRANULARITY == MEMSET_GRANULARITY-1);
             }else{
@@ -301,6 +302,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
             }
             if (i == STEPS - 1) {
                 printf("Memset a key %d\n", i);
+                fflush(stdout);
                 ddsm->memSet((const char*)&i, sizeof(i), (const char*)memset_buffer, sizeof(GlobalAddress) * MEMSET_GRANULARITY);
             }
 #ifdef BENCHMARK_DEBUG
