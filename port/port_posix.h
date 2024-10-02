@@ -126,7 +126,7 @@ extern bool Show_Me_The_Print;
 #define FREELIST_RATIO 0.01
 #define FREELIST_THREAD_NUM 2
 #define DIRTY_ONLY_FLUSH
-#define ASYNC_PLAN 2
+#define ASYNC_PLAN 1
 //#define OPS_TIMER
 #include "port/thread_annotations.h"
 

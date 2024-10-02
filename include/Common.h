@@ -55,7 +55,7 @@
 
 #define kInternalPageSize (2048 + 8)
 
-#define kLeafPageSize (2048 + 8)
+#define kLeafPageSize (512 + 8)
 #define kDataPageSize kLeafPageSize
 
 #define KEY_PADDING 12
