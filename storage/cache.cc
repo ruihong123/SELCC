@@ -641,13 +641,13 @@ bool LRUCache::need_eviction() {
 void LRUCache::prepare_free_list() {
     SpinLock lck1(&mutex_);
     if (need_eviction()){
-        int recycle_num = free_list_trigger_limit_ - free_list_size_;
+        int recycle_num = (free_list_trigger_limit_ - free_list_size_)/FREELIST_THREAD_NUM;
         if(recycle_num <= 0){
             return;
         }
         auto start_end_pair = bulk_remove_LRU_list(recycle_num);
         auto e = start_end_pair.first;
-        // todo: current type of aysnchronous work request mechanismi is not the optimial one, we can still optmize it.
+        // todo: current type of aysnchronous work request mechanism is not the optimial one, we can still optmize it.
         while (e != nullptr){
             e->in_cache = false;
             usage_ -= e->charge;
