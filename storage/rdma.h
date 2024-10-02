@@ -437,6 +437,7 @@ class RDMA_Manager {
         size_t max_size = ATOMIC_OUTSTANDING_SIZE-1;
         size_t issued_counter = 0;
         size_t signalled_counter;
+        std::vector<uint16_t > polled_number;
         ibv_mr* try_enqueue() {
             if (is_full()) {
                 assert(size() == max_size - 1);
@@ -485,6 +486,7 @@ class RDMA_Manager {
 //                fflush(stdout);
                 assert(result < ATOMIC_OUTSTANDING_SIZE);
                 signalled_counter= signalled_counter+result;
+                polled_number.push_back(result);
                 dequeue(result);
                 temp_mr = try_enqueue();
             }
