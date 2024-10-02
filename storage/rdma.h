@@ -434,7 +434,7 @@ class RDMA_Manager {
 #else
         uint32_t head = 0;
         uint32_t tail = 0;
-        size_t max_size = ATOMIC_OUTSTANDING_SIZE;
+        size_t max_size = ATOMIC_OUTSTANDING_SIZE-1;
         size_t issued_counter = 0;
         size_t signalled_counter;
         ibv_mr* try_enqueue() {
