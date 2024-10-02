@@ -102,6 +102,7 @@ void LRUCache::init(){
         e->value = mr;
         push_free_list(e);
     }
+    assert(free_list_size_<= cache_line_limit +1000*1000);
 
 }
 #endif
