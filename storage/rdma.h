@@ -434,10 +434,12 @@ class RDMA_Manager {
 #else
         uint32_t head = 0;
         uint32_t tail = 0;
-        size_t max_size = ATOMIC_OUTSTANDING_SIZE-1;
+        size_t max_size = ATOMIC_OUTSTANDING_SIZE;
+#ifndef NDEBUG
         size_t issued_counter = 0;
         size_t signalled_counter;
         std::vector<uint16_t > polled_number;
+#endif
         ibv_mr* try_enqueue() {
             if (is_full()) {
                 assert(size() == max_size - 1);
@@ -482,11 +484,12 @@ class RDMA_Manager {
                 ibv_wc wc[ATOMIC_OUTSTANDING_SIZE] = {};
                 std::string qptype = "write_local_flush";
                 int result = rdma_mg->try_poll_completions(wc, ATOMIC_OUTSTANDING_SIZE, qptype, true, lock_addr.nodeID);
-                printf("poll %d from completion queue, head is %u tail is %u\n", result, head, tail);
-                fflush(stdout);
+
                 assert(result < ATOMIC_OUTSTANDING_SIZE);
                 signalled_counter= signalled_counter+result;
                 if (result>0){
+                    printf("poll %d from completion queue, head is %u tail is %u\n", result, head, tail);
+                    fflush(stdout);
                     polled_number.push_back(result);
                 }
                 dequeue(result);
