@@ -488,7 +488,7 @@ class RDMA_Manager {
                 dequeue(result);
                 temp_mr = try_enqueue();
             }
-            ingested_counter++;
+            issued_counter++;
 //            printf("enqueue %p\n", temp_mr);
 //            fflush(stdout);
             return temp_mr;
