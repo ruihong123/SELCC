@@ -486,7 +486,9 @@ class RDMA_Manager {
 //                fflush(stdout);
                 assert(result < ATOMIC_OUTSTANDING_SIZE);
                 signalled_counter= signalled_counter+result;
-                polled_number.push_back(result);
+                if (result>0){
+                    polled_number.push_back(result);
+                }
                 dequeue(result);
                 temp_mr = try_enqueue();
             }
