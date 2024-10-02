@@ -4152,15 +4152,16 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 tasks = new Async_Tasks();
                 async_tasks[lock_addr.nodeID]->Reset(tasks);
             }
+            std::string qp_type = "write_local_flush";
             uint32_t* counter = &tasks->counter;
             if ( UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 2)){
-                RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page);
+                RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page,qp_type);
                 //TODO: clear all the async tasks. for the handle. We need to release the local latch and release the handle.
 
                 *counter = 0;
             }else{
                 ibv_mr* async_cas = tasks->mrs[*counter];
-                RDMA_FAA(lock_addr, async_cas, substract, 0, 0, Regular_Page);
+                RDMA_FAA(lock_addr, async_cas, substract, 0, 0, Regular_Page, qp_type);
                 *counter = *counter + 1;
                 tasks->handles[*counter] = handle;
                 async_succeed = true;
@@ -4805,6 +4806,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 tasks = new Async_Tasks();
                 async_tasks[page_addr.nodeID]->Reset(tasks);
             }
+            std::string qp_type = "write_local_flush";
             uint32_t* counter = &tasks->counter;
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
@@ -4815,7 +4817,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
                 *(uint64_t *)local_CAS_mr->addr = 0;
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
-                Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+                Batch_Submit_WRs(sr, 1, page_addr.nodeID, qp_type);
                 assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
                 *counter = 0;
             }else{
@@ -4830,7 +4832,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
                 *(uint64_t *)async_cas->addr = 0;
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
-                Batch_Submit_WRs(sr, 0, page_addr.nodeID);
+                Batch_Submit_WRs(sr, 0, page_addr.nodeID, qp_type);
                 *counter = *counter + 2;
 //                tasks->handles[*counter] = handle;
                 async_succeed = true;
@@ -5095,6 +5097,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 async_tasks[page_addr.nodeID]->Reset(tasks);
             }
             uint32_t* counter = &tasks->counter;
+            std::string qp_type = "write_local_flush";
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
             if ( UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 2)){
@@ -5103,7 +5106,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
                 *(uint64_t *)local_CAS_mr->addr = 0;
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
-                Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+                Batch_Submit_WRs(sr, 1, page_addr.nodeID, qp_type);
 //                assert(((*(uint64_t*) local_CAS_mr->addr) >> 56) == (add >> 56));
 #ifndef NDEBUG
                 if(((*(uint64_t*) local_CAS_mr->addr) >> 56) != (compare >> 56)){
@@ -5125,7 +5128,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //                sr[0].next = &sr[1];
                 *(uint64_t *)async_cas->addr = 0;
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
-                Batch_Submit_WRs(sr, 0, page_addr.nodeID);
+                Batch_Submit_WRs(sr, 0, page_addr.nodeID, qp_type);
                 *counter = *counter + 1;
                 async_succeed = true;
             }
@@ -5271,6 +5274,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 tasks = new Async_Tasks();
                 async_tasks[page_addr.nodeID]->Reset(tasks);
             }
+            std::string qp_type = "write_local_flush";
             uint32_t* counter = &tasks->counter;
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
@@ -5281,7 +5285,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
                 *(uint64_t *)local_CAS_mr->addr = 0;
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
-                Batch_Submit_WRs(sr, 1, page_addr.nodeID);
+                Batch_Submit_WRs(sr, 1, page_addr.nodeID, qp_type);
 
                 *counter = 0;
             }else{
@@ -5294,7 +5298,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 sr[0].next = &sr[1];
                 *(uint64_t *)async_cas->addr = 0;
                 assert(page_addr.nodeID == remote_lock_addr.nodeID);
-                Batch_Submit_WRs(sr, 0, page_addr.nodeID);
+                Batch_Submit_WRs(sr, 0, page_addr.nodeID, qp_type);
                 *counter = *counter + 2;
                 async_succeed = true;
             }
