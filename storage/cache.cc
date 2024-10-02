@@ -76,6 +76,8 @@ LRUCache::LRUCache() : capacity_(0), usage_(0) {
   in_use_.prev = &in_use_;
   free_list_.next = &free_list_;
   free_list_.prev = &free_list_;
+  free_list_size_ = 0;
+
 }
 
 LRUCache::~LRUCache() {
