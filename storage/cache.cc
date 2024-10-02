@@ -626,7 +626,7 @@ LRUHandle* LRUCache::pop_free_list() {
         List_Remove(e);
     }
     free_list_size_--;
-    assert(free_list_size_ <4*1024*1024);
+    assert(free_list_size_ <capacity_/kLeafPageSize+1000);
     free_list_mtx_.unlock();
     return e;
 }
