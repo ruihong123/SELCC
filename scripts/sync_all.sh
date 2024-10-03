@@ -99,8 +99,8 @@ function run_bench() {
     ssh ${ssh_opts} $node "echo '$core_dump_dir/core$compute' | sudo tee /proc/sys/kernel/core_pattern ;  sudo chown -R Ruihong:purduedb-PG0 /mnt/core_dump" &
 #    ssh -o StrictHostKeyChecking=no $node  "sudo mount /dev/sda4 /mnt/core_dump" &
 
-    ssh -o StrictHostKeyChecking=no $node "sudo /etc/init.d/openibd restart" &
-    ssh -o StrictHostKeyChecking=no $node "sudo mst start" &
+#    ssh -o StrictHostKeyChecking=no $node "sudo /etc/init.d/openibd restart" &
+#    ssh -o StrictHostKeyChecking=no $node "sudo mst start" &
 #    ssh -o StrictHostKeyChecking=no $node "echo '/proj/purduedb-PG0/logs/core$node' | sudo tee /proc/sys/kernel/core_pattern"
   done
   for node in ${compute_shard[@]}
@@ -124,8 +124,8 @@ function run_bench() {
 
 #    ssh -o StrictHostKeyChecking=no $node  "sudo mount /dev/sda4 /mnt/core_dump" &
 
-    ssh -o StrictHostKeyChecking=no $node "sudo /etc/init.d/openibd restart" &
-    ssh -o StrictHostKeyChecking=no $node "sudo mst start" &
+#    ssh -o StrictHostKeyChecking=no $node "sudo /etc/init.d/openibd restart" &
+#    ssh -o StrictHostKeyChecking=no $node "sudo mst start" &
 #    ssh -o StrictHostKeyChecking=no $node "echo '/proj/purduedb-PG0/logs/core$node' | sudo tee /proc/sys/kernel/core_pattern"
 
 
