@@ -4152,8 +4152,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 tasks = new Async_Tasks();
                 async_tasks[lock_addr.nodeID]->Reset(tasks);
             }
-//            std::string qp_type = "write_local_flush";
-            std::string qp_type = "default";
+            std::string qp_type = "write_local_flush";
+//            std::string qp_type = "default";
             uint32_t* counter = &tasks->counter;
             if ( UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 2)){
                 RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page,qp_type);
@@ -4807,8 +4807,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 tasks = new Async_Tasks();
                 async_tasks[page_addr.nodeID]->Reset(tasks);
             }
-//            std::string qp_type = "write_local_flush";
-            std::string qp_type = "default";
+            std::string qp_type = "write_local_flush";
+//            std::string qp_type = "default";
             uint32_t* counter = &tasks->counter;
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
@@ -5099,8 +5099,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 async_tasks[page_addr.nodeID]->Reset(tasks);
             }
             uint32_t* counter = &tasks->counter;
-//            std::string qp_type = "write_local_flush";
-            std::string qp_type = "default";
+            std::string qp_type = "write_local_flush";
+//            std::string qp_type = "default";
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
             if ( UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 2)){
@@ -5277,8 +5277,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 tasks = new Async_Tasks();
                 async_tasks[page_addr.nodeID]->Reset(tasks);
             }
-//            std::string qp_type = "write_local_flush";
-            std::string qp_type = "default";
+            std::string qp_type = "write_local_flush";
+//            std::string qp_type = "default";
 
             uint32_t* counter = &tasks->counter;
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
