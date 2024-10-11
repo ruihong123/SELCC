@@ -89,7 +89,6 @@ std::atomic_bool ready{false};
 //extern bool enable_cache;
 void thread_run(int id) {
 //    DSMEngine::Btr<uint64_t ,uint64_t> a(nullptr, nullptr,0);
-    DSMEngine::Random64 rand(id);
 
     bindCore(id);
 
@@ -98,6 +97,7 @@ void thread_run(int id) {
 #ifndef BENCH_LOCK
   uint64_t all_thread = kThreadCount * compute_num;
   uint64_t my_id = kThreadCount * (DSMEngine::RDMA_Manager::node_id)/2 + id;
+    DSMEngine::Random64 rand(my_id);
 
   printf("I am %d\n", my_id);
 

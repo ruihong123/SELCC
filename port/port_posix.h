@@ -123,7 +123,7 @@ extern bool Show_Me_The_Print;
 #define GLOBAL_HANDOVER
 #define PARALLEL_INVALIDATION
 #define PAGE_FREE_LIST
-#define FREELIST_RATIO 0.01
+#define FREELIST_RATIO 0.002
 #define FREELIST_THREAD_NUM 2
 #define DIRTY_ONLY_FLUSH
 #define ASYNC_PLAN 1

@@ -22,6 +22,7 @@
 #include "DDSM.h"
 #include "Common.h"
 #include "zipf.h"
+#include "random.h"
 
 //#define PERF_GET
 //#define PERF_MALLOC
@@ -403,7 +404,8 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 
     }
     //access[0] = data[0];
-    access[0] = data[GetRandom(0, STEPS, seedp)];
+    DSMEngine::Random64 rand(*seedp);
+    access[0] = data[rand.Uniform(STEPS)];
 #ifdef STATS_COLLECTION
     stat_lock.lock();
   gen_accesses.insert(TOBLOCK(access[0]));
@@ -443,11 +445,11 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
             }
         } else {
             if (workload == 0){
-                GlobalAddress n = data[GetRandom(0, STEPS, seedp)];
+                GlobalAddress n = data[rand.Uniform(STEPS)];
 //                while (TOPAGE(n) == TOPAGE(access[i - 1])) {
 //                    n = data[GetRandom(0, STEPS, seedp)];
 //                }
-                next = GADD(n, GetRandom(0, items_per_block, seedp) * item_size);
+                next = GADD(n, rand.Uniform(STEPS) * item_size);
             } else if (workload > 0){
 #ifdef CMU_ZIPF
                 uint64_t pos = mehcached_zipf_next(&state);
@@ -461,7 +463,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 //                    pos = workload_gen->getValue();
 //                    n = data[pos];
 //                }
-                next = GADD(n, GetRandom(0, items_per_block, seedp) * item_size);
+                next = GADD(n, rand.Uniform(STEPS) * item_size);
             }
 
 
