@@ -449,7 +449,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 //                while (TOPAGE(n) == TOPAGE(access[i - 1])) {
 //                    n = data[GetRandom(0, STEPS, seedp)];
 //                }
-                next = GADD(n, rand.Uniform(STEPS) * item_size);
+                next = GADD(n, rand.Uniform(items_per_block) * item_size);
             } else if (workload > 0){
 #ifdef CMU_ZIPF
                 uint64_t pos = mehcached_zipf_next(&state);
@@ -463,7 +463,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 //                    pos = workload_gen->getValue();
 //                    n = data[pos];
 //                }
-                next = GADD(n, rand.Uniform(STEPS) * item_size);
+                next = GADD(n, rand.Uniform(items_per_block) * item_size);
             }
 
 
