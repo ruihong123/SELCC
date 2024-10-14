@@ -19,8 +19,8 @@
 
 // DO not enable the two at the same time otherwise there will be a bug.
 
-#define PARALLEL_DEGREE 16
-#define STARVATION_THRESHOLD 16
+#define PARALLEL_DEGREE 8
+#define STARVATION_THRESHOLD 64
 #define STARV_SPIN_BASE 8
 uint64_t cache_miss[MAX_APP_THREAD][8];
 uint64_t cache_hit_valid[MAX_APP_THREAD][8];

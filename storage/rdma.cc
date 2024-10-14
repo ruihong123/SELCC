@@ -4415,10 +4415,19 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             uint64_t write_byte = cas_value >> 56;
 //            page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
             if (write_byte > 0){
-                invalidation_RPC_type = 2;
-                //The CAS record (ID/2+1), so we need to recover the real ID.
-                write_invalidation_target = (write_byte - 1)*2;
-                goto retry;
+                if (UNLIKELY(write_byte > compute_nodes.size())){
+                    // an faulty intermidiate state, wait for state transfer.
+                    read_invalidation_targets.clear();
+                    write_invalidation_target = 0-1;
+                    goto retry;
+                }else{
+                    invalidation_RPC_type = 2;
+
+                    //The CAS record (ID/2+1), so we need to recover the real ID.
+                    write_invalidation_target = (write_byte - 1)*2;
+                    goto retry;
+                }
+
             }
 //            uint64_t read_bit_pos = 0;
 
@@ -4429,14 +4438,16 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             for (uint32_t i = 1; i < 56; ++i) {
                 uint32_t  remain_bit = (cas_value >> i)%2;
                     if (remain_bit == 1){
-                        if (i > compute_nodes.size()){
+                        if (UNLIKELY(i > compute_nodes.size())){
                             //an faulty intermidiate state for reader invalidate writer and then lock update (release) is detected.
                             // wait for state transfer.
                             read_invalidation_targets.clear();
                             goto retry;
+                        }else{
+                            read_invalidation_targets.push_back((i-1)*2);
+                            invalidation_RPC_type = 1;
                         }
-                        read_invalidation_targets.push_back((i-1)*2);
-                        invalidation_RPC_type = 1;
+
                     }
 
             }
