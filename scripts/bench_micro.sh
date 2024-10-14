@@ -2,7 +2,7 @@
 bin=`dirname "$0"`
 bin=`cd "$bin"; pwd`
 SRC_HOME=$bin/..
-BIN_HOME=$bin/../release
+BIN_HOME=$bin/../debug
 conf_file_all=$bin/../connection_cloudlab.conf
 conf_file=$bin/../connection.conf
 # alpha = 1/(1-theta)
@@ -482,7 +482,7 @@ run_node_test() {
 echo "**************************run node test****************************"
 result_file=$bin/results/node
 node_range="8"
-thread_range="1 2 4 8"
+thread_range="4 8"
 remote_range="100"
 shared_range="100"
 size_grow=0 # 0 not grow, 1 grow with node number
