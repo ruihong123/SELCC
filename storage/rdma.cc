@@ -3715,7 +3715,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 starvation_level = 255 > 5+ retry_cnt/1000? 5+ retry_cnt/1000: 255;
             }
 //            assert(target_compute_node_id != (RDMA_Manager::node_id));
-            if (target_compute_node_id != (RDMA_Manager::node_id)){
+            if (target_compute_node_id != (RDMA_Manager::node_id) && target_compute_node_id < compute_nodes.size()*2){
 #ifdef INVALIDATION_STATISTICS
                 if(!invalidation_counted){
                     invalidation_counted = true;
@@ -3740,7 +3740,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 // If this node number is happened to be 0x2, then this code path could happen, we can just ignore this case.
 
                 //TODO: what else problem can such an intermidiate state cause?
-                printf("Node id %u Write invalidation target compute node is itself1, page_addr is %p\n", node_id, page_addr);
+                printf("Node id %u Write invalidation target compute node is itself1 or is out of range (temporal faulty latch state), page_addr is %p\n", node_id, page_addr);
 //                assert(false);
             }
 
