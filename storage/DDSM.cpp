@@ -224,14 +224,15 @@ namespace DSMEngine {
         //The assetion below is not always true.
         assert(handle->refs >1);
         ibv_mr *local_mr = (ibv_mr *) handle->value;
+        assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, hdr.this_page_g_ptr) == STRUCT_OFFSET(DataPage, hdr.this_page_g_ptr));
+        auto page_buffer = local_mr->addr;
+        assert(((DataPage*)page_buffer)->global_lock);
         handle->updater_writer_post_access(page_addr, kLeafPageSize, lock_addr, local_mr);
         page_cache->Release(handle);
         //TODO: delete the assert.
 //        assert(!handle->rw_mtx.islocked());
-        handle = nullptr;
-        assert(STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>, hdr.this_page_g_ptr) == STRUCT_OFFSET(DataPage, hdr.this_page_g_ptr));
-        auto page_buffer = local_mr->addr;
-        assert(((DataPage*)page_buffer)->global_lock);
+//        handle = nullptr;
+
 //        assert(((DataPage*)page_buffer)->hdr.this_page_g_ptr == page_addr);
     }
 #elif ACCESS_MODE == 0
