@@ -4324,7 +4324,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                                                                 starvation_level, retry_cnt);
                     if (reply == processed){
                         printf("Node %u try to acquire exclusive latch from node %u and successfully get forwarded page over data %p\n", RDMA_Manager::node_id, write_invalidation_target, page_addr);
-                        fflush(stdout);
+//                        fflush(stdout);
                         //The invlaidation message is processed and page has been forwarded.
                         ((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->global_lock = swap;
                         return true;
