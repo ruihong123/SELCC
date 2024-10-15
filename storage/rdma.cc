@@ -5134,7 +5134,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                     count++;
                     spin_wait_us(100);
                     //RDMA read the latch word again and see if it is the same as the compare value.
-                    RDMA_Read(remote_lock_addr, local_CAS_mr, 8, IBV_SEND_SIGNALED,1, Regular_Page);
+                    RDMA_Read(remote_lock_addr, local_CAS_mr, 8, IBV_SEND_SIGNALED,1, Regular_Page,qp_type);
                     if(((*(uint64_t*) local_CAS_mr->addr) >> 56) != (compare >> 56)){
                         printf("Nodeid %u RDMA write handover move too fast, resulting in spurious latch word mismatch\n", node_id);
                         fflush(stdout);
@@ -7789,7 +7789,8 @@ void RDMA_Manager::fs_deserilization(
         message_reply:
         ibv_mr* local_mr = nullptr;
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
-
+        //TODO: the same global cache line should better be transferred by the same qp.
+        // int qp_id = g_ptr % NUM_QP_ACCROSS_COMPUTE;
         switch (reply_type) {
             case processed:
                 handle->buffered_inv_mtx.lock();
@@ -7964,6 +7965,8 @@ void RDMA_Manager::fs_deserilization(
 
         message_reply:
         ibv_mr* local_mr = nullptr;
+        //TODO: the same global cache line should better be transferred by the same qp.
+        // int qp_id = g_ptr % NUM_QP_ACCROSS_COMPUTE;
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
 
         switch (reply_type) {
@@ -8159,7 +8162,8 @@ void RDMA_Manager::fs_deserilization(
     message_reply:
         ibv_mr* local_mr = nullptr;
         int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
-
+        //TODO: the same global cache line should better be transferred by the same qp.
+        // int qp_id = g_ptr % NUM_QP_ACCROSS_COMPUTE;
         switch (reply_type) {
             case processed:
                 handle->buffered_inv_mtx.lock();
