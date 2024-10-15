@@ -4442,6 +4442,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                             //an faulty intermidiate state for reader invalidate writer and then lock update (release) is detected.
                             // wait for state transfer.
                             read_invalidation_targets.clear();
+                            invalidation_RPC_type = 0;
                             goto retry;
                         }else{
                             read_invalidation_targets.push_back((i-1)*2);
