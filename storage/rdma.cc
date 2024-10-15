@@ -8186,6 +8186,7 @@ void RDMA_Manager::fs_deserilization(
 
                 local_mr = Get_local_send_message_mr();
                 *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
+                // The pending message has to be synchronous to avoid it overwrite the processed flag.
                 RDMA_Write_xcompute(local_mr, (char *) receive_msg_buf->buffer + kLeafPageSize -
                                               sizeof(Page_Forward_Reply_Type), receive_msg_buf->rkey,
                                     sizeof(Page_Forward_Reply_Type),

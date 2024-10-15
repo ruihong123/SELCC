@@ -322,7 +322,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
             for (int i = 0; i < STEPS; i++) {
                 if(shared_ratio > 0 && i == (STEPS/MEMSET_GRANULARITY)*MEMSET_GRANULARITY){
                     if (memget_buffer){
-                        delete memget_buffer;
+                        free(memget_buffer);
                     }
                     size_t v_size;
                     int key =  STEPS - 1;
@@ -330,7 +330,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                     assert(v_size == sizeof(GlobalAddress) * MEMSET_GRANULARITY);
                 }else if (UNLIKELY(shared_ratio > 0 && i % MEMSET_GRANULARITY == 0 )) {
                     if (memget_buffer){
-                        delete memget_buffer;
+                        free(memget_buffer);
                     }
                     size_t v_size;
                     int key =  i + MEMSET_GRANULARITY - 1;

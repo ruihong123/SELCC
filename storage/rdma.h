@@ -668,7 +668,7 @@ class RDMA_Manager {
                  std::string qp_type, size_t send_flag, int poll_num,
                  uint16_t target_node_id);
   int RDMA_Write_xcompute(ibv_mr *local_mr, void *addr, uint32_t rkey, size_t msg_size, uint16_t target_node_id,
-                          int num_of_qp, bool is_inline, bool async = false);
+                          int num_of_qp, bool is_inline, bool async = true);
     int RDMA_Write_Batch(void* addr, uint32_t rkey, ibv_mr* local_mr, size_t msg_size,
                    std::string qp_type, size_t send_flag, int poll_num,
                    uint16_t target_node_id);
@@ -733,13 +733,13 @@ class RDMA_Manager {
     // THis function acctually does not flush global lock words, otherwise the RDMA write will interfere with RDMA FAA making the CAS failed always
     bool global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
                                        GlobalAddress remote_lock_addr, Cache_Handle *handle = nullptr,
-                                       bool async = false);
+                                       bool async = true);
     bool global_write_page_and_WHandover(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, uint8_t next_holder_id,
                                          GlobalAddress remote_lock_addr, bool async = false, Cache_Handle* handle = nullptr);
     bool global_WHandover(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, uint8_t next_holder_id,
-                                         GlobalAddress remote_lock_addr, bool async = false, Cache_Handle* handle = nullptr);
+                                         GlobalAddress remote_lock_addr, bool async = true, Cache_Handle* handle = nullptr);
     bool global_write_page_and_WdowntoR(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
-                                        GlobalAddress remote_lock_addr, uint8_t next_holder_id, bool async = false,
+                                        GlobalAddress remote_lock_addr, uint8_t next_holder_id, bool async = true,
                                         Cache_Handle *handle = nullptr);
     void global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
                                        GlobalAddress remote_lock_addr, CoroContext *cxt = nullptr, int coro_id = 0, bool async = false);
