@@ -2153,7 +2153,7 @@ int RDMA_Manager::modify_qp_to_rts(struct ibv_qp* qp) {
   attr.retry_cnt = 7;
   attr.rnr_retry = 7;
   attr.sq_psn = 0;
-  attr.max_rd_atomic = 4;// allow RDMA atomic andn RDMA read batched.
+  attr.max_rd_atomic = ATOMIC_OUTSTANDING_SIZE;// allow RDMA atomic andn RDMA read batched.
   flags = IBV_QP_STATE | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY |
           IBV_QP_SQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC;
   rc = ibv_modify_qp(qp, &attr, flags);
@@ -4824,7 +4824,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             uint32_t* counter = &tasks->counter;
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
-            if (UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 2)){
+            if (UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 3)){
                 Prepare_WR_Write(sr[0], sge[0], tbFlushed_gaddr, &tbFlushed_local_mr, page_size, send_flags, Regular_Page);
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Regular_Page);
                 sr[0].next = &sr[1];
@@ -5115,7 +5115,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            std::string qp_type = "default";
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
-            if ( UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 2)){
+            if ( UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 3)){
                 Prepare_WR_FAA(sr[0], sge[0], remote_lock_addr, local_CAS_mr, substract + add, IBV_SEND_SIGNALED, Regular_Page);
 //                sr[0].next = &sr[1];
 
@@ -5307,7 +5307,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             uint32_t* counter = &tasks->counter;
             // Every sync unlock submit 2 requests, and we need to reserve another one work request for the RDMA locking which
             // contains one async lock acquiring.
-            if ( UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 2)){
+            if ( UNLIKELY(*counter >= ATOMIC_OUTSTANDING_SIZE  - 3)){
                 Prepare_WR_Write(sr[0], sge[0], tbFlushed_gaddr, &tbFlushed_local_mr, page_size, send_flags, Regular_Page);
                 Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract +add, IBV_SEND_SIGNALED, Regular_Page);
                 sr[0].next = &sr[1];
