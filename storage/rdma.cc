@@ -5217,6 +5217,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 #ifndef NDEBUG
             uint64_t initial_old_cas = (*(uint64_t*) local_CAS_mr->addr);
             if(((*(uint64_t*) local_CAS_mr->addr) >> 56) != (compare >> 56)){
+                assert(false);
                 size_t count = 0;
 
             retry_check2:
