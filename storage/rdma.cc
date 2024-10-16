@@ -7794,9 +7794,8 @@ void RDMA_Manager::fs_deserilization(
         switch (reply_type) {
             case processed:
                 handle->buffered_inv_mtx.lock();
-                //the writer invalidate shared will not be replied inside the funciton below
+                //the writer invalidate shared will not be replied inside the funciton below. Why?
                 handle->process_buffered_inv_message(g_ptr, page_mr->length, lock_gptr, page_mr, false);
-
                 local_mr = Get_local_send_message_mr();
                 *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
                 RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey,
@@ -8073,8 +8072,8 @@ void RDMA_Manager::fs_deserilization(
 
                         }
                         handle->buffered_inv_mtx.unlock();
-                        reply_type = dropped;
-                        page_cache_->Release(handle);
+                        reply_type = ignored;
+//                        page_cache_->Release(handle);
                         goto message_reply;
                     }
                     //  handle->lock_pending_num >0 is to avoid the case that the message is buffered but there is no local thread process it
@@ -8094,26 +8093,27 @@ void RDMA_Manager::fs_deserilization(
                         // We do not release the buffered_inv_mtx to guaratee that pending flag will arrived before the processed flag
                         assert(!pending_reminder);
 //                        handle->buffered_inv_mtx.unlock();
-                        page_cache_->Release(handle);
+//                        page_cache_->Release(handle);
                         goto message_reply;
                     }
                 }
                 handle->buffered_inv_mtx.unlock();
             }
             reply_type = dropped;
-            page_cache_->Release(handle);
+//            page_cache_->Release(handle);
             goto message_reply;
         }else{
             // the && handle->buffer_inv_message.next_holder_id == target_node_id can actually be commented out.
             if (pending_reminder){
+                //todo: check the remote lock status here other wise
                 if (handle->buffer_inv_message.next_holder_id != Invalid_Node_ID){
                     reply_type = processed;
-                    page_cache_->Release(handle);
+//                    page_cache_->Release(handle);
                     goto message_reply;
                 }else{
-                    reply_type = dropped;
+                    reply_type = ignored;
                     handle->rw_mtx.unlock();
-                    page_cache_->Release(handle);
+//                    page_cache_->Release(handle);
                     goto message_reply;
                 }
             }
@@ -8143,7 +8143,7 @@ void RDMA_Manager::fs_deserilization(
                     handle->buffered_inv_mtx.unlock();
                     reply_type = processed;
                     //do not release the lock here!!!!!!
-                    page_cache_->Release(handle);
+//                    page_cache_->Release(handle);
                     goto message_reply;
 
                 }
@@ -8153,7 +8153,7 @@ void RDMA_Manager::fs_deserilization(
             handle->buffered_inv_mtx.unlock();
             handle->rw_mtx.unlock();
             reply_type = dropped;
-            page_cache_->Release(handle);
+//            page_cache_->Release(handle);
             goto message_reply;
 
         }
@@ -8205,7 +8205,10 @@ void RDMA_Manager::fs_deserilization(
             case waiting:
                 assert(false);
                 break;
+            case ignored:
+                break;
             case dropped:
+//                assert(!pending_reminder);
                 if (!pending_reminder){
                     local_mr = Get_local_send_message_mr();
                     *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
@@ -8222,6 +8225,9 @@ void RDMA_Manager::fs_deserilization(
                 assert(false);
                 break;
 
+        }
+        if (handle){
+            page_cache_->Release(handle);
         }
 
         delete receive_msg_buf;

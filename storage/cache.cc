@@ -1575,11 +1575,11 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //            || timer_alarmed.load()
             if ( handover_degree > STARVATION_THRESHOLD || lock_pending_num.load()==0){
                 if (handover_degree > STARVATION_THRESHOLD){
-//                    printf("Node %u Process the cached invalidation message over %p from node %u due to hitting the thredhold.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
-//                    fflush(stdout);
+                    printf("Node %u Process the cached invalidation message over %p from node %u due to hitting the thredhold.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
+                    fflush(stdout);
                 } else{
-//                    printf("Node %u Process the cached invalidation message over %p from node %u due to no pending waiter.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
-//                    fflush(stdout);
+                    printf("Node %u Process the cached invalidation message over %p from node %u due to no pending waiter.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
+                    fflush(stdout);
                 }
                 buffered_inv_mtx.lock();
                 process_buffered_inv_message(page_addr, page_size, lock_addr, mr, true);
@@ -1745,6 +1745,11 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             // In this case, that thread can immediately issue  a global read lacth request. Then the remote writer is still starved.
             // Since this scenario will happen rarely, then we think this method can relieve the latch starvation to some extense.
 //                    if (remote_urging_type.load() > 1){
+//            auto local_mr = rdma_mg->Get_local_send_message_mr();
+//            *((Page_Forward_Reply_Type* )local_mr->addr) = processed;
+//            RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey,
+//                                sizeof(Page_Forward_Reply_Type),
+//                                target_node_id, qp_id, true, true);
             if (need_spin){
                 spin_wait_us(STARV_SPIN_BASE* (1 + buffer_inv_message.starvation_priority.load()));
             }
@@ -1787,6 +1792,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 //TODO: The dirty page flush back here is not necessary.
 //                rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, buffer_inv_message.next_holder_id.load(), lock_addr,
 //                                                         false, nullptr);
+                assert(buffer_inv_message.next_holder_id.load() <= 14);
                 rdma_mg->global_WHandover(mr, page_addr, page_size, buffer_inv_message.next_holder_id.load(), lock_addr,
                                                          true, nullptr);
                 // The sequence of this two RDMA message could be problematic, because we do not know,
