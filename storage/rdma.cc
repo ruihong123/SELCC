@@ -3640,7 +3640,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         // otherwise (RDMA write to do the unlock) the lock word has to be set at the end of the page to guarantee the
         // consistency.
         uint64_t swap = 0;
-        uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+        uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
         if (async) {
             *(uint64_t*)cas_buf->addr = 0;
 
@@ -3794,7 +3794,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page);
             //Get the latest page version and make an invalidation message based on current version. (exact once)
 //            page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
-            target_compute_node_id = ((return_value >> 56) - 1)*2;
+            target_compute_node_id = ((return_value >> 56) - 100)*2;
 //#ifndef NDEBUG
 //            assert((*((uint64_t *)page_buffer->addr+1) << 8) > 0);
 //#endif
@@ -3874,7 +3874,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 
             RDMA_FAA(lock_addr, cas_buffer, substract, IBV_SEND_SIGNALED, 1, Regular_Page);
 
-            target_compute_node_id = ((return_value >> 56) - 1)*2;
+            target_compute_node_id = ((return_value >> 56) - 100)*2;
             goto retry;
         }
         return true;
@@ -3889,7 +3889,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
         *(uint64_t *)cas_buffer->addr = 0;
-        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
         uint64_t compare = (1ull );
         std::vector<uint16_t> read_invalidation_targets;
         uint8_t starvation_level = 0;
@@ -4047,7 +4047,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint64_t pre_tag = 0;
         uint64_t conflict_tag = 0;
         *(uint64_t *)cas_buffer->addr = 0;
-        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
         uint64_t compare = (1ull << (RDMA_Manager::node_id/2 + 1));
         std::vector<uint16_t> read_invalidation_targets;
         uint8_t starvation_level = 0;
@@ -4260,7 +4260,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         }
         uint64_t compare = 0;
         // We need a + 1 for the id, because id 0 conflict with the unlock bit
-        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
         //TODO: send an RPC to the destination every 4 retries.
         // Check whether the invalidation is write type or read type. If it is a read type
         // we need to broadcast the message to multiple destination.
@@ -4402,10 +4402,10 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //                pre_tag = conflict_tag;
 //            }
             uint64_t cas_value = (*(uint64_t*) cas_buffer->addr);
-            uint64_t write_byte = cas_value >> 56;
+            uint64_t write_byte = (cas_value >> 56);
 //            page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
             if (write_byte > 0){
-                if (UNLIKELY(write_byte > compute_nodes.size())){
+                if (UNLIKELY(write_byte >= compute_nodes.size() + 100)){
                     // an faulty intermidiate state, wait for state transfer.
                     read_invalidation_targets.clear();
                     write_invalidation_target = 0-1;
@@ -4414,7 +4414,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                     invalidation_RPC_type = 2;
 
                     //The CAS record (ID/2+1), so we need to recover the real ID.
-                    write_invalidation_target = (write_byte - 1)*2;
+                    write_invalidation_target = (write_byte - 100)*2;
                     goto retry;
                 }
 
@@ -4476,7 +4476,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         retry_cnt++;
         uint64_t compare = 0;
         // We need a + 1 for the id, because id 0 conflict with the unlock bit
-        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
         //TODO: send an RPC to the destination every 4 retries.
         // Check whether the invalidation is write type or read type. If it is a read type
         // we need to broadcast the message to multiple destination.
@@ -4624,7 +4624,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             if (write_byte > 0){
                 invalidation_RPC_type = 2;
                 //The CAS record (ID/2+1), so we need to recover the real ID.
-                write_invalidation_target = (write_byte - 1)*2;
+                write_invalidation_target = (write_byte - 100)*2;
                 goto retry;
             }
 //            uint64_t read_bit_pos = 0;
@@ -4657,7 +4657,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         uint16_t write_invalidation_target = 0-1;
         uint64_t compare = 0;
         // We need a + 1 for the id, because id 0 conflict with the unlock bit
-        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
         int invalidation_RPC_type = 0; // 0 no need for invalidaton message, 1 read invalidation message, 2 write invalidation message.
 #ifdef INVALIDATION_STATISTICS
         bool invalidation_counted = false;
@@ -4705,7 +4705,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         }
         uint64_t compare = 0;
         // We need a + 1 for the id, because id 0 conflict with the unlock bit
-        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+        uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
         //TODO: send an RPC to the destination every 4 retries.
         // Check whether the invalidation is write type or read type. If it is a read type
         // we need to broadcast the message to multiple destination.
@@ -4799,7 +4799,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             *(uint64_t*) local_CAS_mr->addr = 0;
             //TODO: Can we make the RDMA unlock based on RDMA FAA? In this case, we can use async
             // lock releasing to reduce the RDMA ROUND trips in the protocol
-            volatile uint64_t add = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            volatile uint64_t add = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
             volatile uint64_t substract = (~add) + 1;
 #if ASYNC_PLAN == 1
             // The code below is to prevent a work request overflow in the send queue, since we enable
@@ -4884,7 +4884,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             //TODO: check whether the page's global lock is still write lock
             Prepare_WR_Write(sr[0], sge[0], tbFlushed_gaddr, &tbFlushed_local_mr, page_size, send_flags, Regular_Page);
             *(uint64_t *)local_CAS_mr->addr = 0;
-            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
             volatile uint64_t substract = (~compare) + 1;
             //TODO: USE rdma faa to release the write lock to avoid continuous spurious unlock resulting from the concurrent read lock request.
             Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract, IBV_SEND_SIGNALED, Regular_Page);
@@ -4945,9 +4945,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             *(uint64_t*) local_CAS_mr->addr = 0;
             //TODO: Can we make the RDMA unlock based on RDMA FAA? In this case, we can use async
             // lock releasing to reduce the RDMA ROUND trips in the protocol
-            volatile uint64_t add = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            volatile uint64_t add = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
             volatile uint64_t substract = (~add) + 1;
-            add = ((uint64_t)next_holder_id/2 +1) << 56;
+            add = ((uint64_t)next_holder_id/2 +100) << 56;
             // The code below is to prevent a work request overflow in the send queue, since we enable
             // async lock releasing.
             Async_Tasks * tasks = (Async_Tasks *)async_tasks.at(page_addr.nodeID)->Get();
@@ -5015,9 +5015,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        assert(*(uint64_t *)local_CAS_mr->addr == 1);
             //We can apply async unlock here to reduce the latency.
 //            uint64_t swap = 0;
-            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
             volatile uint64_t substract = (~compare) + 1;
-            volatile uint64_t add = ((uint64_t)next_holder_id/2 +1) << 56;
+            volatile uint64_t add = ((uint64_t)next_holder_id/2 +100) << 56;
 
             //TODO: USE rdma faa to release the write lock to avoid continuous spurious unlock resulting from the concurrent read lock request.
             Prepare_WR_FAA(sr[1], sge[1], remote_lock_addr, local_CAS_mr, substract + add, IBV_SEND_SIGNALED, Regular_Page);
@@ -5089,9 +5089,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             *(uint64_t*) local_CAS_mr->addr = 0;
             //TODO: Can we make the RDMA unlock based on RDMA FAA? In this case, we can use async
             // lock releasing to reduce the RDMA ROUND trips in the protocol
-            volatile uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            volatile uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
             volatile uint64_t substract = (~compare) + 1;
-            volatile uint64_t add = ((uint64_t)next_holder_id/2 +1) << 56;
+            volatile uint64_t add = ((uint64_t)next_holder_id/2 +100) << 56;
 #if ASYNC_PLAN == 1
             // The code below is to prevent a work request overflow in the send queue, since we enable
             // async lock releasing.
@@ -5190,9 +5190,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        assert(*(uint64_t *)local_CAS_mr->addr == 1);
             //We can apply async unlock here to reduce the latency.
 //            uint64_t swap = 0;
-            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
             volatile uint64_t substract = (~compare) + 1;
-            volatile uint64_t add = ((uint64_t)next_holder_id/2 +1) << 56;
+            volatile uint64_t add = ((uint64_t)next_holder_id/2 +100) << 56;
 
             //TODO: USE rdma faa to release the write lock to avoid continuous spurious unlock resulting from the concurrent read lock request.
             Prepare_WR_FAA(sr[0], sge[0], remote_lock_addr, local_CAS_mr, substract + add, IBV_SEND_SIGNALED, Regular_Page);
@@ -5287,7 +5287,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             *(uint64_t*) local_CAS_mr->addr = 0;
             //TODO: Can we make the RDMA unlock based on RDMA FAA? In this case, we can use async
             // lock releasing to reduce the RDMA ROUND trips in the protocol
-            volatile uint64_t this_node_exclusive = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            volatile uint64_t this_node_exclusive = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
             volatile uint64_t this_node_shared = (1ull << (RDMA_Manager::node_id/2 +1));
             volatile uint64_t inv_sender_shared = (1ull << (next_holder_id/2 +1));
             assert(this_node_shared != inv_sender_shared);
@@ -5374,7 +5374,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             Prepare_WR_Write(sr[0], sge[0], tbFlushed_gaddr, &tbFlushed_local_mr, page_size, send_flags, Regular_Page);
 
             *(uint64_t *)local_CAS_mr->addr = 0;
-            volatile uint64_t this_node_exclusive = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            volatile uint64_t this_node_exclusive = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
             volatile uint64_t this_node_shared = (1ull << (RDMA_Manager::node_id/2 +1));
             volatile uint64_t inv_sender_shared = (1ull << (next_holder_id/2 +1));
             assert(this_node_shared != inv_sender_shared);
@@ -5423,7 +5423,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             //TODO 1: Make the unlocking based on RDMA CAS.
             //TODO 2: implement a retry mechanism based on RDMA CAS. THe write unlock can be failed because the RDMA FAA test and reset the lock words.
             uint64_t swap = 0;
-            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
             Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare, swap, 0, Regular_Page);
             sr[0].next = &sr[1];
 
@@ -5452,7 +5452,7 @@ retry:
 //        assert(*(uint64_t *)local_CAS_mr->addr == 1);
             //We can apply async unlock here to reduce the latency.
             uint64_t swap = 0;
-            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 1) << 56;
+            uint64_t compare = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
             Prepare_WR_CAS(sr[1], sge[1], remote_lock_addr, local_CAS_mr, compare, swap, IBV_SEND_SIGNALED, Regular_Page);
             sr[0].next = &sr[1];
 
