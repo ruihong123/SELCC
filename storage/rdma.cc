@@ -3779,7 +3779,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         Batch_Submit_WRs(sr, 1, page_addr.nodeID);
         uint64_t return_value = *(uint64_t*) cas_buffer->addr;
         //Note that the read latch can not be global hand-overed, because read latch FAA can overflow the read bitmap.
-        if ( (return_value >> 56) > 0  ){
+        if ( (return_value >> 56) >= 100  ){
 
             if (last_atomic_return >> 56 != return_value >> 56){
                 // someone else have acquire the latch, immediately issue a invalidation in the next loop.
@@ -3865,7 +3865,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1))) == 0);
 #endif
         // TODO: if the starvation bit is on then we release and wait the lock.
-        if ((return_value >> 56) > 0){
+        if ((return_value >> 56) >= 100){
 //            assert(false);
 //            assert((return_value & (1ull << (RDMA_Manager::node_id/2 + 1)))== 0);
 //            Prepare_WR_FAA(sr[0], sge[0], lock_addr, cas_buffer, -add, 0, Internal_and_Leaf);
@@ -4406,7 +4406,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             uint64_t cas_value = (*(uint64_t*) cas_buffer->addr);
             uint64_t write_byte = (cas_value >> 56);
 //            page_version = ((DataPage*) page_buffer->addr)->hdr.p_version;
-            if (write_byte > 0){
+            if (write_byte >= 100){
                 if (UNLIKELY(write_byte >= compute_nodes.size() + 100)){
                     // an faulty intermidiate state, wait for state transfer.
                     read_invalidation_targets.clear();
@@ -4623,7 +4623,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //            }
             uint64_t cas_value = (*(uint64_t*) cas_buffer->addr);
             uint64_t write_byte = cas_value >> 56;
-            if (write_byte > 0){
+            if (write_byte >= 100){
                 invalidation_RPC_type = 2;
                 //The CAS record (ID/2+1), so we need to recover the real ID.
                 write_invalidation_target = (write_byte - 100)*2;
