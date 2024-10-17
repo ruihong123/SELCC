@@ -4384,7 +4384,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         if ((*(uint64_t*) cas_buffer->addr) != compare){
 //            assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
             if ((*(uint64_t*) cas_buffer->addr) >> 56 == swap >> 56){
-                spin_wait_us(10);
+                spin_wait_us(100);
                 goto retry;
             }
 //            if (last_CAS_return != (*(uint64_t*) cas_buffer->addr)){
