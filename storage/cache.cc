@@ -1787,7 +1787,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 *(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) = processed;
                 // TODO: need to use a local buffer to support the asynchronous RDMA page forward.
                 rdma_mg->global_WHandover(mr, page_addr, page_size, buffer_inv_message.next_holder_id.load(), lock_addr,
-                                          false, nullptr);
+                                          true, nullptr);
                 rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf,
                                              buffer_inv_message.next_receive_rkey, kLeafPageSize,
                                              buffer_inv_message.next_holder_id, qp_id, false, true);
