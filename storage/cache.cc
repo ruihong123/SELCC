@@ -1786,12 +1786,12 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
                 *(Page_Forward_Reply_Type* ) ((char*)local_mr->addr + kLeafPageSize - sizeof(Page_Forward_Reply_Type)) = processed;
                 // TODO: need to use a local buffer to support the asynchronous RDMA page forward.
-
+                rdma_mg->global_WHandover(mr, page_addr, page_size, buffer_inv_message.next_holder_id.load(), lock_addr,
+                                          true, nullptr);
                 rdma_mg->RDMA_Write_xcompute(local_mr, buffer_inv_message.next_receive_page_buf,
                                              buffer_inv_message.next_receive_rkey, kLeafPageSize,
                                              buffer_inv_message.next_holder_id, qp_id, false, true);
-                rdma_mg->global_WHandover(mr, page_addr, page_size, buffer_inv_message.next_holder_id.load(), lock_addr,
-                                          true, nullptr);
+
                 //TODO: The dirty page flush back here is not necessary.
 //                rdma_mg->global_write_page_and_WHandover(mr, page_addr, page_size, buffer_inv_message.next_holder_id.load(), lock_addr,
 //                                                         false, nullptr);
@@ -1804,10 +1804,10 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 
 
                 remote_lock_status.store(0);
-                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p "
-                       "get processed, target buffer addr is %p\n", RDMA_Manager::node_id, buffer_inv_message.next_holder_id.load(),
-                       gptr, buffer_inv_message.next_receive_page_buf.load());
-                fflush(stdout);
+//                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p "
+//                       "get processed, target buffer addr is %p\n", RDMA_Manager::node_id, buffer_inv_message.next_holder_id.load(),
+//                       gptr, buffer_inv_message.next_receive_page_buf.load());
+//                fflush(stdout);
 //#else
 //                    rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
 //                            remote_lock_status.store(0);
