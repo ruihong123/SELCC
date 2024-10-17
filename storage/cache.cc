@@ -1573,14 +1573,14 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //            }
             assert(remote_lock_status == 2);
 //            || timer_alarmed.load()
-            if ( handover_degree > STARVATION_THRESHOLD || lock_pending_num.load()==0){
-                if (handover_degree > STARVATION_THRESHOLD){
-                    printf("Node %u Process the cached invalidation message over %p from node %u due to hitting the thredhold.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
-                    fflush(stdout);
-                } else{
-                    printf("Node %u Process the cached invalidation message over %p from node %u due to no pending waiter.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
-                    fflush(stdout);
-                }
+            if ( handover_degree > STARVATION_THRESHOLD ){ //|| lock_pending_num.load()==0
+//                if (handover_degree > STARVATION_THRESHOLD){
+//                    printf("Node %u Process the cached invalidation message over %p from node %u due to hitting the thredhold.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
+//                    fflush(stdout);
+//                } else{
+//                    printf("Node %u Process the cached invalidation message over %p from node %u due to no pending waiter.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
+//                    fflush(stdout);
+//                }
                 buffered_inv_mtx.lock();
                 process_buffered_inv_message(page_addr, page_size, lock_addr, mr, true);
                 buffered_inv_mtx.unlock();
