@@ -4259,7 +4259,9 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             return false;
         }
         uint64_t compare = 0;
-        // We need a + 1 for the id, because id 0 conflict with the unlock bit
+        // We need a + 100 for the id, because id 0 conflict with the unlock bit
+        // 100 reserve enough room in case that the write lock handover arrived out of order and the latch word shall
+        // never reach 0. we can first handover latch state asynchronously, and then write forward the page.
         uint64_t swap = ((uint64_t)RDMA_Manager::node_id/2 + 100) << 56;
         //TODO: send an RPC to the destination every 4 retries.
         // Check whether the invalidation is write type or read type. If it is a read type
