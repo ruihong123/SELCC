@@ -59,7 +59,8 @@ int main(int argc, char* argv[]) {
   REPORT_PROFILE_TIME(gThreadCount);
   //TODO: it seems that FenceXComputes did not do the synchronization.
     synchronizer.FenceXComputes();
-    if (WORKLOAD_PATTERN == PARTITION_SOURCE){
+//    WORKLOAD_PATTERN == PARTITION_SOURCE
+    if (TWOPHASECOMMIT){
         auto func = std::bind(&TpccExecutor::ProcessQueryThread_2PC_Participant,  (void*)&storage_manager, std::placeholders::_1);
         default_gallocator->rdma_mg->Set_message_handling_func(func);
     }

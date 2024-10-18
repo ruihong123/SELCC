@@ -201,7 +201,7 @@ class TransactionExecutor {
       *(redirector_ptr_->GetParameterBatches(thread_id));
 
     TransactionManager *txn_manager = new TransactionManager(
-            storage_manager_, this->thread_count_, thread_id, log_enabled_, PARTITIONED);
+            storage_manager_, this->thread_count_, thread_id, log_enabled_, TWOPHASECOMMIT);
     StoredProcedure **procedures = new StoredProcedure*[registers_.size()];
     for (auto &entry : registers_) {
       procedures[entry.first] = entry.second();
