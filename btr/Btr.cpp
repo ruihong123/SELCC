@@ -2607,7 +2607,8 @@ re_read:
             delete sibling_mr;
 #ifdef DIRTY_ONLY_FLUSH
             // After split, the whole page is dirty.
-            page->hdr.reset_dirty_bounds();
+//            page->hdr.reset_dirty_bounds();
+            page->hdr.merge_dirty_bounds(STRUCT_OFFSET(LeafPage<Key COMMA Value>, hdr), kLeafPageSize);
 #endif
         }
         ddms_->SELCC_Exclusive_UnLock(page_addr,handle);

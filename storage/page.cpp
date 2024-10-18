@@ -437,7 +437,7 @@ namespace DSMEngine {
         hdr.last_index++;
         assert(hdr.last_index < hdr.kLeafCardinality);
 #ifdef DIRTY_ONLY_FLUSH
-        // If the page get inserted, then the dirty range is the whole page.
+        // If the page get inserted, then the dirty range is the whole page, or flush to the end of tuple_start + (last_Index+1)*r.GetRecordSize()
         hdr.merge_dirty_bounds(sizeof(uint64_t), kLeafPageSize);
 #endif
         return cnt == hdr.kLeafCardinality;
