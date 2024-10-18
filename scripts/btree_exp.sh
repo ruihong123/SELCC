@@ -112,7 +112,7 @@ run_tpcc () {
 vary_thread_number () {
   #read_ratios=(0 30 50 70 90 100)
   thread_number=(8)
-  read_ratio=(50)
+  read_ratio=(0)
   # shellcheck disable=SC2068
   for thread_n in ${thread_number[@]}; do
     for read_r in ${read_ratio[@]}; do
