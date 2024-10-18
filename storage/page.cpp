@@ -143,6 +143,7 @@ namespace DSMEngine {
                 }else{
                     // internal node entry shall never get updated
                     assert(false);
+                    throw std::runtime_error("Internal node entry shall never get updated");
                     records[mid].ptr = value;
                     is_update = true;
 
