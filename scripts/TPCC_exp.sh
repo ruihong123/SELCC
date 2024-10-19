@@ -29,7 +29,7 @@ output_dir="/users/Ruihong/SELCC/scripts/data"
 core_dump_dir="/mnt/core_dump"
 # working environment
 proj_dir="/users/Ruihong/SELCC"
-bin_dir="${proj_dir}/release"
+bin_dir="${proj_dir}/debug"
 script_dir="${proj_dir}/database/scripts"
 ssh_opts="-o StrictHostKeyChecking=no"
 
