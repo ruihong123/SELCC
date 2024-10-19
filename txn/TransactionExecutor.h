@@ -180,7 +180,7 @@ class TransactionExecutor {
                                                         end_timestamp_);
     double throughput = total_count_ * 1.0 / elapsed_time;
     double per_core_throughput = throughput / thread_count_;
-    std::cout << "execute_count=" << total_count_ << ", abort_count="
+    std::cout << "Node" << RDMA_Manager::Get_Instance()->node_id << "execute_count=" << total_count_ << ", abort_count="
               << total_abort_count_ << ", abort_rate="
               << total_abort_count_ * 1.0 / (total_count_ + 1) << std::endl;
     std::cout << "elapsed time=" << elapsed_time << "ms.\nthroughput="
