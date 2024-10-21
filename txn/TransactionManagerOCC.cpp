@@ -58,12 +58,13 @@ namespace DSMEngine{
             access->txn_local_tuple_ = local_tuple;
             tuple = local_tuple;
             access->access_addr_ = tuple_gaddr;
-            gallocator->SELCC_Exclusive_UnLock(*gcl_addr, handle);
             assert(cnt == page->hdr.number_of_records);
             if(cnt == page->hdr.kDataCardinality){
                 delete gcl_addr;
                 table->SetOpenedBlock(nullptr);
             }
+            gallocator->SELCC_Exclusive_UnLock(*gcl_addr, handle);
+
 //        printf("AllocateNewRecord: thread_id=%zu,table_id=%zu,access_type=%u,data_addr=%lx, start SelectRecordCC\n",
 //               thread_id_, table_id, INSERT_ONLY, tuple_gaddr.val);
 //            fflush(stdout);
