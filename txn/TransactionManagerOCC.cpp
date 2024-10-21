@@ -18,6 +18,7 @@ namespace DSMEngine{
             GlobalAddress* gcl_addr = table->GetOpenedBlock();
             DataPage *page = nullptr;
             DDSM* gallocator = gallocators[thread_id_];
+            bool new_created = false;
             if (gcl_addr){
                 GlobalAddress cacheline_g_addr = *gcl_addr;
                 gallocator->SELCC_Exclusive_Lock(page_buffer, *gcl_addr, handle);
@@ -35,6 +36,7 @@ namespace DSMEngine{
 
                 uint64_t cardinality = 8ull*(kLeafPageSize - STRUCT_OFFSET(DataPage, data_[0]) - 8) / (8ull*table->GetSchemaSize() +1);
                 page = new(page_buffer) DataPage(*gcl_addr, cardinality, table_id);
+                new_created = true;
             }
             RecordSchema *schema_ptr = storage_manager_->tables_[table_id]->GetSchema();
             int cnt = 0;
@@ -57,6 +59,7 @@ namespace DSMEngine{
             tuple = local_tuple;
             access->access_addr_ = tuple_gaddr;
             gallocator->SELCC_Exclusive_UnLock(*gcl_addr, handle);
+            assert(cnt == page->hdr.number_of_records);
             if(cnt == page->hdr.kDataCardinality){
                 delete gcl_addr;
                 table->SetOpenedBlock(nullptr);
