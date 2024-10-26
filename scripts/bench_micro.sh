@@ -9,7 +9,7 @@ conf_file=$bin/../connection.conf
 #compute_nodes=$bin/compute_nodes
 #memory_nodes=$bin/memory_nodes
 log_file=$bin/log
-cache_mem_size=8 # 8 gb Local memory size
+cache_mem_size=16 # 8 gb Local memory size
 remote_mem_size_base=48 # 48 gb Remote memory size
 #master_ip=db3.cs.purdue.edu # make sure this is in accordance with the server whose is_master=1
 master_port=12311
@@ -481,7 +481,7 @@ run_node_test() {
 # node test
 echo "**************************run node test****************************"
 result_file=$bin/results/node
-node_range="1 2 4"
+node_range="1 2 4 8"
 thread_range="8"
 remote_range="100"
 shared_range="0 30 60 100"
