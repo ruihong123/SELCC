@@ -2,7 +2,7 @@
 bin=`dirname "$0"`
 bin=`cd "$bin"; pwd`
 SRC_HOME=$bin/..
-BIN_HOME=$bin/../release
+BIN_HOME=$bin/../debug
 conf_file_all=$bin/../connection_cloudlab.conf
 conf_file=$bin/../connection.conf
 # alpha = 1/(1-theta)
