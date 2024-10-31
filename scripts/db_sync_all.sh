@@ -135,7 +135,7 @@ function run_bench() {
 
 
   done
-  read -r -a memcached_node <<< $(head -n 1 $SRC_HOME/memcached_ip.conf)
+  read -r -a memcached_node <<< $(head -n 1 $SRC_HOME/memcached_db_servers.conf)
   echo "restart memcached on ${memcached_node[0]}"
   ssh -o StrictHostKeyChecking=no ${memcached_node[0]} "sudo service memcached restart"
 
