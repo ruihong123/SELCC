@@ -92,7 +92,7 @@ run() {
     while [ $i -lt $compute_num ]
     do
       echo "Rsync the connection.conf to ${compute_nodes[$i]}"
-      rsync -vz $home_dir/onnection.conf ${compute_nodes[$i]}:$home_dir/connection.conf
+      rsync -vz $home_dir/connection.conf ${compute_nodes[$i]}:$home_dir/connection.conf
       i=$((i+1))
     done
     i=0
