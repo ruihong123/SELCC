@@ -428,7 +428,7 @@ namespace DSMEngine {
     void DDSM::memSet(const char *key, uint32_t klen, const char *val,
                         uint32_t vlen) {
 
-        memcached_return rc;
+        volatile memcached_return rc;
         while (true) {
             memc_mutex.lock();
 
