@@ -3,6 +3,7 @@ bin=`dirname "$0"`
 bin=`cd "$bin"; pwd`
 SRC_HOME=$bin/..
 BIN_HOME=$bin/../release
+home_dir="/home/wang4996/MemoryEngine/"
 conf_file_all=$bin/../connection_dbservers.conf
 conf_file=$bin/../connection.conf
 # alpha = 1/(1-theta)
@@ -84,14 +85,14 @@ run() {
     while [ $i -lt $memory_num ]
     do
       echo "Rsync the connection.conf to ${memory_nodes[$i]}"
-      rsync -vz /users/Ruihong/SELCC/connection.conf ${memory_nodes[$i]}:/users/Ruihong/SELCC/connection.conf
+      rsync -vz $home_dir/connection.conf ${memory_nodes[$i]}:$home_dir/connection.conf
       i=$((i+1))
     done
     i=0
     while [ $i -lt $compute_num ]
     do
       echo "Rsync the connection.conf to ${compute_nodes[$i]}"
-      rsync -vz /users/Ruihong/SELCC/connection.conf ${compute_nodes[$i]}:/users/Ruihong/SELCC/connection.conf
+      rsync -vz $home_dir/onnection.conf ${compute_nodes[$i]}:$home_dir/connection.conf
       i=$((i+1))
     done
     i=0
