@@ -1,5 +1,5 @@
 #!/bin/bash
-home_dir="/home/wang4996/MemoryEngine"
+home_dir="/home/wang4996/MemoryEngine/"
 nmemory="2"
 ncompute="2"
 nmachines="4"
