@@ -390,9 +390,9 @@ namespace DSMEngine {
     bool DDSM::connectMemcached() {
         memcached_server_st *servers = NULL;
         memcached_return rc;
-
-        std::ifstream conf("../memcached_ip.conf");
-
+        // Need to change this hardcoded file location.
+//        std::ifstream conf("../memcached_ip.conf");
+        std::ifstream conf("../memcached_db_servers.conf");
         if (!conf) {
             fprintf(stderr, "can't open memcached_ip.conf\n");
             return false;
