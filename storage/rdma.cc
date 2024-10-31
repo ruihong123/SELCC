@@ -835,6 +835,7 @@ void RDMA_Manager::Client_Set_Up_Resources() {
     fprintf(stderr, "failed to create resources\n");
     return;
   }
+  printf("Compute node size is %lu\n", compute_nodes.size());
   std::vector<std::thread> memory_handler_threads;
         std::vector<std::thread> compute_handler_threads;
   for(int i = 0; i < memory_nodes.size(); i++){
