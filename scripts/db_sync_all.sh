@@ -10,7 +10,7 @@ bin=`dirname "$0"`
 bin=`cd "$bin"; pwd`
 SRC_HOME=$bin/..
 BIN_HOME=$bin/../release
-core_dump_dir="/mnt/core_dump"
+core_dump_dir="/ssd_root/wang4996"
 github_repo="https://github.com/ruihong123/SELCC"
 gitbranch="reserved_branch1"
 function run_bench() {
@@ -85,7 +85,7 @@ function run_bench() {
 #    ssh -o StrictHostKeyChecking=no $node "sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev libboost-all-dev" &
     rsync -a $home_dir $node:$home_dir
 #    ssh -o StrictHostKeyChecking=no $node "killall micro_bench memory_server_term > /dev/null 2>&1"
-    ssh -o StrictHostKeyChecking=no $node "sudo apt install libtbb-dev -y" &
+#    ssh -o StrictHostKeyChecking=no $node "sudo apt install libtbb-dev -y" &
     ssh -o StrictHostKeyChecking=no $node "pkill -f micro_bench" &
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server_term" &
     ssh -o StrictHostKeyChecking=no $node "pkill -f tpcc" &
@@ -121,7 +121,7 @@ function run_bench() {
     ssh -o StrictHostKeyChecking=no $node "rm $home_dir/release/logdump.txt" &
 #    ssh ${ssh_opts} $node "sudo mkdir /mnt/core_dump && sudo mkfs.ext4 /dev/sda4 && sudo mount /dev/sda4 /mnt/core_dump"
 
-    ssh ${ssh_opts} $node "echo '$core_dump_dir/core$compute' | sudo tee /proc/sys/kernel/core_pattern ; sudo chown -R Ruihong:purduedb-PG0 /mnt/core_dump" &
+    ssh ${ssh_opts} $node "echo '$core_dump_dir/core$compute' | sudo tee /proc/sys/kernel/core_pattern" &
 
 #    ssh -o StrictHostKeyChecking=no $node  "sudo mount /dev/sda4 /mnt/core_dump" &
 
