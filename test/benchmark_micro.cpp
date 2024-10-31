@@ -64,7 +64,7 @@ const char* result_file = "result.csv";
 //exp parameters
 // Cache can hold 4Million cache entries. Considering the random filling mechanism,
 // if we want to gurantee that the cache has been filled, we need to run 8Million iterations (2 times). space locality use 16384000
-long ITERATION_TOTAL = 2*2*8192000ull;
+long ITERATION_TOTAL = 2*4*8192000ull;
 //long ITERATION_TOTAL = 16384000;
 
 long ITERATION = 0;
