@@ -81,8 +81,9 @@ function run_bench() {
 #  done
   for node in ${memory_shard[@]}
   do
-    if [ node != "192.168.100.1" ]; then
-            echo "Rsync the $node rsync -a $home_dir $node:$home_dir"
+    echo "Rsync the $node rsync -a $home_dir $node:$home_dir"
+    if [ $node != "192.168.100.1" ]; then
+#            echo "Rsync the $node rsync -a $home_dir $node:$home_dir"
         #    ssh -o StrictHostKeyChecking=no $node "sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev libboost-all-dev" &
             rsync -a $home_dir $node:$home_dir
     fi
