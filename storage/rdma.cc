@@ -7805,8 +7805,8 @@ void RDMA_Manager::fs_deserilization(
                                     target_node_id, qp_id, true, true);
                 handle->buffered_inv_mtx.unlock();
                 handle->rw_mtx.unlock();
-//                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get processed, priority is %u\n", node_id, target_node_id, g_ptr, starv_level);
-//                fflush(stdout);
+                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get processed, priority is %u\n", node_id, target_node_id, g_ptr, starv_level);
+                fflush(stdout);
                 break;
             case pending:
                 assert(false);
@@ -7820,8 +7820,8 @@ void RDMA_Manager::fs_deserilization(
                 RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey,
                                     sizeof(Page_Forward_Reply_Type),
                                     target_node_id, qp_id, true, true);
-//                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
-//                fflush(stdout);
+                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+                fflush(stdout);
                 break;
             default:
                 assert(false);
