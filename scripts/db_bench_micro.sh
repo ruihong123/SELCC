@@ -2,7 +2,7 @@
 bin=`dirname "$0"`
 bin=`cd "$bin"; pwd`
 SRC_HOME=$bin/..
-BIN_HOME=$bin/../debug
+BIN_HOME=$bin/../release
 home_dir="/home/wang4996/MemoryEngine/"
 conf_file_all=$bin/../connection_dbservers.conf
 conf_file=$bin/../connection.conf
