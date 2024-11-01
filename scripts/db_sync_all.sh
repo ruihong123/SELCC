@@ -32,7 +32,7 @@ function run_bench() {
     n=$((n+1))
   done
   n=0
-  i=$((nmachines-1))
+  i=$((nmachines))
   while [ $n -lt $ncompute ]
   do
 
