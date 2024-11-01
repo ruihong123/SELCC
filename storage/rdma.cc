@@ -6606,7 +6606,7 @@ inv_resend:
 #endif
         return true;
     }
-    bool RDMA_Manager::Writer_Invalidate_Shared_RPC_Reply(uint8_t num_of_poll){
+    bool RDMA_Manager::Writer_Invalidate_Shared_RPC_Reply(int num_of_poll){
         ibv_mr* recv_mr = Get_local_read_mr();
         Page_Forward_Reply_Type* receive_pointer;
 
