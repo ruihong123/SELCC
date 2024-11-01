@@ -49,9 +49,11 @@ uint32_t Hash(const char* data, size_t n, uint32_t seed) {
     case 3:
       h += static_cast<uint32_t>(static_cast<int8_t>(data[2])) << 16;
       FALLTHROUGH_INTENDED;
+      [[fallthrough]];
     case 2:
       h += static_cast<uint32_t>(static_cast<int8_t>(data[1])) << 8;
       FALLTHROUGH_INTENDED;
+      [[fallthrough]];
     case 1:
       h += static_cast<uint32_t>(static_cast<int8_t>(data[0]));
       h *= m;

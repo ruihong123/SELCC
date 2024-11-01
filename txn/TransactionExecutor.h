@@ -21,10 +21,10 @@ class TransactionExecutor {
  public:
   TransactionExecutor(IORedirector *const redirector, StorageManager *storage_manager, size_t thread_count,
                       bool log_enabled)
-      : redirector_ptr_(redirector),
-        storage_manager_(storage_manager),
-        thread_count_(thread_count),
-        log_enabled_(log_enabled) {
+      :thread_count_(thread_count),
+      storage_manager_(storage_manager),
+      redirector_ptr_(redirector),
+      log_enabled_(log_enabled) {
     is_begin_ = false;
     is_finish_ = false;
     total_count_ = 0;
@@ -302,7 +302,6 @@ class TransactionExecutor {
   size_t thread_count_;
   StorageManager *storage_manager_;
   IORedirector* const redirector_ptr_;
-
   std::unordered_map<size_t, std::function<StoredProcedure*()>> registers_;
   std::unordered_map<size_t, std::function<void(StoredProcedure*)>> deregisters_;
 

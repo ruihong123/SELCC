@@ -95,7 +95,7 @@ LRUCache::~LRUCache() {
 void LRUCache::init(){
     size_t cache_line_limit = capacity_/kLeafPageSize+1;
     free_list_trigger_limit_ = cache_line_limit * FREELIST_RATIO;
-    for (int i = 0; i < capacity_/kLeafPageSize+1; ++i) {
+    for (size_t i = 0; i < capacity_/kLeafPageSize+1; ++i) {
         auto e = new LRUHandle();
         e->init();
         auto mr = new ibv_mr{};

@@ -4,7 +4,8 @@
 
 #include <vector>
 #include <cassert>
-#include <cstring>
+//#include <cstring>
+#include <string>
 #include "ColumnInfo.h"
 //#include "GAMObject.h"
 #include "Meta.h"
@@ -250,13 +251,13 @@ namespace DSMEngine {
         static size_t GetSerializeSize() {
             return sizeof(RecordSchema) + kMaxColumnNum*sizeof(ColumnInfo);
         }
-        const size_t GetMetaColumnId() const {
+         size_t GetMetaColumnId() const {
             return column_count_ - 1;
         }
-        const size_t GetWTSColumnId() const {
+        size_t GetWTSColumnId() const {
             return column_count_ - 2;
         }
-        const size_t GetRTSColumnId() const {
+        size_t GetRTSColumnId() const {
             return column_count_ - 3;
         }
 

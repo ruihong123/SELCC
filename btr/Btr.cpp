@@ -73,7 +73,7 @@ namespace DSMEngine {
         if (rdma_mg == nullptr){
             rdma_mg = ddms_->rdma_mg;
         }
-        for (int i = 0; i < rdma_mg->GetMemoryNodeNum(); ++i) {
+        for (size_t i = 0; i < rdma_mg->GetMemoryNodeNum(); ++i) {
             local_locks.push_back(new LocalLockNode[define::kNumOfLock]);
             for (size_t k = 0; k < define::kNumOfLock; ++k) {
                 auto &n = local_locks[i][k];
@@ -98,7 +98,7 @@ namespace DSMEngine {
         if (rdma_mg == nullptr){
             rdma_mg = ddms_->rdma_mg;
         }
-        for (int i = 0; i < rdma_mg->GetMemoryNodeNum(); ++i) {
+        for (size_t i = 0; i < rdma_mg->GetMemoryNodeNum(); ++i) {
             local_locks.push_back(new LocalLockNode[define::kNumOfLock]);
             for (size_t k = 0; k < define::kNumOfLock; ++k) {
                 auto &n = local_locks[i][k];
@@ -1042,7 +1042,8 @@ namespace DSMEngine {
         assert(root != GlobalAddress::Null());
         GlobalAddress p = root;
 //  std::cout << "The root now is " << root << std::endl;
-        SearchResult<Key,Value> result{0};
+        SearchResult<Key,Value> result;
+        memset(&result, 0, sizeof(SearchResult<Key, Value>));
         char result_buff[16];
         result.val.Reset(result_buff, 16);
 //        memset(&result, 0, sizeof(SearchResult<Key, Value>));
@@ -1212,7 +1213,8 @@ namespace DSMEngine {
 //  assert(rdma_mg->is_register());
         Cache::Handle* page_hint = nullptr;
         auto root = get_root_ptr_protected(page_hint);
-        SearchResult<Key,Value> result = {0};
+        SearchResult<Key,Value> result;
+        memset(&result, 0, sizeof(SearchResult<Key, Value>));
 //        if(!search_result_memo){
 //            search_result_memo = new SearchResult<Key,Value>();
 //        }
@@ -2689,7 +2691,7 @@ re_read:
             // if not a root split go ahead and insert in the upper level.
             level = level +1;
             //*****************Now it is not a root update, insert to the upper level******************
-            SearchResult<Key,Value> result{0};
+            SearchResult<Key,Value> result;
             memset(&result, 0, sizeof(SearchResult<Key,Value>));
 
             int fall_back_level = 0;

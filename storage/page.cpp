@@ -491,7 +491,7 @@ namespace DSMEngine {
         uint32_t bitmap_size = (hdr.kDataCardinality + 63) / 64;
         auto* bitmap = (uint64_t*)data_;
         char* data_start = data_ + bitmap_size*8;
-        size_t empty_slot = find_empty_spot_from_bitmap(bitmap, hdr.kDataCardinality);
+        int empty_slot = find_empty_spot_from_bitmap(bitmap, hdr.kDataCardinality);
         if (empty_slot == -1){
             //Need to allcoate a new page
             return false;

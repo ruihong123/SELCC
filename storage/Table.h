@@ -120,7 +120,7 @@ public:
     return primary_index_;
   }
 
-  virtual void Serialize(const char*& addr){
+  void Serialize(const char*& addr){
     size_t off = 0;
     memcpy((void *) (addr + off), &table_id_, sizeof(size_t));
     off += sizeof(size_t);
@@ -132,7 +132,7 @@ public:
     primary_index_->Serialize(cur_addr);
   }
   
-  virtual void Deserialize(const char*& addr) {
+  void Deserialize(const char*& addr) {
     size_t off = 0;
     memcpy(&table_id_, (void *) (addr + off), sizeof(size_t));
     off += sizeof(size_t);

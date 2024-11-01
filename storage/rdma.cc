@@ -856,7 +856,7 @@ void RDMA_Manager::Client_Set_Up_Resources() {
     while (memory_connection_counter.load() != memory_nodes.size())
         ;
 #if ACCESS_MODE == 1 || ACCESS_MODE == 2
-    for(int i = 0; i < compute_nodes.size(); i++){
+    for(size_t i = 0; i < compute_nodes.size(); i++){
 
         uint16_t target_node_id =  2*i;
         if (target_node_id != node_id){
@@ -866,7 +866,8 @@ void RDMA_Manager::Client_Set_Up_Resources() {
 
 
     }
-      while (compute_connection_counter.load() != compute_nodes.size()-1);
+    while (compute_connection_counter.load() != compute_nodes.size()-1)
+        ;
 
 #endif
 
@@ -6606,7 +6607,7 @@ inv_resend:
 #endif
         return true;
     }
-    bool RDMA_Manager::Writer_Invalidate_Shared_RPC_Reply(int num_of_poll){
+    void RDMA_Manager::Writer_Invalidate_Shared_RPC_Reply(int num_of_poll){
         ibv_mr* recv_mr = Get_local_read_mr();
         Page_Forward_Reply_Type* receive_pointer;
         std::vector<int> history;
@@ -7535,7 +7536,7 @@ void RDMA_Manager::fs_deserilization(
     memcpy(&length_mr_net, temp, sizeof(size_t));
     size_t length_mr = htonl(length_mr_net);
     temp = temp + sizeof(size_t);
-    auto* mr_inuse = new ibv_mr{0};
+    auto* mr_inuse = new ibv_mr();
     mr_inuse->context = static_cast<ibv_context*>(context_p);
     mr_inuse->pd = static_cast<ibv_pd*>(pd_p);
     mr_inuse->handle = handle;

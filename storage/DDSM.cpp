@@ -502,7 +502,7 @@ namespace DSMEngine {
         memSet(key.c_str(), key.size(), (char *)&value, sizeof(value));
 
         uint64_t ret = 0;
-        for (int i = 0; i < this->rdma_mg->GetComputeNodeNum(); ++i) {
+        for (size_t i = 0; i < this->rdma_mg->GetComputeNodeNum(); ++i) {
             key = key_prefix + std::to_string(2*i);
             ret += *(uint64_t *)memGet(key.c_str(), key.size());
         }

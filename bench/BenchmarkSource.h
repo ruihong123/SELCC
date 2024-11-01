@@ -15,8 +15,8 @@ class BenchmarkSource {
                   size_t thread_count, size_t dist_ratio)
       : redirector_ptr_(redirector),
         num_txn_(num_txn),
-        source_type_(source_type),
         dist_ratio_(dist_ratio),
+        source_type_(source_type),
         thread_count_(thread_count) {
   }
   ~BenchmarkSource() {

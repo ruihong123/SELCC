@@ -324,7 +324,7 @@ class In_Use_Array {
       return result;
     }
   }
-  bool deallocate_memory_slot(int index) {
+  bool deallocate_memory_slot(size_t index) {
     std::unique_lock<SpinMutex> lck(mtx);
     free_list.push_back(index);
     if (index < element_size_){
@@ -589,7 +589,7 @@ class RDMA_Manager {
                                    uint8_t &starv_level, uint64_t &retry_cnt);
     bool Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level,
                                       uint8_t pos);
-    bool Writer_Invalidate_Shared_RPC_Reply(int num_of_poll);
+    void Writer_Invalidate_Shared_RPC_Reply(int num_of_poll);
     bool Tuple_Read_2PC_RPC(uint16_t target_node_id, uint64_t primary_key, size_t table_id, size_t tuple_size,
                             char *&tuple_buffer, size_t access_type, bool log_enabled);
     bool Prepare_2PC_RPC(uint16_t target_node_id, bool log_enabled);

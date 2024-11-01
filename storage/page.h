@@ -369,7 +369,7 @@ namespace DSMEngine{
 //        uint64_t p_version = 0;
         GlobalAddress this_page_g_ptr;
         // =============================
-        int32_t number_of_records;
+        uint32_t number_of_records;
         friend class RDMA_Manager;
         friend class DataPage;
         uint32_t kDataCardinality;

@@ -175,7 +175,7 @@ public:
         return zero;
     };
 } __attribute__((packed));
-static GlobalAddress TOPAGE(GlobalAddress addr){
+[[maybe_unused]]static GlobalAddress TOPAGE(GlobalAddress addr){
     GlobalAddress ret = addr;
     size_t bulk_granularity = 1024ull*1024*1024;
     size_t bulk_offset = ret.offset / bulk_granularity;
