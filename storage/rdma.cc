@@ -6609,8 +6609,9 @@ inv_resend:
     bool RDMA_Manager::Writer_Invalidate_Shared_RPC_Reply(int num_of_poll){
         ibv_mr* recv_mr = Get_local_read_mr();
         Page_Forward_Reply_Type* receive_pointer;
-
+        std::vector<int> history;
         for (int i = 0; i < num_of_poll; ++i) {
+            history.push_back(i);
             receive_pointer = (Page_Forward_Reply_Type*)((char*)recv_mr->addr + i*sizeof(Page_Forward_Reply_Type));
             asm volatile ("sfence\n" : : );
             asm volatile ("lfence\n" : : );
