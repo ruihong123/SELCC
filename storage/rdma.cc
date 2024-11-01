@@ -7721,8 +7721,8 @@ void RDMA_Manager::fs_deserilization(
 //        bool pending_reminder = receive_msg_buf->content.inv_message.pending_reminder;
         Slice upper_node_page_id((char*)&g_ptr, sizeof(GlobalAddress));
         assert(page_cache_ != nullptr);
-        printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p\n", node_id, target_node_id, g_ptr);
-        fflush(stdout);
+//        printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p\n", node_id, target_node_id, g_ptr);
+//        fflush(stdout);
         Cache::Handle* handle = page_cache_->Lookup(upper_node_page_id);
         Page_Forward_Reply_Type reply_type = waiting;
         ibv_mr* page_mr = nullptr;
@@ -7807,8 +7807,8 @@ void RDMA_Manager::fs_deserilization(
                                     target_node_id, qp_id, true, true);
                 handle->buffered_inv_mtx.unlock();
                 handle->rw_mtx.unlock();
-                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get processed, priority is %u\n", node_id, target_node_id, g_ptr, starv_level);
-                fflush(stdout);
+//                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get processed, priority is %u\n", node_id, target_node_id, g_ptr, starv_level);
+//                fflush(stdout);
                 break;
             case pending:
                 assert(false);
@@ -7822,8 +7822,8 @@ void RDMA_Manager::fs_deserilization(
                 RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey,
                                     sizeof(Page_Forward_Reply_Type),
                                     target_node_id, qp_id, true, true);
-                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
-                fflush(stdout);
+//                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+//                fflush(stdout);
                 break;
             default:
                 assert(false);
