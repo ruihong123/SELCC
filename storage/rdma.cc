@@ -4299,6 +4299,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                         }
 #endif
                         Writer_Invalidate_Shared_RPC(page_addr, iter, starvation_level, i);
+                        i++;
                     }else{
                         // This rare case is because under async read release, the cache mutex will be released before the read/write lock release.
                         // If there is another request comes in immediately for the same page before the lock release, this print
@@ -4306,7 +4307,6 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                         printf("read invalidation target is itself, this is rare case,, page_addr is %p, retry_cnt is %lu\n", page_addr, retry_cnt);
                         assert(false);
                     }
-                    i++;
                 }
 #ifdef PARALLEL_INVALIDATION
                 Writer_Invalidate_Shared_RPC_Reply(i);
