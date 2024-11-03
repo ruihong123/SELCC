@@ -203,10 +203,10 @@ vary_temp_locality () {
 #  compute_ARGS="-p$port -sf512 -sf1 -c4 -t200000 -f../connection.conf"
 #}
 
-auto_fill_params
+#auto_fill_params
 # run standard tpcc
 #run_tpcc
 #vary_thread_number
-vary_query_ratio
+vary_distro_ratio
 # vary_read_ratios
 #vary_temp_locality
