@@ -153,7 +153,7 @@ vary_query_ratio () {
 vary_distro_ratio () {
   #read_ratios=(0 30 50 70 90 100)
   thread_number=(8)
-  WarehouseNum=(256)
+  WarehouseNum=(512)
   FREQUENCY_DELIVERY=(100 0 0 0 0 1)
   FREQUENCY_PAYMENT=(0 100 0 0 0 10)
   FREQUENCY_NEW_ORDER=(0 0 100 0 0 10)
