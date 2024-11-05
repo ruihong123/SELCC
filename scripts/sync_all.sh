@@ -85,7 +85,7 @@ function run_bench() {
 #    ssh -o StrictHostKeyChecking=no $node "sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev libboost-all-dev" &
     rsync -a $home_dir $node:$home_dir
 #    ssh -o StrictHostKeyChecking=no $node "killall micro_bench memory_server_term > /dev/null 2>&1"
-    ssh -o StrictHostKeyChecking=no $node "sudo apt install libtbb-dev -y" &
+#    ssh -o StrictHostKeyChecking=no $node "sudo apt install libtbb-dev -y" &
     ssh -o StrictHostKeyChecking=no $node "pkill -f micro_bench" &
     ssh -o StrictHostKeyChecking=no $node "pkill -f memory_server_term" &
     ssh -o StrictHostKeyChecking=no $node "pkill -f tpcc" &

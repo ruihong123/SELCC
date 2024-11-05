@@ -69,13 +69,13 @@ function run_bench() {
   do
     echo "Set up the ${compute_shard[$n]}"
 #   flame graph: sudo apt install linux-tools-4.15.0-121-generic linux-cloud-tools-4.15.0-121-generic
-#    ssh -o StrictHostKeyChecking=no ${compute_shard[$n]}  "git clone https://github.com/google/cityhash && cd cityhash/ && ./configure && make all check CXXFLAGS='-g -O3' && sudo make install && cd .. && sudo apt-get update && sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev memcached libboost-all-dev" &
+    ssh -o StrictHostKeyChecking=no ${compute_shard[$n]}  "git clone https://github.com/google/cityhash && cd cityhash/ && ./configure && make all check CXXFLAGS='-g -O3' && sudo make install && cd .. && sudo apt-get update && sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev memcached libboost-all-dev libtbb-dev" &
     ssh -o StrictHostKeyChecking=no ${compute_shard[$n]}  "sudo mkdir /mnt/core_dump ; sudo mkfs.ext4 /dev/sda4 ; sudo mount /dev/sda4 /mnt/core_dump ; sudo chown -R Ruihong:purduedb-PG0 /mnt/core_dump" &
 
 #    ssh -o StrictHostKeyChecking=no ${compute_shard[n]} "screen -d -m pwd && cd /users/Ruihong/TimberSaw/build && git checkout $gitbranch && git pull &&  cmake -DCMAKE_BUILD_TYPE=Release .. && make db_bench Server -j 32 > /dev/null && sudo apt install numactl -y " &
 #    screen -d -m pwd && cd /users/Ruihong && git clone --recurse-submodules $github_repo && cd SELCC/ && mkdir release &&  cd release && cmake -DCMAKE_BUILD_TYPE=Release .. && sudo apt install numactl -y &&screen -d -m pwd && cd /users/Ruihong && git clone --recurse-submodules $github_repo && cd SELCC/ && mkdir release &&  cd release && cmake -DCMAKE_BUILD_TYPE=Release .. && sudo apt install numactl -y &&
     echo "Set up the ${memory_shard[$n]}"
-#    ssh -o StrictHostKeyChecking=no ${memory_shard[$n]}  "git clone https://github.com/google/cityhash && cd cityhash/ && ./configure && make all check CXXFLAGS='-g -O3' && sudo make install && cd .. && sudo apt-get update && sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev memcached libboost-all-dev" &
+    ssh -o StrictHostKeyChecking=no ${memory_shard[$n]}  "git clone https://github.com/google/cityhash && cd cityhash/ && ./configure && make all check CXXFLAGS='-g -O3' && sudo make install && cd .. && sudo apt-get update && sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev memcached libboost-all-dev libtbb-dev" &
     ssh -o StrictHostKeyChecking=no ${memory_shard[$n]}  "sudo mkdir /mnt/core_dump ; sudo mkfs.ext4 /dev/sda4 ; sudo mount /dev/sda4 /mnt/core_dump ; sudo chown -R Ruihong:purduedb-PG0 /mnt/core_dump" &
 #   git clone https://github.com/google/cityhash &&
 #    ssh -o StrictHostKeyChecking=no ${memory_shard[n]} "screen -d -m pwd && cd /users/Ruihong/TimberSaw/build && git checkout $gitbranch && git pull &&  cmake -DCMAKE_BUILD_TYPE=Release .. && make db_bench Server -j 32 > /dev/null && sudo apt install numactl -y" &
