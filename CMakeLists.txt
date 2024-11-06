@@ -120,7 +120,8 @@ add_executable(memory_server_term "server_termination.cc"
 add_executable(memory_server_tpcc "server_termination_tpcc.cc"
         "memory_node/memory_node_keeper.h"
         "memory_node/memory_node_keeper.cpp")
-add_executable(cpu_scale_test "CPU_cache_scalability.cpp")
+add_executable(cpu_scale_test "CPU_cache_scalability.cpp"
+        main.cpp)
 add_executable(btree_bench test/benchmark_btree.cpp)
 add_executable(micro_bench test/benchmark_micro.cpp)
 
