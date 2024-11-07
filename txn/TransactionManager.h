@@ -38,7 +38,9 @@ class TransactionManager {
       env_ = Env::Default();
       if(wal_log){
           if (!log_file){
-              Status ret = env_->NewWritableFile("/ssd_root/wang4996/logdump.txt", &log_file);
+//              Status ret = env_->NewWritableFile("/ssd_root/wang4996/logdump.txt", &log_file);
+              Status ret = env_->NewWritableFile("./logdump.txt", &log_file);
+
               if (!ret.ok()){
                   printf("cannot create log file\n");
                   fflush(stdout);
