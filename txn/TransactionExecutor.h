@@ -52,7 +52,7 @@ class TransactionExecutor {
         StorageManager* storage_manager_ = (StorageManager*)storage_ptr;
         size_t thread_count = 0;
         TransactionManager *txn_manager = new TransactionManager(
-                storage_manager_, thread_count, 0, true, false);
+                storage_manager_, thread_count, 0, LOGGING, false);
         auto rdma_mg = default_gallocator->rdma_mg;
         std::shared_lock<std::shared_mutex> read_lock(rdma_mg->user_df_map_mutex);
         if (rdma_mg->communication_queues.find(handler_id) == rdma_mg->communication_queues.end()){
