@@ -563,8 +563,11 @@ class PosixEnv : public Env {
 
   Status NewWritableFile(const std::string& filename,
                          WritableFile** result) override {
-    int fd = ::open(filename.c_str(),
-                    O_TRUNC | O_WRONLY | O_CREAT | kOpenBaseFlags, 0644);
+//    int fd = ::open(filename.c_str(),
+//                    O_TRUNC | O_WRONLY | O_CREAT | kOpenBaseFlags, 0644);
+        // use direct IO for log
+      int fd = ::open(filename.c_str(),
+                      O_TRUNC | O_WRONLY | O_CREAT | kOpenBaseFlags | O_DIRECT, 0644);
     if (fd < 0) {
       *result = nullptr;
       return PosixError(filename, errno);
