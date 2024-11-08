@@ -163,6 +163,75 @@ namespace DSMEngine {
 //      return false;
 //    }
   }
+    bool TransactionManager::CoordinatorPrepare()  {
+        PROFILE_TIME_START(thread_id_, CC_COMMIT);
+        if (log_enabled_) {
+            for (size_t i = 0; i < access_list_.access_count_; ++i) {
+                Access *access = access_list_.GetAccess(i);
+                Slice log_record = Slice(access->access_global_record_->data_ptr_,
+                                         access->access_global_record_->data_size_);
+                log_file->Append(log_record);
+            }
+        }
+
+        if(log_enabled_){
+            WritePrepareLog();
+        }
+//      assert(locked_handles_.size() == access_list_.access_count_);
+        assert(locked_handles_.size() >0);
+        for (auto iter : locked_handles_){
+            assert(iter.second.second == READ_ONLY ||
+                   iter.second.second == DELETE_ONLY ||
+                   iter.second.second == INSERT_ONLY ||
+                   iter.second.second == READ_WRITE);
+            GlobalAddress page_addr = iter.second.first->gptr;
+            if (iter.second.second == READ_ONLY){
+                assert(iter.second.first->remote_lock_status >= 1);
+
+                default_gallocator->SELCC_Shared_UnLock(iter.second.first->gptr, iter.second.first);
+                assert(iter.first == page_addr.val);
+//            printf("Threadid %zu Release read lock for nodeid %d, offset %lu lock handle number is %zu\n", thread_id_, page_addr.nodeID, page_addr.offset, locked_handles_.size());
+            }
+            else {
+                assert(iter.second.first->remote_lock_status == 2);
+                default_gallocator->SELCC_Exclusive_UnLock(iter.second.first->gptr, iter.second.first);
+//            printf("Threadid %zu Release write lock for nodeid %d, offset %lu lock handle number is %zu\n", thread_id_, page_addr.nodeID, page_addr.offset, locked_handles_.size());
+
+            }
+
+        }
+        //GC
+        for (size_t i = 0; i < access_list_.access_count_; ++i) {
+            Access* access = access_list_.GetAccess(i);
+//        if (log_enabled_){
+//            Slice log_record = Slice(access->access_global_record_->data_ptr_, access->access_global_record_->data_size_);
+//            log_file->Append(log_record);
+//        }
+            if (access->access_type_ == DELETE_ONLY) {
+                //TODO: implement the delete function.
+//        gallocators[thread_id_]->Free(access->access_addr_);
+//        access->access_addr_ = Gnullptr;
+            }
+//        printf("this access index is %zu\n",i);
+//        fflush(stdout);
+            delete access->access_global_record_;
+            access->access_global_record_ = nullptr;
+            access->access_addr_ = GlobalAddress::Null();
+            if (access->txn_local_tuple_!= nullptr){
+                assert(access->access_type_ == READ_WRITE);
+                delete access->txn_local_tuple_;
+                access->txn_local_tuple_ = nullptr;
+            }
+        }
+
+
+        participants.clear();
+
+        access_list_.Clear();
+        locked_handles_.clear();
+        PROFILE_TIME_END(thread_id_, CC_COMMIT);
+        return true;
+    }
 
   bool TransactionManager::CommitTransaction(TxnContext* context, 
       TxnParam* param, CharArray& ret_str) {
@@ -179,11 +248,12 @@ namespace DSMEngine {
       if (sharding_){
 //          assert(log_enabled_);
           if (log_enabled_ && !participants.empty()){
-              std::string ret_str_temp("Prepare\n");
-              Slice log_record = Slice(ret_str_temp.c_str(), ret_str_temp.size());
-              log_file->Append(log_record);
-              log_file->Flush();
-              log_file->Sync();
+              WritePrepareLog();
+//              std::string ret_str_temp("Prepare\n");
+//              Slice log_record = Slice(ret_str_temp.c_str(), ret_str_temp.size());
+//              log_file->Append(log_record);
+//              log_file->Flush();
+//              log_file->Sync();
           }
           bool success = true;
           for (auto iter : participants){

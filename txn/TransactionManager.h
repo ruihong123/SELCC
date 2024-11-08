@@ -152,13 +152,25 @@ class TransactionManager {
 
   bool CommitTransaction(TxnContext* context, TxnParam* param,
                          CharArray& ret_str);
+    bool CoordinatorPrepare();
+    void WritePrepareLog(){
+        if (log_enabled_){
+            std::string ret_str_temp("Prepare\n");
+            Slice log_record = Slice(ret_str_temp.c_str(), ret_str_temp.size());
+            log_file->Append(log_record);
+            log_file->Flush();
+//            log_file->Sync();
+        }
+
+
+    }
     void WriteCommitLog(){
         if (log_enabled_){
             std::string ret_str_temp("Commit\n");
             Slice log_record = Slice(ret_str_temp.c_str(), ret_str_temp.size());
             log_file->Append(log_record);
             log_file->Flush();
-            log_file->Sync();
+//            log_file->Sync();
         }
 
 
@@ -169,7 +181,7 @@ class TransactionManager {
         Slice log_record = Slice(ret_str_temp.c_str(), ret_str_temp.size());
         log_file->Append(log_record);
         log_file->Flush();
-        log_file->Sync();
+//        log_file->Sync();
 
     }
   void AbortTransaction();

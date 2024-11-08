@@ -94,7 +94,7 @@ class TransactionExecutor {
                     success = txn_manager->SearchRecord(nullptr, received_rdma_request.content.tuple_info.table_id, received_rdma_request.content.tuple_info.primary_key, record, (DSMEngine::AccessType)received_rdma_request.content.tuple_info.access_type);
                     break;
                 case prepare_2pc:
-                    success = txn_manager->CommitTransaction(nullptr, nullptr, dummy);
+                    success = txn_manager->CoordinatorPrepare();
                     break;
                 case commit_2pc:
                     txn_manager->WriteCommitLog();
