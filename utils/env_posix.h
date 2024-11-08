@@ -16,6 +16,7 @@
 #include "DSMEngine/env.h"
 #include "DSMEngine/slice.h"
 #include "DSMEngine/status.h"
+#include "utils/mutexlock.h"
 //#include "DSMEngine/env.h"
 //#include "TimberSaw/options.h"
 //#include "util/posix_logger.h"
@@ -361,7 +362,7 @@ class PosixWritableFile final : public WritableFile {
   }
 
   Status Sync() override {
-      std::unique_lock<std::SpinMutex> lock(mutex_);
+      std::unique_lock<SpinMutex> lock(mutex_);
 
       // Ensure new files referred to by the manifest are in the filesystem.
     //
