@@ -316,7 +316,7 @@ class PosixWritableFile final : public WritableFile {
   }
 
   Status Append(const Slice& data) override {
-      std::unique_lock<std::mutex> lock(mutex_);
+      std::unique_lock<SpinMutex> lock(mutex_);
       size_t write_size = data.size();
     const char* write_data = data.data();
 
@@ -356,12 +356,12 @@ class PosixWritableFile final : public WritableFile {
   }
 
   Status Flush() override {
-      std::unique_lock<std::mutex> lock(mutex_);
+      std::unique_lock<SpinMutex> lock(mutex_);
       return FlushBuffer();
   }
 
   Status Sync() override {
-      std::unique_lock<std::mutex> lock(mutex_);
+      std::unique_lock<std::SpinMutex> lock(mutex_);
 
       // Ensure new files referred to by the manifest are in the filesystem.
     //
@@ -493,7 +493,8 @@ class PosixWritableFile final : public WritableFile {
   const bool is_manifest_;  // True if the file's name starts with MANIFEST.
   const std::string filename_;
   const std::string dirname_;  // The directory of filename_.
-  std::mutex mutex_;
+//  std::mutex mutex_;
+  SpinMutex mutex_;
 };
 
 //template<typename ReturnType, typename ArgsType>
