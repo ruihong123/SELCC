@@ -583,6 +583,7 @@ class PosixEnv : public Env {
       return PosixError(filename, errno);
     }
 
+
     *result = new PosixWritableFile(filename, fd);
     return Status::OK();
   }
