@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include "utils/TimeMeasurer.h"
 #include <unistd.h>
 #include "DSMEngine/env.h"
 #include "DSMEngine/slice.h"
@@ -55,8 +56,8 @@ constexpr const int kOpenBaseFlags = O_CLOEXEC;
 static constexpr const int kOpenBaseFlags = 0;
 #endif  // defined(HAVE_O_CLOEXEC)
 
-//static constexpr const size_t kWritableFileBufferSize = 16777216;
-    static constexpr const size_t kWritableFileBufferSize = 8192;
+static constexpr const size_t kWritableFileBufferSize = 16777216;
+//    static constexpr const size_t kWritableFileBufferSize = 8192;
 
 static Status PosixError(const std::string& context, int error_number) {
   if (error_number == ENOENT) {
@@ -300,7 +301,7 @@ class PosixMmapReadableFile final : public RandomAccessFile {
   Limiter* const mmap_limiter_;
   const std::string filename_;
 };
-
+#define GROUP_SIZE 8
 class PosixWritableFile final : public WritableFile {
  public:
   PosixWritableFile(std::string filename, int fd)
@@ -308,7 +309,10 @@ class PosixWritableFile final : public WritableFile {
         fd_(fd),
         is_manifest_(IsManifest(filename)),
         filename_(std::move(filename)),
-        dirname_(Dirname(filename_)) {}
+        dirname_(Dirname(filename_)) {
+      wait_number.store(0);
+      ticket_number.store(0);
+  }
 
   ~PosixWritableFile() override {
     if (fd_ >= 0) {
@@ -361,28 +365,63 @@ class PosixWritableFile final : public WritableFile {
       std::unique_lock<SpinMutex> lock(mutex_);
       return FlushBuffer();
   }
-
   Status Sync() override {
+      // implement a group commit below.
+      Status status;
       std::unique_lock<SpinMutex> lock(mutex_);
+      int my_wait_number = wait_number.fetch_add(1);
+      uint64_t current_ticket = ticket_number.load();
+      if(my_wait_number == GROUP_SIZE - 1){
+          wait_number.store(0);
+          ticket_number.fetch_add(1);
+          status = FlushBuffer();
+          if (!status.ok()) {
+              return status;
+          }
 
-      // Ensure new files referred to by the manifest are in the filesystem.
-    //
-    // This needs to happen before the manifest file is flushed to disk, to
-    // avoid crashing in a state where the manifest refers to files that are not
-    // yet on disk.
-    Status status = SyncDirIfManifest();
-    if (!status.ok()) {
-      return status;
-    }
+          return SyncFd(fd_, filename_);
+      }else{
+          //wait for at most 1 ms, then do the sync in one of the threads.
+            lock.unlock();
+            TimeMeasurer timer;
+            timer.StartTimer();
+            timer.EndTimer();
+            while(ticket_number.load() == current_ticket && timer.GetElapsedMicroSeconds() < 1000){
+                //no op
+                timer.EndTimer();
+            }
+            if(ticket_number.load() == current_ticket && my_wait_number == 0){
+                wait_number.store(0);
+                ticket_number.fetch_add(1);
+                status = FlushBuffer();
+                if (!status.ok()) {
+                    return status;
+                }
+                //do the sync
+                return SyncFd(fd_, filename_);
+            }
 
-    status = FlushBuffer();
-    if (!status.ok()) {
-      return status;
-    }
-
-    return SyncFd(fd_, filename_);
+      }
+      return Status::OK();
   }
-
+//    Status Sync() override {
+//        // Ensure new files referred to by the manifest are in the filesystem.
+//        //
+//        // This needs to happen before the manifest file is flushed to disk, to
+//        // avoid crashing in a state where the manifest refers to files that are not
+//        // yet on disk.
+//        Status status = SyncDirIfManifest();
+//        if (!status.ok()) {
+//            return status;
+//        }
+//
+//        status = FlushBuffer();
+//        if (!status.ok()) {
+//            return status;
+//        }
+//
+//        return SyncFd(fd_, filename_);
+//    }
  private:
   Status FlushBuffer() {
     Status status = WriteUnbuffered(buf_, pos_);
@@ -428,6 +467,10 @@ class PosixWritableFile final : public WritableFile {
   // The path argument is only used to populate the description string in the
   // returned Status if an error occurs.
   static Status SyncFd(int fd, const std::string& fd_path) {
+
+
+
+
 #if HAVE_FULLFSYNC
     // On macOS and iOS, fsync() doesn't guarantee durability past power
     // failures. fcntl(F_FULLFSYNC) is required for that purpose. Some
@@ -441,6 +484,8 @@ class PosixWritableFile final : public WritableFile {
 #if HAVE_FDATASYNC
     bool sync_success = ::fdatasync(fd) == 0;
 #else
+    // group commit, the fsync is called whenthere  are GROUP_SIZE threads waiting to be flushed.
+
     bool sync_success = ::fsync(fd) == 0;
 #endif  // HAVE_FDATASYNC
 
@@ -491,12 +536,15 @@ class PosixWritableFile final : public WritableFile {
   char buf_[kWritableFileBufferSize];
   size_t pos_;
   int fd_;
+  std::atomic<int> wait_number;
+  std::atomic<uint64_t> ticket_number;
 
   const bool is_manifest_;  // True if the file's name starts with MANIFEST.
   const std::string filename_;
   const std::string dirname_;  // The directory of filename_.
 //  std::mutex mutex_;
   SpinMutex mutex_;
+  std::condition_variable cv_;
 };
 
 //template<typename ReturnType, typename ArgsType>
@@ -563,11 +611,11 @@ class PosixEnv : public Env {
 
   Status NewWritableFile(const std::string& filename,
                          WritableFile** result) override {
-//    int fd = ::open(filename.c_str(),
-//                    O_TRUNC | O_WRONLY | O_CREAT | kOpenBaseFlags, 0644);
+    int fd = ::open(filename.c_str(),
+                    O_TRUNC | O_WRONLY | O_CREAT | kOpenBaseFlags, 0644);
         // use direct IO for log
-      int fd = ::open(filename.c_str(),
-                      O_TRUNC | O_WRONLY | O_CREAT | kOpenBaseFlags | O_DIRECT, 0644);
+//      int fd = ::open(filename.c_str(),
+//                      O_TRUNC | O_WRONLY | O_CREAT | kOpenBaseFlags | O_DIRECT, 0644);
     if (fd < 0) {
       *result = nullptr;
       return PosixError(filename, errno);
