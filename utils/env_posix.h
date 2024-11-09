@@ -386,20 +386,35 @@ class PosixWritableFile final : public WritableFile {
             TimeMeasurer timer;
             timer.StartTimer();
             timer.EndTimer();
-            while(ticket_number.load() == current_ticket && timer.GetElapsedMicroSeconds() < 1000){
-                //no op
-                timer.EndTimer();
-            }
-            if(ticket_number.load() == current_ticket && my_wait_number == 0){
-                wait_number.store(0);
-                ticket_number.fetch_add(1);
-                status = FlushBuffer();
-                if (!status.ok()) {
-                    return status;
-                }
-                //do the sync
-                return SyncFd(fd_, filename_);
-            }
+          switch (my_wait_number) {
+              case 0:
+                  // the first thread will do the sync.
+                  while(ticket_number.load() == current_ticket && timer.GetElapsedMicroSeconds() < 20){
+                      //no op
+                      timer.EndTimer();
+                  }
+                  if(ticket_number.load() == current_ticket) {
+                      lock.lock();
+                      if (ticket_number.load() == current_ticket) {
+                          wait_number.store(0);
+                          ticket_number.fetch_add(1);
+                          status = FlushBuffer();
+                          if (!status.ok()) {
+                              return status;
+                          }
+                          //do the sync
+                          return SyncFd(fd_, filename_);
+                      }
+                  }
+                  break;
+              default:
+                  while(ticket_number.load() == current_ticket ){
+                      //no op
+                  }
+
+          }
+
+
 
       }
       return Status::OK();
