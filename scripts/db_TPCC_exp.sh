@@ -103,8 +103,8 @@ run_tpcc () {
 }
 run_tpcc_dist () {
 #  dist_ratios=(0 10 20 30 40 50 60 70 80 90 100)
-  dist_ratios=(0 30 60 100)
-#  dist_ratios=(0)
+#  dist_ratios=(0 30 60 100)
+  dist_ratios=(0)
 #  dist_ratios=(100)
 
   for dist_ratio in ${dist_ratios[@]}; do
@@ -154,7 +154,7 @@ vary_query_ratio () {
 
 vary_distro_ratio () {
   #read_ratios=(0 30 50 70 90 100)
-  thread_number=(32)
+  thread_number=(8 16 32)
   WarehouseNum=(256)
   FREQUENCY_DELIVERY=(100 0 0 0 0 1)
   FREQUENCY_PAYMENT=(0 100 0 0 0 10)
