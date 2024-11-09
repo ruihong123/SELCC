@@ -301,7 +301,7 @@ class PosixMmapReadableFile final : public RandomAccessFile {
   Limiter* const mmap_limiter_;
   const std::string filename_;
 };
-#define GROUP_SIZE 8
+#define GROUP_SIZE 16
 class PosixWritableFile final : public WritableFile {
  public:
   PosixWritableFile(std::string filename, int fd)
