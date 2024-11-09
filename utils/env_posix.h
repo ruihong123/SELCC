@@ -504,7 +504,8 @@ class PosixWritableFile final : public WritableFile {
 #else
     // group commit, the fsync is called whenthere  are GROUP_SIZE threads waiting to be flushed.
 
-    bool sync_success = ::fsync(fd) == 0;
+//    bool sync_success = ::fsync(fd) == 0;
+    bool sync_success = ::fdatasync(fd) == 0;
 #endif  // HAVE_FDATASYNC
 
     if (sync_success) {
