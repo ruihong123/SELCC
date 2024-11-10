@@ -90,12 +90,6 @@ struct config_t {
   uint16_t node_id;
 //  Cache* cache_prt;
 };
-//enum Multi_Exchange_Type {
-//    invalid_ME = 0,
-//    exchange_qps,
-//    compute_synchronization
-//};
-
 
 /* structure to exchange data which is needed to connect the QPs */
 struct Registered_qp_config {
@@ -113,10 +107,7 @@ struct Registered_qp_config_xcompute {
     uint8_t gid[16]; /* gid */
     uint32_t node_id_pairs; // this node (16 bytes) & target nodeid <<16 (16 bytes)
 } __attribute__((packed));
-//struct Multinode_Exchange_request{
-//    Multi_Exchange_Type type;
-//    Registered_qp_config qp_info;
-//};
+
 using QP_Map = std::map<uint16_t, ibv_qp*>;
 using QP_Info_Map = std::map<uint16_t, Registered_qp_config*>;
 using CQ_Map = std::map<uint16_t, ibv_cq*>;
