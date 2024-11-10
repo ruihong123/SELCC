@@ -49,6 +49,8 @@ class TransactionExecutor {
     return perf_statistics_;
   }
   static void ProcessQueryThread_2PC_Participant(void* storage_ptr, uint32_t handler_id) {
+        uint32_t dummy_thread_id = 0;
+        bindCore(dummy_thread_id);
         StorageManager* storage_manager_ = (StorageManager*)storage_ptr;
         size_t thread_count = 0;
         TransactionManager *txn_manager = new TransactionManager(
