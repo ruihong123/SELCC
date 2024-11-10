@@ -508,7 +508,7 @@ class PaymentProcedure : public StoredProcedure {
       Cache::Handle *history_handle = nullptr;
       char* history_buffer = nullptr;
       GlobalAddress history_gaddr;
-      Record *history_record;
+      Record *history_record = nullptr;
 //      = new Record(
 //              transaction_manager_->storage_manager_->
 //                      tables_[HISTORY_TABLE_ID]->GetSchema(), history_buffer);
