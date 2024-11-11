@@ -72,7 +72,7 @@ class TransactionExecutor {
         while (!rdma_mg->handler_is_finish.load()){
             std::unique_lock<std::mutex> lock(*communication_mtx);
 //            communication_cv->wait(lock);
-            communication_cv->wait(lock, [&] { return !communication_queue.empty(); });
+            communication_cv->wait(lock, [&] { return !communication_queue.empty() || rdma_mg->handler_is_finish.load(); });
 
             // The predicate below can be deleted.
             if (communication_queue.empty()){
