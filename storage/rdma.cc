@@ -353,11 +353,11 @@ bool RDMA_Manager::poll_reply_buffer(RDMA_Reply* rdma_reply) {
             iter.second->notify_all();
         }
 
-        // join all the handling thread. and deallocate all the communication states.
-        for(auto& iter : user_defined_functions_handler){
-            iter.join();
-        }
-        user_defined_functions_handler.clear();
+//        // join all the handling thread. and deallocate all the communication states.
+//        for(auto& iter : user_defined_functions_handler){
+//            iter.join();
+//        }
+//        user_defined_functions_handler.clear();
 //        for(auto iter : communication_queues){
 //            delete iter.second;
 //        }
