@@ -84,7 +84,7 @@ function run_bench() {
     echo "Rsync the $node rsync -a $home_dir $node:$home_dir"
 #    ssh -o StrictHostKeyChecking=no $node "sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev libboost-all-dev" &
 
-    ssh -o StrictHostKeyChecking=no $node  "sudo umount /mnt/core_dump & rm /mnt/core_dump/core*"
+#    ssh -o StrictHostKeyChecking=no $node  "sudo umount /mnt/core_dump & rm /mnt/core_dump/core*"
     rsync -a $home_dir $node:$home_dir
 #    ssh -o StrictHostKeyChecking=no $node "killall micro_bench memory_server_term > /dev/null 2>&1"
 #    ssh -o StrictHostKeyChecking=no $node "sudo apt install libtbb-dev -y" &
@@ -100,7 +100,7 @@ function run_bench() {
 #    ssh ${ssh_opts} $node "sudo mkdir /mnt/core_dump && sudo mkfs.ext4 /dev/sda4 && sudo mount /dev/sda4 /mnt/core_dump"
 
     ssh ${ssh_opts} $node "echo '$core_dump_dir/core$compute' | sudo tee /proc/sys/kernel/core_pattern ;  sudo chown -R Ruihong:purduedb-PG0 /mnt/core_dump" &
-#    ssh -o StrictHostKeyChecking=no $node  "sudo mount /dev/sda4 /mnt/core_dump" &
+    ssh -o StrictHostKeyChecking=no $node  "sudo mount /dev/sda4 /mnt/core_dump" &
 
 #    ssh -o StrictHostKeyChecking=no $node "sudo /etc/init.d/openibd restart" &
 #    ssh -o StrictHostKeyChecking=no $node "sudo mst start" &
@@ -110,7 +110,7 @@ function run_bench() {
   do
     echo "Rsync the $node rsync -a $home_dir $node:$home_dir"
 #    ssh -o StrictHostKeyChecking=no $node "sudo apt-get install -y libnuma-dev numactl htop libmemcached-dev libboost-all-dev" &
-    ssh -o StrictHostKeyChecking=no $node  "sudo umount /mnt/core_dump & rm /mnt/core_dump/core*"
+#    ssh -o StrictHostKeyChecking=no $node  "sudo umount /mnt/core_dump & rm /mnt/core_dump/core*"
     rsync -a $home_dir $node:$home_dir
 
 #    ssh -o StrictHostKeyChecking=no $node "killall micro_bench memory_server_term > /dev/null 2>&1"
@@ -127,7 +127,7 @@ function run_bench() {
 
     ssh ${ssh_opts} $node "echo '$core_dump_dir/core$compute' | sudo tee /proc/sys/kernel/core_pattern ; sudo chown -R Ruihong:purduedb-PG0 /mnt/core_dump" &
 
-#    ssh -o StrictHostKeyChecking=no $node  "sudo mount /dev/sda4 /mnt/core_dump" &
+    ssh -o StrictHostKeyChecking=no $node  "sudo mount /dev/sda4 /mnt/core_dump" &
 
 #    ssh -o StrictHostKeyChecking=no $node "sudo /etc/init.d/openibd restart" &
 #    ssh -o StrictHostKeyChecking=no $node "sudo mst start" &
