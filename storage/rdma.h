@@ -346,8 +346,6 @@ class In_Use_Array {
   SpinMutex mtx;
   ibv_mr* mr_ori_;
   std::atomic<bool> Array_used_up = false;
-
-  //  int type_;
 };
 /* structure of system resources */
 struct resources {

@@ -118,7 +118,7 @@ extern bool Show_Me_The_Print;
 #define MAX_INLINE_SIZE 256
 //#define ASYNC_UNLOCK
 #define INVALIDATION_STATISTICS
-#define ACCESS_MODE 0 // 0 No cache no sharding, 1 cache with CC protocol, 2 sharding.
+#define ACCESS_MODE 1 // 0 No cache no sharding, 1 cache with CC protocol, 2 sharding.
 #define SYNC_XALL_OFFSET (16384*2)
 #define GLOBAL_HANDOVER
 #define PARALLEL_INVALIDATION
