@@ -170,6 +170,7 @@ class TransactionManager {
             Slice log_record = Slice(ret_str_temp.c_str(), ret_str_temp.size());
             log_file->Append(log_record);
 //            log_file->Flush();
+            // if there is two phase commit, then this file sync is not necessary
             log_file->Sync();
         }
 

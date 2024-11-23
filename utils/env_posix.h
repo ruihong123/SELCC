@@ -393,7 +393,7 @@ class PosixWritableFile final : public WritableFile {
               case 0:
                   // the first thread will do the sync.
 //                  auto last_wait_number = wait_number.load();
-                  while(ticket_number.load() == current_ticket && timer.GetElapsedMicroSeconds() < 1){
+                  while(ticket_number.load() == current_ticket && timer.GetElapsedMicroSeconds() < 10){
 
                       //no op
                       timer.EndTimer();
