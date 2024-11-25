@@ -244,7 +244,9 @@ namespace DSMEngine {
               log_file->Append(log_record);
           }
       }
-
+//      if (log_enabled_){
+//          WritePrepareLog();
+//      }
       if (sharding_){
 //          assert(log_enabled_);
           if (log_enabled_ && !participants.empty()){
