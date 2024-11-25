@@ -99,10 +99,10 @@ class TransactionExecutor {
                     success = txn_manager->CoordinatorPrepare();
                     break;
                 case commit_2pc:
-                    txn_manager->WriteCommitLog();
+                    txn_manager->CoordinatorCommit();
                     break;
                 case abort_2pc:
-                    txn_manager->AbortTransaction();
+                    txn_manager->CoordinatorAbort();
                     break;
                 default:
                     assert(false);
