@@ -1,8 +1,5 @@
 #ifndef RDMA_H
 #define RDMA_H
-
-
-#define REMOTE_DEALLOC_BUFF_SIZE (128 + 128) * sizeof(uint64_t)
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,29 +37,10 @@
 #include <list>
 #include <cstdint>
 #include "utils/TimeMeasurer.h"
-//#include "DSMEngine/cache.h"
+#define REMOTE_DEALLOC_BUFF_SIZE (128 + 128) * sizeof(uint64_t)
 
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-//template <typename T>
-//  static inline T hton(T u) {
-//  static_assert (CHAR_BIT == 8, "CHAR_BIT != 8");
-//
-//  union
-//  {
-//    T u;
-//    unsigned char u8[sizeof(T)];
-//  } source, dest;
-//
-//  source.u = u;
-//
-//  for (size_t k = 0; k < sizeof(T); k++)
-//    dest.u8[k] = source.u8[sizeof(T) - k - 1];
-//
-//  return dest.u;
-//}
-//  static inline uint64_t htonll(uint64_t x) { return bswap_64(x); }
-//  static inline uint64_t ntohll(uint64_t x) { return bswap_64(x); }
 #elif __BYTE_ORDER == __BIG_ENDIAN
   static inline uint64_t htonll(uint64_t x) { return x; }
   static inline uint64_t ntohll(uint64_t x) { return x; }

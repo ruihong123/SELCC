@@ -2,6 +2,7 @@
 *.sw*
 .vscode
 .DS_Store
+.idea
 
 # Build directory.
 build/
@@ -12,3 +13,6 @@ debug/
 out/
 /cmake-build-debug/include/
 /cmake-build-debug/
+scripts/data/*
+scripts/data/0_tpcc.log
+scripts/*.txt
