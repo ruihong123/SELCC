@@ -130,7 +130,6 @@ struct Prepare {
 struct Commit{
     bool log_enabled;
     uint16_t thread_id;
-
 //    size_t buffer_size;
 } __attribute__((packed));
 struct Abort{

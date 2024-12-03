@@ -19,8 +19,6 @@ include_directories(
         "${PROJECT_SOURCE_DIR}/tpcc"
         "${PROJECT_SOURCE_DIR}/bench"
         "${PROJECT_SOURCE_DIR}/utils"
-#        "${PROJECT_SOURCE_DIR}/third_party/googletest/googlemock"
-#        "${PROJECT_SOURCE_DIR}/third_party/googletest/googletest"
         )
 
 add_library(DSMEngine utils/Local_opt_locks.cpp utils/Local_opt_locks.h btr/btr_itr.cpp)
@@ -33,24 +31,19 @@ target_sources(DSMEngine
         "port/port_posix.h"
         "port/port_posix.cc"
         "port/port.h"
-
         "utils/arena.cc"
         "utils/arena.h"
         "utils/autovector.h"
         "utils/concurrent_arena.cc"
         "utils/concurrent_arena.h"
         "utils/core_local.h"
-#        "utils/bloom.cc"
-#        "utils/bloom_impl.h"
         "storage/cache.cc"
-        #    "utils/clock.cc"
         "utils/coding.cc"
         "utils/coding.h"
         "storage/Common.cpp"
         "utils/comparator.cc"
         "utils/crc32c.cc"
         "utils/crc32c.h"
-
         "utils/fastrange.h"
         "utils/filter_policy.cc"
         "utils/hash.cc"
@@ -59,9 +52,6 @@ target_sources(DSMEngine
         "utils/logging.h"
         "utils/mutexlock.h"
         "utils/mutexlock.cpp"
-#        "utils/epic_log.h"
-#        "utils/epic_log.cc"
-
         "storage/page.cpp"
         "storage/page.h"
         "storage/Record.h"
@@ -138,7 +128,6 @@ file(GLOB TPCC_DEPENDENCY
 )
 add_executable(tpcc ${TPCC_DEPENDENCY})
 target_link_libraries(tpcc DSMEngine)
-#target_link_libraries(TestTrial DSMEngine)
 target_link_libraries(memory_server DSMEngine)
 target_link_libraries(memory_server_term DSMEngine)
 target_link_libraries(memory_server_tpcc DSMEngine)

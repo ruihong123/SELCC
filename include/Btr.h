@@ -158,8 +158,8 @@ namespace DSMEngine {
         static thread_local size_t round_robin_cur;
 
         // static thread_local int coro_id;
-        static thread_local CoroCall worker[define::kMaxCoro];
-        static thread_local CoroCall master;
+        // static thread_local CoroCall worker[define::kMaxCoro];
+        // static thread_local CoroCall master;
         static thread_local std::shared_mutex *lock_coupling_memo[define::kMaxLevelOfTree];
         static thread_local SearchResult<Key, Value> *search_result_memo;
         std::vector<LocalLockNode *> local_locks;
@@ -254,8 +254,7 @@ namespace DSMEngine {
                                   Cache::Handle *handle = nullptr, CoroContext *cxt = nullptr, int coro_id = 0);
 
         bool leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key, Value> &result, int level,
-                              CoroContext *cxt,
-                              int coro_id);
+                              CoroContext *cxt,int coro_id);
 //        void internal_page_search(const Key &k, SearchResult &result);
 
 //    void leaf_page_search(LeafPage *page, const Key &k, SearchResult &result);

@@ -21,10 +21,10 @@ namespace DSMEngine {
 //    volatile bool need_stop = false;
     template <typename Key, typename Value>
     thread_local size_t Btr<Key,Value>::round_robin_cur = 0;
-    template <typename Key, typename Value>
-    thread_local CoroCall Btr<Key,Value>::worker[define::kMaxCoro];
-    template <typename Key, typename Value>
-    thread_local CoroCall Btr<Key,Value>::master;
+    // template <typename Key, typename Value>
+    // thread_local CoroCall Btr<Key,Value>::worker[define::kMaxCoro];
+    // template <typename Key, typename Value>
+    // thread_local CoroCall Btr<Key,Value>::master;
 //thread_local GlobalAddress path_stack[define::kMaxCoro]
 //                                     [define::kMaxLevelOfTree];
     template <typename Key, typename Value>
@@ -1008,7 +1008,7 @@ namespace DSMEngine {
             }
 
         }
-        assert(level = target_level);
+        assert(level == target_level);
         //Insert to target level
         Key split_key;
         GlobalAddress sibling_prt;
