@@ -516,7 +516,7 @@ namespace DSMEngine {
 
         access_list_.Clear();
         locked_handles_.clear();
-
+        return true;
 //        PROFILE_TIME_END(thread_id_, CC_ABORT);
     }
 

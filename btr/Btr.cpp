@@ -494,73 +494,73 @@ namespace DSMEngine {
 //        //   // std::cout << "------------------------------------" << std::endl;
 //        // }
 //    }
-    template <typename Key, typename Value>
-    GlobalAddress Btr<Key,Value>::query_cache(const Key &k) { return GlobalAddress::Null(); }
-    template <typename Key, typename Value>
-    inline bool Btr<Key,Value>::try_lock_addr(GlobalAddress lock_addr, uint64_t tag,
-                                              ibv_mr *buf, CoroContext *cxt, int coro_id) {
-//  auto &pattern_cnt = pattern[rdma_mg->getMyThreadID()][lock_addr.nodeID];
-
-        bool hand_over = acquire_local_lock(lock_addr, cxt, coro_id);
-        if (hand_over) {
-            return true;
-        }
-
-        {
-
-            uint64_t retry_cnt = 0;
-            uint64_t pre_tag = 0;
-            uint64_t conflict_tag = 0;
-            retry:
-            retry_cnt++;
-            if (retry_cnt > 3000) {
-                std::cout << "Deadlock " << lock_addr << std::endl;
-
-                std::cout << rdma_mg->GetMemoryNodeNum() << ", "
-                          << " locked by node  " << (conflict_tag) << std::endl;
-                assert(false);
-                exit(0);
-            }
-            *(uint64_t *)buf->addr = 0;
-            rdma_mg->RDMA_CAS(lock_addr, buf, 0, tag, IBV_SEND_SIGNALED,1, LockTable);
-            if ((*(uint64_t*) buf->addr) == 0){
-                conflict_tag = *(uint64_t*)buf->addr;
-                if (conflict_tag != pre_tag) {
-                    retry_cnt = 0;
-                    pre_tag = conflict_tag;
-                }
-//      lock_fail[rdma_mg->getMyThreadID()][0]++;
-                goto retry;
-            }
-//    std::cout << "Successfully lock the " << lock_addr << std::endl;
-
-        }
-
-        return true;
-    }
-    template <typename Key, typename Value>
-    inline void Btr<Key,Value>::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro_id, bool async) {
-
-        bool hand_over_other = can_hand_over(lock_addr);
-        if (hand_over_other) {
-            releases_local_lock(lock_addr);
-            return;
-        }
-
-        auto cas_buf = rdma_mg->Get_local_CAS_mr();
-//    std::cout << "unlock " << lock_addr << std::endl;
-        *(uint64_t*)cas_buf->addr = 0;
-        if (async) {
-            // send flag 0 means there is no flag
-            rdma_mg->RDMA_Write(lock_addr, cas_buf,  sizeof(uint64_t), 0,0,LockTable);
-        } else {
-//      std::cout << "Unlock the remote lock" << lock_addr << std::endl;
-            rdma_mg->RDMA_Write(lock_addr, cas_buf,  sizeof(uint64_t), IBV_SEND_SIGNALED,1,LockTable);
-        }
-//    printf( "release the remote lock at  %p\n", lock_addr);
-
-        releases_local_lock(lock_addr);
-    }
+//    template <typename Key, typename Value>
+//    GlobalAddress Btr<Key,Value>::query_cache(const Key &k) { return GlobalAddress::Null(); }
+//    template <typename Key, typename Value>
+//    inline bool Btr<Key,Value>::try_lock_addr(GlobalAddress lock_addr, uint64_t tag,
+//                                              ibv_mr *buf, CoroContext *cxt, int coro_id) {
+////  auto &pattern_cnt = pattern[rdma_mg->getMyThreadID()][lock_addr.nodeID];
+//
+//        bool hand_over = acquire_local_lock(lock_addr, cxt, coro_id);
+//        if (hand_over) {
+//            return true;
+//        }
+//
+//        {
+//
+//            uint64_t retry_cnt = 0;
+//            uint64_t pre_tag = 0;
+//            uint64_t conflict_tag = 0;
+//            retry:
+//            retry_cnt++;
+//            if (retry_cnt > 3000) {
+//                std::cout << "Deadlock " << lock_addr << std::endl;
+//
+//                std::cout << rdma_mg->GetMemoryNodeNum() << ", "
+//                          << " locked by node  " << (conflict_tag) << std::endl;
+//                assert(false);
+//                exit(0);
+//            }
+//            *(uint64_t *)buf->addr = 0;
+//            rdma_mg->RDMA_CAS(lock_addr, buf, 0, tag, IBV_SEND_SIGNALED,1, LockTable);
+//            if ((*(uint64_t*) buf->addr) == 0){
+//                conflict_tag = *(uint64_t*)buf->addr;
+//                if (conflict_tag != pre_tag) {
+//                    retry_cnt = 0;
+//                    pre_tag = conflict_tag;
+//                }
+////      lock_fail[rdma_mg->getMyThreadID()][0]++;
+//                goto retry;
+//            }
+////    std::cout << "Successfully lock the " << lock_addr << std::endl;
+//
+//        }
+//
+//        return true;
+//    }
+//    template <typename Key, typename Value>
+//    inline void Btr<Key,Value>::unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro_id, bool async) {
+//
+//        bool hand_over_other = can_hand_over(lock_addr);
+//        if (hand_over_other) {
+//            releases_local_lock(lock_addr);
+//            return;
+//        }
+//
+//        auto cas_buf = rdma_mg->Get_local_CAS_mr();
+////    std::cout << "unlock " << lock_addr << std::endl;
+//        *(uint64_t*)cas_buf->addr = 0;
+//        if (async) {
+//            // send flag 0 means there is no flag
+//            rdma_mg->RDMA_Write(lock_addr, cas_buf,  sizeof(uint64_t), 0,0,LockTable);
+//        } else {
+////      std::cout << "Unlock the remote lock" << lock_addr << std::endl;
+//            rdma_mg->RDMA_Write(lock_addr, cas_buf,  sizeof(uint64_t), IBV_SEND_SIGNALED,1,LockTable);
+//        }
+////    printf( "release the remote lock at  %p\n", lock_addr);
+//
+//        releases_local_lock(lock_addr);
+//    }
 //    template <typename Key, typename Value>
 //    void Btr<Key,Value>::lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
 //                                            int page_size, ibv_mr *cas_buffer,
@@ -856,68 +856,68 @@ namespace DSMEngine {
 //        return 0;
 //    }
 //
-    template <typename Key, typename Value>
-
-    void Btr<Key,Value>::global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
-                                                    GlobalAddress lock_addr,
-                                                    ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id,
-                                                    Cache::Handle *handle) {
-        rdma_mg->global_Rlock_and_read_page_with_INVALID(page_buffer, page_addr, page_size, lock_addr, cas_buffer,
-                                                         tag, cxt, coro_id);
-        handle->remote_lock_status.store(1);
-
-    }
-    template <typename Key, typename Value>
-    bool Btr<Key,Value>::global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
-                                             Cache::Handle *handle) {
-        assert(handle->remote_lock_status.load() == 1);
-        bool succfully_updated = rdma_mg->global_Rlock_update(nullptr, lock_addr, cas_buffer);
-        if (succfully_updated){
-            handle->remote_lock_status.store(2);
-            assert(handle->gptr == (((LeafPage<Key,Value>*)(((ibv_mr*)handle->value)->addr))->hdr.this_page_g_ptr));
-            return true;
-        }else{
-            assert(handle->remote_lock_status.load() == 1);
-            return false;
-
-        }
-
-    }
-    template <typename Key, typename Value>
-    void Btr<Key,Value>::global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
-                                                                 GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag,
-                                                                 CoroContext *cxt, int coro_id, Cache::Handle *handle) {
-
-        rdma_mg->global_Wlock_and_read_page_with_INVALID(page_buffer, page_addr, page_size, lock_addr, cas_buffer,
-                                                         tag, cxt, coro_id);
-        assert(handle->gptr == (((LeafPage<Key,Value>*)(((ibv_mr*)handle->value)->addr))->hdr.this_page_g_ptr));
-        handle->remote_lock_status.store(2);
-    }
-    template <typename Key, typename Value>
-    void Btr<Key,Value>::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
-                                        Cache::Handle *handle) {
-        rdma_mg->global_RUnlock(lock_addr, cas_buffer, false, nullptr);
-        handle->remote_lock_status.store(0);
-    }
-
-    template <typename Key, typename Value> void Btr<Key,Value>::global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
-                                                                                               GlobalAddress lock_addr,
-                                                                                               CoroContext *cxt, int coro_id, Cache::Handle *handle, bool async) {
-        rdma_mg->global_write_page_and_Wunlock(page_buffer, page_addr, size, lock_addr, handle, async);
-        handle->remote_lock_status.store(0);
-    }
-    template <typename Key, typename Value> void Btr<Key,Value>::global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
-                                                                                                GlobalAddress lock_addr,
-                                                                                                CoroContext *cxt, int coro_id, Cache::Handle *handle, bool async) {
-        rdma_mg->global_write_tuple_and_Wunlock(page_buffer, page_addr, size, lock_addr, cxt,
-                                                coro_id, async);
-        handle->remote_lock_status.store(0);
-    }
-    template <typename Key, typename Value> void Btr<Key,Value>::global_unlock_addr(GlobalAddress remote_lock_add, Cache::Handle *handle, CoroContext *cxt, int coro_id,
-                                                                                    bool async) {
-        rdma_mg->global_unlock_addr(remote_lock_add,cxt, coro_id, async);
-        handle->remote_lock_status.store(0);
-    }
+//    template <typename Key, typename Value>
+//
+//    void Btr<Key,Value>::global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+//                                                    GlobalAddress lock_addr,
+//                                                    ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id,
+//                                                    Cache::Handle *handle) {
+//        rdma_mg->global_Rlock_and_read_page_with_INVALID(page_buffer, page_addr, page_size, lock_addr, cas_buffer,
+//                                                         tag, cxt, coro_id);
+//        handle->remote_lock_status.store(1);
+//
+//    }
+//    template <typename Key, typename Value>
+//    bool Btr<Key,Value>::global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
+//                                             Cache::Handle *handle) {
+//        assert(handle->remote_lock_status.load() == 1);
+//        bool succfully_updated = rdma_mg->global_Rlock_update(nullptr, lock_addr, cas_buffer);
+//        if (succfully_updated){
+//            handle->remote_lock_status.store(2);
+//            assert(handle->gptr == (((LeafPage<Key,Value>*)(((ibv_mr*)handle->value)->addr))->hdr.this_page_g_ptr));
+//            return true;
+//        }else{
+//            assert(handle->remote_lock_status.load() == 1);
+//            return false;
+//
+//        }
+//
+//    }
+//    template <typename Key, typename Value>
+//    void Btr<Key,Value>::global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+//                                                                 GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag,
+//                                                                 CoroContext *cxt, int coro_id, Cache::Handle *handle) {
+//
+//        rdma_mg->global_Wlock_and_read_page_with_INVALID(page_buffer, page_addr, page_size, lock_addr, cas_buffer,
+//                                                         tag, cxt, coro_id);
+//        assert(handle->gptr == (((LeafPage<Key,Value>*)(((ibv_mr*)handle->value)->addr))->hdr.this_page_g_ptr));
+//        handle->remote_lock_status.store(2);
+//    }
+//    template <typename Key, typename Value>
+//    void Btr<Key,Value>::global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
+//                                        Cache::Handle *handle) {
+//        rdma_mg->global_RUnlock(lock_addr, cas_buffer, false, nullptr);
+//        handle->remote_lock_status.store(0);
+//    }
+//
+//    template <typename Key, typename Value> void Btr<Key,Value>::global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
+//                                                                                               GlobalAddress lock_addr,
+//                                                                                               CoroContext *cxt, int coro_id, Cache::Handle *handle, bool async) {
+//        rdma_mg->global_write_page_and_Wunlock(page_buffer, page_addr, size, lock_addr, handle, async);
+//        handle->remote_lock_status.store(0);
+//    }
+//    template <typename Key, typename Value> void Btr<Key,Value>::global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
+//                                                                                                GlobalAddress lock_addr,
+//                                                                                                CoroContext *cxt, int coro_id, Cache::Handle *handle, bool async) {
+//        rdma_mg->global_write_tuple_and_Wunlock(page_buffer, page_addr, size, lock_addr, cxt,
+//                                                coro_id, async);
+//        handle->remote_lock_status.store(0);
+//    }
+//    template <typename Key, typename Value> void Btr<Key,Value>::global_unlock_addr(GlobalAddress remote_lock_add, Cache::Handle *handle, CoroContext *cxt, int coro_id,
+//                                                                                    bool async) {
+//        rdma_mg->global_unlock_addr(remote_lock_add,cxt, coro_id, async);
+//        handle->remote_lock_status.store(0);
+//    }
     //void Btr::lock_bench(const Key &k, CoroContext *cxt, int coro_id) {
 //  uint64_t lock_index = CityHash64((char *)&k, sizeof(k)) % define::kNumOfLock;
 //
@@ -3198,193 +3198,193 @@ re_read:
  * @param coro_id
  * @return
  */
-    template <typename Key, typename Value>
-    inline bool Btr<Key,Value>::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
-                                                   int coro_id) {
-        auto &node = local_locks[(lock_addr.nodeID -1)/2][lock_addr.offset / 8];
-        bool is_local_locked = false;
-
-        uint64_t lock_val = node.ticket_lock.fetch_add(1);
-        //TOTHINK(potential bug): what if the ticket out of buffer.
-
-        uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
-        uint32_t current = lock_val >> 32;// current is the former 32 bit in ticket lock
-//        assert(ticket - current <=4);
-//    printf("lock offest %lu's ticket %x current %x, thread %u\n", lock_addr.offset, ticket, current, thread_id);
-//   printf("", );
-        assert((lock_val +1) <<32 != 0);
-        while (ticket != current) { // lock failed
-            is_local_locked = true;
-
-            current = node.ticket_lock.load(std::memory_order_seq_cst) >> 32;
-        }
-
-        if (is_local_locked) {
-//    hierarchy_lock[rdma_mg->getMyThreadID()][0]++;
-        }
-
-        node.hand_time++;
-
-        return node.hand_over;
-    }
-//    = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
-    template <typename Key, typename Value>
-    inline bool Btr<Key,Value>::try_lock(Local_Meta *local_lock_meta) {
-        auto currently_locked = __atomic_load_n(&local_lock_meta->local_lock_byte, __ATOMIC_SEQ_CST);
-//        uint8_t currently_locked = 0;
-        return !currently_locked &&
-               __atomic_compare_exchange_n(&local_lock_meta->local_lock_byte, &currently_locked, 1, true, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
-    }
-    template <typename Key, typename Value>
-    inline void Btr<Key,Value>::unlock_lock(Local_Meta *local_lock_meta) {
-        __atomic_store_n(&local_lock_meta->local_lock_byte, 0, mem_cst_seq);
-    }
-
-    template <class Key, class Value>
-    bool Btr<Key,Value>::acquire_local_optimistic_lock(Local_Meta *local_lock_meta, CoroContext *cxt, int coro_id) {
-        assert((uint64_t)local_lock_meta % 8 == 0);
-        //TODO: local lock implementation over InternalPage::Local_Meta.
-
-
-        __atomic_fetch_add(&local_lock_meta->issued_ticket, 1, mem_cst_seq);
-
-//    assert(local_lock_meta->issued_ticket - local_lock_meta->current_ticket <= 16 );
-        //TOTHINK(potential bug): what if the ticket out of buffer.
-        uint8_t expected = 0;
-#ifndef NDEBUG
-        uint64_t spin_counter = 0;
-        uint64_t global_static_var;
-
-#endif
-//    uint8_t lock_status =
-        size_t tries = 0;
-        while(1){
-
-            if(try_lock(local_lock_meta)){
-                break;
-            }
-            assert(local_lock_meta);
-            port::AsmVolatilePause();
-            if (tries++ > 100) {
-                //        printf("I tried so many time I got yield\n");
-                std::this_thread::yield();
-            }
-        }
-#ifndef NDEBUG
-        global_static_var = __atomic_load_n((uint64_t*)local_lock_meta, (int)std::memory_order_seq_cst);
-        if(((Local_Meta*)&global_static_var)->issued_ticket - ((Local_Meta*)&global_static_var)->current_ticket == 2){
-//        printf("mark here");
-        }
-//    printf("Acquire lock for %p, the current ticks is %d, issued ticket is%d, spin %lu times, thread %d\n", local_lock_meta,
-//           ((Local_Meta*)&global_static_var)->current_ticket, ((Local_Meta*)&global_static_var)->issued_ticket, spin_counter, rdma_mg->thread_id);
-#endif
-        //    uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
-//    uint8_t current = __atomic_load_n(&local_lock_addr->current_ticket, mem_cst_seq);// current is the former 32 bit in ticket lock
-//    uint8_t current = local_lock_meta->current_ticket;
-//        assert(ticket - current <=4);
-//    printf("lock offest %lu's ticket %x current %x, thread %u\n", lock_addr.offset, ticket, current, thread_id);
-//   printf("", );
-//    if (current%define::kMaxHandOverTime == 0){
-//        return false;
-//    }else{
-//        return true;
-//    }
-//    if (local_lock_meta->handover_times < define::kMaxHandOverTime &&)
-        assert(local_lock_meta->local_lock_byte == 1);
-        return local_lock_meta->hand_over;
-
-    }
-    template <typename Key, typename Value>
-    inline bool Btr<Key,Value>::can_hand_over(GlobalAddress lock_addr) {
-
-        auto &node = local_locks[(lock_addr.nodeID-1)/2][lock_addr.offset / 8];
-        uint64_t lock_val = node.ticket_lock.load(std::memory_order_relaxed);
-// only when unlocking, it need to check whether it can handover to the next, so that it do not need to UNLOCK the global lock.
-// It is possible that the handover is set as false but this server is still holding the lock.
-        uint32_t ticket = lock_val << 32 >> 32;//
-        uint32_t current = lock_val >> 32;
-// if the handover in node is true, then the other thread can get the lock without any RDMAcas
-// if the handover in node is false, then the other thread will acquire the lock from by RDMA cas AGAIN
-        if (ticket <= current + 1) { // no pending locks
-            node.hand_over = false;// if no pending thread, then it will release the remote lock and next aquir need RDMA CAS again
-        } else {
-            node.hand_over = node.hand_time < define::kMaxHandOverTime; // check the limit
-        }
-        if (!node.hand_over) {
-            node.hand_time = 0;// clear the handtime.
-        } else {
-//    handover_count[rdma_mg->getMyThreadID()][0]++;
-        }
-
-        return node.hand_over;
-    }
-    //Call before release the global lock
-    template <class Key, class Value>
-    inline bool Btr<Key,Value>::can_hand_over(Local_Meta * local_lock_meta) {
-
-        uint8_t issued_ticket = __atomic_load_n(&local_lock_meta->current_ticket, mem_cst_seq);
-        uint8_t current_ticket = local_lock_meta->current_ticket;// current is the former 32 bit in ticket lock
-
-// if the handover in node is true, then the other thread can get the lock without any RDMAcas
-// if the handover in node is false, then the other thread will acquire the lock from by RDMA cas AGAIN
-        if (issued_ticket <= current_ticket + 1) { // no pending locks
-            local_lock_meta->hand_over = false;// if no pending thread, then it will release the remote lock and next aquir need RDMA CAS again
-        } else {
-            local_lock_meta->hand_over = local_lock_meta->hand_time < define::kMaxHandOverTime; // check the limit
-        }
-        if (!local_lock_meta->hand_over) {
-            local_lock_meta->hand_time = 0;// clear the handtime.
-        } else {
-            local_lock_meta->hand_time++;
-
-//    handover_count[rdma_mg->getMyThreadID()][0]++;
-        }
-
-        return local_lock_meta->hand_over;
-    }
-    template <typename Key, typename Value>
-    inline void Btr<Key,Value>::releases_local_lock(GlobalAddress lock_addr) {
-
-        auto &node = local_locks[(lock_addr.nodeID-1)/2][lock_addr.offset / 8];
-
-        node.ticket_lock.fetch_add((1ull << 32));
-    }
-    template <class Key, class Value>
-    inline void Btr<Key,Value>::releases_local_optimistic_lock(Local_Meta * local_lock_meta) {
-
-//        auto &node = local_locks[(lock_addr.nodeID-1)/2][lock_addr.offset / 8];
-
-        local_lock_meta->current_ticket++;
-        assert(local_lock_meta->local_lock_byte == 1);
-//    assert((uint64_t)&local_lock_meta->local_lock_byte % 8 == 0);
-        unlock_lock(local_lock_meta);
-//        node.ticket_lock.fetch_add((1ull << 32));
-    }
-//    template <class Key, class Value>
-//    void Btr<Key,Value>::make_page_invalidated(InternalPage<Key> *upper_page) {
-//        //TODO invalidate page with version, may be reuse the current and issue version?
-//        uint8_t expected = 0;
-//        if(try_lock(&upper_page->local_lock_meta)){
-//            // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
-//            // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
-//            // already set it.
-//            assert(expected == 0);
-//            __atomic_fetch_add(&upper_page->local_lock_meta.issued_ticket,1, mem_cst_seq);
-//            if (upper_page->hdr.valid_page){
-//                upper_page->hdr.valid_page = false;
-////            printf("Page invalidation %p\n", upper_page);
-//            }
+//    template <typename Key, typename Value>
+//    inline bool Btr<Key,Value>::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
+//                                                   int coro_id) {
+//        auto &node = local_locks[(lock_addr.nodeID -1)/2][lock_addr.offset / 8];
+//        bool is_local_locked = false;
 //
-//            // keep the operation on the version.
-//            upper_page->local_lock_meta.current_ticket++;
-//            unlock_lock(&upper_page->local_lock_meta);
+//        uint64_t lock_val = node.ticket_lock.fetch_add(1);
+//        //TOTHINK(potential bug): what if the ticket out of buffer.
+//
+//        uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
+//        uint32_t current = lock_val >> 32;// current is the former 32 bit in ticket lock
+////        assert(ticket - current <=4);
+////    printf("lock offest %lu's ticket %x current %x, thread %u\n", lock_addr.offset, ticket, current, thread_id);
+////   printf("", );
+//        assert((lock_val +1) <<32 != 0);
+//        while (ticket != current) { // lock failed
+//            is_local_locked = true;
+//
+//            current = node.ticket_lock.load(std::memory_order_seq_cst) >> 32;
 //        }
+//
+//        if (is_local_locked) {
+////    hierarchy_lock[rdma_mg->getMyThreadID()][0]++;
+//        }
+//
+//        node.hand_time++;
+//
+//        return node.hand_over;
 //    }
-    template <class Key, class Value>
-    void Btr<Key,Value>::Initialize_page_invalidation(InternalPage<Key> *upper_page) {
-        // TODO: cache invalidation RPC.
-
-    }
+////    = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
+//    template <typename Key, typename Value>
+//    inline bool Btr<Key,Value>::try_lock(Local_Meta *local_lock_meta) {
+//        auto currently_locked = __atomic_load_n(&local_lock_meta->local_lock_byte, __ATOMIC_SEQ_CST);
+////        uint8_t currently_locked = 0;
+//        return !currently_locked &&
+//               __atomic_compare_exchange_n(&local_lock_meta->local_lock_byte, &currently_locked, 1, true, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+//    }
+//    template <typename Key, typename Value>
+//    inline void Btr<Key,Value>::unlock_lock(Local_Meta *local_lock_meta) {
+//        __atomic_store_n(&local_lock_meta->local_lock_byte, 0, mem_cst_seq);
+//    }
+//
+//    template <class Key, class Value>
+//    bool Btr<Key,Value>::acquire_local_optimistic_lock(Local_Meta *local_lock_meta, CoroContext *cxt, int coro_id) {
+//        assert((uint64_t)local_lock_meta % 8 == 0);
+//        //TODO: local lock implementation over InternalPage::Local_Meta.
+//
+//
+//        __atomic_fetch_add(&local_lock_meta->issued_ticket, 1, mem_cst_seq);
+//
+////    assert(local_lock_meta->issued_ticket - local_lock_meta->current_ticket <= 16 );
+//        //TOTHINK(potential bug): what if the ticket out of buffer.
+//        uint8_t expected = 0;
+//#ifndef NDEBUG
+//        uint64_t spin_counter = 0;
+//        uint64_t global_static_var;
+//
+//#endif
+////    uint8_t lock_status =
+//        size_t tries = 0;
+//        while(1){
+//
+//            if(try_lock(local_lock_meta)){
+//                break;
+//            }
+//            assert(local_lock_meta);
+//            port::AsmVolatilePause();
+//            if (tries++ > 100) {
+//                //        printf("I tried so many time I got yield\n");
+//                std::this_thread::yield();
+//            }
+//        }
+//#ifndef NDEBUG
+//        global_static_var = __atomic_load_n((uint64_t*)local_lock_meta, (int)std::memory_order_seq_cst);
+//        if(((Local_Meta*)&global_static_var)->issued_ticket - ((Local_Meta*)&global_static_var)->current_ticket == 2){
+////        printf("mark here");
+//        }
+////    printf("Acquire lock for %p, the current ticks is %d, issued ticket is%d, spin %lu times, thread %d\n", local_lock_meta,
+////           ((Local_Meta*)&global_static_var)->current_ticket, ((Local_Meta*)&global_static_var)->issued_ticket, spin_counter, rdma_mg->thread_id);
+//#endif
+//        //    uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
+////    uint8_t current = __atomic_load_n(&local_lock_addr->current_ticket, mem_cst_seq);// current is the former 32 bit in ticket lock
+////    uint8_t current = local_lock_meta->current_ticket;
+////        assert(ticket - current <=4);
+////    printf("lock offest %lu's ticket %x current %x, thread %u\n", lock_addr.offset, ticket, current, thread_id);
+////   printf("", );
+////    if (current%define::kMaxHandOverTime == 0){
+////        return false;
+////    }else{
+////        return true;
+////    }
+////    if (local_lock_meta->handover_times < define::kMaxHandOverTime &&)
+//        assert(local_lock_meta->local_lock_byte == 1);
+//        return local_lock_meta->hand_over;
+//
+//    }
+//    template <typename Key, typename Value>
+//    inline bool Btr<Key,Value>::can_hand_over(GlobalAddress lock_addr) {
+//
+//        auto &node = local_locks[(lock_addr.nodeID-1)/2][lock_addr.offset / 8];
+//        uint64_t lock_val = node.ticket_lock.load(std::memory_order_relaxed);
+//// only when unlocking, it need to check whether it can handover to the next, so that it do not need to UNLOCK the global lock.
+//// It is possible that the handover is set as false but this server is still holding the lock.
+//        uint32_t ticket = lock_val << 32 >> 32;//
+//        uint32_t current = lock_val >> 32;
+//// if the handover in node is true, then the other thread can get the lock without any RDMAcas
+//// if the handover in node is false, then the other thread will acquire the lock from by RDMA cas AGAIN
+//        if (ticket <= current + 1) { // no pending locks
+//            node.hand_over = false;// if no pending thread, then it will release the remote lock and next aquir need RDMA CAS again
+//        } else {
+//            node.hand_over = node.hand_time < define::kMaxHandOverTime; // check the limit
+//        }
+//        if (!node.hand_over) {
+//            node.hand_time = 0;// clear the handtime.
+//        } else {
+////    handover_count[rdma_mg->getMyThreadID()][0]++;
+//        }
+//
+//        return node.hand_over;
+//    }
+//    //Call before release the global lock
+//    template <class Key, class Value>
+//    inline bool Btr<Key,Value>::can_hand_over(Local_Meta * local_lock_meta) {
+//
+//        uint8_t issued_ticket = __atomic_load_n(&local_lock_meta->current_ticket, mem_cst_seq);
+//        uint8_t current_ticket = local_lock_meta->current_ticket;// current is the former 32 bit in ticket lock
+//
+//// if the handover in node is true, then the other thread can get the lock without any RDMAcas
+//// if the handover in node is false, then the other thread will acquire the lock from by RDMA cas AGAIN
+//        if (issued_ticket <= current_ticket + 1) { // no pending locks
+//            local_lock_meta->hand_over = false;// if no pending thread, then it will release the remote lock and next aquir need RDMA CAS again
+//        } else {
+//            local_lock_meta->hand_over = local_lock_meta->hand_time < define::kMaxHandOverTime; // check the limit
+//        }
+//        if (!local_lock_meta->hand_over) {
+//            local_lock_meta->hand_time = 0;// clear the handtime.
+//        } else {
+//            local_lock_meta->hand_time++;
+//
+////    handover_count[rdma_mg->getMyThreadID()][0]++;
+//        }
+//
+//        return local_lock_meta->hand_over;
+//    }
+//    template <typename Key, typename Value>
+//    inline void Btr<Key,Value>::releases_local_lock(GlobalAddress lock_addr) {
+//
+//        auto &node = local_locks[(lock_addr.nodeID-1)/2][lock_addr.offset / 8];
+//
+//        node.ticket_lock.fetch_add((1ull << 32));
+//    }
+//    template <class Key, class Value>
+//    inline void Btr<Key,Value>::releases_local_optimistic_lock(Local_Meta * local_lock_meta) {
+//
+////        auto &node = local_locks[(lock_addr.nodeID-1)/2][lock_addr.offset / 8];
+//
+//        local_lock_meta->current_ticket++;
+//        assert(local_lock_meta->local_lock_byte == 1);
+////    assert((uint64_t)&local_lock_meta->local_lock_byte % 8 == 0);
+//        unlock_lock(local_lock_meta);
+////        node.ticket_lock.fetch_add((1ull << 32));
+//    }
+////    template <class Key, class Value>
+////    void Btr<Key,Value>::make_page_invalidated(InternalPage<Key> *upper_page) {
+////        //TODO invalidate page with version, may be reuse the current and issue version?
+////        uint8_t expected = 0;
+////        if(try_lock(&upper_page->local_lock_meta)){
+////            // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
+////            // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
+////            // already set it.
+////            assert(expected == 0);
+////            __atomic_fetch_add(&upper_page->local_lock_meta.issued_ticket,1, mem_cst_seq);
+////            if (upper_page->hdr.valid_page){
+////                upper_page->hdr.valid_page = false;
+//////            printf("Page invalidation %p\n", upper_page);
+////            }
+////
+////            // keep the operation on the version.
+////            upper_page->local_lock_meta.current_ticket++;
+////            unlock_lock(&upper_page->local_lock_meta);
+////        }
+////    }
+//    template <class Key, class Value>
+//    void Btr<Key,Value>::Initialize_page_invalidation(InternalPage<Key> *upper_page) {
+//        // TODO: cache invalidation RPC.
+//
+//    }
     template <class Key, class Value>
     void Btr<Key, Value>::clear_statistics() {
         for (int i = 0; i < MAX_APP_THREAD; ++i) {

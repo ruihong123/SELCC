@@ -143,7 +143,7 @@ class TransactionExecutor {
 //            delete receive_msg_buf;
 
 
-            success = true;
+//            success = true;
 //            communication_queue->command = invalid_command_;
         }
 

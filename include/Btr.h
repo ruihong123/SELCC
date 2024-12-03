@@ -198,52 +198,7 @@ namespace DSMEngine {
         bool insert_internal(Key &k, GlobalAddress &v, CoroContext *cxt,
                              int coro_id, int target_level);
 
-        bool try_lock_addr(GlobalAddress lock_addr, uint64_t tag, ibv_mr *buf,
-                           CoroContext *cxt, int coro_id);
 
-        void unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro_id, bool async);
-//        void global_unlock_addr(GlobalAddress remote_lock_add, CoroContext *cxt, int coro_id, bool async);
-
-//        void write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress remote_lock_addr,
-//                        CoroContext *cxt, int coro_id, bool async);
-//    void global_write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
-//                                      GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async);
-//  void lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
-//                          int page_size, ibv_mr *cas_buffer,
-//                          GlobalAddress lock_addr, uint64_t tag,
-//                          CoroContext *cxt, int coro_id);
-        //Be careful, do not overwrite the global lock byte, the global lock should in a write lock state for RDMA write.
-//    void global_lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
-//                                   ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id);
-//    uint64_t renew_swap_by_received_state_readlock(uint64_t& received_state);
-//    uint64_t renew_swap_by_received_state_readunlock(uint64_t& received_state);
-//    uint64_t renew_swap_by_received_state_readupgrade(uint64_t& received_state);
-        void
-        global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
-                                   ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id,
-                                   Cache::Handle *handle);
-
-        bool global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
-                                 Cache::Handle *handle);
-
-        void global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
-                                                     GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag,
-                                                     CoroContext *cxt, int coro_id, Cache::Handle *handle);
-
-        void global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
-                            Cache::Handle *handle);
-
-// Write unlock can share the function for the global_write_page_and_unlock.
-        void global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
-                                           GlobalAddress lock_addr,
-                                           CoroContext *cxt, int coro_id, Cache::Handle *handle, bool async);
-
-        void global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
-                                            GlobalAddress lock_addr,
-                                            CoroContext *cxt, int coro_id, Cache::Handle *handle, bool async);
-
-        void global_unlock_addr(GlobalAddress remote_lock_add, Cache::Handle *handle, CoroContext *cxt, int coro_id,
-                                bool async = false);
 
         // Node ID in GLobalAddress for a tree pointer should be the id in the Memory pool
         // THis funciton will get the page by the page addr and search the pointer for the
@@ -270,53 +225,98 @@ namespace DSMEngine {
 
 //        bool leaf_page_del(GlobalAddress page_addr, const Key &k, int level,
 //                           CoroContext *cxt, int coro_id);
-
-        bool acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
-                                int coro_id);
-
-        bool try_lock(Local_Meta *local_lock_meta);
-
-        void unlock_lock(Local_Meta *local_lock_meta);
-
-        bool acquire_local_optimistic_lock(Local_Meta *local_lock_meta, CoroContext *cxt,
-                                           int coro_id);
-
-        bool can_hand_over(GlobalAddress lock_addr);
-
-        bool can_hand_over(Local_Meta *local_lock_meta);
-
-        void releases_local_lock(GlobalAddress lock_addr);
-
-        void releases_local_optimistic_lock(Local_Meta *local_lock_meta);
-
-//        void make_page_invalidated(InternalPage<Key> *upper_page);
-//        void cache_root_handle_ref(){
-//            loop_back:
-//            uint32_t root_handle_ref = 0;
-//            while (root_handle_ref == 0){
-//                root_handle_ref = cached_root_handle_ref.load();
-//            }
-//            if(!cached_root_handle_ref.compare_exchange_strong(root_handle_ref, root_handle_ref + 1)){
-//                goto loop_back;
-//            }
-//        };
-//        void cache_root_handle_unref(){
-//            auto ret = cached_root_handle_ref.fetch_sub(1);
-//            assert(ret >= 1);
-//        };
-
-        // should be executed with in a local page lock.
-        void Initialize_page_invalidation(InternalPage<Key> *upper_page);
-//        void invalid_root_prt(){
-//            std::unique_lock<std::shared_mutex> lck(root_mtx);
-//            g_root_ptr.store(GlobalAddress::Null());
-//        }
+//        bool try_lock_addr(GlobalAddress lock_addr, uint64_t tag, ibv_mr *buf,
+//                           CoroContext *cxt, int coro_id);
+//
+//        void unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro_id, bool async);
+////        void global_unlock_addr(GlobalAddress remote_lock_add, CoroContext *cxt, int coro_id, bool async);
+//
+////        void write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress remote_lock_addr,
+////                        CoroContext *cxt, int coro_id, bool async);
+////    void global_write_page_and_unlock(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+////                                      GlobalAddress remote_lock_addr, CoroContext *cxt, int coro_id, bool async);
+////  void lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr,
+////                          int page_size, ibv_mr *cas_buffer,
+////                          GlobalAddress lock_addr, uint64_t tag,
+////                          CoroContext *cxt, int coro_id);
+//        //Be careful, do not overwrite the global lock byte, the global lock should in a write lock state for RDMA write.
+////    void global_lock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
+////                                   ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id);
+////    uint64_t renew_swap_by_received_state_readlock(uint64_t& received_state);
+////    uint64_t renew_swap_by_received_state_readunlock(uint64_t& received_state);
+////    uint64_t renew_swap_by_received_state_readupgrade(uint64_t& received_state);
+//        void
+//        global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
+//                                   ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id,
+//                                   Cache::Handle *handle);
+//
+//        bool global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
+//                                 Cache::Handle *handle);
+//
+//        void global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
+//                                                     GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag,
+//                                                     CoroContext *cxt, int coro_id, Cache::Handle *handle);
+//
+//        void global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
+//                            Cache::Handle *handle);
+//
+//// Write unlock can share the function for the global_write_page_and_unlock.
+//        void global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
+//                                           GlobalAddress lock_addr,
+//                                           CoroContext *cxt, int coro_id, Cache::Handle *handle, bool async);
+//
+//        void global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
+//                                            GlobalAddress lock_addr,
+//                                            CoroContext *cxt, int coro_id, Cache::Handle *handle, bool async);
+//
+//        void global_unlock_addr(GlobalAddress remote_lock_add, Cache::Handle *handle, CoroContext *cxt, int coro_id,
+//                                bool async = false);
+//        bool acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
+//                                int coro_id);
+//
+//        bool try_lock(Local_Meta *local_lock_meta);
+//
+//        void unlock_lock(Local_Meta *local_lock_meta);
+//
+//        bool acquire_local_optimistic_lock(Local_Meta *local_lock_meta, CoroContext *cxt,
+//                                           int coro_id);
+//
+//        bool can_hand_over(GlobalAddress lock_addr);
+//
+//        bool can_hand_over(Local_Meta *local_lock_meta);
+//
+//        void releases_local_lock(GlobalAddress lock_addr);
+//
+//        void releases_local_optimistic_lock(Local_Meta *local_lock_meta);
+//
+////        void make_page_invalidated(InternalPage<Key> *upper_page);
+////        void cache_root_handle_ref(){
+////            loop_back:
+////            uint32_t root_handle_ref = 0;
+////            while (root_handle_ref == 0){
+////                root_handle_ref = cached_root_handle_ref.load();
+////            }
+////            if(!cached_root_handle_ref.compare_exchange_strong(root_handle_ref, root_handle_ref + 1)){
+////                goto loop_back;
+////            }
+////        };
+////        void cache_root_handle_unref(){
+////            auto ret = cached_root_handle_ref.fetch_sub(1);
+////            assert(ret >= 1);
+////        };
+//
+//        // should be executed with in a local page lock.
+//        void Initialize_page_invalidation(InternalPage<Key> *upper_page);
+////        void invalid_root_prt(){
+////            std::unique_lock<std::shared_mutex> lck(root_mtx);
+////            g_root_ptr.store(GlobalAddress::Null());
+////        }
     };
-
-//template class Btr<int,int>;
-//template class Btr<uint64_t ,uint64_t>;
-    class Btr_iter {
-        // TODO: implement btree iterator for range query.
-    };
+//
+////template class Btr<int,int>;
+////template class Btr<uint64_t ,uint64_t>;
+//    class Btr_iter {
+//        // TODO: implement btree iterator for range query.
+//    };
 }
 #endif //BTR_H
