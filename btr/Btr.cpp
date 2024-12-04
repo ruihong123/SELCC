@@ -143,7 +143,7 @@ namespace DSMEngine {
             assert(cached_root_page_handle.load()->remote_lock_status == 0);
             root_page_buf = mr->addr;
             assert(root_page_buf);
-            auto root_page = new(root_page_buf) LeafPage<Key,Value>(g_root_ptr, leaf_cardinality_);
+            auto root_page = new(root_page_buf) LeafPage<Key,Value>(g_root_ptr, leaf_cardinality_, scheme_ptr->GetSchemaSize());
 
 //            root_page->front_version++;
 //            root_page->rear_version = root_page->front_version;
