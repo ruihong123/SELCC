@@ -182,7 +182,6 @@ namespace DSMEngine {
     }
 
 //#ifdef CACHECOHERENCEPROTOCOL
-    //TODO: make it ordered and ty not use the Sherman write amplification optimization.
     template<class Key, class Value>
     void LeafPage<Key,Value>::leaf_page_search(const Key &k, SearchResult<Key, Value> &result, GlobalAddress g_page_ptr,
                                                RecordSchema *record_scheme) {

@@ -286,6 +286,7 @@ namespace DSMEngine{
 
         void leaf_page_search(const TKey &k, SearchResult<TKey, Value> &result, GlobalAddress g_page_ptr,
                               RecordSchema *record_scheme);
+        //search by lowerbound (include the target key).
         int leaf_page_pos_lb(const TKey &k, GlobalAddress g_page_ptr, RecordSchema *record_scheme);
         int leaf_page_find_pos_ub(const TKey &k, SearchResult<TKey, Value> &result, RecordSchema *record_scheme);
         void GetByPosition(int pos, RecordSchema *schema_ptr, TKey &key, Value &value);

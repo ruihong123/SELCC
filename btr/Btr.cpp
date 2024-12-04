@@ -30,8 +30,7 @@ namespace DSMEngine {
 //                                     [define::kMaxLevelOfTree];
     template <typename Key, typename Value>
     thread_local SearchResult<Key, Value>* Btr<Key,Value>::search_result_memo = nullptr;
-    extern thread_local GlobalAddress path_stack[define::kMaxCoro]
-    [define::kMaxLevelOfTree];
+    extern thread_local GlobalAddress path_stack[define::kMaxCoro][define::kMaxLevelOfTree];
     template <typename Key, typename Value>
 //RDMA_Manager * Btr<Key,Value>::rdma_mg = nullptr;
 // for coroutine schedule
@@ -1422,12 +1421,13 @@ namespace DSMEngine {
 #ifdef PROCESSANALYSIS
         start = std::chrono::high_resolution_clock::now();
 #endif
-        leaf_next:// Leaf page search
+        btree_iterator<Key, Value>* iter;
+    leaf_next:// Leaf page search
 
         assert(result.val.data() != nullptr);
-        if (!leaf_page_find(p, k, result, <#initializer#>, level)) {
-            if (path_stack[coro_id][1] != GlobalAddress::Null()) {
-                p = path_stack[coro_id][1];
+        if (!leaf_page_find(p, key, result, iter, level)) {
+            if (path_stack[0][1] != GlobalAddress::Null()) {
+                p = path_stack[0][1];
                 level = 1;
 
             } else {
@@ -1440,26 +1440,7 @@ namespace DSMEngine {
             DEBUG_PRINT_CONDITION("back off for search\n");
             goto next;
         } else {
-            if (result.find_value) { // find
-//                value_buff = result.val;
-#ifdef PROCESSANALYSIS
-                if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-                auto stop = std::chrono::high_resolution_clock::now();
-                auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-                printf("leaf page fetch and search the page uses (%ld) ns\n", duration.count());
-                TimePrintCounter[RDMA_Manager::thread_id] = 0;
-            }else{
-                TimePrintCounter[RDMA_Manager::thread_id]++;
-            }
-#endif
-
-                return true;
-            }
-            if (result.slibing != GlobalAddress::Null()) { // turn right
-                p = result.slibing;
-                assert(result.val.data() != nullptr);
-                goto leaf_next;
-            }
+            return iter;
         }
     }
 // TODO: Need Fix range query
@@ -2152,9 +2133,6 @@ re_read:
     bool Btr<Key,Value>::leaf_page_find(GlobalAddress page_addr, const Key &k, SearchResult<Key, Value> &result,
                                         btree_iterator<Key,Value> *&iter, int level) {
         assert(result.val.data()!= nullptr);
-#ifdef PROCESSANALYSIS
-        auto start = std::chrono::high_resolution_clock::now();
-#endif
         auto rdma_mg = RDMA_Manager::Get_Instance(nullptr);
         int counter = 0;
         ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
@@ -2171,16 +2149,6 @@ re_read:
 
 //        ibv_mr* mr = nullptr;
         ddms_->SELCC_Shared_Lock(page_buffer, page_addr, handle);
-#ifdef PROCESSANALYSIS
-        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-            auto stop = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-//#ifndef NDEBUG
-            printf("cache look up for level %d is (%ld) ns, \n", level, duration.count());
-//          TimePrintCounter = 0;
-        }
-//#endif
-#endif
         header = (Header_Index<Key> *) ((char*)page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
         page = (LeafPage<Key,Value> *)page_buffer;
         result.Reset();
@@ -2238,11 +2206,10 @@ re_read:
             DEBUG_PRINT_CONDITION("retry place 4\n");
             goto returnfalse;
         }
-
-        position = page->leaf_page_find(k, result, page_addr, scheme_ptr);
+        // the position is the index of the tuple in the GCL. real_offset = positon*Tuple_size.
+        position = page->leaf_page_pos_lb(k, page_addr, scheme_ptr);
         if (position> 0){
             iter = new btree_iterator<Key,Value>(page, handle, position, scheme_ptr,ddms_);
-
         }else{
             // the iter shall point to the next leaf node.
             GlobalAddress sib_ptr = page->hdr.sibling_ptr;

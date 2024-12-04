@@ -193,7 +193,7 @@ namespace DSMEngine {
     private:
         RWSpinLock root_mtx;// in case of contention in the root cache
         uint64_t tree_id;
-        LeafPage<Key, Value> *left_most_leaf = nullptr;
+        GlobalAddress left_most_leaf = GlobalAddress::Null();
 
         // The cached_root_handle_ref is to keep track of the number of reference to the root page handle.
         // this is necessary because the access of cached_root_page_handle will bypass the cache,
