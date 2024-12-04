@@ -211,8 +211,123 @@ namespace DSMEngine {
 
         return cnt == kInternalCardinality;
     }
+    template<class Key, class Value>
+    int LeafPage<Key,Value>::leaf_page_pos_lb(const Key &k, GlobalAddress g_page_ptr, RecordSchema *record_scheme) {
+#ifdef DYNAMIC_ANALYSE_PAGE
+        size_t tuple_length = record_scheme->GetSchemaSize();
+        char* tuple_start = data_;
+        uint16_t left = 0;
+        assert(hdr.last_index >= 0);
+        uint16_t right = hdr.last_index;
+        uint16_t mid = 0;
+#ifndef NDEBUG
+        std::vector<std::pair<uint16_t, uint16_t>> binary_history;
+        char* tuple_last = data_ + hdr.last_index*tuple_length;
+        auto r_last = Record(record_scheme,tuple_last);
+        Key last_key;
+        Key temp_key;
+        r_last.GetPrimaryKey(&last_key);
+        assert(k < hdr.highest );
+        assert(last_key < hdr.highest);
+#endif
+        while (left < right) {
+            mid = (left + right + 1) / 2;
+            tuple_start = data_ + mid*tuple_length;
+            auto r = Record(record_scheme,tuple_start);
 
-//#ifdef CACHECOHERENCEPROTOCOL
+            r.GetPrimaryKey(&temp_key);
+//            binary_history.push_back(std::make_pair(left, right));
+            if (k > temp_key) {
+                // Key at "mid" is smaller than "target".  Therefore all
+                // blocks before "mid" are uninteresting.
+                left = mid;
+            } else if (k < temp_key) {
+                // Key at "mid" is >= "target".  Therefore all blocks at or
+                // after "mid" are uninteresting.
+                right = mid - 1;
+            } else{
+                //todo: secondary index need to move to the left most value that meets the condition.
+                //Find the value.
+                if (hdr.p_type == P_Leaf_P){
+                    return mid;
+                } else{
+                    assert(hdr.p_type == P_Leaf_S);
+                    // seek forward to find all the entries that meet the condition.
+                    while (mid > 0){
+                        tuple_start = data_ + (mid-1)*tuple_length;
+                        auto r = Record(record_scheme,tuple_start);
+                        Key temp_key;
+                        r.GetPrimaryKey(&temp_key);
+                        if (temp_key == k){
+                            mid--;
+                        }else{
+                            break;
+                        }
+                    }
+                    return mid;
+                }
+            }
+        }
+        assert(k > temp_key || right == 0);
+        // Not find
+        assert(right == left);
+        tuple_start = data_ + right*tuple_length;
+        auto r = Record(record_scheme,tuple_start);
+//        Key temp_key;
+        r.GetPrimaryKey(&temp_key);
+        if (k == temp_key){
+            // only when the target key is the first key will the code goes here.
+            // We treat primary and secondary the same. Even for secondary index, it is not possible that the leaf previous to
+            // the current leaf has the same key, because the upper level search need to guarantee that not happening
+            assert(right == 0);
+            return mid;
+        }else{
+            int ret = right+1;
+            return ret>hdr.last_index ? -1 : ret;
+        }
+#else
+        Value target_value_buff{};
+//        uint8_t front_v = front_version;
+        asm volatile ("sfence\n" : : );
+        asm volatile ("lfence\n" : : );
+        asm volatile ("mfence\n" : : );
+
+        for (int i = 0; i < kLeafCardinality; ++i) {
+            auto &r = records[i];
+
+            if (r.key == k && r.value != kValueNull<Key> ) {
+                target_value_buff = r.value;
+                asm volatile ("sfence\n" : : );
+                asm volatile ("lfence\n" : : );
+                asm volatile ("mfence\n" : : );
+//                uint8_t rear_v = rear_version;
+//                if (front_v!= rear_v)// version checking
+//                    //TODO: reread from the remote side.
+//                    goto re _read;
+
+//                memcpy(result.value_padding, r.value_padding, VALUE_PADDING);
+//      result.value_padding = r.value_padding;
+                break;
+            }
+        }
+        result.val = target_value_buff;
+#endif
+
+    }
+    template<class TKey, class Value>
+    void LeafPage<TKey,Value>::GetByPosition(int pos, RecordSchema *schema_ptr, TKey &key, Value &value) {
+        assert(pos >= 0);
+        assert(pos <= hdr.last_index);
+        char* tuple_start = data_ + pos*hdr.LeafRecordSize;
+        auto r = Record(schema_ptr,tuple_start);
+        //Return the value of the key-value pair for index.
+//        return r.GetColumn(1);
+        //todo: what if the key is compound and containing multiple columns?
+        assert(sizeof(TKey) == r.GetPrimaryKey().size());
+        assert(sizeof(Value) == r.GetColumnSize(1));
+        memcpy(&key,  r.GetPrimaryKey().c_str(), r.GetPrimaryKey().size());
+        memcpy(&value, r.GetColumn(1), r.GetColumnSize(1));
+    }
     template<class Key, class Value>
     void LeafPage<Key,Value>::leaf_page_search(const Key &k, SearchResult<Key, Value> &result, GlobalAddress g_page_ptr,
                                                RecordSchema *record_scheme) {

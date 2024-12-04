@@ -295,15 +295,6 @@ namespace DSMEngine{
             return (page_size - STRUCT_OFFSET(LeafPage<TKey COMMA Value>, data_[0]) - sizeof(uint8_t)) / record_size;
         }
 
-        void local_metadata_init(){
-//            __atomic_store_n(&local_lock_meta.local_lock_byte, 0, mem_cst_seq);
-//            local_lock_meta.current_ticket = 0;
-//            local_lock_meta.issued_ticket = 0;
-//
-//            local_lock_meta.hand_over = 0;
-//            local_lock_meta.hand_time = 0;
-        }
-
         void leaf_page_search(const TKey &k, SearchResult<TKey, Value> &result, GlobalAddress g_page_ptr,
                               RecordSchema *record_scheme);
         //search by lowerbound (include the target key).
