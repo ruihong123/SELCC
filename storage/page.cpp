@@ -225,11 +225,11 @@ namespace DSMEngine {
         char* tuple_last = data_ + hdr.last_index*tuple_length;
         auto r_last = Record(record_scheme,tuple_last);
         Key last_key;
-        Key temp_key;
         r_last.GetPrimaryKey(&last_key);
         assert(k < hdr.highest );
         assert(last_key < hdr.highest);
 #endif
+        Key temp_key;
         while (left < right) {
             mid = (left + right + 1) / 2;
             tuple_start = data_ + mid*tuple_length;
