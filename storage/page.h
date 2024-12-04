@@ -3,8 +3,8 @@
 // Created by wang4996 on 22-8-8.
 //
 
-#ifndef SELCC_PAGE_H
-#define SELCC_PAGE_H
+#ifndef MEMORYENGINE_PAGE_H
+#define MEMORYENGINE_PAGE_H
 #include "Common.h"
 #include "rdma.h"
 #include "DSMEngine/slice.h"
@@ -14,7 +14,9 @@
 #include <iostream>
 
 namespace DSMEngine{
-    enum Page_Type { P_Plain = 0, P_Internal, P_Leaf, P_Data};
+    //TODO: merge Page type and index type.
+    enum Page_Type { P_Plain = 0, P_Internal_P = 1, P_Internal_S = 2, P_Leaf_P = 3, P_Leaf_S = 4, P_Data = 5};
+//    enum Index_Type { Primary_Idx = 0, Secondary_Idx = 1};
     template<class Key, class Value>
     struct SearchResult {
         bool is_leaf;
@@ -76,8 +78,8 @@ namespace DSMEngine{
 
         template<class K, class V> friend class Btr;
 //        friend class IndexCache;
-
-        uint32_t kLeafCardinality;
+        uint16_t LeafRecordSize;
+        uint16_t kLeafCardinality;
         //        T* try_var{};
         T lowest{};
         T highest{};
@@ -189,10 +191,7 @@ namespace DSMEngine{
         // private:
         //TODO: we can make the local lock metaddata outside the page.
     public:
-//        constexpr static int kInternalCardinality = (kInternalPageSize - sizeof(Header_Index<Key>) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) /
-//                                                    sizeof(InternalEntry<Key>);
-        //  page header + page forward check flag + global lock  + engry data size <= kInternalPageSize
-        constexpr static int kInternalCardinality = (kInternalPageSize - sizeof(Header_Index<Key>) - sizeof(uint8_t) * 1 - sizeof(uint64_t)) /
+        constexpr static int kInternalCardinality = (kInternalPageSize - sizeof(Header_Index<Key>) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) /
                                                     sizeof(InternalEntry<Key>);
 //        Local_Meta local_lock_meta;
 //        std::atomic<uint8_t> front_version;
@@ -215,7 +214,7 @@ namespace DSMEngine{
                      uint32_t level = 0) {
             assert(level> 0);
 //            assert(STRUCT_OFFSET(InternalPage<Key>, local_lock_meta) == 0);
-            hdr.p_type = P_Internal;
+            hdr.p_type = P_Internal_P;
             hdr.leftmost_ptr = left;
             hdr.level = level;
 //            hdr.p_version = 0;
@@ -228,8 +227,6 @@ namespace DSMEngine{
             hdr.last_index = 0;
             assert(this_page_g_ptr!= GlobalAddress::Null());
             hdr.this_page_g_ptr = this_page_g_ptr;
-//            local_metadata_init();
-
         }
 
         explicit InternalPage(GlobalAddress this_page_g_ptr, uint32_t level = 0) {
@@ -240,56 +237,7 @@ namespace DSMEngine{
 //            local_metadata_init();
             assert(this_page_g_ptr!= GlobalAddress::Null());
             hdr.this_page_g_ptr = this_page_g_ptr;
-//            front_version = 0;
-//            rear_version = 0;
-
-//            embedding_lock = 1;
         }
-
-//        void check_invalidation_and_refetch_inside_lock(GlobalAddress page_addr, RDMA_Manager *rdma_mg, ibv_mr *page_mr) {
-//            uint8_t expected = 0;
-//            assert(page_mr->addr == this);
-//            if (!hdr.valid_page ){
-//
-//                ibv_mr temp_mr = *page_mr;
-//                GlobalAddress temp_page_add = page_addr;
-//                temp_page_add.offset = page_addr.offset + RDMA_OFFSET;
-//                temp_mr.addr = (char*)temp_mr.addr + RDMA_OFFSET;
-//                temp_mr.length = temp_mr.length - RDMA_OFFSET;
-//            invalidation_reread:
-//                rdma_mg->RDMA_Read(temp_page_add, &temp_mr, kInternalPageSize-RDMA_OFFSET, IBV_SEND_SIGNALED, 1, Regular_Page);
-//                // If the global lock is in use, then this read page should be in a inconsistent state.
-//                if (global_lock != 1){
-//                    // with a lock the remote side can not be inconsistent.
-//                    assert(false);
-//                    goto invalidation_reread;
-//                }
-//                __atomic_store_n(&hdr.valid_page, false, (int)std::memory_order_seq_cst);
-//
-//
-//            }
-//        }
-//        bool check_whether_globallock_is_unlocked() const {
-//
-//            bool succ = global_lock ==0;
-//#ifdef CONFIG_ENABLE_CRC
-//            auto cal_crc =
-//        CityHash32((char *)&front_version, (&rear_version) - (&front_version));
-//    succ = cal_crc == this->crc;
-//#endif
-//
-//
-////            succ = succ && (rear_version == front_version);
-//            if (!succ) {
-//                // this->debug();
-//            }
-////#ifndef NDEBUG
-////            if (front_version == 0 && succ){
-////                printf("check version pass, with 0\n");
-////            }
-////#endif
-//            return succ;
-//        }
 
         void debug() const {
             std::cout << "InternalPage@ ";
@@ -321,11 +269,11 @@ namespace DSMEngine{
 //        uint8_t rear_version;
 
         template<class K, class V> friend class Btr;
-
     public:
-        LeafPage(GlobalAddress this_page_g_ptr, uint32_t leaf_cardinality,uint32_t level = 0) {
+        LeafPage(GlobalAddress this_page_g_ptr, uint16_t leaf_cardinality, uint16_t leaf_recordsize,
+                 uint32_t level = 0) {
             assert(level == 0);
-            hdr.p_type = P_Leaf;
+            hdr.p_type = P_Leaf_P;
             hdr.level = level;
             hdr.this_page_g_ptr = this_page_g_ptr;
             hdr.kLeafCardinality = leaf_cardinality;
@@ -358,6 +306,10 @@ namespace DSMEngine{
 
         void leaf_page_search(const TKey &k, SearchResult<TKey, Value> &result, GlobalAddress g_page_ptr,
                               RecordSchema *record_scheme);
+        //search by lowerbound (include the target key).
+        int leaf_page_pos_lb(const TKey &k, GlobalAddress g_page_ptr, RecordSchema *record_scheme);
+        int leaf_page_find_pos_ub(const TKey &k, SearchResult<TKey, Value> &result, RecordSchema *record_scheme);
+        void GetByPosition(int pos, RecordSchema *schema_ptr, TKey &key, Value &value);
         bool leaf_page_store(const TKey &k, const Slice &v, int &cnt, RecordSchema *record_scheme);
 
     };
@@ -369,7 +321,7 @@ namespace DSMEngine{
 //        uint64_t p_version = 0;
         GlobalAddress this_page_g_ptr;
         // =============================
-        uint32_t number_of_records;
+        int32_t number_of_records;
         friend class RDMA_Manager;
         friend class DataPage;
         uint32_t kDataCardinality;
