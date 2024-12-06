@@ -47,9 +47,9 @@ master_host=${compute_nodes[0]}
 remote_mem_size=55 # 8 gb Remote memory size pernode is enough
 port=$((13000+RANDOM%1000))
 
-compute_ARGS="$@"
+#compute_ARGS="$@"
 
-echo "input Arguments: ${compute_ARGS}"
+#echo "input Arguments: ${compute_ARGS}"
 echo "launch..."
 
 launch () {
@@ -113,11 +113,14 @@ vary_thread_number () {
   #read_ratios=(0 30 50 70 90 100)
   thread_number=(8)
   read_ratio=(0)
+  range_query=(1)
   # shellcheck disable=SC2068
   for thread_n in ${thread_number[@]}; do
-    for read_r in ${read_ratio[@]}; do
-      compute_ARGS="$read_r $thread_n 0"
-      run_tpcc
+    for range_v in ${range_query[@]}; do
+      for read_r in ${read_ratio[@]}; do
+        compute_ARGS="$read_r $thread_n $range_v"
+        run_tpcc
+      done
     done
   done
 }
