@@ -123,40 +123,7 @@ void thread_run(int id) {
       }
   }
 
-//    uint64_t end_warm_key = kKeySpace;
-//    char* tuple_buff = new char[tree->scheme_ptr->GetSchemaSize()];
-//    DSMEngine::Slice tuple_slice = DSMEngine::Slice(tuple_buff,tree->scheme_ptr->GetSchemaSize());
-//    uint64_t& key = *(uint64_t*)tuple_buff;
-//    uint64_t& value = *((uint64_t*)tuple_buff+1);
-//    //    enable_cache = true;
-//  //kWarmRatio *
-//  for (uint64_t i = 1; i < end_warm_key; ++i) {
-//      // we can not sequentially pop up the data. Otherwise there will be a bug.
-//      if (i % all_thread == my_id) {
-//          key = i;
-//          value = 2*i;
-//        tree->insert(key, tuple_slice);
-////        tree->insert(to_key(i), i * 2);
-////        tree->insert(rand.Next()%(kKeySpace), i * 2);
-//
-//        }
-//      if (i % 1000000 == 0 && id ==0){
-//          printf("warm up number: %lu node id is %d \n", i, rdma_mg->node_id);
-//          fflush(stdout);
-//      }
-//  }
-//    if (table_scan){
-//        for (uint64_t i = 1; i < end_warm_key; ++i) {
-//            // we can not sequentially pop up the data. Otherwise there will be a bug.
-//            if (i % all_thread == my_id) {
-//                Value v;
-//                tree->search(to_key(i),v);
-//            }
-//            if (i % 1000000 == 0 ){
-//                printf("cache warm up number: %lu\r", i);
-//            }
-//        }
-//    }
+
 
   warmup_cnt.fetch_add(1);
 
@@ -196,7 +163,7 @@ void thread_run(int id) {
 
   Timer timer;
   uint64_t *value_buffer = (uint64_t *)malloc(sizeof(uint64_t) * 1024 * 1024);
-  int print_counter = 0;
+  uint64_t print_counter = 0;
   uint64_t scan_pos = 0;
 
   while (true) {
@@ -216,14 +183,31 @@ void thread_run(int id) {
 
 
     timer.begin();
-    if (rand_r(&seed) % 100 < kReadRatio) { // GET
-      tree->search(key, tuple_slice);
+    if(table_scan){
+        DSMEngine::Btr<uint64_t,uint64_t>::iterator* iter = tree->lower_bound(key);
+        uint64_t end_key = key + 1000*1000;
+        uint64_t this_key;
+        uint64_t this_value;
+        iter->Get(this_key, this_value);
+        while(this_key <= end_key){
+            iter->Next();
+            iter->Get(this_key, this_value);
 
-    }else {
-      value = 12;
-      tree->insert(key, tuple_slice);
+
+        }
+        print_counter = print_counter + 1000*1000;
+    }else{
+        if (rand_r(&seed) % 100 < kReadRatio) { // GET
+            tree->search(key, tuple_slice);
+
+        }else {
+            value = 12;
+            tree->insert(key, tuple_slice);
+        }
+        print_counter++;
     }
-    print_counter++;
+
+
     if (print_counter%100000 == 0)
     {
         printf("%d key-value pairs hase been executed\r", print_counter);

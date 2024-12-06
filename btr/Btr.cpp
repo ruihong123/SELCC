@@ -1388,7 +1388,7 @@ namespace DSMEngine {
         }
 //#endif
 
-        if (!internal_page_search(p, key, result, level, isroot, page_hint, 0, 0)) {
+        if (!internal_page_search(p, key, result, level, isroot, page_hint)) {
             //The traverser failed to move to the next level
             if (isroot || path_stack[0][result.level + 1] == GlobalAddress::Null()) {
                 p = get_root_ptr_protected(page_hint);
