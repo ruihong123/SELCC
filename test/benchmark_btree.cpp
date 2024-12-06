@@ -217,11 +217,9 @@ void thread_run(int id) {
 
     timer.begin();
     if (rand_r(&seed) % 100 < kReadRatio) { // GET
-//        printf("Get one key");
       tree->search(key, tuple_slice);
 
-    }
-    else {
+    }else {
       value = 12;
       tree->insert(key, tuple_slice);
     }
