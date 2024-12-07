@@ -63,6 +63,7 @@ namespace DSMEngine {
     public:
         btree_iterator(LeafPage<Key, Value> *node, Cache_Handle* handle, uint32_t position, RecordSchema *scheme_ptr, DDSM *dsm)
                 : node(node), handle(handle), position(position), scheme_ptr(scheme_ptr), dsm(dsm) {
+            valid = true;
 
         }
         ~btree_iterator(){
