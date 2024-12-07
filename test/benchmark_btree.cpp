@@ -189,7 +189,7 @@ void thread_run(int id) {
         uint64_t this_key;
         uint64_t this_value;
         iter->Get(this_key, this_value);
-        while(this_key <= end_key){
+        while(iter->Valid() && this_key <= end_key){
             iter->Next();
             iter->Get(this_key, this_value);
 
