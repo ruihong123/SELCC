@@ -66,6 +66,14 @@ namespace DSMEngine {
             valid = true;
 
         }
+        btree_iterator(btree_iterator&& iter) noexcept {
+            node = iter.node;
+            handle = iter.handle;
+            position = iter.position;
+            scheme_ptr = iter.scheme_ptr;
+            dsm = iter.dsm;
+            valid = iter.valid;
+        }
         ~btree_iterator(){
             if (handle != nullptr){
                 assert(node != nullptr);
