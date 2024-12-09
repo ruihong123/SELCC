@@ -237,9 +237,9 @@ namespace DSMEngine{
         explicit InternalPage(GlobalAddress this_page_g_ptr, bool secondary = false, uint32_t level = 0) {
             assert(level > 0);
             if (secondary){
-                hdr.p_type = P_Internal_P;
-            }else{
                 hdr.p_type = P_Internal_S;
+            }else{
+                hdr.p_type = P_Internal_P;
             }
             hdr.level = level;
 //            global_lock = 0;
