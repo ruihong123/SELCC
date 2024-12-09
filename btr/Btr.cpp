@@ -2191,7 +2191,7 @@ re_read:
 //            memset(sibling_mr->addr, 0, rdma_mg->name_to_chunksize.at(Regular_Page));
 
             assert(page->hdr.level >0);
-            sibling = new(sibling_mr->addr) InternalPage<Key>(sibling_addr, page->hdr.level);
+            sibling = new(sibling_mr->addr) InternalPage<Key>(sibling_addr, secondary_, page->hdr.level);
             //clear the global lock state. The page initialization will not reset the global lock byte.
             sibling->global_lock = 0;
             int m = cnt / 2;
