@@ -138,6 +138,7 @@ namespace DSMEngine {
                                                 CoroContext *cxt,
                                                 int coro_id) {
         auto cnt = hdr.last_index + 1;
+        assert(cnt != kInternalCardinality);
         bool is_update = false;
         uint16_t insert_index = 0;
 //--------------------------------------------------
@@ -191,7 +192,6 @@ namespace DSMEngine {
         }
 
         //--------------------------------------------
-        assert(cnt != kInternalCardinality);
         assert(records[hdr.last_index].ptr != GlobalAddress::Null());
 //        Key split_key;
 //        GlobalAddress sibling_addr = GlobalAddress::Null();
@@ -208,6 +208,7 @@ namespace DSMEngine {
         uint16_t last_index_prev = hdr.last_index;
 #endif
         hdr.last_index++;
+        cnt++;
         assert(hdr.last_index == last_index_prev + 1);
         assert(records[hdr.last_index].ptr != GlobalAddress::Null());
         assert(records[hdr.last_index].key != 0);

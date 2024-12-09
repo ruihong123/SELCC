@@ -2178,6 +2178,7 @@ re_read:
         auto cnt = page->hdr.last_index + 1;
         InternalPage<Key>* sibling = nullptr;
         if (need_split) { // need split
+            assert(cnt == InternalPage<Key>::kInternalCardinality);
             sibling_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Regular_Page, 2 * round_robin_cur + 1);
             if(++round_robin_cur == rdma_mg->memory_nodes.size()){
                 round_robin_cur = 0;
