@@ -69,19 +69,38 @@ namespace DSMEngine {
         uint16_t left = 0;
         uint16_t right = hdr.last_index;
         uint16_t mid = 0;
-        // THe binary search algorithm below will stop at the largest value that smaller than the target key.
-        // tHE pointer after a split key is for [splitkey, next splitkey). So the binary search is correct.
+        // THe binary search algorithm below will
+        // (1): for primary index: stop at the largest key that smaller or equal than the target key.
+        // (2): for secondary index: stop at the largest key that smaller or equal than the target key.
+        //      If it is equal, it point to the frist one. If it is smaller, pointed to the last one.
         while (left < right) {
             mid = (left + right + 1) / 2;
-            //TODO: extract the condition of equal into another if branch, just like what I did for internal store.
-            if (k >= records[mid].key) {
+            //TODO: return the first entry which equals to the target key.
+            if (k > records[mid].key) {
                 // Key at "mid" is smaller than "target".  Therefore all
                 // blocks before "mid" are uninteresting.
                 left = mid;
-            } else {
+            } else if(k < records[mid].key) {
                 // Key at "mid" is >= "target".  Therefore all blocks at or
                 // after "mid" are uninteresting.
                 right = mid - 1; // why mid -1 rather than mid
+            }else{
+                if(hdr.p_type == P_Internal_P){
+                    target_global_ptr_buff = records[mid].ptr;
+                    result.next_level = target_global_ptr_buff;
+                    assert(result.this_key <= k);
+                    assert(result.next_level != GlobalAddress::Null());
+                    return true;
+                }
+                int mid_t = mid;
+                int prev = mid_t -1;
+                while(mid_t >0 && records[mid_t].key == records[prev].key){
+                    mid_t--;
+                    prev = mid_t -1;
+                }
+                mid = mid_t;
+                left = mid;
+                right = mid;
             }
         }
 
@@ -142,73 +161,56 @@ namespace DSMEngine {
                     right = mid - 1;
                 }else{
                     // internal node entry shall never get updated
-                    assert(false);
-                    throw std::runtime_error("Internal node entry shall never get updated");
-                    records[mid].ptr = value;
-                    is_update = true;
+                    if(hdr.p_type == P_Internal_P){
+                        assert(false);
+                        throw std::runtime_error("Internal node entry shall never get updated");
+                    }else{
+                        // TODO: if it is a seconday index , then the internal node could have duplicated entries, then how can I know where
+                        //  my new entry should be inserted? One observation is that if the duplicated key cross multiple nodes, then
+                        //  the new created key shall always be inserted in the second position.
+                        int mid_n = mid;
+                        int prev = mid_n -1;
+                        while(prev >0 && records[prev].key == k){
+                            mid_n--;
+                            prev = mid_n - 1;
+                        }
+                        mid = mid_n+1;
+                        left = mid;
+                        right = mid;
+//                        records[mid].ptr = value;
+                        is_update = false;
+                    }
+
+
+
 
                 }
             }
             assert(left == right);
-            if (BOOST_LIKELY(k!=records[left].key)){
-                insert_index = left +1;
-            }else{
-                // internal node entry shall never get updated
-                assert(false);
-                records[left].ptr = value;
-                is_update = true;
-            }
-
-
+            insert_index = left +1;
         }
 
-
-//        printf("The last index %d 's key is %lu, this key is %lu\n", page->hdr.last_index, page->records[page->hdr.last_index].key, k);
-        // ---------------------------------------------------------
-        //TODO: Make it a binary search.
-//        for (int i = cnt - 1; i >= 0; --i) {
-//            if (records[i].key == k) { // find and update
-//
-////                asm volatile ("sfence\n" : : );
-//                records[i].ptr = value;
-////                asm volatile ("sfence\n" : : );
-//
-//                is_update = true;
-//                break;
-//            }
-//            if (records[i].key < k) {
-//                insert_index = i + 1;
-//                break;
-//            }
-//        }
         //--------------------------------------------
         assert(cnt != kInternalCardinality);
         assert(records[hdr.last_index].ptr != GlobalAddress::Null());
 //        Key split_key;
 //        GlobalAddress sibling_addr = GlobalAddress::Null();
-        if (!is_update) { // insert and shift
-            hdr.reset_dirty_bounds();
-            //TODO: calculate the dirty range when insert a new entry.
-            for (int i = cnt; i > insert_index; --i) {
-                records[i].key = records[i - 1].key;
-                records[i].ptr = records[i - 1].ptr;
-            }
-
-
-            records[insert_index].key = k;
-            records[insert_index].ptr = value;
-#ifndef NDEBUG
-            uint16_t last_index_prev = hdr.last_index;
-#endif
-            hdr.last_index++;
-            assert(hdr.last_index == last_index_prev + 1);
-            assert(records[hdr.last_index].ptr != GlobalAddress::Null());
-            assert(records[hdr.last_index].key != 0);
-            cnt = hdr.last_index + 1;
-        } else{
-
+        assert(!is_update);
+        hdr.reset_dirty_bounds();
+        //no dirty boundary needs to be updated.
+        for (int i = cnt; i > insert_index; --i) {
+            records[i].key = records[i - 1].key;
+            records[i].ptr = records[i - 1].ptr;
         }
-
+        records[insert_index].key = k;
+        records[insert_index].ptr = value;
+#ifndef NDEBUG
+        uint16_t last_index_prev = hdr.last_index;
+#endif
+        hdr.last_index++;
+        assert(hdr.last_index == last_index_prev + 1);
+        assert(records[hdr.last_index].ptr != GlobalAddress::Null());
+        assert(records[hdr.last_index].key != 0);
         return cnt == kInternalCardinality;
     }
     template<class Key, class Value>
@@ -497,12 +499,18 @@ namespace DSMEngine {
                     //Find the value.
                     assert(v.size() == r.GetRecordSize());
                     memcpy(r.data_ptr_, v.data(), r.GetRecordSize());
-                    is_update = true;
+                    if(hdr.p_type == P_Leaf_P){
+                        is_update = true;
 #ifdef DIRTY_ONLY_FLUSH
-                    hdr.merge_dirty_bounds(tuple_start - (char*)this, tuple_start - (char*)this + r.GetRecordSize());
+                        hdr.merge_dirty_bounds(tuple_start - (char*)this, tuple_start - (char*)this + r.GetRecordSize());
 #endif
-                    assert(cnt < hdr.kLeafCardinality);
-                    return cnt == hdr.kLeafCardinality;
+                        assert(cnt < hdr.kLeafCardinality);
+                        return cnt == hdr.kLeafCardinality;
+                    }
+                    // TODO: for search secondary index with duplicated key, the new inserted enty will be inserted into the first node contain that duplicated key,
+                    //  but it may not inserted in the first position with in the node.
+                    left = mid;
+                    right = mid;
                 }
             }
             assert(left == right);

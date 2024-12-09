@@ -185,19 +185,19 @@ void thread_run(int id) {
     timer.begin();
     if(table_scan){
         //TODO: try to not make iter a pointer here, make it a variable which will be automatically deleted when go outside the scope
-        DSMEngine::Btr<uint64_t,uint64_t>::iterator* iter = tree->lower_bound(key);
+        DSMEngine::Btr<uint64_t,uint64_t>::iterator iter = tree->lower_bound(key);
         uint64_t end_key = key + 1000*1000;
         uint64_t this_key;
         uint64_t this_value;
-        iter->Get(this_key, this_value);
-        while(iter->Valid() && this_key <= end_key){
-            iter->Next();
-            iter->Get(this_key, this_value);
+        iter.Get(this_key, this_value);
+        while(iter.Valid() && this_key <= end_key){
+            iter.Next();
+            iter.Get(this_key, this_value);
 
 
         }
         print_counter = print_counter + 1000*1000;
-        delete iter;
+//        delete iter;
     }else{
         if (rand_r(&seed) % 100 < kReadRatio) { // GET
             tree->search(key, tuple_slice);

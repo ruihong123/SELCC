@@ -58,65 +58,7 @@ extern int TimePrintCounter[MAX_APP_THREAD];
 namespace DSMEngine {
     //TODO: implement the iterator for the btree.
     // TODO: create an class for SELCC latch.
-    template<class Key, class Value>
-    struct btree_iterator {
-    public:
-        btree_iterator(LeafPage<Key, Value> *node, Cache_Handle* handle, uint32_t position, RecordSchema *scheme_ptr, DDSM *dsm)
-                : node(node), handle(handle), position(position), scheme_ptr(scheme_ptr), dsm(dsm) {
-            valid = true;
 
-        }
-        btree_iterator(btree_iterator&& iter) noexcept {
-            node = iter.node;
-            handle = iter.handle;
-            position = iter.position;
-            scheme_ptr = iter.scheme_ptr;
-            dsm = iter.dsm;
-            valid = iter.valid;
-        }
-        ~btree_iterator(){
-            if (handle != nullptr){
-                assert(node != nullptr);
-                dsm->SELCC_Shared_UnLock(handle->gptr, handle);
-            }else{
-                assert(node == nullptr);
-            }
-        }
-        void Get(Key& key, Value& value){
-            node->GetByPosition(position, scheme_ptr, key, value);
-        }
-        void Next(){
-            if (position < node->hdr.last_index){
-                position++;
-            } else {
-                // todo: move to the next leaf node.
-                GlobalAddress next_leaf = node->hdr.sibling_ptr;
-                if (next_leaf == GlobalAddress::Null()){
-                    valid = false;
-                    return;
-                }
-                dsm->SELCC_Shared_UnLock(handle->gptr, handle);
-                void* page_buffer;
-                dsm->SELCC_Shared_Lock(page_buffer, next_leaf, handle);
-                node = (LeafPage<Key, Value> *)page_buffer;
-                position = 0;
-            }
-        }
-//        void Prev();
-        bool Valid(){
-            return valid;
-        }
-
-    private:
-        // The node in the tree the iterator is pointing at.
-        LeafPage<Key, Value> *node = nullptr;
-        // The position within the node of the tree the iterator is pointing at.
-        Cache_Handle* handle = nullptr; // use the SELLC latch inside the handle to protect the access of iterator.
-        uint32_t position = 0; // offset within the leaf node
-        bool valid = false;
-        RecordSchema *scheme_ptr = nullptr;
-        DDSM *dsm = nullptr;
-    };
 
     template<class Key>
     class InternalPage;
@@ -131,10 +73,80 @@ namespace DSMEngine {
     class Btr {
 //friend class DSMEngine::InternalPage;
     public:
-        typedef btree_iterator<Key, Value> iterator;
+        struct iterator {
+        public:
+            iterator(LeafPage<Key, Value> *node, Cache_Handle* handle, uint32_t position, RecordSchema *scheme_ptr, DDSM *dsm)
+                    : node(node), handle(handle), position_idx(position), scheme_ptr(scheme_ptr), dsm(dsm) {
+                valid = true;
+
+            }
+            iterator()= default;
+            iterator(iterator&& iter) noexcept {
+                node = iter.node;
+                handle = iter.handle;
+                position_idx = iter.position_idx;
+                scheme_ptr = iter.scheme_ptr;
+                dsm = iter.dsm;
+                valid = iter.valid;
+            }
+            void initialize(LeafPage<Key, Value> *node_t, Cache_Handle* handle_t, uint32_t position_t, RecordSchema *scheme_ptr_t, DDSM *dsm_t){
+                node = node_t;
+                handle = handle_t;
+                position_idx = position_t;
+                scheme_ptr = scheme_ptr_t;
+                dsm = dsm_t;
+                valid = true;
+            }
+            ~iterator(){
+                if (handle != nullptr){
+                    assert(node != nullptr);
+                    dsm->SELCC_Shared_UnLock(handle->gptr, handle);
+                }else{
+                    assert(node == nullptr);
+                }
+            }
+            void Get(Key& key, Value& value){
+                node->GetByPosition(position_idx, scheme_ptr, key, value);
+            }
+            void Next(){
+                if (position_idx < node->hdr.last_index){
+                    position_idx++;
+                } else {
+                    // todo: move to the next leaf node.
+                    GlobalAddress next_leaf = node->hdr.sibling_ptr;
+                    if (next_leaf == GlobalAddress::Null()){
+                        valid = false;
+                        return;
+                    }
+                    dsm->SELCC_Shared_UnLock(handle->gptr, handle);
+                    void* page_buffer;
+                    dsm->SELCC_Shared_Lock(page_buffer, next_leaf, handle);
+                    node = (LeafPage<Key, Value> *)page_buffer;
+                    position_idx = 0;
+                }
+            }
+//        void Prev();
+            bool Valid(){
+                return valid;
+            }
+            void SetValid(bool flag){
+                valid = flag;
+            }
+
+        private:
+            // The node in the tree the iterator is pointing at.
+            LeafPage<Key, Value> *node = nullptr;
+            // The position_idx within the node of the tree the iterator is pointing at.
+            Cache_Handle* handle = nullptr; // use the SELLC latch inside the handle to protect the access of iterator.
+            uint32_t position_idx = 0; // offset within the leaf node
+            bool valid = false;
+            RecordSchema *scheme_ptr = nullptr;
+            DDSM *dsm = nullptr;
+        };
+
 
         // Assign a unique id to the tree, and allocate the root node by itself
-        Btr(DDSM *dsm, Cache *cache_ptr, RecordSchema *record_scheme_ptr, uint16_t Btr_id);
+        Btr(DDSM *dsm, Cache *cache_ptr, RecordSchema *record_scheme_ptr, uint16_t Btr_id, bool secondary = false);
         //Btree waiting for serialization. get the root node from memcached
         Btr(DDSM *dsm, Cache *cache_ptr, RecordSchema *record_scheme_ptr);
 
@@ -144,9 +156,10 @@ namespace DSMEngine {
         bool search(const Key &k, const Slice &v, CoroContext *cxt = nullptr,
                     int coro_id = 0);
         //Remember to destroy the iterator after use.
-        iterator* begin();
+        iterator begin();
         // Finds the first element whose key is not less than key. the iterator always move forward.
-        iterator* lower_bound(const Key &key);
+        // TODO: make the return not a point but a moved object.
+        iterator lower_bound(const Key &key);
 //        iterator upper_bound(const Key &key) const {
 //            return iterator{};
 //        }
@@ -196,6 +209,7 @@ namespace DSMEngine {
         RecordSchema *scheme_ptr;
         uint64_t num_of_record = 0;
         uint16_t leaf_cardinality_ = 0;
+        bool secondary_ = false;
 
 
 
@@ -301,8 +315,7 @@ namespace DSMEngine {
                               CoroContext *cxt,
                               int coro_id);
         // create a iterator for the range query.
-        bool leaf_page_find(GlobalAddress page_addr, const Key &k, SearchResult<Key, Value> &result,
-                            btree_iterator<Key,Value> *&iter, int level);
+        bool leaf_page_find(GlobalAddress page_addr, const Key &k, SearchResult<Key, Value> &result, iterator &iter, int level);
 //        void internal_page_search(const Key &k, SearchResult &result);
 
 //    void leaf_page_search(LeafPage *page, const Key &k, SearchResult &result);
@@ -311,7 +324,9 @@ namespace DSMEngine {
         bool internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int level, CoroContext *cxt,
                                  int coro_id);
 
-        //store a key and value to a leaf page [lowest, highest)
+        //store a key and value to a leaf page [lowest, highest). If it is secondary index, then range could be [lowest, highest], where lowest == highest.
+        // Our code logic make it impossible to have duplicated key like this [a,b,c,d,d,d,d] [d,e,e,e,e,f], where dupilated keys covers last few records in one node and
+        // spill to the next node for a few records. We make sure this never happen by our code logics in split.
         bool leaf_page_store(GlobalAddress page_addr, const Key &k, const Slice &v, Key &split_key,
                              GlobalAddress &sibling_addr, int level, CoroContext *cxt, int coro_id);
 

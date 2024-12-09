@@ -210,11 +210,16 @@ namespace DSMEngine{
 
     public:
         // this is called when tree grows, The page initialization will not reset the global lock byte.
-        InternalPage(GlobalAddress left, const Key &key, GlobalAddress right, GlobalAddress this_page_g_ptr,
+        InternalPage(GlobalAddress left, const Key &key, GlobalAddress right, GlobalAddress this_page_g_ptr, bool secondary = false,
                      uint32_t level = 0) {
             assert(level> 0);
 //            assert(STRUCT_OFFSET(InternalPage<Key>, local_lock_meta) == 0);
-            hdr.p_type = P_Internal_P;
+            if (secondary){
+                hdr.p_type = P_Internal_P;
+
+            }else{
+                hdr.p_type = P_Internal_S;
+            }
             hdr.leftmost_ptr = left;
             hdr.level = level;
 //            hdr.p_version = 0;
@@ -229,8 +234,13 @@ namespace DSMEngine{
             hdr.this_page_g_ptr = this_page_g_ptr;
         }
 
-        explicit InternalPage(GlobalAddress this_page_g_ptr, uint32_t level = 0) {
+        explicit InternalPage(GlobalAddress this_page_g_ptr, bool secondary = false, uint32_t level = 0) {
             assert(level > 0);
+            if (secondary){
+                hdr.p_type = P_Internal_P;
+            }else{
+                hdr.p_type = P_Internal_S;
+            }
             hdr.level = level;
 //            global_lock = 0;
             records[0].ptr = GlobalAddress::Null();
@@ -270,10 +280,15 @@ namespace DSMEngine{
 
         template<class K, class V> friend class Btr;
     public:
-        LeafPage(GlobalAddress this_page_g_ptr, uint16_t leaf_cardinality, uint16_t leaf_recordsize,
+        LeafPage(GlobalAddress this_page_g_ptr, uint16_t leaf_cardinality, uint16_t leaf_recordsize, bool secondary = false,
                  uint32_t level = 0) {
             assert(level == 0);
-            hdr.p_type = P_Leaf_P;
+            if(!secondary){
+                hdr.p_type = P_Leaf_P;
+
+            }else{
+                hdr.p_type = P_Leaf_S;
+            }
             hdr.level = level;
             hdr.this_page_g_ptr = this_page_g_ptr;
             hdr.kLeafCardinality = leaf_cardinality;
