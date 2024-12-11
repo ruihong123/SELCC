@@ -122,11 +122,17 @@ void thread_run(int id) {
           fflush(stdout);
       }
     }
-    const uint64_t checked_key = end_warm_key + 1;
+    const uint64_t checked_key1 = end_warm_key + 1;
+    const uint64_t checked_key2 = end_warm_key/2;
     if(tree->secondary_){
         for(int i = 0; i < 1000; i++){
-            key = checked_key;
-            value = end_warm_key + i;
+            key = checked_key1;
+            value = i;
+            tree->insert(i, tuple_slice);
+        }
+        for(int i = 0; i < 1000; i++){
+            key = checked_key2;
+            value = i;
             tree->insert(i, tuple_slice);
         }
     }
@@ -163,19 +169,29 @@ void thread_run(int id) {
 
 #else
     if (tree->secondary_){
-        DSMEngine::Btr<uint64_t,uint64_t>::iterator iter = tree->lower_bound(checked_key + 1);
+        DSMEngine::Btr<uint64_t,uint64_t>::iterator iter = tree->lower_bound(checked_key1 + 1);
         uint64_t this_key;
         uint64_t this_value;
         iter.Get(this_key, this_value);
         for (int i = 0; i < 1000; i++){
-            assert(this_key == checked_key);
+            assert(this_key == checked_key1);
             iter.Next();
             iter.Get(this_key, this_value);
             if (DSMEngine::RDMA_Manager::node_id == 0 && id == 0){
-                printf("value is %lu\n", this_value);
+                printf("values for check 1 are %lu\n", this_value);
             }
-
-
+        }
+        DSMEngine::Btr<uint64_t,uint64_t>::iterator iter2 = tree->lower_bound(checked_key2 + 1);
+        uint64_t this_key2;
+        uint64_t this_value2;
+        iter.Get(this_key2, this_value2);
+        for (int i = 0; i < 1001; i++){
+            assert(this_key2 == checked_key2);
+            iter.Next();
+            iter.Get(this_key2, this_value2);
+            if (DSMEngine::RDMA_Manager::node_id == 0 && id == 0){
+                printf("values for check 2 are %lu\n", this_value2);
+            }
         }
     }
 
