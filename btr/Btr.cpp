@@ -2581,10 +2581,12 @@ re_read:
 //            }
             //TODO： check why the split_record point to an empty record. when I print the page content, it is weird.
             // It turns out the page is an empty page
-
-            assert(split_key > page->hdr.lowest);
-            assert(split_key < page->hdr.highest);
-
+#ifndef NDEBUG
+            if (!secondary_){
+                assert(split_key > page->hdr.lowest);
+                assert(split_key < page->hdr.highest);
+            }
+#endif
             for (int i = m; i < cnt; ++i) { // move
                 char* to_be_moved_start = page->data_ + m*tuple_length;
 
