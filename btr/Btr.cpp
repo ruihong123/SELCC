@@ -2528,7 +2528,7 @@ re_read:
             rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Regular_Page);
 //      memset(sibling_mr->addr, 0, kLeafPageSize);
             auto sibling = new(sibling_mr->addr) LeafPage<Key, Value>(sibling_addr, leaf_cardinality_, scheme_ptr->GetSchemaSize(),
-                                                                      page->hdr.level, secondary_);
+                                                                      secondary_, page->hdr.level);
             sibling->global_lock = 0;
             assert(sibling->global_lock == 0);
             //TODO: add the sibling to the local cache.
