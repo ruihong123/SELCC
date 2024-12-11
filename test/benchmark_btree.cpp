@@ -121,7 +121,15 @@ void thread_run(int id) {
           printf("warm up number: %lu node id is %d \n", i, rdma_mg->node_id);
           fflush(stdout);
       }
-  }
+    }
+    const uint64_t checked_key = end_warm_key + 1;
+    if(tree->secondary_){
+        for(int i = 0; i < 1000; i++){
+            key = checked_key;
+            value = end_warm_key + i;
+            tree->insert(i, tuple_slice);
+        }
+    }
 
 
 
@@ -154,6 +162,22 @@ void thread_run(int id) {
   tree->run_coroutine(coro_func, id, kCoroCnt);
 
 #else
+    if (tree->secondary_){
+        DSMEngine::Btr<uint64_t,uint64_t>::iterator iter = tree->lower_bound(checked_key + 1);
+        uint64_t this_key;
+        uint64_t this_value;
+        iter.Get(this_key, this_value);
+        for (int i = 0; i < 1000; i++){
+            assert(this_key == checked_key);
+            iter.Next();
+            iter.Get(this_key, this_value);
+            if (DSMEngine::RDMA_Manager::node_id == 0 && id == 0){
+                printf("value is %lu\n", this_value);
+            }
+
+
+        }
+    }
 
   /// without coro
   unsigned int seed = rdtsc();
@@ -314,9 +338,11 @@ int main(int argc, char *argv[]) {
     size_t column_ids[1] = {0};
     schema_ptr->SetPrimaryColumns(column_ids,1);
     DSMEngine::DDSM ddsm = DSMEngine::DDSM(cache_ptr, rdma_mg);
-    tree = new DSMEngine::Btr<uint64_t, uint64_t>(&ddsm, cache_ptr, schema_ptr, 0);
+//    tree = new DSMEngine::Btr<uint64_t, uint64_t>(&ddsm, cache_ptr, schema_ptr, 0);
+    tree = new DSMEngine::Btr<uint64_t, uint64_t>(&ddsm, cache_ptr, schema_ptr, 0, true);
 
-#ifndef BENCH_LOCK
+
+
     char* tuple_buff = new char[schema_ptr->GetSchemaSize()];
     DSMEngine::Slice tuple_slice = DSMEngine::Slice(tuple_buff,schema_ptr->GetSchemaSize());
     uint64_t& key = *(uint64_t*)tuple_buff;
@@ -330,7 +356,6 @@ int main(int argc, char *argv[]) {
 //        tree->insert(i, i * 2);
     }
   }
-#endif
 
     rdma_mg->sync_with_computes_Cside();
 
