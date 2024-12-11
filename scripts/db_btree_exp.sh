@@ -29,7 +29,7 @@ output_dir="/home/wang4996/MemoryEngine/scripts/data"
 core_dump_dir="/ssd_root/wang4996"
 # working environment
 proj_dir="/home/wang4996/MemoryEngine"
-bin_dir="${proj_dir}/release"
+bin_dir="${proj_dir}/debug"
 script_dir="${proj_dir}/database/scripts"
 ssh_opts="-o StrictHostKeyChecking=no"
 
