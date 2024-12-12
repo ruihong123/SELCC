@@ -126,6 +126,7 @@ void thread_run(int id) {
     const uint64_t checked_key2 = end_warm_key/2;
 //    if(tree->secondary_){
         for(int i = 0; i < 1000; i++){
+            // note that the insert(key, tuple). the key have to equal to the primary key in the tuple. There will be error.
             key = i;
             value = checked_key1;
             tree->insert(key, tuple_slice);

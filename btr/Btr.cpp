@@ -1033,7 +1033,14 @@ namespace DSMEngine {
     template<typename Key, typename Value>
     void Btr<Key,Value>::insert(const Key &k, const Slice &v, CoroContext *cxt, int coro_id) {
 //  assert(rdma_mg->is_register());
-
+#ifndef NDEBUG
+        //check whether the primary key equal to the k.
+        assert(k == *(Key*)v.data());
+        Record record = Record(scheme_ptr, const_cast<char *>(v.data()));
+        Key pri_k;
+        record.GetPrimaryKey(pri_k);
+        assert(pri_k == k);
+#endif
         before_operation(cxt, coro_id);
 
 
