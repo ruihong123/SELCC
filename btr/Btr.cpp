@@ -1038,7 +1038,7 @@ namespace DSMEngine {
         assert(k == *(Key*)v.data());
         Record record = Record(scheme_ptr, const_cast<char *>(v.data()));
         Key pri_k;
-        record.GetPrimaryKey(pri_k);
+        record.GetPrimaryKey(&pri_k);
         assert(pri_k == k);
 #endif
         before_operation(cxt, coro_id);
