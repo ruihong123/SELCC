@@ -126,14 +126,20 @@ void thread_run(int id) {
     const uint64_t checked_key2 = end_warm_key/2;
 //    if(tree->secondary_){
         for(int i = 0; i < 1000; i++){
+            key = i;
+            value = checked_key1;
+            tree->insert(key, tuple_slice);
+        }
+        for(int i = 0; i < 1000; i++){
             key = checked_key1;
             value = i;
-            tree->insert(i, tuple_slice);
+            tree->insert(key, tuple_slice);
         }
+
         for(int i = 0; i < 1000; i++){
             key = checked_key2;
             value = i;
-            tree->insert(i, tuple_slice);
+            tree->insert(key, tuple_slice);
         }
 //    }
 
