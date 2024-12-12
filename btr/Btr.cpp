@@ -2127,29 +2127,33 @@ re_read:
         // This is the result that we do not lock the btree when search for the key.
         // Not sure whether this will still work if we have node merge
         // Why this node can not be the right most node
-        if (k >= page->hdr.highest ) {
-            GlobalAddress sib_ptr = page->hdr.sibling_ptr;
-            if (!skip_cache){
-                ddms_->SELCC_Exclusive_UnLock(page_addr, handle);
-            }else{
-                assert(false);
-            }
-            // TODO: No need for node invalidation when inserting things because the tree tranversing is enough for invalidation (Erase)
-            if(UNLIKELY(level == tree_height.load()) || path_stack[coro_id][level+1]== GlobalAddress::Null()){
-                std::unique_lock<RWSpinLock> l(root_mtx);
-                if (page_addr == g_root_ptr.load()){
-                    g_root_ptr.store(GlobalAddress::Null());
+        if(secondary_ && page->hdr.highest == page->hdr.lowest && k == page->hdr.highest){
+            //do nothing, this node is the correct node.
+        }else {
+            if (k >= page->hdr.highest) {
+                GlobalAddress sib_ptr = page->hdr.sibling_ptr;
+                if (!skip_cache) {
+                    ddms_->SELCC_Exclusive_UnLock(page_addr, handle);
+                } else {
+                    assert(false);
                 }
+                // TODO: No need for node invalidation when inserting things because the tree tranversing is enough for invalidation (Erase)
+                if (UNLIKELY(level == tree_height.load()) || path_stack[coro_id][level + 1] == GlobalAddress::Null()) {
+                    std::unique_lock<RWSpinLock> l(root_mtx);
+                    if (page_addr == g_root_ptr.load()) {
+                        g_root_ptr.store(GlobalAddress::Null());
+                    }
+                }
+                if (nested_retry_counter <= 4) {
+                    nested_retry_counter++;
+                    insert_success = this->internal_page_store(sib_ptr, k, v, level, cxt, coro_id);
+                } else {
+                    nested_retry_counter = 0;
+                    insert_success = false;
+                    DEBUG_PRINT_CONDITION("retry place 5\n");
+                }
+                return insert_success;
             }
-            if (nested_retry_counter <= 4){
-                nested_retry_counter++;
-                insert_success = this->internal_page_store(sib_ptr, k, v, level, cxt, coro_id);
-            }else{
-                nested_retry_counter = 0;
-                insert_success = false;
-                DEBUG_PRINT_CONDITION("retry place 5\n");
-            }
-            return insert_success;
         }
         nested_retry_counter = 0;
         if (k < page->hdr.lowest ) {
