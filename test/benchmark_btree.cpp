@@ -124,7 +124,7 @@ void thread_run(int id) {
     }
     const uint64_t checked_key1 = end_warm_key + 1;
     const uint64_t checked_key2 = end_warm_key/2;
-    if(tree->secondary_){
+//    if(tree->secondary_){
         for(int i = 0; i < 1000; i++){
             key = checked_key1;
             value = i;
@@ -135,7 +135,7 @@ void thread_run(int id) {
             value = i;
             tree->insert(i, tuple_slice);
         }
-    }
+//    }
 
 
 
@@ -354,8 +354,8 @@ int main(int argc, char *argv[]) {
     size_t column_ids[1] = {0};
     schema_ptr->SetPrimaryColumns(column_ids,1);
     DSMEngine::DDSM ddsm = DSMEngine::DDSM(cache_ptr, rdma_mg);
-//    tree = new DSMEngine::Btr<uint64_t, uint64_t>(&ddsm, cache_ptr, schema_ptr, 0);
-    tree = new DSMEngine::Btr<uint64_t, uint64_t>(&ddsm, cache_ptr, schema_ptr, 0, true);
+    tree = new DSMEngine::Btr<uint64_t, uint64_t>(&ddsm, cache_ptr, schema_ptr, 0);
+//    tree = new DSMEngine::Btr<uint64_t, uint64_t>(&ddsm, cache_ptr, schema_ptr, 0, true);
 
 
 
