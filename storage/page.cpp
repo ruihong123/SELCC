@@ -473,6 +473,7 @@ namespace DSMEngine {
         auto r_temp = Record(record_scheme,tuple_start);
         TKey temp_key1;
         r_temp.GetPrimaryKey((char*)&temp_key1);
+        assert(temp_key1 <= hdr.highest);
         if (k < temp_key1 || hdr.last_index == -1) {
             // this branc can only happen when the page is empty or the leafpage is the left most leaf page
 //            assert(hdr.last_index == -1);
@@ -563,6 +564,7 @@ namespace DSMEngine {
         // If the page get inserted, then the dirty range is the whole page, or flush to the end of tuple_start + (last_Index+1)*r.GetRecordSize()
         hdr.merge_dirty_bounds(sizeof(uint64_t), kLeafPageSize);
 #endif
+        assert(temp_key1 <= hdr.highest);
         return cnt == hdr.kLeafCardinality;
 #else
         for (int i = 0; i < kLeafCardinality; ++i) {
