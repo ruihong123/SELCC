@@ -2088,7 +2088,7 @@ re_read:
         Value v;
         iter.Get(temp_key,v);
         assert(k == temp_key);
-        assert(result.val.data()== nullptr);
+        assert(result.val.data() != nullptr);
     returntrue:
 //        assert(handle);
 //        ddms_->SELCC_Shared_UnLock(page_addr, handle);
