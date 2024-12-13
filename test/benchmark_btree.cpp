@@ -176,7 +176,7 @@ void thread_run(int id) {
 
 #else
     if (tree->secondary_){
-        DSMEngine::Btr<uint64_t,uint64_t>::iterator iter = tree->lower_bound(checked_key1 + 1);
+        DSMEngine::Btr<uint64_t,uint64_t>::iterator iter = tree->lower_bound(checked_key1);
         uint64_t this_key;
         uint64_t this_value;
         iter.Get(this_key, this_value);
@@ -188,7 +188,7 @@ void thread_run(int id) {
                 printf("values for check 1 are %lu\n", this_value);
             }
         }
-        DSMEngine::Btr<uint64_t,uint64_t>::iterator iter2 = tree->lower_bound(checked_key2 + 1);
+        DSMEngine::Btr<uint64_t,uint64_t>::iterator iter2 = tree->lower_bound(checked_key2);
         uint64_t this_key2;
         uint64_t this_value2;
         iter.Get(this_key2, this_value2);
