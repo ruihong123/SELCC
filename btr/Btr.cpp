@@ -1463,6 +1463,10 @@ namespace DSMEngine {
             DEBUG_PRINT_CONDITION("back off for search\n");
             goto next;
         } else {
+            Key k;
+            Value v;
+            iter.Get(k,v);
+            assert(k == key);
             // we have move constructor for btree iterator, so this should be faster than before.
             return iter;
         }
@@ -2080,7 +2084,11 @@ re_read:
             page = (LeafPage<Key,Value> *)page_buffer;
             iter.initialize(page, handle, 0, scheme_ptr,ddms_);
         }
-        assert(result.val.data()!= nullptr);
+        Key temp_key;
+        Value v;
+        iter.Get(temp_key,v);
+        assert(k == temp_key);
+        assert(result.val.data()== nullptr);
     returntrue:
 //        assert(handle);
 //        ddms_->SELCC_Shared_UnLock(page_addr, handle);
