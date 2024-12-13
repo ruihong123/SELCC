@@ -78,7 +78,7 @@ namespace DSMEngine{
 
         template<class K, class V> friend class Btr;
 //        friend class IndexCache;
-        uint16_t LeafRecordSize;
+//        uint16_t LeafRecordSize;
         uint16_t kLeafCardinality;
         //        T* try_var{};
         T lowest{};

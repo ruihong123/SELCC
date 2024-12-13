@@ -321,7 +321,8 @@ namespace DSMEngine {
     void LeafPage<TKey,Value>::GetByPosition(int pos, RecordSchema *schema_ptr, TKey &key, Value &value) {
         assert(pos >= 0);
         assert(pos <= hdr.last_index);
-        char* tuple_start = data_ + pos*hdr.LeafRecordSize;
+        size_t tuple_length = schema_ptr->GetSchemaSize();
+        char* tuple_start = data_ + pos*hdr.schema_ptr->tuple_length;
         auto r = Record(schema_ptr,tuple_start);
         //Return the value of the key-value pair for index.
 //        return r.GetColumn(1);
