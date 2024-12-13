@@ -255,7 +255,7 @@ namespace DSMEngine {
                     return mid;
                 } else{
                     assert(hdr.p_type == P_Leaf_S);
-                    // seek forward to find all the entries that meet the condition.
+                    // seek backward to find all the entries that meet the condition.
                     while (mid > 0){
                         tuple_start = data_ + (mid-1)*tuple_length;
                         auto r = Record(record_scheme,tuple_start);
