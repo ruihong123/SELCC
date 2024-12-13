@@ -322,7 +322,7 @@ namespace DSMEngine {
         assert(pos >= 0);
         assert(pos <= hdr.last_index);
         size_t tuple_length = schema_ptr->GetSchemaSize();
-        char* tuple_start = data_ + pos*hdr.schema_ptr->tuple_length;
+        char* tuple_start = data_ + pos*tuple_length;
         auto r = Record(schema_ptr,tuple_start);
         //Return the value of the key-value pair for index.
 //        return r.GetColumn(1);
