@@ -248,6 +248,7 @@ namespace DSMEngine {
                 // Key at "mid" is >= "target".  Therefore all blocks at or
                 // after "mid" are uninteresting.
                 right = mid - 1;
+                mid = right;
             } else{
                 //todo: secondary index need to move to the left most value that meets the condition.
                 //Find the value.
@@ -274,6 +275,7 @@ namespace DSMEngine {
         assert(k > temp_key || right == 0);
         // Not find
         assert(right == left);
+        assert(mid == right);
         tuple_start = data_ + right*tuple_length;
         auto r = Record(record_scheme,tuple_start);
 //        Key temp_key;
