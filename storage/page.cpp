@@ -119,10 +119,9 @@ namespace DSMEngine {
 #endif
 
 #ifndef NDEBUG
-//        if (right < hdr.last_index){
-
-        assert(k < result.later_key);
-//        }
+        if (hdr.p_type == P_Internal_P){
+            assert(k < result.later_key);
+        }
 #endif
 
         assert(result.this_key <= k);
