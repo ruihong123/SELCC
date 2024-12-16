@@ -193,11 +193,11 @@ void thread_run(int id) {
         DSMEngine::Btr<uint64_t,uint64_t>::iterator iter2 = tree->lower_bound(checked_key2);
         uint64_t this_key2;
         uint64_t this_value2;
-        iter.Get(this_key2, this_value2);
+        iter2.Get(this_key2, this_value2);
         for (int i = 0; i < 1001; i++){
             assert(this_key2 == checked_key2);
-            iter.Next();
-            iter.Get(this_key2, this_value2);
+            iter2.Next();
+            iter2.Get(this_key2, this_value2);
             if (DSMEngine::RDMA_Manager::node_id == 0 && id == 0){
                 printf("values for check 2 are %lu\n", this_value2);
             }
