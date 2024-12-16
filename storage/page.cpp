@@ -176,7 +176,7 @@ namespace DSMEngine {
                             mid_n--;
                             prev = mid_n - 1;
                         }
-                        mid = mid_n+1;
+                        mid = mid_n;
                         left = mid;
                         right = mid;
 //                        records[mid].ptr = value;
@@ -189,6 +189,8 @@ namespace DSMEngine {
                 }
             }
             assert(left == right);
+            // the binary search will stop at the largest key who is smaller or equal to the target key. then the position of insertion
+            // should be the next position of the key.
             insert_index = left +1;
         }
 
