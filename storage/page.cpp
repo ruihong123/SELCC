@@ -137,6 +137,8 @@ namespace DSMEngine {
                                                 CoroContext *cxt,
                                                 int coro_id) {
         auto cnt = hdr.last_index + 1;
+        assert(records[hdr.last_index].ptr != GlobalAddress::Null());
+        assert(records[hdr.last_index].key != 0);
         assert(cnt != kInternalCardinality);
         bool is_update = false;
         uint16_t insert_index = 0;
