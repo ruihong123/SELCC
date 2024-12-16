@@ -504,14 +504,14 @@ namespace DSMEngine {
                     //Find the value.
                     assert(v.size() == r.GetRecordSize());
                     memcpy(r.data_ptr_, v.data(), r.GetRecordSize());
-                    if(hdr.p_type == P_Leaf_P){
-                        is_update = true;
-#ifdef DIRTY_ONLY_FLUSH
-                        hdr.merge_dirty_bounds(tuple_start - (char*)this, tuple_start - (char*)this + r.GetRecordSize());
-#endif
-                        assert(cnt < hdr.kLeafCardinality);
-                        return cnt == hdr.kLeafCardinality;
-                    }
+//                    if(hdr.p_type == P_Leaf_P){
+//                        is_update = true;
+//#ifdef DIRTY_ONLY_FLUSH
+//                        hdr.merge_dirty_bounds(tuple_start - (char*)this, tuple_start - (char*)this + r.GetRecordSize());
+//#endif
+//                        assert(cnt < hdr.kLeafCardinality);
+//                        return cnt == hdr.kLeafCardinality;
+//                    }
                     // TODO: for search secondary index with duplicated key, the new inserted enty will be inserted into the first node contain that duplicated key,
                     //  but it may not inserted in the first position with in the node.
                     left = mid;
@@ -519,6 +519,7 @@ namespace DSMEngine {
                 }
             }
             assert(left == right);
+            mid = left;
             tuple_start = data_ + left*tuple_length;
             auto r = Record(record_scheme,tuple_start);
             TKey temp_key;
@@ -527,14 +528,20 @@ namespace DSMEngine {
                 insert_index = left +1;
             }else{
 //                assert(false);
-                assert(v.size() == r.GetRecordSize());
-                memcpy(r.data_ptr_, v.data(), r.GetRecordSize());
-                is_update = true;
+                if(hdr.p_type == P_Leaf_P){
+                    assert(v.size() == r.GetRecordSize());
+                    memcpy(r.data_ptr_, v.data(), r.GetRecordSize());
+                    is_update = true;
 #ifdef DIRTY_ONLY_FLUSH
-                hdr.merge_dirty_bounds(tuple_start - (char*)this, tuple_start - (char*)this + r.GetRecordSize());
+                    hdr.merge_dirty_bounds(tuple_start - (char*)this, tuple_start - (char*)this + r.GetRecordSize());
 #endif
-                assert(cnt < hdr.kLeafCardinality);
-                return cnt == hdr.kLeafCardinality;
+                    assert(cnt < hdr.kLeafCardinality);
+                    //if it is an update in the primary index, return here.
+                    return cnt == hdr.kLeafCardinality;
+                }else{
+                    insert_index = left +1;
+                }
+
             }
 
 
