@@ -65,6 +65,10 @@ namespace DSMEngine {
 
     template<class Key, class Value>
     class LeafPage;
+    template<typename Key>
+    class Secondary_Key{
+
+    };
 
 //TODO: There are two ways to define types in the btree, one is to define the types in the class, the other is to define the types in the template.
 // the other is to attach a scheme_ptr. Currently we mixed these two ways, which is not good. We need to guarantee that

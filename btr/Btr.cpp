@@ -94,6 +94,9 @@ namespace DSMEngine {
             : scheme_ptr(record_scheme_ptr), tree_id(Btr_id), page_cache(cache_ptr), ddms_(dsm), secondary_(secondary){
         assert(sizeof(LeafPage<Key,Value>) < kLeafPageSize);
         assert(sizeof(InternalPage<Key>) < kInternalPageSize);
+        // the secondary index type here is deprecated. If secondary key is needed we need to define the Key in
+        // the template a compound key, containing both attibute value and tupleID/primary key.
+        assert(!secondary_);
         assert(STRUCT_OFFSET(LeafPage<char COMMA char>,hdr) == STRUCT_OFFSET(LeafPage<uint64_t COMMA uint64_t>,hdr));
         if (rdma_mg == nullptr){
             rdma_mg = ddms_->rdma_mg;
