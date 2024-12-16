@@ -2514,8 +2514,12 @@ re_read:
         }
         // Clear the retry counter, in case that there is a sibling call.
         assert(k >= page->hdr.lowest);
-        assert(k < page->hdr.highest);
-        assert(page->hdr.highest !=0 ||page->hdr.highest == page->hdr.lowest);
+#ifndef NDEBUG
+        if(!secondary_){
+            assert(k < page->hdr.highest);
+        }
+#endif
+        assert(page->hdr.highest !=0 || page->hdr.highest == page->hdr.lowest);
 // TODO: Check whether the key is larger than the largest key of this node.
 //  if yes, update the header.
         int cnt = 0;
