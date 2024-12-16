@@ -232,8 +232,14 @@ namespace DSMEngine {
         auto r_last = Record(record_scheme,tuple_last);
         Key last_key;
         r_last.GetPrimaryKey(&last_key);
-        assert(k < hdr.highest );
-        assert(last_key < hdr.highest);
+        if (hdr.p_type == P_Internal_P){
+            assert(k < hdr.highest );
+            assert(last_key < hdr.highest);
+        }else{
+            assert(k <= hdr.highest );
+            assert(last_key <= hdr.highest);
+        }
+
 #endif
         Key temp_key;
         while (left < right) {
