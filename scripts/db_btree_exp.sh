@@ -112,8 +112,8 @@ run_tpcc () {
 vary_thread_number () {
   #read_ratios=(0 30 50 70 90 100)
   thread_number=(8)
-  read_ratio=(0)
-  range_query=(1)
+  read_ratio=(50)
+  range_query=(0)
   # shellcheck disable=SC2068
   for thread_n in ${thread_number[@]}; do
     for range_v in ${range_query[@]}; do
