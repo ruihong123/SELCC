@@ -72,6 +72,7 @@ launch () {
         sleep 1
   done
   i=0
+  script_compute="cd ${bin_dir} && ./second_btree_bench  ${compute_ARGS}"
   script_compute="cd ${bin_dir} && ./btree_bench  ${compute_ARGS}"
   echo "start master: ssh ${ssh_opts} ${master_host} '$script_compute $((2*$i))  $port > ${output_file} 2>&1 "
   ssh ${ssh_opts} ${master_host} "echo '$core_dump_dir/core$master_host' | sudo tee /proc/sys/kernel/core_pattern"
