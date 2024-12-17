@@ -54,7 +54,7 @@ echo "launch..."
 
 launch () {
 
-  read -r -a memcached_node <<< $(head -n 1 $proj_dir/memcached_ip.conf)
+  read -r -a memcached_node <<< $(head -n 1 $proj_dir/memcached_db_servers.conf)
   echo "restart memcached on ${memcached_node[0]}"
   ssh -o StrictHostKeyChecking=no ${memcached_node[0]} "sudo service memcached restart"
   rm /proj/purduedb-PG0/logs/core
