@@ -70,6 +70,11 @@ namespace DSMEngine {
     public:
         Key key;
         Value value;
+        Secondary_Key(uint64_t v){
+            key = v;
+            value = 0;
+        }
+        Secondary_Key() = default;
         // Overide the comparison operators.
         bool operator<(const Secondary_Key& rhs) const {
             return key < rhs.key || (key == rhs.key && value < rhs.value);

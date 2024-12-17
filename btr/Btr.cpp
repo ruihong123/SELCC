@@ -2,7 +2,9 @@
 #include <atomic>
 namespace DSMEngine {
 //    template class btree_iterator<uint64_t , uint64_t>;
+    template class Secondary_Key<uint64_t, uint64_t>;
     template class Btr<uint64_t>;
+    template class Btr<Secondary_Key<uint64_t, uint64_t>>;
 //    template class Btr<uint64_t , char[100]>;
     template<class Key>
     class InternalPage;
