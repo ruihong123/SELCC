@@ -90,7 +90,7 @@ std::atomic<int64_t> warmup_cnt{0};
 std::atomic_bool ready{false};
 
 //DSMEngine::Btr<uint64_t> *tree;
-DSMEngine::Btr<uint64_t> *tree;
+DSMEngine::Btr<Secondary_Key<uint64_t, uint64_t>> *tree;
 DSMEngine::RDMA_Manager *rdma_mg;
 //extern bool enable_cache;
 void thread_run(int id) {
@@ -114,44 +114,72 @@ void thread_run(int id) {
     uint64_t build_up_num = kKeySpace/all_thread;
     uint64_t start_warm_key = build_up_num * (DSMEngine::RDMA_Manager::node_id/2*kThreadCount+id);
     uint64_t end_warm_key = start_warm_key + build_up_num;
-    char* tuple_buff = new char[tree->scheme_ptr->GetSchemaSize()];
-    DSMEngine::Slice tuple_slice = DSMEngine::Slice(tuple_buff,tree->scheme_ptr->GetSchemaSize());
+    {
+        Secondary_Key<uint64_t, uint64_t> tuple = {};
+        char *tuple_buff = reinterpret_cast<char *>(&tuple);
+        DSMEngine::Slice tuple_slice = DSMEngine::Slice(tuple_buff, tree->scheme_ptr->GetSchemaSize());
 
-    uint64_t& key = *(uint64_t*)tuple_buff;
-    uint64_t& value = *((uint64_t*)tuple_buff+1);
-    for (uint64_t i = start_warm_key; i < end_warm_key; ++i) {
-          key = i;
-          value = 2*i;
-        tree->insert(key, tuple_slice);
-      if (i % 1000000 == 0 && id ==0){
-          printf("warm up number: %lu node id is %d \n", i, rdma_mg->node_id);
-          fflush(stdout);
-      }
-    }
-    const uint64_t checked_key1 = end_warm_key + 1;
-    const uint64_t checked_key2 = end_warm_key/2;
-    if(tree->secondary_){
-        for(int i = 0; i < 1000; i++){
+//    uint64_t& key = *(uint64_t*)tuple_buff;
+        uint64_t &value = *((uint64_t *) tuple_buff + 1);
+        for (uint64_t i = start_warm_key; i < end_warm_key; ++i) {
+            tuple.key = i;
+            tuple.value = 2 * i;
+            tree->insert(tuple, tuple_slice);
+            if (i % 1000000 == 0 && id == 0) {
+                printf("warm up number: %lu node id is %d \n", i, rdma_mg->node_id);
+                fflush(stdout);
+            }
+        }
+        const uint64_t checked_key1 = end_warm_key + 1;
+        const uint64_t checked_key2 = end_warm_key / 2;
+        for (int i = 0; i < 1000; i++) {
             // note that the insert(key, tuple). the key have to equal to the primary key in the tuple. There will be error.
-            key = i;
-            value = checked_key1;
-            tree->insert(key, tuple_slice);
+            tuple.key = i;
+            tuple.value = checked_key1;
+            tree->insert(tuple, tuple_slice);
         }
-        for(int i = 0; i < 1000; i++){
-            key = checked_key1;
-            value = i;
-            tree->insert(key, tuple_slice);
+        for (int i = 0; i < 1000; i++) {
+            tuple.key = checked_key1;
+            tuple.value = i;
+            tree->insert(tuple, tuple_slice);
         }
 
-        for(int i = 0; i < 1000; i++){
-            key = checked_key2;
-            value = i;
-            tree->insert(key, tuple_slice);
+        for (int i = 0; i < 1000; i++) {
+            tuple.key = checked_key2;
+            tuple.value = i;
+            tree->insert(tuple, tuple_slice);
+        }
+
+        Secondary_Key<uint64_t, uint64_t> to_search = {};
+        to_search.key = checked_key1;
+        to_search.value = 0;
+        DSMEngine::Btr<Secondary_Key<uint64_t, uint64_t>>::iterator iter = tree->lower_bound(to_search);
+//    uint64_t this_key;
+        uint64_t this_value[2];
+        iter.Get(to_search, this_value);
+        for (int i = 0; i < 1000; i++) {
+            assert(to_search.key == checked_key1);
+            iter.Next();
+            iter.Get(to_search, this_value);
+            if (DSMEngine::RDMA_Manager::node_id == 0 && id == 0) {
+                printf("values for check 1 are %lu\n", this_value);
+            }
+        }
+        to_search.key = checked_key2;
+        to_search.value = 0;
+        DSMEngine::Btr<Secondary_Key<uint64_t, uint64_t>>::iterator iter2 = tree->lower_bound(to_search);
+//    uint64_t this_key2;
+        uint64_t this_value2[2];
+        iter2.Get(to_search, this_value2);
+        for (int i = 0; i < 1001; i++) {
+            assert(to_search.key == checked_key2);
+            iter2.Next();
+            iter2.Get(to_search, this_value2);
+            if (DSMEngine::RDMA_Manager::node_id == 0 && id == 0) {
+                printf("values for check 2 are %lu\n", this_value2);
+            }
         }
     }
-
-
-
   warmup_cnt.fetch_add(1);
 
   if (id == 0) {
@@ -181,32 +209,7 @@ void thread_run(int id) {
   tree->run_coroutine(coro_func, id, kCoroCnt);
 
 #else
-    if (tree->secondary_){
-        DSMEngine::Btr<uint64_t>::iterator iter = tree->lower_bound(checked_key1);
-        uint64_t this_key;
-        uint64_t this_value[2];
-        iter.Get(this_key, this_value);
-        for (int i = 0; i < 1000; i++){
-            assert(this_key == checked_key1);
-            iter.Next();
-            iter.Get(this_key, (char*)this_value);
-            if (DSMEngine::RDMA_Manager::node_id == 0 && id == 0){
-                printf("values for check 1 are %lu\n", this_value);
-            }
-        }
-        DSMEngine::Btr<uint64_t>::iterator iter2 = tree->lower_bound(checked_key2);
-        uint64_t this_key2;
-        uint64_t this_value2[2];
-        iter2.Get(this_key2, this_value2);
-        for (int i = 0; i < 1001; i++){
-            assert(this_key2 == checked_key2);
-            iter2.Next();
-            iter2.Get(this_key2, this_value2);
-            if (DSMEngine::RDMA_Manager::node_id == 0 && id == 0){
-                printf("values for check 2 are %lu\n", this_value2);
-            }
-        }
-    }
+
 
   /// without coro
   unsigned int seed = rdtsc();
@@ -218,6 +221,7 @@ void thread_run(int id) {
   uint64_t *value_buffer = (uint64_t *)malloc(sizeof(uint64_t) * 1024 * 1024);
   uint64_t print_counter = 0;
   uint64_t scan_pos = 0;
+  uint64_t secondary_k =  0;
 
   while (true) {
 
@@ -229,35 +233,41 @@ void thread_run(int id) {
 //    uint64_t dis = mehcached_zipf_next(&state);
 
     if(use_zipf){
-          key = mehcached_zipf_next(&state);
+        secondary_k = mehcached_zipf_next(&state);
     } else{
-        key = rand.Next()%(kKeySpace);
+        secondary_k = rand.Next()%(kKeySpace);
     }
 
-
+    Secondary_Key<uint64_t, uint64_t> to_search = {};
+    uint64_t this_value[2];
+      to_search.key = secondary_k;
+      to_search.value = 0;
     timer.begin();
     if(table_scan){
+
         //TODO: try to not make iter a pointer here, make it a variable which will be automatically deleted when go outside the scope
-        DSMEngine::Btr<uint64_t>::iterator iter = tree->lower_bound(key);
-        uint64_t end_key = key + 1000*1000;
-        uint64_t this_key;
-        uint64_t this_value[2];
-        iter.Get(this_key, this_value);
-        while(iter.Valid() && this_key <= end_key){
+        DSMEngine::Btr<Secondary_Key<uint64_t, uint64_t>>::iterator iter = tree->lower_bound(to_search);
+        uint64_t end_key = secondary_k + 1000*1000;
+//        uint64_t this_key;
+        iter.Get(to_search, this_value);
+        while(iter.Valid() && to_search.key <= end_key){
             iter.Next();
-            iter.Get(this_key, this_value);
+            iter.Get(to_search, this_value);
 
 
         }
         print_counter = print_counter + 1000*1000;
 //        delete iter;
     }else{
-        if (rand_r(&seed) % 100 < kReadRatio) { // GET
-            tree->search(key, tuple_slice);
+        char *tuple_buff = reinterpret_cast<char *>(&to_search);
+        DSMEngine::Slice tuple_slice = DSMEngine::Slice(tuple_buff, tree->scheme_ptr->GetSchemaSize());
 
+        if (rand_r(&seed) % 100 < kReadRatio) { // GET
+            DSMEngine::Btr<Secondary_Key<uint64_t, uint64_t>>::iterator iter = tree->lower_bound(to_search);
+            iter.Get(to_search, this_value);
         }else {
-            value = 12;
-            tree->insert(key, tuple_slice);
+            to_search.value = 12;
+            tree->insert(to_search, tuple_slice);
         }
         print_counter++;
     }
@@ -363,27 +373,27 @@ int main(int argc, char *argv[]) {
     DSMEngine::RecordSchema* schema_ptr = new DSMEngine::RecordSchema(0);
     std::vector<DSMEngine::ColumnInfo*> columns;
     columns.push_back(new DSMEngine::ColumnInfo("c_id", DSMEngine::ValueType::UINT64));
-    columns.push_back(new DSMEngine::ColumnInfo("c_first", DSMEngine::ValueType::VARCHAR, static_cast<size_t>(8)));
+    columns.push_back(new DSMEngine::ColumnInfo("c_first", DSMEngine::ValueType::UINT64));
     schema_ptr->InsertColumns(columns);
-    size_t column_ids[1] = {0};
+    size_t column_ids[2] = {0,1};
     schema_ptr->SetPrimaryColumns(column_ids,1);
     DSMEngine::DDSM ddsm = DSMEngine::DDSM(cache_ptr, rdma_mg);
-//    tree = new Btr<Secondary_Key<uint64_t,uint64_t>>(&ddsm, cache_ptr, schema_ptr, 0);
-    tree = new Btr<uint64_t>(&ddsm, cache_ptr, schema_ptr, 0);
-//    tree = new DSMEngine::Btr<uint64_t, uint64_t>(&ddsm, cache_ptr, schema_ptr, 0, true);
+    tree = new Btr<Secondary_Key<uint64_t,uint64_t>>(&ddsm, cache_ptr, schema_ptr, 0);
 
 
 
-    char* tuple_buff = new char[schema_ptr->GetSchemaSize()];
+    Secondary_Key<uint64_t, uint64_t> tuple = {};
+    char* tuple_buff = reinterpret_cast<char*>(&tuple);
     DSMEngine::Slice tuple_slice = DSMEngine::Slice(tuple_buff,schema_ptr->GetSchemaSize());
+
     uint64_t& key = *(uint64_t*)tuple_buff;
     uint64_t& value = *((uint64_t*)tuple_buff+1);
     if (DSMEngine::RDMA_Manager::node_id == 0) {
     for (uint64_t i = 1; i < 1024000; ++i) {
 //        printf("insert key %d", i);
-        key = i;
-        value = 2*i;
-      tree->insert(key, tuple_slice);
+        tuple.key = i;
+        tuple.value = 2*i;
+      tree->insert(tuple, tuple_slice);
 //        tree->insert(i, i * 2);
     }
   }

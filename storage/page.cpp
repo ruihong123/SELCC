@@ -347,8 +347,6 @@ namespace DSMEngine {
     template<class Key>
     void LeafPage<Key>::leaf_page_search(const Key &k, SearchResult<Key> &result, GlobalAddress g_page_ptr,
                                                RecordSchema *record_scheme) {
-
-#ifdef DYNAMIC_ANALYSE_PAGE
 //        int kLeafCardinality = record_scheme->GetLeafCardi();
         size_t tuple_length = record_scheme->GetSchemaSize();
         char* tuple_start = data_;
@@ -402,64 +400,6 @@ namespace DSMEngine {
             assert(k >temp_key || right == 0);
 //            assert(false);
         }
-        return;
-
-
-//        for (int i = 0; i < kLeafCardinality; ++i) {
-//            tuple_start = data_ + i*tuple_length;
-//
-//            auto r = Record(record_scheme,tuple_start);
-//            Key temp_key;
-//            r.GetPrimaryKey(&temp_key);
-//            if (temp_key == k && temp_key != kValueNull<Key> ) {
-//                assert(result.val.size() == r.GetRecordSize());
-//                memcpy(result.val.data(),r.data_ptr_, r.GetRecordSize());
-//                result.find_value = true;
-//                asm volatile ("sfence\n" : : );
-//                asm volatile ("lfence\n" : : );
-//                asm volatile ("mfence\n" : : );
-////                uint8_t rear_v = rear_version;
-////                if (front_v!= rear_v)// version checking
-////                    //TODO: reread from the remote side.
-////                    goto re _read;
-//
-////                memcpy(result.value_padding, r.value_padding, VALUE_PADDING);
-////      result.value_padding = r.value_padding;
-//                break;
-//            }
-//        }
-//        result.val = target_value_buff;
-#else
-        Value target_value_buff{};
-//        uint8_t front_v = front_version;
-        asm volatile ("sfence\n" : : );
-        asm volatile ("lfence\n" : : );
-        asm volatile ("mfence\n" : : );
-
-        for (int i = 0; i < kLeafCardinality; ++i) {
-            auto &r = records[i];
-
-            if (r.key == k && r.value != kValueNull<Key> ) {
-                target_value_buff = r.value;
-                asm volatile ("sfence\n" : : );
-                asm volatile ("lfence\n" : : );
-                asm volatile ("mfence\n" : : );
-//                uint8_t rear_v = rear_version;
-//                if (front_v!= rear_v)// version checking
-//                    //TODO: reread from the remote side.
-//                    goto re _read;
-
-//                memcpy(result.value_padding, r.value_padding, VALUE_PADDING);
-//      result.value_padding = r.value_padding;
-                break;
-            }
-        }
-        result.val = target_value_buff;
-#endif
-
-        //        records =
-//        data_
-//    re_read:
 
     }
     // [lowest, highest)

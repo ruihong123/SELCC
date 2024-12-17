@@ -65,8 +65,35 @@ namespace DSMEngine {
 
     template<class Key>
     class LeafPage;
-    template<typename Key>
+    template<typename Key, typename Value>
     class Secondary_Key{
+    public:
+        Key key;
+        Value value;
+        // Overide the comparison operators.
+        bool operator<(const Secondary_Key& rhs) const {
+            return key < rhs.key || (key == rhs.key && value < rhs.value);
+        }
+
+        bool operator>(const Secondary_Key& rhs) const {
+            return key > rhs.key || (key == rhs.key && value > rhs.value);
+        }
+
+        bool operator<=(const Secondary_Key& rhs) const {
+            return !(*this > rhs);
+        }
+
+        bool operator>=(const Secondary_Key& rhs) const {
+            return !(*this < rhs);
+        }
+
+        bool operator==(const Secondary_Key& rhs) const {
+            return key == rhs.key && value == rhs.value;
+        }
+
+        bool operator!=(const Secondary_Key& rhs) const {
+            return !(*this == rhs);
+        }
 
     };
 
