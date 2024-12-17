@@ -63,7 +63,7 @@ namespace DSMEngine {
     template<class Key>
     class InternalPage;
 
-    template<class Key, class Value>
+    template<class Key>
     class LeafPage;
     template<typename Key>
     class Secondary_Key{
@@ -73,13 +73,13 @@ namespace DSMEngine {
 //TODO: There are two ways to define types in the btree, one is to define the types in the class, the other is to define the types in the template.
 // the other is to attach a scheme_ptr. Currently we mixed these two ways, which is not good. We need to guarantee that
 // the scheme_ptr is coherent with the template in the btree.
-    template<typename Key, typename Value>
+    template<typename Key>
     class Btr {
 //friend class DSMEngine::InternalPage;
     public:
         struct iterator {
         public:
-            iterator(LeafPage<Key, Value> *node, Cache_Handle* handle, uint32_t position, RecordSchema *scheme_ptr, DDSM *dsm)
+            iterator(LeafPage<Key> *node, Cache_Handle* handle, uint32_t position, RecordSchema *scheme_ptr, DDSM *dsm)
                     : node(node), handle(handle), position_idx(position), scheme_ptr(scheme_ptr), dsm(dsm) {
                 valid = true;
 
@@ -93,7 +93,7 @@ namespace DSMEngine {
                 dsm = iter.dsm;
                 valid = iter.valid;
             }
-            void initialize(LeafPage<Key, Value> *node_t, Cache_Handle* handle_t, uint32_t position_t, RecordSchema *scheme_ptr_t, DDSM *dsm_t){
+            void initialize(LeafPage<Key> *node_t, Cache_Handle* handle_t, uint32_t position_t, RecordSchema *scheme_ptr_t, DDSM *dsm_t){
                 node = node_t;
                 handle = handle_t;
                 position_idx = position_t;
@@ -109,8 +109,8 @@ namespace DSMEngine {
                     assert(node == nullptr);
                 }
             }
-            void Get(Key& key, Value& value){
-                node->GetByPosition(position_idx, scheme_ptr, key, value);
+            void Get(Key& key, void* buff){
+                node->GetByPosition(position_idx, scheme_ptr, key, buff);
             }
             void Next(){
                 if (position_idx < node->hdr.last_index){
@@ -125,7 +125,7 @@ namespace DSMEngine {
                     dsm->SELCC_Shared_UnLock(handle->gptr, handle);
                     void* page_buffer;
                     dsm->SELCC_Shared_Lock(page_buffer, next_leaf, handle);
-                    node = (LeafPage<Key, Value> *)page_buffer;
+                    node = (LeafPage<Key> *)page_buffer;
                     position_idx = 0;
                 }
             }
@@ -139,7 +139,7 @@ namespace DSMEngine {
 
         private:
             // The node in the tree the iterator is pointing at.
-            LeafPage<Key, Value> *node = nullptr;
+            LeafPage<Key> *node = nullptr;
             // The position_idx within the node of the tree the iterator is pointing at.
             Cache_Handle* handle = nullptr; // use the SELLC latch inside the handle to protect the access of iterator.
             uint32_t position_idx = 0; // offset within the leaf node
@@ -242,7 +242,7 @@ namespace DSMEngine {
         // static thread_local CoroCall worker[define::kMaxCoro];
         // static thread_local CoroCall master;
         static thread_local std::shared_mutex *lock_coupling_memo[define::kMaxLevelOfTree];
-        static thread_local SearchResult<Key, Value> *search_result_memo;
+        static thread_local SearchResult<Key> *search_result_memo;
         std::vector<LocalLockNode *> local_locks;
 
         Cache *page_cache;
@@ -311,15 +311,15 @@ namespace DSMEngine {
         // THis funciton will get the page by the page addr and search the pointer for the
         // next level if it is not leaf page. If it is a leaf page, just put the value in the
         // result. this funciton = fetch the page + internal page serach + leafpage search + re-read
-        bool internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key, Value> &result, int &level,
+        bool internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int &level,
                                   bool isroot,
                                   Cache::Handle *handle = nullptr, CoroContext *cxt = nullptr, int coro_id = 0);
 
-        bool leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key, Value> &result, int level,
+        bool leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int level,
                               CoroContext *cxt,
                               int coro_id);
         // create a iterator for the range query.
-        bool leaf_page_find(GlobalAddress page_addr, const Key &k, SearchResult<Key, Value> &result, iterator &iter, int level);
+        bool leaf_page_find(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, iterator &iter, int level);
 //        void internal_page_search(const Key &k, SearchResult &result);
 
 //    void leaf_page_search(LeafPage *page, const Key &k, SearchResult &result);

@@ -76,7 +76,7 @@ void parse_args(int argc, char *argv[]) {
     printf("kReadRatio %d, kThreadCount %d, tablescan %d, ThisNodeID %d, PortNum %d\n", kReadRatio, kThreadCount, table_scan, ThisNodeID, tcp_port);
 }
 
-DSMEngine::Btr<uint64_t,uint64_t> *tree;
+DSMEngine::Btr<uint64_t> *tree;
 DSMEngine::RDMA_Manager *rdma_mg;
 
 inline uint64_t to_key(uint64_t k) {
@@ -178,21 +178,21 @@ void thread_run(int id) {
 
 #else
     if (tree->secondary_){
-        DSMEngine::Btr<uint64_t,uint64_t>::iterator iter = tree->lower_bound(checked_key1);
+        DSMEngine::Btr<uint64_t>::iterator iter = tree->lower_bound(checked_key1);
         uint64_t this_key;
-        uint64_t this_value;
+        uint64_t this_value[2];
         iter.Get(this_key, this_value);
         for (int i = 0; i < 1000; i++){
             assert(this_key == checked_key1);
             iter.Next();
-            iter.Get(this_key, this_value);
+            iter.Get(this_key, (char*)this_value);
             if (DSMEngine::RDMA_Manager::node_id == 0 && id == 0){
                 printf("values for check 1 are %lu\n", this_value);
             }
         }
-        DSMEngine::Btr<uint64_t,uint64_t>::iterator iter2 = tree->lower_bound(checked_key2);
+        DSMEngine::Btr<uint64_t>::iterator iter2 = tree->lower_bound(checked_key2);
         uint64_t this_key2;
-        uint64_t this_value2;
+        uint64_t this_value2[2];
         iter2.Get(this_key2, this_value2);
         for (int i = 0; i < 1001; i++){
             assert(this_key2 == checked_key2);
@@ -234,10 +234,10 @@ void thread_run(int id) {
     timer.begin();
     if(table_scan){
         //TODO: try to not make iter a pointer here, make it a variable which will be automatically deleted when go outside the scope
-        DSMEngine::Btr<uint64_t,uint64_t>::iterator iter = tree->lower_bound(key);
+        DSMEngine::Btr<uint64_t>::iterator iter = tree->lower_bound(key);
         uint64_t end_key = key + 1000*1000;
         uint64_t this_key;
-        uint64_t this_value;
+        uint64_t this_value[2];
         iter.Get(this_key, this_value);
         while(iter.Valid() && this_key <= end_key){
             iter.Next();
@@ -363,7 +363,7 @@ int main(int argc, char *argv[]) {
     size_t column_ids[1] = {0};
     schema_ptr->SetPrimaryColumns(column_ids,1);
     DSMEngine::DDSM ddsm = DSMEngine::DDSM(cache_ptr, rdma_mg);
-    tree = new DSMEngine::Btr<uint64_t, uint64_t>(&ddsm, cache_ptr, schema_ptr, 0);
+    tree = new DSMEngine::Btr<uint64_t>(&ddsm, cache_ptr, schema_ptr, 0);
 //    tree = new DSMEngine::Btr<uint64_t, uint64_t>(&ddsm, cache_ptr, schema_ptr, 0, true);
 
 

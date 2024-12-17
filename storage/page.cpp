@@ -6,12 +6,12 @@
 #include "page.h"
 #include "Btr.h"
 namespace DSMEngine {
-    template class LeafPage<uint64_t, GlobalAddress>;
-    template class LeafPage<uint64_t, uint64_t>;
+    template class LeafPage<uint64_t>;
+//    template class LeafPage<uint64_t>;
     template class InternalPage<uint64_t>;
     template<class Key>
     bool InternalPage<Key>::internal_page_search(const Key &k, void *result_ptr) {
-        SearchResult<Key,GlobalAddress>& result = *(SearchResult<Key,GlobalAddress>*)result_ptr;
+        SearchResult<Key>& result = *(SearchResult<Key>*)result_ptr;
         assert(k >= hdr.lowest);
 //        assert(k < hdr.highest);
 //        uint64_t local_meta_new = __atomic_load_n((uint64_t*)&local_lock_meta, (int)std::memory_order_seq_cst);
@@ -217,8 +217,8 @@ namespace DSMEngine {
         assert(records[hdr.last_index].key != 0);
         return cnt == kInternalCardinality;
     }
-    template<class Key, class Value>
-    int LeafPage<Key,Value>::leaf_page_pos_lb(const Key &k, GlobalAddress g_page_ptr, RecordSchema *record_scheme) {
+    template<class Key>
+    int LeafPage<Key>::leaf_page_pos_lb(const Key &k, GlobalAddress g_page_ptr, RecordSchema *record_scheme) {
 #ifdef DYNAMIC_ANALYSE_PAGE
         size_t tuple_length = record_scheme->GetSchemaSize();
         char* tuple_start = data_;
@@ -328,8 +328,8 @@ namespace DSMEngine {
 #endif
 
     }
-    template<class TKey, class Value>
-    void LeafPage<TKey,Value>::GetByPosition(int pos, RecordSchema *schema_ptr, TKey &key, Value &value) {
+    template<class TKey>
+    void LeafPage<TKey>::GetByPosition(int pos, RecordSchema *schema_ptr, TKey &key, void* buff) {
         assert(pos >= 0);
         assert(pos <= hdr.last_index);
         size_t tuple_length = schema_ptr->GetSchemaSize();
@@ -339,12 +339,13 @@ namespace DSMEngine {
 //        return r.GetColumn(1);
         //todo: what if the key is compound and containing multiple columns?
         assert(sizeof(TKey) == r.GetPrimaryKey().size());
-        assert(sizeof(Value) == r.GetColumnSize(1));
+//        assert(sizeof(Value) == r.GetColumnSize(1));
         memcpy(&key,  r.GetPrimaryKey().c_str(), r.GetPrimaryKey().size());
-        memcpy(&value, r.GetColumn(1), r.GetColumnSize(1));
+//        memcpy(&value, r.GetColumn(1), r.GetColumnSize(1));
+        memcpy(buff, r.data_ptr_, r.data_size_);
     }
-    template<class Key, class Value>
-    void LeafPage<Key,Value>::leaf_page_search(const Key &k, SearchResult<Key, Value> &result, GlobalAddress g_page_ptr,
+    template<class Key>
+    void LeafPage<Key>::leaf_page_search(const Key &k, SearchResult<Key> &result, GlobalAddress g_page_ptr,
                                                RecordSchema *record_scheme) {
 
 #ifdef DYNAMIC_ANALYSE_PAGE
@@ -462,9 +463,9 @@ namespace DSMEngine {
 
     }
     // [lowest, highest)
-    template<class TKey, class Value>
+    template<class TKey>
     bool
-    LeafPage<TKey,Value>::leaf_page_store(const TKey &k, const Slice &v, int &cnt,
+    LeafPage<TKey>::leaf_page_store(const TKey &k, const Slice &v, int &cnt,
                                           RecordSchema *record_scheme) {
 
         // It is problematic to just check whether the value is empty, because it is possible
