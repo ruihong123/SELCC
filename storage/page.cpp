@@ -221,7 +221,6 @@ namespace DSMEngine {
     }
     template<class Key>
     int LeafPage<Key>::leaf_page_pos_lb(const Key &k, GlobalAddress g_page_ptr, RecordSchema *record_scheme) {
-#ifdef DYNAMIC_ANALYSE_PAGE
         size_t tuple_length = record_scheme->GetSchemaSize();
         char* tuple_start = data_;
         uint16_t left = 0;
@@ -268,6 +267,7 @@ namespace DSMEngine {
                 if (hdr.p_type == P_Leaf_P){
                     return mid;
                 } else{
+                    assert(false);
                     assert(hdr.p_type == P_Leaf_S);
                     // seek backward to find all the entries that meet the condition.
                     while (mid > 0){
@@ -285,7 +285,6 @@ namespace DSMEngine {
                 }
             }
         }
-        assert(k > temp_key || right == 0);
         // Not find
         assert(right == left);
         assert(mid == right);
@@ -293,6 +292,7 @@ namespace DSMEngine {
         auto r = Record(record_scheme,tuple_start);
 //        Key temp_key;
         r.GetPrimaryKey(&temp_key);
+        assert(k > temp_key || right == 0);
         if (k == temp_key){
             // only when the target key is the first key will the code goes here.
             // We treat primary and secondary the same. Even for secondary index, it is not possible that the leaf previous to
@@ -300,36 +300,12 @@ namespace DSMEngine {
             assert(right == 0);
             return mid;
         }else{
+            // return the smallest key that is larger than the target key. if the target key is larger than all
+            // entry keys in this node, then the target position should be in next node. return -1.
             int ret = right+1;
             return ret>hdr.last_index ? -1 : ret;
         }
-#else
-        Value target_value_buff{};
-//        uint8_t front_v = front_version;
-        asm volatile ("sfence\n" : : );
-        asm volatile ("lfence\n" : : );
-        asm volatile ("mfence\n" : : );
 
-        for (int i = 0; i < kLeafCardinality; ++i) {
-            auto &r = records[i];
-
-            if (r.key == k && r.value != kValueNull<Key> ) {
-                target_value_buff = r.value;
-                asm volatile ("sfence\n" : : );
-                asm volatile ("lfence\n" : : );
-                asm volatile ("mfence\n" : : );
-//                uint8_t rear_v = rear_version;
-//                if (front_v!= rear_v)// version checking
-//                    //TODO: reread from the remote side.
-//                    goto re _read;
-
-//                memcpy(result.value_padding, r.value_padding, VALUE_PADDING);
-//      result.value_padding = r.value_padding;
-                break;
-            }
-        }
-        result.val = target_value_buff;
-#endif
 
     }
     template<class TKey>
