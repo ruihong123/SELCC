@@ -250,7 +250,9 @@ namespace DSMEngine {
             auto r = Record(record_scheme,tuple_start);
 
             r.GetPrimaryKey(&temp_key);
-//            binary_history.push_back(std::make_pair(left, right));
+#ifndef NDEBUG
+            binary_history.push_back(std::make_pair(left, right));
+#endif
             if (k > temp_key) {
                 // Key at "mid" is smaller than "target".  Therefore all
                 // blocks before "mid" are uninteresting.
@@ -271,7 +273,7 @@ namespace DSMEngine {
                     while (mid > 0){
                         tuple_start = data_ + (mid-1)*tuple_length;
                         auto r = Record(record_scheme,tuple_start);
-                        Key temp_key;
+//                        Key temp_key;
                         r.GetPrimaryKey(&temp_key);
                         if (temp_key == k){
                             mid--;
@@ -387,7 +389,7 @@ namespace DSMEngine {
                 return;
             }
         }
-        // Not find
+        // Not find or find on the first entry.
         assert(right == left);
         tuple_start = data_ + right*tuple_length;
         auto r = Record(record_scheme,tuple_start);
