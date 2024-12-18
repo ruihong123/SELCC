@@ -1451,7 +1451,7 @@ namespace DSMEngine {
         leaf_next:// Leaf page search
 
         assert(result.val.data()!= nullptr);
-        if (!leaf_page_delete(p, k, result, level, cxt, coro_id)){
+        if (!leaf_page_delete(p, k, result, level)){
             if (path_stack[coro_id][1] != GlobalAddress::Null()){
                 p = path_stack[coro_id][1];
                 level = 1;
