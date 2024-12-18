@@ -65,42 +65,7 @@ namespace DSMEngine {
 
     template<class Key>
     class LeafPage;
-    template<typename Key, typename Value>
-    class Secondary_Key{
-    public:
-        Key key;
-        Value value;
-        Secondary_Key(uint64_t v){
-            key = v;
-            value = 0;
-        }
-        Secondary_Key() = default;
-        // Overide the comparison operators.
-        bool operator<(const Secondary_Key& rhs) const {
-            return key < rhs.key || (key == rhs.key && value < rhs.value);
-        }
 
-        bool operator>(const Secondary_Key& rhs) const {
-            return key > rhs.key || (key == rhs.key && value > rhs.value);
-        }
-
-        bool operator<=(const Secondary_Key& rhs) const {
-            return !(*this > rhs);
-        }
-
-        bool operator>=(const Secondary_Key& rhs) const {
-            return !(*this < rhs);
-        }
-
-        bool operator==(const Secondary_Key& rhs) const {
-            return key == rhs.key && value == rhs.value;
-        }
-
-        bool operator!=(const Secondary_Key& rhs) const {
-            return !(*this == rhs);
-        }
-
-    };
 
 //TODO: There are two ways to define types in the btree, one is to define the types in the class, the other is to define the types in the template.
 // the other is to attach a scheme_ptr. Currently we mixed these two ways, which is not good. We need to guarantee that

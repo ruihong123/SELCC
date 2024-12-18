@@ -134,14 +134,84 @@ struct Value_buff {
 
 //using Key = Key_buff;
 //using Value = Value_buff;
+
 template<typename Key>
 constexpr Key kKeyMin = std::numeric_limits<Key>::min();
 template<typename Key>
 constexpr Key kKeyMax = std::numeric_limits<Key>::max();
 
+
+
+template<typename Key, typename Value>
+class Secondary_Key{
+public:
+    Key key;
+    Value value;
+    // Constructor for initialization by constant value such as 0.
+    Secondary_Key(uint64_t k){
+        key = k;
+        value = 0;
+    }
+    Secondary_Key(uint64_t k, uint64_t v){
+        key = k;
+        value = v;
+    }
+    Secondary_Key() = default;
+    // Overide the comparison operators.
+    bool operator<(const Secondary_Key& rhs) const {
+        return key < rhs.key || (key == rhs.key && value < rhs.value);
+    }
+
+    bool operator>(const Secondary_Key& rhs) const {
+        return key > rhs.key || (key == rhs.key && value > rhs.value);
+    }
+
+    bool operator<=(const Secondary_Key& rhs) const {
+        return !(*this > rhs);
+    }
+
+    bool operator>=(const Secondary_Key& rhs) const {
+        return !(*this < rhs);
+    }
+
+    bool operator==(const Secondary_Key& rhs) const {
+        return key == rhs.key && value == rhs.value;
+    }
+
+    bool operator!=(const Secondary_Key& rhs) const {
+        return !(*this == rhs);
+    }
+//    static constexpr Secondary_Key<Key, Value> max(){
+//        Secondary_Key<Key, Value> ret{kKeyMin<Key>, kKeyMin<Value>};
+//        ret.key = kKeyMax<Key>;
+//        ret.value = kKeyMax<Value>;
+//        return ret;
+//    }
+//    static constexpr Secondary_Key<Key, Value> min(){
+//        Secondary_Key<Key, Value> ret{kKeyMin<Key>, kKeyMin<Value>};
+//        ret.key = kKeyMin<Key>;
+//        ret.value = kKeyMin<Value>;
+//        return ret;
+//    }
+    static Secondary_Key<Key, Value> max() {
+        return Secondary_Key<Key, Value>{kKeyMax<Key>, kKeyMax<Value>};
+    }
+    static Secondary_Key<Key, Value> min() {
+        return Secondary_Key<Key, Value>{kKeyMin<Key>, kKeyMin<Value>};
+    }
+
+};
+
+template<>
+inline Secondary_Key<uint64_t, uint64_t> kKeyMin<Secondary_Key<uint64_t, uint64_t>> = Secondary_Key<uint64_t, uint64_t>::min();
+
+template<>
+inline Secondary_Key<uint64_t, uint64_t> kKeyMax<Secondary_Key<uint64_t, uint64_t>> = Secondary_Key<uint64_t, uint64_t>::max();
+
+
 //constexpr Value kValueNull = 0;
-template<class Value>
-constexpr Value kValueNull = {};
+//template<class Value>
+//constexpr Value kValueNull = {};
 //constexpr uint32_t kInternalPageSize = 1024;
 //constexpr uint32_t kLeafPageSize = 1024;
 
