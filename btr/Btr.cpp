@@ -1449,8 +1449,6 @@ namespace DSMEngine {
         start = std::chrono::high_resolution_clock::now();
 #endif
         leaf_next:// Leaf page search
-
-        assert(result.val.data()!= nullptr);
         if (!leaf_page_delete(p, k, result, level)){
             if (path_stack[coro_id][1] != GlobalAddress::Null()){
                 p = path_stack[coro_id][1];
@@ -1484,7 +1482,6 @@ namespace DSMEngine {
             }
             if (result.slibing != GlobalAddress::Null()) { // turn right
                 p = result.slibing;
-                assert(result.val.data()!= nullptr);
                 goto leaf_next;
             }
 #ifdef PROCESSANALYSIS
@@ -1586,8 +1583,6 @@ namespace DSMEngine {
 #endif
         Btr<Key>::iterator iter;
     leaf_next:// Leaf page search
-
-        assert(result.val.data() != nullptr);
         if (!leaf_page_find(p, key, result, iter, level)) {
             if (path_stack[0][1] != GlobalAddress::Null()) {
                 p = path_stack[0][1];
