@@ -21,13 +21,6 @@
 #include "utils/hash.h"
 #include "port/port_posix.h"
 #include "utils/Local_opt_locks.h"
-//#define kInternalCardinality   (kInternalPageSize - sizeof(Header) - sizeof(uint8_t) * 2) /sizeof(InternalEntry)
-//#define kLeafCardinality  (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2) / sizeof(LeafEntry)
-
-//#define InternalPagePadding (kInternalPageSize - sizeof(Header) - sizeof(uint8_t) * 2)%sizeof(InternalEntry)
-//// InternalPagePadding is 7 for key 20 bytes value 400 bytes
-//#define LeafPagePadding (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2)%sizeof(LeafEntry)
-//// LeafPagePadding is 143 for key 20 bytes value 400 bytes.
 class IndexCache;
 
 template<class Key, class Value>
@@ -154,6 +147,9 @@ namespace DSMEngine {
         void insert(const Key &k, const Slice &v, CoroContext *cxt = nullptr,
                     int coro_id = 0);
 
+        bool remove(const Key &k, CoroContext *cxt = nullptr,
+                    int coro_id = 0);
+
         bool search(const Key &k, const Slice &v, CoroContext *cxt = nullptr,
                     int coro_id = 0);
         //Remember to destroy the iterator after use.
@@ -161,12 +157,6 @@ namespace DSMEngine {
         // Finds the first element whose key is not less than key. the iterator always move forward.
         // TODO: make the return not a point but a moved object.
         iterator lower_bound(const Key &key);
-//        iterator upper_bound(const Key &key) const {
-//            return iterator{};
-//        }
-//        void del(const Key &k, CoroContext *cxt = nullptr, int coro_id = 0);
-
-//  void index_cache_statistics();
         void clear_statistics();
         void Serialize(const char*& addr) {
             size_t off = 0;
@@ -211,14 +201,10 @@ namespace DSMEngine {
         uint64_t num_of_record = 0;
         uint16_t leaf_cardinality_ = 0;
         bool secondary_ = false;
-
-
-
     private:
         RWSpinLock root_mtx;// in case of contention in the root cache
         uint64_t tree_id;
         GlobalAddress left_most_leaf = GlobalAddress::Null();
-
         // The cached_root_handle_ref is to keep track of the number of reference to the root page handle.
         // this is necessary because the access of cached_root_page_handle will bypass the cache,
         // so the refs in the handle will not be increased, when accessing the root node, which can result in
@@ -228,27 +214,17 @@ namespace DSMEngine {
         // the cache root handle will not immediately be replaced with handle's refs --. Instead, the invaliding thread
         // will wait for the unfinished access on the old root handle, by checking the cached_root_handle_ref.
         std::atomic<Cache::Handle*> cached_root_page_handle = nullptr;
-//        std::atomic<uint32_t> cached_root_handle_ref = 1;
-//        std::shared_mutex root_handle_mtx;
-        //    InternalPage* cached_root_page_ptr;
         std::atomic<GlobalAddress> g_root_ptr = GlobalAddress::Null();
         std::atomic<uint8_t> tree_height = 0;
         static thread_local size_t round_robin_cur;
-
-        // static thread_local int coro_id;
-        // static thread_local CoroCall worker[define::kMaxCoro];
-        // static thread_local CoroCall master;
         static thread_local std::shared_mutex *lock_coupling_memo[define::kMaxLevelOfTree];
         static thread_local SearchResult<Key> *search_result_memo;
         std::vector<LocalLockNode *> local_locks;
-
         Cache *page_cache;
         DDSM* ddms_ = nullptr;
         RDMA_Manager *rdma_mg = nullptr;
 #ifndef NDEBUG
 #endif
-
-//    std::atomic<int> cache_invalid_counter;
         void print_verbose();
 
         void before_operation(CoroContext *cxt, int coro_id);
@@ -312,9 +288,11 @@ namespace DSMEngine {
                                   bool isroot,
                                   Cache::Handle *handle = nullptr, CoroContext *cxt = nullptr, int coro_id = 0);
 
+
         bool leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int level,
                               CoroContext *cxt,
                               int coro_id);
+        bool leaf_page_delete(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int level);
         // create a iterator for the range query.
         bool leaf_page_find(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, iterator &iter, int level);
 //        void internal_page_search(const Key &k, SearchResult &result);

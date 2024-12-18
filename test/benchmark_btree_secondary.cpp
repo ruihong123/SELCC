@@ -37,9 +37,9 @@ bool table_scan = false;
 bool use_range_query = true;
 
 //uint64_t kKeySpace = 64 * define::MB;
-uint64_t kKeySpace = 2*1024ull*1024ull*1024ull; // bigdata
+//uint64_t kKeySpace = 2*1024ull*1024ull*1024ull; // bigdata
 //uint64_t kKeySpace = 1*1024ull*1024ull*1024ull;
-//uint64_t kKeySpace = 512ull*1024ull*1024ull; // bigdata
+uint64_t kKeySpace = 512ull*1024ull*1024ull; // bigdata
 
 //uint64_t kKeySpace = 50*1024*1024; //cloudlab
 double kWarmRatio = 0.8;
@@ -178,6 +178,14 @@ void thread_run(int id) {
             if (DSMEngine::RDMA_Manager::node_id == 0 && id == 0) {
                 printf("values for check 2 are %lu\n", this_value2);
             }
+        }
+        for (int i = 0; i < 1000; i++) {
+            to_search.key = checked_key2;
+            to_search.value = i;
+            bool ret = tree->remove(to_search);
+            assert(ret);
+            ret = tree->search(to_search, tuple_slice);
+            assert(!ret);
         }
     }
   warmup_cnt.fetch_add(1);

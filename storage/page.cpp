@@ -384,8 +384,7 @@ namespace DSMEngine {
     }
     // [lowest, highest)
     template<class TKey>
-    bool
-    LeafPage<TKey>::leaf_page_store(const TKey &k, const Slice &v, int &cnt,
+    bool LeafPage<TKey>::leaf_page_store(const TKey &k, const Slice &v, int &cnt,
                                           RecordSchema *record_scheme) {
 
         // It is problematic to just check whether the value is empty, because it is possible
@@ -549,6 +548,100 @@ namespace DSMEngine {
 
         return cnt == kLeafCardinality;
 #endif
+    }
+    // [lowest, highest)
+    template<class TKey>
+    bool LeafPage<TKey>::leaf_page_delete(const TKey &k, int &cnt, SearchResult<TKey> &result,
+                                         RecordSchema *record_scheme) {
+
+        // It is problematic to just check whether the value is empty, because it is possible
+        // that the buffer is not initialized as 0
+        // TODO: make the key-value stored with order, do not use this unordered page structure.
+        //  Or use the key to check whether this holder is empty.
+        cnt = hdr.last_index + 1;
+        uint16_t insert_index = 0;
+        assert(hdr.kLeafCardinality > 0);
+        int tuple_length = record_scheme->GetSchemaSize();
+
+
+        char* tuple_start;
+        tuple_start = data_ + 0*tuple_length;
+
+        auto r_temp = Record(record_scheme,tuple_start);
+        TKey temp_key1;
+        r_temp.GetPrimaryKey((char*)&temp_key1);
+        assert(temp_key1 <= hdr.highest);
+        if (k < temp_key1 || hdr.last_index == -1) {
+            // this branc can only happen when the page is empty or the leafpage is the left most leaf page
+//            assert(hdr.last_index == -1);
+            insert_index = 0;
+        }else{
+            assert(hdr.last_index >= 0);
+            uint16_t left = 0;
+            uint16_t right = hdr.last_index;
+            uint16_t mid = 0;
+            while (left < right) {
+                mid = (left + right + 1) / 2;
+                tuple_start = data_ + mid*tuple_length;
+                auto r = Record(record_scheme,tuple_start);
+                TKey temp_key;
+                r.GetPrimaryKey(&temp_key);
+                if (k > temp_key) {
+                    // Key at "mid" is smaller than "target".  Therefore all
+                    // blocks before "mid" are uninteresting.
+                    left = mid;
+                } else if (k < temp_key) {
+                    // Key at "mid" is >= "target".  Therefore all blocks at or
+                    // after "mid" are uninteresting.
+                    right = mid - 1; // why mid -1 rather than mid
+                } else{
+                    //Find the value.
+                    // TODO: for search secondary index with duplicated key, the new inserted enty will be inserted into the first node contain that duplicated key,
+                    //  but it may not inserted in the first position with in the node.
+                    left = mid;
+                    right = mid;
+                }
+            }
+            assert(left == right);
+            mid = left;
+            tuple_start = data_ + left*tuple_length;
+            auto r = Record(record_scheme,tuple_start);
+            TKey temp_key;
+            r.GetPrimaryKey(&temp_key);
+            if ((k != temp_key )){
+                result.find_value = false;
+                return false;
+            }else{
+                insert_index = left;
+            }
+
+
+
+
+        }
+
+        assert(cnt != hdr.kLeafCardinality);
+//        if (!is_update) { // insert new item
+
+        tuple_start = data_ + insert_index*tuple_length;
+        if (insert_index <= hdr.last_index){
+            // Move all the tuples at and after the insert_index,use memmove to avoid undefined behavior for overlapped address.
+            memmove(tuple_start, tuple_start + tuple_length, (hdr.last_index - insert_index)*tuple_length);
+        }else{
+            assert(false);
+        }
+        cnt--;
+        hdr.last_index--;
+        assert(hdr.last_index <= hdr.kLeafCardinality-1);
+#ifdef DIRTY_ONLY_FLUSH
+        // If the page get inserted, then the dirty range is the whole page, or flush to the end of tuple_start + (last_Index+1)*r.GetRecordSize()
+        hdr.merge_dirty_bounds(sizeof(uint64_t), kLeafPageSize);
+#endif
+        assert(temp_key1 <= hdr.highest);
+        // Todo: decide when triger the leaf page merge.
+        result.find_value = true;
+        return false;
+
     }
 
     bool DataPage::InsertRecord(const Slice &tuple, int &cnt, RecordSchema *record_scheme, GlobalAddress& g_addr) {

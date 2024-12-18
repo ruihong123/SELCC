@@ -1219,6 +1219,7 @@ namespace DSMEngine {
         assert(level == 0);
 
     }
+
     template <typename Key>
     bool Btr<Key>::search(const Key &k, const Slice &value_buff, CoroContext *cxt, int coro_id) {
 //  assert(rdma_mg->is_register());
@@ -1317,6 +1318,140 @@ namespace DSMEngine {
 
         assert(result.val.data()!= nullptr);
         if (!leaf_page_search(p, k, result, level, cxt, coro_id)){
+            if (path_stack[coro_id][1] != GlobalAddress::Null()){
+                p = path_stack[coro_id][1];
+                level = 1;
+
+            }
+            else{
+                p = get_root_ptr_protected(page_hint);
+                level = -1;
+            }
+#ifndef NDEBUG
+            next_times++;
+#endif
+            DEBUG_PRINT_CONDITION("back off for search\n");
+            goto next;
+        }else{
+            if (result.find_value) { // find
+//                value_buff = result.val;
+#ifdef PROCESSANALYSIS
+                if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+                auto stop = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+                printf("leaf page fetch and search the page uses (%ld) ns\n", duration.count());
+                TimePrintCounter[RDMA_Manager::thread_id] = 0;
+            }else{
+                TimePrintCounter[RDMA_Manager::thread_id]++;
+            }
+#endif
+
+                return true;
+            }
+            if (result.slibing != GlobalAddress::Null()) { // turn right
+                p = result.slibing;
+                assert(result.val.data()!= nullptr);
+                goto leaf_next;
+            }
+#ifdef PROCESSANALYSIS
+            if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+            printf("leaf page fetch and search the page uses (%ld) ns\n", duration.count());
+            TimePrintCounter[RDMA_Manager::thread_id] = 0;
+        }else{
+            TimePrintCounter[RDMA_Manager::thread_id]++;
+        }
+#endif
+//            assert(false);
+            return false; // not found
+        }
+    }
+    template <typename Key>
+    bool Btr<Key>::remove(const Key &k, CoroContext *cxt, int coro_id) {
+//  assert(rdma_mg->is_register());
+        Cache::Handle* page_hint = nullptr;
+        auto root = get_root_ptr_protected(page_hint);
+        SearchResult<Key> result;
+        memset(&result, 0, sizeof(SearchResult<Key>));
+//        if(!search_result_memo){
+//            search_result_memo = new SearchResult<Key,Value>();
+//        }
+//        result.val = value_buff;
+
+        GlobalAddress p = root;
+        bool isroot = true;
+        bool from_cache = false;
+        int level = -1;
+//TODO: What if we ustilize the cache tree height for the root level?
+//TODO: Change it into while style code.
+#ifdef PROCESSANALYSIS
+        auto start = std::chrono::high_resolution_clock::now();
+#endif
+//#ifndef NDEBUG
+        int next_times = 0;
+//#endif
+        next: // Internal_and_Leaf page search
+//#ifndef NDEBUG
+        if (next_times++ == 1000){
+            assert(false);
+        }
+//#endif
+
+        if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
+            //The traverser failed to move to the next level
+            if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
+                p = get_root_ptr_protected(page_hint);
+                level = -1;
+            }else{
+                // fall back to upper level
+                assert(level == result.level|| level == -1);
+                p = path_stack[coro_id][result.level +1];
+                page_hint = nullptr;
+                level = result.level + 1;
+            }
+            goto next;
+        }
+        else{
+            // The traversing moving the the next level correctly
+            assert(level == result.level|| level == -1);
+            isroot = false;
+            page_hint = nullptr;
+            // Do not need to
+            if (result.slibing != GlobalAddress::Null()) { // turn right
+                p = result.slibing;
+
+            }else if (result.next_level != GlobalAddress::Null()){
+                assert(result.next_level != GlobalAddress::Null());
+                p = result.next_level;
+                level = result.level - 1;
+            }else{}
+
+            if (level != 0 && level != -1){
+                // If Level is 1 then the leaf node and root node are the same.
+                assert(!result.is_leaf);
+
+                goto next;
+            }
+
+        }
+#ifdef PROCESSANALYSIS
+        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+//#ifndef NDEBUG
+        printf("internal node tranverse uses (%ld) ns, next time is %d\n", duration.count(), next_times);
+//          TimePrintCounter = 0;
+    }
+//#endif
+#endif
+#ifdef PROCESSANALYSIS
+        start = std::chrono::high_resolution_clock::now();
+#endif
+        leaf_next:// Leaf page search
+
+        assert(result.val.data()!= nullptr);
+        if (!leaf_page_delete(p, k, result, level, cxt, coro_id)){
             if (path_stack[coro_id][1] != GlobalAddress::Null()){
                 p = path_stack[coro_id][1];
                 level = 1;
@@ -1767,7 +1902,7 @@ namespace DSMEngine {
 
         return true;
     }
-#ifdef CACHECOHERENCEPROTOCOL
+
 
     template <typename Key>
     bool Btr<Key>::leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int level, CoroContext *cxt,
@@ -1879,130 +2014,110 @@ namespace DSMEngine {
 
 
     }
-#else
-    bool Btr::leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult &result, int level, CoroContext *cxt,
-                           int coro_id) {
-    int counter = 0;
-re_read:
-    if (++counter > 100) {
-        printf("re read too many times\n");
-        sleep(1);
-    }
-    // TODO: We need to implement the lock coupling. how to avoid unnecessary RDMA for lock coupling?
-    //
-    Slice page_id((char*)&page_addr, sizeof(GlobalAddress));
-    Cache::Handle* handle = nullptr;
-    void* page_buffer;
-    Header * header;
-    assert(level == 0);
-    ibv_mr* local_mr = rdma_mg->Get_local_read_mr();
-    page_buffer = local_mr->addr;
-    //clear the version so that there will be no "false consistent" page
-    ((LeafPage*)page_buffer)->front_version = 0;
-    ((LeafPage*)page_buffer)->rear_version = 0;
-    header = (Header *) ((char*)page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
-//#ifdef PROCESSANALYSIS
-//    auto start = std::chrono::high_resolution_clock::now();
-//#endif
-    rdma_mg->RDMA_Read(page_addr, local_mr, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-//#ifdef PROCESSANALYSIS
-//    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-//        auto stop = std::chrono::high_resolution_clock::now();
-//        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-//        printf("leaf page search fetch RDMA uses (%ld) ns\n", duration.count());
-////          TimePrintCounter[RDMA_Manager::thread_id] = 0;
-//    }else{
-////          TimePrintCounter[RDMA_Manager::thread_id]++;
-//    }
-//#endif
-//    memset(&result, 0, sizeof(result));
-    result.Reset();
-    result.is_leaf = header->leftmost_ptr == GlobalAddress::Null();
-    result.level = header->level;
-//  if(!result.is_leaf)
-//      assert(result.level !=0);
-//        assert(result.is_leaf == (level == 0));
-    path_stack[coro_id][result.level] = page_addr;
-    auto page = (LeafPage *)page_buffer;
-    if (!page->check_consistent()) {
-        goto re_read;
-    }
-
-
-
-    assert(result.level == 0);
-    if (k >= page->hdr.highest) { // should turn right, the highest is not included
-//        printf("should turn right ");
-//              if (page->hdr.sibling_ptr != GlobalAddress::Null()){
-        // erase the upper level from the cache
-        int last_level = 1;
-        if (path_stack[coro_id][last_level] != GlobalAddress::Null()){
-//            DEBUG_arg("Erase the page 3 %p\n", path_stack[coro_id][last_level]);
-            Slice upper_node_page_id((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress));
-            // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
-            // the page to check whether the page has been evicted.
-            Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
-            if(upper_layer_handle){
-                InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                Recieve_page_invalidation(upper_page);
-                page_cache->Release(upper_layer_handle);
-
-            }
-//            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
-
-        }
-        // In case that there is a long distance(num. of sibiling pointers) between current node and the target node
-        if (nested_retry_counter <= 2){
-            nested_retry_counter++;
-            result.slibing = page->hdr.sibling_ptr;
-            return true;
-        }else{
-            nested_retry_counter = 0;
-            DEBUG_PRINT_CONDITION("retry place 3\n");
-            return false;
-        }
-
-    }
-    nested_retry_counter = 0;
-    if ((k < page->hdr.lowest )) { // cache is stale
-        // erase the upper node from the cache and refetch the upper node to continue.
-        int last_level = 1;
-        if (path_stack[coro_id][last_level] != GlobalAddress::Null()){
-            //TODO(POTENTIAL bug): add a lock for the page when erase it. other wise other threads may
-            // modify the page based on a stale cached page.
-//            DEBUG_arg("Erase the page 4 %p\n", path_stack[coro_id][last_level]);
-            Slice upper_node_page_id((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress));
-            // TODO: By passing the cache access to same the cost for page invalidation, use the handle within
-            // the page to check whether the page has been evicted.
-            Cache::Handle* upper_layer_handle = page_cache->Lookup(upper_node_page_id);
-            if(upper_layer_handle){
-                InternalPage* upper_page = (InternalPage*)((ibv_mr*)upper_layer_handle->value)->addr;
-                Recieve_page_invalidation(upper_page);
-                page_cache->Release(upper_layer_handle);
-            }
-//            page_cache->Erase(Slice((char*)&path_stack[coro_id][last_level], sizeof(GlobalAddress)));
-
-        }
-        DEBUG_PRINT_CONDITION("retry place 4\n");
-        return false;// false means need to fall back
-    }
-//#ifdef PROCESSANALYSIS
-//    start = std::chrono::high_resolution_clock::now();
-//#endif
-    page->leaf_page_search(k, result, *local_mr, page_addr);
-//#ifdef PROCESSANALYSIS
-//    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-//        auto stop = std::chrono::high_resolution_clock::now();
-//        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-//        printf("leaf page search the page uses (%ld) ns\n", duration.count());
-//          TimePrintCounter[RDMA_Manager::thread_id] = 0;
-//    }else{
-//          TimePrintCounter[RDMA_Manager::thread_id]++;
-//    }
-//#endif
-    return true;
-}
+    template <typename Key>
+    bool Btr<Key>::leaf_page_delete(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int level) {
+#ifdef PROCESSANALYSIS
+        auto start = std::chrono::high_resolution_clock::now();
 #endif
+        auto rdma_mg = RDMA_Manager::Get_Instance(nullptr);
+        int counter = 0;
+        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
+        Slice page_id((char*)&page_addr, sizeof(GlobalAddress));
+        Cache::Handle* handle = nullptr;
+        void* page_buffer;
+        GlobalAddress lock_addr;
+        lock_addr.nodeID = page_addr.nodeID;
+        lock_addr.offset = page_addr.offset + STRUCT_OFFSET(LeafPage<Key>,global_lock);
+        Header_Index<Key> * header;
+        LeafPage<Key>* page;
+        bool need_merge = false;
+        int cnt = 0;
+//        ibv_mr* mr = nullptr;
+        ddms_->SELCC_Shared_Lock(page_buffer, page_addr, handle);
+#ifdef PROCESSANALYSIS
+        if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+//#ifndef NDEBUG
+            printf("cache look up for level %d is (%ld) ns, \n", level, duration.count());
+//          TimePrintCounter = 0;
+        }
+//#endif
+#endif
+        header = (Header_Index<Key> *) ((char*)page_buffer + (STRUCT_OFFSET(InternalPage<Key>, hdr)));
+        page = (LeafPage<Key> *)page_buffer;
+        result.Reset();
+
+        //
+        assert(page->hdr.this_page_g_ptr = page_addr);
+
+        result.is_leaf = header->level == 0;
+        result.level = header->level;
+        level = result.level;
+        path_stack[0][result.level] = page_addr;
+        assert(result.is_leaf );
+        assert(result.level == 0 );
+        assert(page->hdr.level < 100);
+        //TODO: acquire the remote read lock. and keep trying until success.
+//            page->check_invalidation_and_refetch_outside_lock(page_addr, rdma_mg, mr);
+        assert(result.level == 0);
+        if(secondary_ && page->hdr.highest == page->hdr.lowest && k == page->hdr.highest){
+            //do nothing, this node is the correct node. THis has been deprecated.
+        }else{
+            if (k >= page->hdr.highest) { // should turn right, the highest is not included
+                // erase the upper level from the cache
+                int last_level = 1;
+                if (path_stack[0][last_level] == GlobalAddress::Null()){
+                    // If this node do not have upper level, then the root node must be invalidated
+                    std::unique_lock<RWSpinLock> l(root_mtx);
+                    if (page_addr == g_root_ptr.load()){
+                        g_root_ptr.store(GlobalAddress::Null());
+                    }
+                }
+                // In case that there is a long distance(num. of sibiling pointers) between current node and the target node
+                if (nested_retry_counter <= 4){
+                    nested_retry_counter++;
+                    result.slibing = page->hdr.sibling_ptr;
+                    goto returntrue;
+                }else{
+                    nested_retry_counter = 0;
+                    DEBUG_PRINT_CONDITION("retry place 3\n");
+                    goto returnfalse;
+                }
+
+            }
+        }
+
+        nested_retry_counter = 0;
+        if ((k < page->hdr.lowest)) { // cache is stale
+            assert(false);
+            // erase the upper node from the cache and refetch the upper node to continue.
+            int last_level = 1;
+            if (path_stack[0][last_level] != GlobalAddress::Null()){
+            }else{
+                std::unique_lock<RWSpinLock> l(root_mtx);
+                if (page_addr == g_root_ptr.load()){
+                    g_root_ptr.store(GlobalAddress::Null());
+                }
+            }
+            DEBUG_PRINT_CONDITION("retry place 4\n");
+            goto returnfalse;
+        }
+
+        need_merge = page->leaf_page_delete(k, cnt, result, scheme_ptr);
+    returntrue:
+        assert(handle);
+        ddms_->SELCC_Shared_UnLock(page_addr, handle);
+        return true;
+    returnfalse:
+        assert(handle);
+        ddms_->SELCC_Shared_UnLock(page_addr, handle);
+        return false;
+
+
+
+    }
+
     template <typename Key>
     bool Btr<Key>::leaf_page_find(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result,
                                         Btr<Key>::iterator &iter, int level) {

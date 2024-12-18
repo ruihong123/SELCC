@@ -316,8 +316,10 @@ namespace DSMEngine{
         int leaf_page_pos_lb(const TKey &k, GlobalAddress g_page_ptr, RecordSchema *record_scheme);
         int leaf_page_find_pos_ub(const TKey &k, SearchResult<TKey> &result, RecordSchema *record_scheme);
         void GetByPosition(int pos, RecordSchema *schema_ptr, TKey &key, void* buff);
+        // if node is full return true, if not full return false.
         bool leaf_page_store(const TKey &k, const Slice &v, int &cnt, RecordSchema *record_scheme);
-
+        // if need merge return true, if not needed return false.
+        bool leaf_page_delete(const TKey &k, int &cnt, SearchResult<TKey> &result, RecordSchema *record_scheme);
     };
     class Header {
     public:
