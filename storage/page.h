@@ -33,7 +33,7 @@ namespace DSMEngine{
         char key_padding[KEY_PADDING];
 #endif
 //        Value val;
-        Slice val;
+        Slice val{};
 //        char* val[kMaxAttributeLength];
 //        size_t val_size;
 //        char value_padding[VALUE_PADDING];
