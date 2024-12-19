@@ -331,6 +331,7 @@ namespace DSMEngine {
         size_t tuple_length = record_scheme->GetSchemaSize();
         char* tuple_start = data_;
         uint16_t left = 0;
+        // TODO: the code below will be false if we execute the leaf page delete multiple times.
         assert(hdr.last_index >= 0);
         uint16_t right = hdr.last_index;
         uint16_t mid = 0;
