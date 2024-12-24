@@ -112,6 +112,7 @@ add_executable(memory_server_tpcc "server_termination_tpcc.cc"
         "memory_node/memory_node_keeper.cpp")
 add_executable(cpu_scale_test "CPU_cache_scalability.cpp")
 add_executable(btree_bench test/benchmark_btree.cpp)
+add_executable(second_btree_bench test/benchmark_btree_secondary.cpp)
 add_executable(micro_bench test/benchmark_micro.cpp)
 
 file(GLOB TPCC_DEPENDENCY
@@ -132,6 +133,7 @@ target_link_libraries(memory_server DSMEngine)
 target_link_libraries(memory_server_term DSMEngine)
 target_link_libraries(memory_server_tpcc DSMEngine)
 target_link_libraries(btree_bench DSMEngine)
+target_link_libraries(second_btree_bench DSMEngine)
 target_link_libraries(micro_bench DSMEngine)
 target_link_libraries(cpu_scale_test -lnuma)
 

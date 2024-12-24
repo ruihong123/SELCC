@@ -21,13 +21,6 @@
 #include "utils/hash.h"
 #include "port/port_posix.h"
 #include "utils/Local_opt_locks.h"
-//#define kInternalCardinality   (kInternalPageSize - sizeof(Header) - sizeof(uint8_t) * 2) /sizeof(InternalEntry)
-//#define kLeafCardinality  (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2) / sizeof(LeafEntry)
-
-//#define InternalPagePadding (kInternalPageSize - sizeof(Header) - sizeof(uint8_t) * 2)%sizeof(InternalEntry)
-//// InternalPagePadding is 7 for key 20 bytes value 400 bytes
-//#define LeafPagePadding (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2)%sizeof(LeafEntry)
-//// LeafPagePadding is 143 for key 20 bytes value 400 bytes.
 class IndexCache;
 
 template<class Key, class Value>
@@ -58,92 +51,112 @@ extern int TimePrintCounter[MAX_APP_THREAD];
 namespace DSMEngine {
     //TODO: implement the iterator for the btree.
     // TODO: create an class for SELCC latch.
-    template<class Key, class Value>
-    struct btree_iterator {
-    public:
-        btree_iterator(LeafPage<Key, Value> *node, Cache_Handle* handle, uint32_t position, RecordSchema *scheme_ptr, DDSM *dsm)
-                : node(node), handle(handle), position(position), scheme_ptr(scheme_ptr), dsm(dsm) {
 
-        }
-        ~btree_iterator(){
-            if (handle != nullptr){
-                assert(node != nullptr);
-                dsm->SELCC_Shared_UnLock(handle->gptr, handle);
-            }else{
-                assert(node == nullptr);
-            }
-        }
-        void Get(Key& key, Value& value){
-            node->GetByPosition(position, scheme_ptr, key, value);
-        }
-        void Next(){
-            if (position < node->hdr.last_index){
-                position++;
-            } else {
-                // todo: move to the next leaf node.
-                GlobalAddress next_leaf = node->hdr.sibling_ptr;
-                if (next_leaf == GlobalAddress::Null()){
-                    valid = false;
-                    return;
-                }
-                dsm->SELCC_Shared_UnLock(handle->gptr, handle);
-                void* page_buffer;
-                dsm->SELCC_Shared_Lock(page_buffer, next_leaf, handle);
-                node = (LeafPage<Key, Value> *)page_buffer;
-                position = 0;
-            }
-        }
-//        void Prev();
-        bool Valid(){
-            return valid;
-        }
-
-    private:
-        // The node in the tree the iterator is pointing at.
-        LeafPage<Key, Value> *node = nullptr;
-        // The position within the node of the tree the iterator is pointing at.
-        Cache_Handle* handle = nullptr; // use the SELLC latch inside the handle to protect the access of iterator.
-        uint32_t position = 0; // offset within the leaf node
-        bool valid = false;
-        RecordSchema *scheme_ptr = nullptr;
-        DDSM *dsm = nullptr;
-    };
 
     template<class Key>
     class InternalPage;
 
-    template<class Key, class Value>
+    template<class Key>
     class LeafPage;
+
 
 //TODO: There are two ways to define types in the btree, one is to define the types in the class, the other is to define the types in the template.
 // the other is to attach a scheme_ptr. Currently we mixed these two ways, which is not good. We need to guarantee that
 // the scheme_ptr is coherent with the template in the btree.
-    template<typename Key, typename Value>
+    template<typename Key>
     class Btr {
 //friend class DSMEngine::InternalPage;
     public:
-        typedef btree_iterator<Key, Value> iterator;
+        struct iterator {
+        public:
+            iterator(LeafPage<Key> *node, Cache_Handle* handle, uint32_t position, RecordSchema *scheme_ptr, DDSM *dsm)
+                    : node(node), handle(handle), position_idx(position), scheme_ptr(scheme_ptr), dsm(dsm) {
+                valid = true;
+
+            }
+            iterator()= default;
+            iterator(iterator&& iter) noexcept {
+                node = iter.node;
+                handle = iter.handle;
+                position_idx = iter.position_idx;
+                scheme_ptr = iter.scheme_ptr;
+                dsm = iter.dsm;
+                valid = iter.valid;
+            }
+            void initialize(LeafPage<Key> *node_t, Cache_Handle* handle_t, uint32_t position_t, RecordSchema *scheme_ptr_t, DDSM *dsm_t){
+                node = node_t;
+                handle = handle_t;
+                position_idx = position_t;
+                scheme_ptr = scheme_ptr_t;
+                dsm = dsm_t;
+                valid = true;
+            }
+            ~iterator(){
+                if (handle != nullptr){
+                    assert(node != nullptr);
+                    dsm->SELCC_Shared_UnLock(handle->gptr, handle);
+                }else{
+                    assert(node == nullptr);
+                }
+            }
+            void Get(Key& key, void* buff){
+                node->GetByPosition(position_idx, scheme_ptr, key, buff);
+            }
+            void Next(){
+                if (position_idx < node->hdr.last_index){
+                    position_idx++;
+                } else {
+                    // todo: move to the next leaf node.
+                    GlobalAddress next_leaf = node->hdr.sibling_ptr;
+                    if (next_leaf == GlobalAddress::Null()){
+                        valid = false;
+                        return;
+                    }
+                    dsm->SELCC_Shared_UnLock(handle->gptr, handle);
+                    void* page_buffer;
+                    dsm->SELCC_Shared_Lock(page_buffer, next_leaf, handle);
+                    node = (LeafPage<Key> *)page_buffer;
+                    position_idx = 0;
+                }
+            }
+//        void Prev();
+            bool Valid(){
+                return valid;
+            }
+            void SetValid(bool flag){
+                valid = flag;
+            }
+
+        private:
+            // The node in the tree the iterator is pointing at.
+            LeafPage<Key> *node = nullptr;
+            // The position_idx within the node of the tree the iterator is pointing at.
+            Cache_Handle* handle = nullptr; // use the SELLC latch inside the handle to protect the access of iterator.
+            uint32_t position_idx = 0; // offset within the leaf node
+            bool valid = false;
+            RecordSchema *scheme_ptr = nullptr;
+            DDSM *dsm = nullptr;
+        };
+
 
         // Assign a unique id to the tree, and allocate the root node by itself
-        Btr(DDSM *dsm, Cache *cache_ptr, RecordSchema *record_scheme_ptr, uint16_t Btr_id);
+        Btr(DDSM *dsm, Cache *cache_ptr, RecordSchema *record_scheme_ptr, uint16_t Btr_id, bool secondary = false);
         //Btree waiting for serialization. get the root node from memcached
         Btr(DDSM *dsm, Cache *cache_ptr, RecordSchema *record_scheme_ptr);
 
         void insert(const Key &k, const Slice &v, CoroContext *cxt = nullptr,
                     int coro_id = 0);
 
+        bool remove(const Key &k, CoroContext *cxt = nullptr,
+                    int coro_id = 0);
+
         bool search(const Key &k, const Slice &v, CoroContext *cxt = nullptr,
                     int coro_id = 0);
         //Remember to destroy the iterator after use.
-        iterator* begin();
+        iterator begin();
         // Finds the first element whose key is not less than key. the iterator always move forward.
-        iterator* lower_bound(const Key &key);
-//        iterator upper_bound(const Key &key) const {
-//            return iterator{};
-//        }
-//        void del(const Key &k, CoroContext *cxt = nullptr, int coro_id = 0);
-
-//  void index_cache_statistics();
+        // TODO: make the return not a point but a moved object.
+        iterator lower_bound(const Key &key);
         void clear_statistics();
         void Serialize(const char*& addr) {
             size_t off = 0;
@@ -187,14 +200,11 @@ namespace DSMEngine {
         RecordSchema *scheme_ptr;
         uint64_t num_of_record = 0;
         uint16_t leaf_cardinality_ = 0;
-
-
-
+        bool secondary_ = false;
     private:
         RWSpinLock root_mtx;// in case of contention in the root cache
         uint64_t tree_id;
         GlobalAddress left_most_leaf = GlobalAddress::Null();
-
         // The cached_root_handle_ref is to keep track of the number of reference to the root page handle.
         // this is necessary because the access of cached_root_page_handle will bypass the cache,
         // so the refs in the handle will not be increased, when accessing the root node, which can result in
@@ -204,27 +214,17 @@ namespace DSMEngine {
         // the cache root handle will not immediately be replaced with handle's refs --. Instead, the invaliding thread
         // will wait for the unfinished access on the old root handle, by checking the cached_root_handle_ref.
         std::atomic<Cache::Handle*> cached_root_page_handle = nullptr;
-//        std::atomic<uint32_t> cached_root_handle_ref = 1;
-//        std::shared_mutex root_handle_mtx;
-        //    InternalPage* cached_root_page_ptr;
         std::atomic<GlobalAddress> g_root_ptr = GlobalAddress::Null();
         std::atomic<uint8_t> tree_height = 0;
         static thread_local size_t round_robin_cur;
-
-        // static thread_local int coro_id;
-        // static thread_local CoroCall worker[define::kMaxCoro];
-        // static thread_local CoroCall master;
         static thread_local std::shared_mutex *lock_coupling_memo[define::kMaxLevelOfTree];
-        static thread_local SearchResult<Key, Value> *search_result_memo;
+        static thread_local SearchResult<Key> *search_result_memo;
         std::vector<LocalLockNode *> local_locks;
-
         Cache *page_cache;
         DDSM* ddms_ = nullptr;
         RDMA_Manager *rdma_mg = nullptr;
 #ifndef NDEBUG
 #endif
-
-//    std::atomic<int> cache_invalid_counter;
         void print_verbose();
 
         void before_operation(CoroContext *cxt, int coro_id);
@@ -284,16 +284,17 @@ namespace DSMEngine {
         // THis funciton will get the page by the page addr and search the pointer for the
         // next level if it is not leaf page. If it is a leaf page, just put the value in the
         // result. this funciton = fetch the page + internal page serach + leafpage search + re-read
-        bool internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key, Value> &result, int &level,
+        bool internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int &level,
                                   bool isroot,
                                   Cache::Handle *handle = nullptr, CoroContext *cxt = nullptr, int coro_id = 0);
 
-        bool leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key, Value> &result, int level,
+
+        bool leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int level,
                               CoroContext *cxt,
                               int coro_id);
+        bool leaf_page_delete(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int level);
         // create a iterator for the range query.
-        bool leaf_page_find(GlobalAddress page_addr, const Key &k, SearchResult<Key, Value> &result,
-                            btree_iterator<Key,Value> *&iter, int level);
+        bool leaf_page_find(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, iterator &iter, int level);
 //        void internal_page_search(const Key &k, SearchResult &result);
 
 //    void leaf_page_search(LeafPage *page, const Key &k, SearchResult &result);
@@ -302,7 +303,9 @@ namespace DSMEngine {
         bool internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int level, CoroContext *cxt,
                                  int coro_id);
 
-        //store a key and value to a leaf page [lowest, highest)
+        //store a key and value to a leaf page [lowest, highest). If it is secondary index, then range could be [lowest, highest], where lowest == highest.
+        // Our code logic make it impossible to have duplicated key like this [a,b,c,d,d,d,d] [d,e,e,e,e,f], where dupilated keys covers last few records in one node and
+        // spill to the next node for a few records. We make sure this never happen by our code logics in split.
         bool leaf_page_store(GlobalAddress page_addr, const Key &k, const Slice &v, Key &split_key,
                              GlobalAddress &sibling_addr, int level, CoroContext *cxt, int coro_id);
 
