@@ -1,11 +1,11 @@
 #include <fstream>
 #include "rdma.h"
 #include <cstdint>
-#include "DSMEngine/env.h"
+#include "Tools/env.h"
 #include "Common.h"
 #include "storage/page.h"
 #include "HugePageAlloc.h"
-#include "DSMEngine/cache.h"
+#include "include/cache.h"
 //#include "port/port_posix.h"
 //#include "DSMEngine/env.h"
 #ifdef RDMAPROCESSANALYSIS

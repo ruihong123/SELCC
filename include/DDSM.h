@@ -4,7 +4,7 @@
 
 #ifndef SELCC_DDSM_H
 #define SELCC_DDSM_H
-#include "DSMEngine/cache.h"
+#include "cache.h"
 #include "storage/page.h"
 #include <libmemcached/memcached.h>
 namespace DSMEngine {

@@ -42,10 +42,10 @@ target_sources(DSMEngine
         "utils/coding.h"
         "storage/Common.cpp"
         "utils/comparator.cc"
-        "utils/crc32c.cc"
-        "utils/crc32c.h"
+#        "utils/crc32c.cc"
+#        "utils/crc32c.h"
         "utils/fastrange.h"
-        "utils/filter_policy.cc"
+#        "utils/filter_policy.cc"
         "utils/hash.cc"
         "utils/hash.h"
         "utils/logging.cc"
@@ -70,7 +70,7 @@ target_sources(DSMEngine
         "utils/env.cc"
         "utils/status.h"
         "test/zipf.h"
-        "include/DSMEngine/env.h"
+        "include/Tools/env.h"
 
         # Only CMake 3.3+ supports PUBLIC sources in targets exported by "install".
         $<$<VERSION_GREATER:CMAKE_VERSION,3.2>:PUBLIC>

@@ -3,7 +3,7 @@
 
 
 #include "storage/rdma.h"
-#include "DSMEngine/cache.h"
+#include "cache.h"
 #include "DDSM.h"
 #include "storage/page.h"
 #include <atomic>
