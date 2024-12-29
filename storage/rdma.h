@@ -53,7 +53,7 @@
 namespace DSMEngine {
 class Cache;
 class Env;
-enum Chunk_type {Regular_Page, LockTable, Message, BigPage, IndexChunk, FilterChunk, FlushBuffer, DataChunk};
+enum Chunk_type {Regular_Page, LockTable, Message, BigPage, DeltaChunk};
 static const char * EnumStrings[] = { "Internal_and_Leaf", "LockTable", "Message", "Version_edit", "IndexChunk", "FilterChunk", "FlushBuffer", "DataChunk"};
 
 static char config_file_name[100] = "../connection.conf";
@@ -597,8 +597,8 @@ class RDMA_Manager {
   // it also push the new block bit map to the Remote_Leaf_Node_Bitmap
 
   // Set the type of the memory pool. the mempool can be access by the pool name
-  bool Mempool_initialize(Chunk_type pool_name, size_t size,
-                          size_t allocated_size);
+  bool Mempool_initialize(Chunk_type pool_name, size_t chunk_size,
+                          size_t allocat_num_per_time);
   //TODO: seperate the local memory registration by different shards. However,
   // now we can only seperate the registration by different compute node.
   //Allocate memory as "size", then slice the whole region into small chunks according to the pool name
@@ -727,7 +727,7 @@ class RDMA_Manager {
                       bool send_cq, uint16_t target_node_id);
   int poll_completion_xcompute(ibv_wc *wc_p, int num_entries, std::string qp_type, bool send_cq, uint16_t target_node_id,
                              int num_of_cp);
-  void BatchGarbageCollection(uint64_t* ptr, size_t size);
+//  void BatchGarbageCollection(uint64_t* ptr, size_t size);
   bool Deallocate_Local_RDMA_Slot(ibv_mr* mr, ibv_mr* map_pointer,
                                   Chunk_type buffer_type);
   bool Deallocate_Local_RDMA_Slot(void* p, Chunk_type buff_type);
@@ -788,7 +788,7 @@ class RDMA_Manager {
 //  std::map<void*, In_Use_Array*>* Remote_Leaf_Node_Bitmap;
 //TODO: seperate the remote registered memory as different chunk types. similar to name_to_mem_pool
   std::map<uint16_t, std::map<void*, In_Use_Array*>*> Remote_Leaf_Node_Bitmap;
-    std::map<uint16_t, std::map<void*, In_Use_Array*>*> Remote_Inner_Node_Bitmap;
+    std::map<uint16_t, std::map<void*, In_Use_Array*>*> Remote_Delta_Bitmap;
     std::map<uint16_t, ibv_mr*> mr_map_data;
     std::map<uint16_t, uint32_t> rkey_map_data;
     std::map<uint16_t, uint64_t> base_addr_map_data;
@@ -800,6 +800,7 @@ class RDMA_Manager {
   size_t total_registered_size;
 
   uint64_t CachelineSize;
+  uint64_t DeltaSectionSize;
   std::shared_mutex remote_mem_mutex;
 
   std::shared_mutex rw_mutex;

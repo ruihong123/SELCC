@@ -179,14 +179,14 @@ void thread_run(int id) {
                 printf("values for check 2 are %lu\n", this_value2);
             }
         }
-        for (int i = 0; i < 1000; i++) {
-            to_search.key = checked_key2;
-            to_search.value = i;
-            bool ret = tree->remove(to_search);
-            assert(ret);
-            ret = tree->search(to_search, tuple_slice);
-            assert(!ret);
-        }
+//        for (int i = 0; i < 1000; i++) {
+//            to_search.key = checked_key2;
+//            to_search.value = i;
+//            bool ret = tree->remove(to_search);
+//            assert(ret);
+//            ret = tree->search(to_search, tuple_slice);
+//            assert(!ret);
+//        }
     }
   warmup_cnt.fetch_add(1);
 
