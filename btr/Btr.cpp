@@ -2194,6 +2194,7 @@ namespace DSMEngine {
             GlobalAddress sib_ptr = page->hdr.sibling_ptr;
             if(sib_ptr == GlobalAddress::Null()){
                 iter.SetValid(false);
+                assert(false);
                 goto returntrue;
             }
             ddms_->SELCC_Shared_UnLock(page_addr, handle);
