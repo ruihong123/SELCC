@@ -1604,7 +1604,7 @@ namespace DSMEngine {
                 goto leaf_next;
             }
 #ifndef NDEBUG
-            assert(iter.valid());
+            assert(iter.Valid());
             Key k;
             char buff[16];
             iter.Get(k,buff);
