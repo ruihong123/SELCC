@@ -1598,7 +1598,13 @@ namespace DSMEngine {
             DEBUG_PRINT_CONDITION("back off for search\n");
             goto next;
         } else {
+            if (result.slibing != GlobalAddress::Null()) { // turn right
+                p = result.slibing;
+                assert(result.val.data()!= nullptr);
+                goto leaf_next;
+            }
 #ifndef NDEBUG
+            assert(iter.valid());
             Key k;
             char buff[16];
             iter.Get(k,buff);
