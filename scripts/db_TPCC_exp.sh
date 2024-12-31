@@ -143,7 +143,7 @@ vary_query_ratio () {
   FREQUENCY_ORDER_STATUS=(0 0 0 100 0 1)
   FREQUENCY_STOCK_LEVEL=(0 0 0 0 100 1)
   for ware_num in ${WarehouseNum[@]}; do
-    for qr_index in 5; do
+    for qr_index in 0 4; do
       for thread_n in ${thread_number[@]}; do
         compute_ARGS="-p$port -sf$ware_num -sf1 -c$thread_n -rde${FREQUENCY_DELIVERY[$qr_index]} -rpa${FREQUENCY_PAYMENT[$qr_index]} -rne${FREQUENCY_NEW_ORDER[$qr_index]} -ror${FREQUENCY_ORDER_STATUS[$qr_index]} -rst${FREQUENCY_STOCK_LEVEL[$qr_index]} -t4000000 -f../connection.conf"
         run_tpcc
@@ -209,6 +209,7 @@ vary_temp_locality () {
 # run standard tpcc
 #run_tpcc
 #vary_thread_number
-vary_distro_ratio
+#vary_distro_ratio
 # vary_read_ratios
 #vary_temp_locality
+vary_query_ratio
