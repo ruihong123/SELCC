@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DROCKSDB_SUPPORT_THREAD_LOCAL -DLOCK -DBACKOFF -Wall -Wextra  -pthread -ggdb") #-fsanitize=address -fsanitize=leak -fstack-protector
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DROCKSDB_SUPPORT_THREAD_LOCAL -DMVOCC -DBACKOFF -Wall -Wextra  -pthread -ggdb") #-fsanitize=address -fsanitize=leak -fstack-protector
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused -Wno-format -Wno-missing-field-initializers -Wno-sign-compare -Wno-type-limits ")
 #-DLOCK
 #add_compile_options(-fsanitize=address)
@@ -116,7 +116,6 @@ add_executable(second_btree_bench test/benchmark_btree_secondary.cpp)
 add_executable(micro_bench test/benchmark_micro.cpp)
 
 file(GLOB TPCC_DEPENDENCY
-
         "${PROJECT_SOURCE_DIR}/storage/*.h"
         "${PROJECT_SOURCE_DIR}/storage/*.cpp"
         "${PROJECT_SOURCE_DIR}/bench/*.h"
@@ -127,9 +126,7 @@ file(GLOB TPCC_DEPENDENCY
         "${PROJECT_SOURCE_DIR}/txn/*.cpp"
         "${PROJECT_SOURCE_DIR}/txn/*.h"
 )
-add_executable(tpcc ${TPCC_DEPENDENCY}
-        txn/DeltaSection.cpp
-        txn/DeltaSection.h)
+add_executable(tpcc ${TPCC_DEPENDENCY})
 target_link_libraries(tpcc DSMEngine)
 target_link_libraries(memory_server DSMEngine)
 target_link_libraries(memory_server_term DSMEngine)

@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cassert>
 #include "Meta.h"
+#include "Common.h"
 
 namespace DSMEngine {
 enum ValueType
@@ -25,8 +26,12 @@ struct MetaColumn {
 #if defined(TO)
    uint64_t Rts_;
 #endif
-#if defined(TO) || defined(OCC)
+#if defined(TO) || defined(OCC) || defined(MVOCC)
     uint64_t Wts_;
+#endif
+#if defined(MVOCC)
+    GlobalAddress prev_delta_;
+    uint32_t ov_size_;
 #endif
     bool is_visible_;
 } __attribute__((packed));

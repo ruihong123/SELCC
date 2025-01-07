@@ -154,6 +154,7 @@ enum RDMA_Command_Type {
   writer_invalidate_modified,
   reader_invalidate_modified,
   writer_invalidate_shared,
+  broadcast_tlocal_ds,
   tuple_read_2pc,
   prepare_2pc,
   commit_2pc,
@@ -174,6 +175,14 @@ struct Invalid_Message{
     bool pending_reminder; // 0 for not pending, 1 for pending. if 1, the message can only update the priority of old request or forcing the invalidaiton message process the forgotten inv message.
     uint8_t starvation_level;
 };
+struct CreateDS{
+    GlobalAddress ds_gaddr;
+    uint8_t compute_node_id;
+};
+struct PullDS{
+    GlobalAddress ds_gaddr;
+    ibv_mr write_back_mr;
+};
 //struct WUnlock_message{
 //    GlobalAddress page_addr;
 //};
@@ -193,6 +202,7 @@ union RDMA_Request_Content {
   New_Root root_broadcast;
   uint32_t target_id_pair;
   Invalid_Message inv_message;
+  CreateDS create_ds;
   Tuple_info tuple_info;
   Prepare prepare;
   Commit commit;
@@ -525,7 +535,8 @@ class RDMA_Manager {
    */
   size_t GetMemoryNodeNum();
     size_t GetComputeNodeNum();
-    uint64_t GetNextTimestamp();
+    uint64_t FetchAddNextTimestamp();
+    uint64_t GetTimestamp();
   /**
    * RDMA set up create all the resources, and create one query pair for RDMA send & Receive.
    */
@@ -541,6 +552,7 @@ class RDMA_Manager {
     void Writer_Inv_Shared_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     void Reader_Inv_Modified_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     void Writer_Inv_Modified_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
+    void Sync_Create_Delta_Section_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     static void Write_Invalidation_Message_Handler(void* thread_args);
     static void Read_Invalidation_Message_Handler(void* thread_args);
     void Tuple_read_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
@@ -555,6 +567,7 @@ class RDMA_Manager {
                                    uint8_t &starv_level, uint64_t &retry_cnt);
     bool Writer_Invalidate_Shared_RPC(GlobalAddress g_ptr, uint16_t target_node_id, uint8_t starv_level,
                                       uint8_t pos);
+    void Sync_Create_Delta_Section_RPC(GlobalAddress delta_addr, uint8_t compute_node_id);
     void Writer_Invalidate_Shared_RPC_Reply(int num_of_poll);
     bool Tuple_Read_2PC_RPC(uint16_t target_node_id, uint64_t primary_key, size_t table_id, size_t tuple_size,
                             char *&tuple_buffer, size_t access_type, bool log_enabled);
@@ -623,8 +636,8 @@ class RDMA_Manager {
                                     uint16_t target_node_id);  // Only called by client.
     int RDMA_Read(GlobalAddress remote_ptr, ibv_mr *local_mr, size_t msg_size, size_t send_flag, int poll_num,
                   Chunk_type pool_name, std::string qp_type = "default");
-  int RDMA_Read(ibv_mr *remote_mr, ibv_mr *local_mr, size_t msg_size, size_t send_flag, int poll_num,
-                uint16_t target_node_id, std::string qp_type = "default");
+  int RDMA_Read(ibv_mr *remote_mr, uint16_t target_node_id, ibv_mr *local_mr, size_t msg_size, size_t send_flag,
+                int poll_num,   std::string qp_type = "default");
     // TODO: implement this kind of RDMA operation for every primitive.
     int RDMA_Write(GlobalAddress remote_ptr, ibv_mr *local_mr, size_t msg_size, size_t send_flag, int poll_num,
                    Chunk_type pool_name, std::string qp_type = "default");
@@ -762,8 +775,8 @@ class RDMA_Manager {
   bool poll_reply_buffer(RDMA_Reply* rdma_reply);
   static Page_Forward_Reply_Type poll_reply_buffer(volatile Page_Forward_Reply_Type* reply_buffer);
   static bool poll_reply_buffer(RDMA_ReplyXCompute * rdma_reply);
-  void Set_message_handling_func(std::function<void(uint32_t)> &&func);
-  void register_message_handling_thread(uint32_t handler_id);
+  void Set_message_handling_func(std::function<void(void*)> &&func, std::string  func_name);
+  void register_message_handling_thread(uint32_t handler_id, const std::string& func_name);
     void join_all_handling_thread();
     int get_thread_id(){
         if (thread_id == 0){
@@ -799,8 +812,8 @@ class RDMA_Manager {
 //    std::map<uint16_t, uint32_t> rkey_map_lock_area_size;
   size_t total_registered_size;
 
-  uint64_t CachelineSize;
-  uint64_t DeltaSectionSize;
+  uint64_t cachelin_size;
+  uint64_t delta_section_size;
   std::shared_mutex remote_mem_mutex;
 
   std::shared_mutex rw_mutex;
@@ -877,7 +890,8 @@ class RDMA_Manager {
   ibv_mr* global_lock_table = nullptr;
   ibv_mr* timestamp_oracle = nullptr;
   Env* env_;
-  std::function<void(uint32_t)> message_handling_func;
+  std::unordered_map<std::string, std::function<void(void*)>> message_handling_funcs_map;
+//  std::function<void(uint32_t)> message_handling_func;
     std::shared_mutex user_df_map_mutex;
     std::atomic<bool> handler_is_finish = false;
     //TODO: clear those allocated resources when RDMA manager is being destroyed.
@@ -897,11 +911,6 @@ class RDMA_Manager {
 //  static std::atomic<uint64_t> RDMAMemoryAllocElapseSum;
 //  static std::atomic<uint64_t> ReadCount1;
 //#endif
-  //  std::unordered_map<std::string, ibv_mr*> fs_image;
-  //  std::unordered_map<std::string, ibv_mr*> log_image;
-  //  std::unique_ptr<ibv_mr, IBV_Deleter> log_image_mr;
-  //  std::shared_mutex log_image_mutex;
-  //  std::shared_mutex fs_image_mutex;
   // use thread local qp and cq instead of map, this could be lock free.
   //  static __thread std::string thread_id;
   template <typename T>
@@ -937,13 +946,7 @@ class RDMA_Manager {
     sr.send_flags = IBV_SEND_SIGNALED;
 
     /* there is a Receive Request in the responder side, so we won't get any into RNR flow */
-    //*(start) = std::chrono::steady_clock::now();
-    // start = std::chrono::steady_clock::now();
-//
-//    if (rdma_config.server_name)
-//      rc = ibv_post_send(res->qp_map["main"], &sr, &bad_wr);
-//    else
-//      rc = ibv_post_send(res->qp_map[qp_id], &sr, &bad_wr);
+
     ibv_qp* qp;
     if (qp_type == "default"){
       //    assert(false);// Never comes to here
@@ -973,18 +976,8 @@ class RDMA_Manager {
       rc = ibv_post_send(res->qp_map.at(target_node_id), &sr, &bad_wr);
       l.unlock();
     }
-//    if (rc)
-//      fprintf(stderr, "failed to post SR\n");
-//    else {
-//      fprintf(stdout, "Send Request was posted\n");
-//    }
     return rc;
   }
-
-  // three variables below are from rdma file system.
-  //  std::string* db_name_;
-  //  std::unordered_map<std::string, SST_Metadata*>* file_to_sst_meta_;
-  //  std::shared_mutex* fs_mutex_;
 
 
  private:
@@ -1024,6 +1017,7 @@ class RDMA_Manager {
   int post_receive(ibv_mr** mr_list, size_t sge_size, std::string qp_type,
                    uint16_t target_node_id);
     int post_receive_xcompute(ibv_mr *mr, uint16_t target_node_id, int num_of_qp);
+    // RDMA RPC send is async by default.
     int post_send_xcompute(ibv_mr *mr, uint16_t target_node_id, int num_of_qp, size_t msg_size);
 
         int post_send(ibv_mr** mr_list, size_t sge_size, std::string qp_type,

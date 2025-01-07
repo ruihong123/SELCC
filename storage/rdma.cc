@@ -94,8 +94,8 @@ static uint64_t  round_to_cacheline(uint64_t size) {
 ******************************************************************************/
     RDMA_Manager::RDMA_Manager(config_t config, size_t remote_block_size)
     : total_registered_size(0),
-      CachelineSize(remote_block_size),
-      DeltaSectionSize(DELTASECTIONSIZE),
+      cachelin_size(remote_block_size),
+      delta_section_size(DELTASECTIONSIZE),
       read_buffer(new ThreadLocalPtr(&Destroy_mr)),
       send_message_buffer(new ThreadLocalPtr(&Destroy_mr)),
       receive_message_buffer(new ThreadLocalPtr(&Destroy_mr)),
@@ -139,7 +139,7 @@ static uint64_t  round_to_cacheline(uint64_t size) {
                      message_size, RECEIVE_OUTSTANDING_SIZE * message_size);
   Mempool_initialize(BigPage, 1024, 32 * 1024 * 1024);
   Mempool_initialize(Regular_Page, remote_block_size, 256ull*1024ull*1024);
-    Mempool_initialize(DeltaChunk, DeltaSectionSize, 1024ull*1024ull*1024);
+    Mempool_initialize(DeltaChunk, delta_section_size, 1024ull * 1024ull * 1024);
     printf("atomic uint8_t, uint16_t, uint32_t and uint64_t are, %lu %lu %lu %lu\n ", sizeof(std::atomic<uint8_t>), sizeof(std::atomic<uint16_t>), sizeof(std::atomic<uint32_t>), sizeof(std::atomic<uint64_t>));
 //    if(node_id%2 == 0){
 //        Invalidation_bg_threads.SetBackgroundThreads(NUM_QP_ACCROSS_COMPUTE);
@@ -293,9 +293,16 @@ size_t RDMA_Manager::GetMemoryNodeNum() {
 size_t RDMA_Manager::GetComputeNodeNum() {
     return compute_nodes.size();
 }
-    uint64_t RDMA_Manager::GetNextTimestamp() {
+    uint64_t RDMA_Manager::FetchAddNextTimestamp() {
         ibv_mr* local_cas_buffer = Get_local_CAS_mr();
         RDMA_FAA(timestamp_oracle,local_cas_buffer,1,1,IBV_SEND_SIGNALED,1);
+        assert(*(uint64_t *)local_cas_buffer->addr <0x700d2c00cbe9);
+        return *(uint64_t *)local_cas_buffer->addr;
+    }
+    uint64_t RDMA_Manager::GetTimestamp() {
+        ibv_mr* local_cas_buffer = Get_local_CAS_mr();
+        //THis RDMA read may have some lag with the RDMA faa, BUT this should be fine.
+        RDMA_Read(timestamp_oracle, 1, local_cas_buffer, 8, IBV_SEND_SIGNALED, 1);
         assert(*(uint64_t *)local_cas_buffer->addr <0x700d2c00cbe9);
         return *(uint64_t *)local_cas_buffer->addr;
     }
@@ -333,18 +340,20 @@ bool RDMA_Manager::poll_reply_buffer(RDMA_Reply* rdma_reply) {
         return *reply_buff;
     }
 
-    void RDMA_Manager::Set_message_handling_func(std::function<void(uint32_t )> &&func) {
-        message_handling_func = std::move(func);
+    void RDMA_Manager::Set_message_handling_func(std::function<void(void* )> &&func, std::string func_name) {
+        message_handling_funcs_map.insert({func_name, std::move(func)});
+//        message_handling_func = std::move(func);
     }
-    void RDMA_Manager::register_message_handling_thread(uint32_t handler_id) {
+    void RDMA_Manager::register_message_handling_thread(uint32_t handler_id, const std::string& func_name) {
 //        std::unique_lock<std::shared_mutex> lck(user_df_map_mutex);
         RDMA_Request* request = new RDMA_Request();
         request->command = invalid_command_;
         communication_queues.insert({handler_id, std::queue<RDMA_Request>()});
         communication_mtxs.insert({handler_id, new std::mutex()});
         communication_cvs.insert({handler_id, new std::condition_variable()});
+        auto* id_p = new uint32_t(handler_id);
 //        std::thread t(message_handling_func, handler_id);
-        user_defined_functions_handler.emplace_back(message_handling_func, handler_id);
+        user_defined_functions_handler.emplace_back(message_handling_funcs_map[func_name], id_p);
         user_defined_functions_handler.back().detach();
 
 
@@ -1209,7 +1218,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
             assert(target_node_id != node_id);
 
 //      rdma_mg->poll_completion(wc, 1, client_ip, false, compute_node_id);
-            // TODO: Event driven programming is better than polling.
+            // TODO: try to poll more cycles than now, see what will happen for the performance.
                 if (try_poll_completions_xcompute(wc, 1, false, target_node_id, qp_num) == 0){
                     // exponetial back off to save cpu cycles.
                     if(++miss_poll_counter < 20480){
@@ -1251,6 +1260,10 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
                 case reader_invalidate_modified:
                     post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
                     Reader_Inv_Modified_handler(receive_msg_buf, target_node_id);
+                    break;
+                case broadcast_tlocal_ds:
+                    post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
+                    Sync_Create_Delta_Section_handler(receive_msg_buf, target_node_id);
                     break;
                 case heart_beat:
                     printf("heart_beat\n");
@@ -2324,8 +2337,8 @@ End of socket operations
         return rc;
 }
 // return 0 means success
-    int RDMA_Manager::RDMA_Read(ibv_mr *remote_mr, ibv_mr *local_mr, size_t msg_size, size_t send_flag, int poll_num,
-                                uint16_t target_node_id,
+    int RDMA_Manager::RDMA_Read(ibv_mr *remote_mr, uint16_t target_node_id, ibv_mr *local_mr, size_t msg_size,
+                                size_t send_flag, int poll_num,
                                 std::string qp_type) {
 //#ifdef GETANALYSIS
 //  auto start = std::chrono::high_resolution_clock::now();
@@ -6624,6 +6637,23 @@ inv_resend:
 #endif
         return true;
     }
+
+    void RDMA_Manager::Sync_Create_Delta_Section_RPC(GlobalAddress ds_ptr, uint8_t compute_node_id) {
+        RDMA_Request* send_pointer;
+//        ibv_mr send_mr = {};
+//    ibv_mr receive_mr = {};
+
+        ibv_mr* send_mr = Get_local_send_message_mr();
+//        Allocate_Local_RDMA_Slot(send_mr, Message);
+        send_pointer = (RDMA_Request*)send_mr->addr;
+        send_pointer->command = broadcast_tlocal_ds;
+        send_pointer->content.create_ds.ds_gaddr = ds_ptr;
+        send_pointer->content.create_ds.compute_node_id = compute_node_id;
+        for(auto iter: compute_nodes){
+            int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+            post_send_xcompute(send_mr, iter.first, qp_id, sizeof(RDMA_Request));
+        }
+    }
     void RDMA_Manager::Writer_Invalidate_Shared_RPC_Reply(int num_of_poll){
         ibv_mr* recv_mr = Get_local_read_mr();
         Page_Forward_Reply_Type* receive_pointer;
@@ -6962,8 +6992,8 @@ void RDMA_Manager::Allocate_Remote_RDMA_Slot(ibv_mr &remote_mr, Chunk_type pool_
             if (sst_index >= 0) {
                 remote_mr = *((ptr->second)->get_mr_ori());
                 remote_mr.addr = static_cast<void*>(static_cast<char*>(remote_mr.addr) +
-                                                    sst_index * CachelineSize);
-                remote_mr.length = CachelineSize;
+                                                    sst_index * cachelin_size);
+                remote_mr.length = cachelin_size;
 
 //        remote_data_mrs->fname = file_name;
 //        remote_data_mrs->map_pointer =
@@ -6989,8 +7019,8 @@ void RDMA_Manager::Allocate_Remote_RDMA_Slot(ibv_mr &remote_mr, Chunk_type pool_
         //  sst_meta->mr = new ibv_mr();
         remote_mr = *(mr_last);
         remote_mr.addr = static_cast<void*>(static_cast<char*>(remote_mr.addr) +
-                                            sst_index * CachelineSize);
-        remote_mr.length = CachelineSize;
+                                            sst_index * cachelin_size);
+        remote_mr.length = cachelin_size;
    }
 
 GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint16_t target_node_id) {
@@ -7032,7 +7062,7 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
 
       remote_mr = *((ptr->second)->get_mr_ori());
       remote_mr.addr = static_cast<void*>(static_cast<char*>(remote_mr.addr) +
-                                          sst_index * CachelineSize);
+                                          sst_index * cachelin_size);
       remote_mr.length = chunk_size;
       ret.nodeID = target_node_id;
       ret.offset = static_cast<char*>(remote_mr.addr) - (char*)base_addr_map_data[target_node_id];
@@ -8268,6 +8298,27 @@ void RDMA_Manager::fs_deserilization(
         delete receive_msg_buf;
         }
 
+    void RDMA_Manager::Sync_Create_Delta_Section_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
+//        GlobalAddress ds_gaddr = receive_msg_buf->content.create_ds.ds_gaddr;
+//        uint8_t compute_node_id = receive_msg_buf->content.create_ds.compute_node_id;
+//        ibv_mr* local_mr = new ibv_mr{};
+//        Allocate_Local_RDMA_Slot(*local_mr, DeltaChunk);
+//        // TODO: there is compilation error becuae DSMengine does not contain defination for transaction.
+//        // we need to wrap the funciton to a function pointer or funciton object.
+//        auto* ds_for_write= new DeltaSection(0, 0, compute_node_id, ds_gaddr, delta_section_size, local_mr);
+//        {
+//            std::unique_lock<std::shared_mutex> lck(TransactionManager::delta_map_mtx);
+//            TransactionManager::delta_sections.insert(std::make_pair(ds_gaddr, ds_for_write));
+//        }
+//        delete receive_msg_buf;
+    while(message_handling_funcs_map.find("DeltaCreate") == message_handling_funcs_map.end()){
+        // wait for the front end thread register the message handling function.
+        usleep(1);
+//        ddd
+    }
+        message_handling_funcs_map.at("DeltaCreate")(receive_msg_buf);
+    }
+
     void RDMA_Manager::Write_Invalidation_Message_Handler(void* thread_args) {
         BGThreadMetadata* p = static_cast<BGThreadMetadata*>(thread_args);
         ((RDMA_Manager *) p->rdma_mg)->Writer_Inv_Modified_handler((RDMA_Request *) p->func_args, 0);//be carefull.
@@ -8287,7 +8338,7 @@ void RDMA_Manager::fs_deserilization(
     if (communication_queues.find(handling_id) == communication_queues.end()){
         read_lock.unlock();
         std::unique_lock<std::shared_mutex> write_lock(user_df_map_mutex);
-        register_message_handling_thread(handling_id);
+        register_message_handling_thread(handling_id, "2PC");
         //wait for the handling thread ready to receive the message.
         usleep(100);
         write_lock.unlock();

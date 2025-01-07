@@ -239,12 +239,27 @@ public:
     operator uint64_t() {
         return val;
     }
+//    bool operator==(const GlobalAddress &other) const
+//    { return (nodeID == other.nodeID
+//              && offset == other.offset);
+//    }
+
     //The memory node ID is odd number not including 0.
     static GlobalAddress Null() {
         static GlobalAddress zero{0, 0};
         return zero;
     };
 } __attribute__((packed));
+template <>
+struct std::hash<GlobalAddress>
+{
+    std::size_t operator()(const GlobalAddress& k) const
+    {
+        uint64_t val = k.val;
+        return std::hash<uint64_t>()(val);
+    }
+};
+
 [[maybe_unused]]static GlobalAddress TOPAGE(GlobalAddress addr){
     GlobalAddress ret = addr;
     size_t bulk_granularity = 1024ull*1024*1024;
