@@ -890,9 +890,9 @@ class RDMA_Manager {
   ibv_mr* global_lock_table = nullptr;
   ibv_mr* timestamp_oracle = nullptr;
   Env* env_;
+  std::shared_mutex user_df_map_mutex;
   std::unordered_map<std::string, std::function<void(void*)>> message_handling_funcs_map;
 //  std::function<void(uint32_t)> message_handling_func;
-    std::shared_mutex user_df_map_mutex;
     std::atomic<bool> handler_is_finish = false;
     //TODO: clear those allocated resources when RDMA manager is being destroyed.
   std::vector<std::thread> user_defined_functions_handler;

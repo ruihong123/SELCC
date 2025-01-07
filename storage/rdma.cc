@@ -341,11 +341,12 @@ bool RDMA_Manager::poll_reply_buffer(RDMA_Reply* rdma_reply) {
     }
 
     void RDMA_Manager::Set_message_handling_func(std::function<void(void* )> &&func, std::string func_name) {
+        std::unique_lock<std::shared_mutex> lck(user_df_map_mutex);
         message_handling_funcs_map.insert({func_name, std::move(func)});
 //        message_handling_func = std::move(func);
     }
     void RDMA_Manager::register_message_handling_thread(uint32_t handler_id, const std::string& func_name) {
-//        std::unique_lock<std::shared_mutex> lck(user_df_map_mutex);
+        std::shared_lock<std::shared_mutex> lck(user_df_map_mutex);
         RDMA_Request* request = new RDMA_Request();
         request->command = invalid_command_;
         communication_queues.insert({handler_id, std::queue<RDMA_Request>()});
@@ -1628,7 +1629,7 @@ void RDMA_Manager::broadcast_to_computes_through_socket(){
   char local_data[] = "Q";
   for(auto iter : res->sock_map){
     rc = write(iter.second, local_data, 1);
-    assert(rc = 1);
+    assert(rc == 1);
   }
 
 }
@@ -8311,9 +8312,12 @@ void RDMA_Manager::fs_deserilization(
 //            TransactionManager::delta_sections.insert(std::make_pair(ds_gaddr, ds_for_write));
 //        }
 //        delete receive_msg_buf;
+    std::shared_lock<std::shared_mutex> read_lock(user_df_map_mutex);
     while(message_handling_funcs_map.find("DeltaCreate") == message_handling_funcs_map.end()){
         // wait for the front end thread register the message handling function.
-        usleep(1);
+        read_lock.unlock();
+        usleep(10);
+        read_lock.lock();
 //        ddd
     }
         message_handling_funcs_map.at("DeltaCreate")(receive_msg_buf);
