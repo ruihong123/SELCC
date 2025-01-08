@@ -16,7 +16,7 @@ namespace DSMEngine {
     extern int num_txn;
     extern int num_core;  // number of cores utilized in a single numa node.
 
-    extern size_t cache_size;
+    extern uint64_t cache_size;
     extern std::string my_host_name;
     extern unsigned int conn_port;
     extern std::string config_filename;
