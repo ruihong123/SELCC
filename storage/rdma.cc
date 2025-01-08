@@ -37,7 +37,6 @@ std::atomic<uint64_t> RDMA_Manager::ReadCount = 0;
 #define DELTASECTIONSIZE 10*1024*1024
 //TODO: This should be moved to some other classes which is strongly related to btree or storage engine.
 thread_local GlobalAddress path_stack[define::kMaxCoro][define::kMaxLevelOfTree];
-
 //#ifdef GETANALYSIS
 //std::atomic<uint64_t> RDMA_Manager::RDMAFindmrElapseSum = 0;
 //std::atomic<uint64_t> RDMA_Manager::RDMAMemoryAllocElapseSum = 0;
@@ -47,6 +46,8 @@ thread_local GlobalAddress path_stack[define::kMaxCoro][define::kMaxLevelOfTree]
 //#ifndef NDEBUG
     thread_local int RDMA_Manager::thread_id = 0;
     thread_local int RDMA_Manager::qp_inc_ticket = 0;
+    thread_local uint64_t RDMA_Manager::round_robin_cur = 0;
+
 //#endif
 
 //uint64_t cache_hit_valid[MAX_APP_THREAD][8];

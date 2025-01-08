@@ -798,6 +798,7 @@ class RDMA_Manager {
   ibv_mr* preregistered_region;
   std::list<ibv_mr*> pre_allocated_pool;
   bool pre_allocated_flag = false;
+  static thread_local uint64_t  round_robin_cur;
 //  std::map<void*, In_Use_Array*>* Remote_Leaf_Node_Bitmap;
 //TODO: seperate the remote registered memory as different chunk types. similar to name_to_mem_pool
   std::map<uint16_t, std::map<void*, In_Use_Array*>*> Remote_Leaf_Node_Bitmap;

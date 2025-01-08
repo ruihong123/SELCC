@@ -55,7 +55,7 @@ class TransactionManager {
 //          auto func = std::bind(&TransactionManager::ProcessDeltaCreate,  std::placeholders::_1);
           rdma_mg->Set_message_handling_func(ProcessDeltaCreate, "DeltaCreate");
       }
-      uint8_t target_node_id = (rdma_mg->node_id/2) % rdma_mg->GetMemoryNodeNum();
+      uint8_t target_node_id = 2*((rdma_mg->node_id/2) % rdma_mg->GetMemoryNodeNum()) +1;
       GlobalAddress remote_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Chunk_type::DeltaChunk, target_node_id);
       ibv_mr* local_mr = new ibv_mr{};
       rdma_mg->Allocate_Local_RDMA_Slot(*local_mr, DeltaChunk);

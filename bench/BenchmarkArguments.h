@@ -102,6 +102,8 @@ namespace DSMEngine {
                 num_txn = atoi(&argv[i][2]);
             } else if (argv[i][1] == 'd') {
                 dist_ratio = atoi(&argv[i][2]);
+            } else if (argv[i][1] == 'c' && argv[i][2] == 's') {
+                cache_size = atoi(&argv[i][3]);
             } else if (argv[i][1] == 'c') {
                 num_core = atoi(&argv[i][2]);
                 gThreadCount = num_core;
@@ -127,6 +129,7 @@ namespace DSMEngine {
                 gStandard = false;
             } else if (argv[i][1] == 'n' && argv[i][2] == 'i' && argv[i][3] == 'd') {
                 RDMA_Manager::node_id = atoi(&argv[i][4]);
+
             } else if (argv[i][1] == 'h') {
                 PrintUsage();
                 exit(0);

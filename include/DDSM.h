@@ -124,7 +124,7 @@ namespace DSMEngine {
             return index_id.fetch_add(1);
         }
     private:
-        std::atomic<uint64_t > target_node_counter = {0};
+//        std::atomic<uint64_t > target_node_counter = {0};
     };
 }
 
