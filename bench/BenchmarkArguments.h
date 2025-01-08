@@ -103,7 +103,7 @@ namespace DSMEngine {
             } else if (argv[i][1] == 'd') {
                 dist_ratio = atoi(&argv[i][2]);
             } else if (argv[i][1] == 'c' && argv[i][2] == 's') {
-                cache_size = atoi(&argv[i][3]);
+                cache_size = atoi(&argv[i][3]) * 1024LLU * 1024LLU* 1024LLU;
             } else if (argv[i][1] == 'c') {
                 num_core = atoi(&argv[i][2]);
                 gThreadCount = num_core;
