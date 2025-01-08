@@ -6652,6 +6652,9 @@ inv_resend:
         send_pointer->content.create_ds.ds_gaddr = ds_ptr;
         send_pointer->content.create_ds.compute_node_id = compute_node_id;
         for(auto iter: compute_nodes){
+            if (iter.first == node_id){
+                continue;
+            }
             int qp_id = qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
             post_send_xcompute(send_mr, iter.first, qp_id, sizeof(RDMA_Request));
         }
