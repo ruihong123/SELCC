@@ -42,7 +42,7 @@ namespace DSMEngine {
 #ifndef NDEBUG
                 assert(STRUCT_OFFSET(InternalPage<uint64_t >, global_lock) == STRUCT_OFFSET(LeafPage<uint64_t>, global_lock));
                 if (page->hdr.p_type == P_Internal_P){
-                    printf("Internal page is being destroyed %p\n", handle->gptr);
+//                    printf("Internal page is being destroyed %p\n", handle->gptr);
                 }
 #endif
                 assert(page->hdr.this_page_g_ptr == GlobalAddress::Null() || page->hdr.this_page_g_ptr == handle->gptr);
