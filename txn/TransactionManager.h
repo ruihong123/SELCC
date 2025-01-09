@@ -54,12 +54,14 @@ class TransactionManager {
       if (rdma_mg->message_handling_funcs_map.count("DeltaCreate") == 0){
 //          auto func = std::bind(&TransactionManager::ProcessDeltaCreate,  std::placeholders::_1);
           rdma_mg->Set_message_handling_func(ProcessDeltaCreate, "DeltaCreate");
+
       }
+
       uint8_t target_node_id = 2*((rdma_mg->node_id/2) % rdma_mg->GetMemoryNodeNum()) +1;
       GlobalAddress remote_addr = rdma_mg->Allocate_Remote_RDMA_Slot(Chunk_type::DeltaChunk, target_node_id);
       ibv_mr* local_mr = new ibv_mr{};
       rdma_mg->Allocate_Local_RDMA_Slot(*local_mr, DeltaChunk);
-      ds_for_write= new DeltaSection(0, 0, rdma_mg->node_id, remote_addr, rdma_mg->delta_section_size, local_mr);
+      ds_for_write= new DeltaSectionWrap(rdma_mg->node_id, remote_addr, rdma_mg->delta_section_size, local_mr);
       std::unique_lock<std::shared_mutex> lck(delta_map_mtx);
       delta_sections.insert(std::make_pair(remote_addr, ds_for_write));
 
@@ -73,6 +75,7 @@ class TransactionManager {
         if(log_enabled_){
             delete log_file;
         }
+        //todo: exit the delta GC thread.
   }
 //    static void Two_phase_commit_worker(uint16_t targe){
 //        TransactionManager *txn_manager = new TransactionManager(nullptr, 0, 0);
@@ -224,7 +227,8 @@ class TransactionManager {
     static WritableFile* log_file;
 #if defined(MVOCC)
     static std::shared_mutex delta_map_mtx;
-    static std::unordered_map<GlobalAddress, DeltaSection*> delta_sections;
+    static std::unordered_map<GlobalAddress, DeltaSectionWrap*> delta_sections;
+//    static std::thread *gc_thread_;
     static void ProcessDeltaCreate(void* args){
 
         auto* rdma_mg = RDMA_Manager::Get_Instance();
@@ -235,13 +239,14 @@ class TransactionManager {
         rdma_mg->Allocate_Local_RDMA_Slot(*local_mr, DeltaChunk);
         // TODO: there is compilation error becuae DSMengine does not contain defination for transaction.
         // we need to wrap the funciton to a function pointer or funciton object.
-        auto* ds_for_write= new DeltaSection(0, 0, compute_node_id, ds_gaddr, rdma_mg->delta_section_size, local_mr);
+        auto* ds_for_write= new DeltaSectionWrap(compute_node_id, ds_gaddr, rdma_mg->delta_section_size, local_mr);
         {
             std::unique_lock<std::shared_mutex> lck(TransactionManager::delta_map_mtx);
             TransactionManager::delta_sections.insert(std::make_pair(ds_gaddr, ds_for_write));
         }
         delete receive_msg_buf;
     }
+
 #endif
 protected:
 //  Env* env_;
@@ -274,7 +279,7 @@ protected:
   uint64_t snapshot_ts = 0;
   bool is_first_access_ = true;
   bool pure_read_txn = true;
-  DeltaSection* ds_for_write = nullptr;
+  DeltaSectionWrap* ds_for_write = nullptr;
 
 
 #endif

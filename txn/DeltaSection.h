@@ -13,22 +13,34 @@
 
 namespace DSMEngine {
 #if defined(MVOCC)
-    class DeltaSection {
+//    class DeltaSection{
+//        uint64_t head_;
+//        uint64_t tail_;
+//        bool is_full_;
+//        char local_seg_addr_;
+//
+//    } attribute((aligned(64)));
+    class DeltaSectionWrap {
     public:
         uint64_t head_;
         uint64_t tail_;
+        // is_empty is necessary because we can not tell whether the ring  buffer is full or empty
+        // merely by checking the head and tail pointer.
+        bool is_empty_;
         uint8_t owner_compute_node_id_;
         GlobalAddress seg_addr_;
         ibv_mr *seg_local_mr_;
-        char *local_seg_addr_;
+        char* local_seg_addr_;
         size_t seg_size_;
         RDMA_Manager *rdma_mg_;
         std::shared_mutex ds_mtx_;
 
 
-        DeltaSection(uint64_t head, uint64_t tail, uint8_t compute_node_id, GlobalAddress seg_addr, size_t seg_size, ibv_mr *seg_local_mr) {
-            head_ = head;
-            tail_ = tail;
+
+        DeltaSectionWrap(uint8_t compute_node_id, GlobalAddress seg_addr, size_t seg_size, ibv_mr *seg_local_mr) {
+            head_ = 0;
+            tail_ = 0;
+            is_empty_ = true;
             owner_compute_node_id_ = compute_node_id;
             seg_addr_ = seg_addr;
             seg_size_ = seg_size;
@@ -36,7 +48,7 @@ namespace DSMEngine {
             local_seg_addr_ = (char *) seg_local_mr_->addr;
             rdma_mg_ = RDMA_Manager::Get_Instance();
         }
-        ~DeltaSection() {
+        ~DeltaSectionWrap() {
             //TODO: need to deallocate the remote memory.
             rdma_mg_->Deallocate_Local_RDMA_Slot(seg_local_mr_->addr, DeltaChunk);
             delete seg_local_mr_;
@@ -57,15 +69,12 @@ namespace DSMEngine {
             delta_size = field_size + STRUCT_OFFSET(DeltaRecord, data_);
 
             std::unique_lock<std::shared_mutex> lck(ds_mtx_);
-            if (tail_ + delta_size > seg_size_) {
-                // need to allocate a new delta section.
-                tail_ = 0;
-            }
-            while ((tail_ + delta_size) % seg_size_ >= head_) {
-                // try to clean up the old delta records. maintain the logic for ring buffer.
 
-                tail_ = 0;
-
+            while (!is_empty_ && (head_ + seg_size_ - tail_) % seg_size_ <= delta_size) {
+                // wait until there is enough space for the new delta record.
+                // if full then we clear the whole delta section. (will be changed later)
+                tail_ = head_;
+                is_empty_ = true;
             }
             MetaColumn meta_col = old_record->GetMeta();
             DeltaRecord *delta_record = new(local_seg_addr_ + tail_) DeltaRecord(
@@ -84,6 +93,9 @@ namespace DSMEngine {
             delta_gadd = seg_addr_;
             delta_gadd.offset += tail_;
             tail_ += delta_size;
+            if (is_empty_){
+                is_empty_ = false;
+            }
         }
 
     };
