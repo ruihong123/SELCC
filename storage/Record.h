@@ -265,6 +265,11 @@ public:
                 memcpy(data_ptr_ + schema_ptr_->GetColumnOffset(column_id), start, column_size);
                 start += column_size;
             }
+            // Also roll back the metadata.
+            MetaColumn meta = GetMeta();
+            meta.Wts_ = delta_record->Wts_;
+            meta.prev_delta_ = delta_record->prev_delta_gaddr;
+            PutMeta(meta);
 
         }
 

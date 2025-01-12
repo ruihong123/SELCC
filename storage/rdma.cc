@@ -98,6 +98,7 @@ static uint64_t  round_to_cacheline(uint64_t size) {
       cachelin_size(remote_block_size),
       delta_section_size(DELTASECTIONSIZE),
       read_buffer(new ThreadLocalPtr(&Destroy_mr)),
+      big_buffer(new ThreadLocalPtr(&Destroy_mr)),
       send_message_buffer(new ThreadLocalPtr(&Destroy_mr)),
       receive_message_buffer(new ThreadLocalPtr(&Destroy_mr)),
       CAS_buffer(new ThreadLocalPtr(&Destroy_mr)),
@@ -138,9 +139,9 @@ static uint64_t  round_to_cacheline(uint64_t size) {
   uint64_t message_size = round_to_cacheline(std::max(sizeof(RDMA_Request), sizeof(RDMA_Reply)));
   Mempool_initialize(Message,
                      message_size, RECEIVE_OUTSTANDING_SIZE * message_size);
-  Mempool_initialize(BigPage, 1024, 32 * 1024 * 1024);
+  Mempool_initialize(BigPage, 2*1024ull*1024ull, 16 * 1024 * 1024);
   Mempool_initialize(Regular_Page, remote_block_size, 256ull*1024ull*1024);
-    Mempool_initialize(DeltaChunk, delta_section_size, 1024ull * 1024ull * 1024);
+    Mempool_initialize(DeltaChunk, delta_section_size, 32*delta_section_size);
     printf("atomic uint8_t, uint16_t, uint32_t and uint64_t are, %lu %lu %lu %lu\n ", sizeof(std::atomic<uint8_t>), sizeof(std::atomic<uint16_t>), sizeof(std::atomic<uint32_t>), sizeof(std::atomic<uint64_t>));
 //    if(node_id%2 == 0){
 //        Invalidation_bg_threads.SetBackgroundThreads(NUM_QP_ACCROSS_COMPUTE);
@@ -1275,7 +1276,7 @@ void RDMA_Manager::Cross_Computes_RPC_Threads_Creator(uint16_t target_node_id) {
                     break;
                 case broadcast_tlocal_ds:
                     post_receive_xcompute(&recv_mr[buff_pos],target_node_id,qp_num);
-                    Sync_Create_Delta_Section_handler(receive_msg_buf, target_node_id);
+                    Create_Delta_Section_handler(receive_msg_buf, target_node_id);
                     break;
                 case heart_beat:
                     printf("heart_beat\n");
@@ -1590,6 +1591,20 @@ ibv_mr* RDMA_Manager::Get_local_read_mr() {
     assert(ret + 0);
   return ret;
 }
+    ibv_mr* RDMA_Manager::Get_local_big_mr() {
+        ibv_mr* ret;
+        ret = (ibv_mr*)big_buffer->Get();
+        if (ret == nullptr){
+            char* buffer = new char[name_to_chunksize.at(DeltaChunk)];
+            auto mr_flags =
+                    IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC;
+            //  auto start = std::chrono::high_resolution_clock::now();
+            ret = ibv_reg_mr(res->pd, buffer, name_to_chunksize.at(DeltaChunk), mr_flags);
+            big_buffer->Reset(ret);
+        }
+        assert(ret + 0);
+        return ret;
+    }
     ibv_mr* RDMA_Manager::Get_local_send_message_mr() {
         ibv_mr* ret;
         ret = (ibv_mr*)send_message_buffer->Get();
@@ -8338,7 +8353,7 @@ void RDMA_Manager::fs_deserilization(
         delete receive_msg_buf;
         }
 
-    void RDMA_Manager::Sync_Create_Delta_Section_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
+    void RDMA_Manager::Create_Delta_Section_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id) {
 //        GlobalAddress ds_gaddr = receive_msg_buf->content.create_ds.ds_gaddr;
 //        uint8_t compute_node_id = receive_msg_buf->content.create_ds.compute_node_id;
 //        ibv_mr* local_mr = new ibv_mr{};

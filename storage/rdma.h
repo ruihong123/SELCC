@@ -155,6 +155,7 @@ enum RDMA_Command_Type {
   reader_invalidate_modified,
   writer_invalidate_shared,
   broadcast_tlocal_ds,
+  pull_delta_section,
   tuple_read_2pc,
   prepare_2pc,
   commit_2pc,
@@ -181,7 +182,10 @@ struct CreateDS{
 };
 struct PullDS{
     GlobalAddress ds_gaddr;
-    ibv_mr write_back_mr;
+    uint32_t old_head;
+    uint32_t old_tail;
+    uint64_t old_max_ts;
+//    ibv_mr write_back_mr;
 };
 //struct WUnlock_message{
 //    GlobalAddress page_addr;
@@ -203,6 +207,7 @@ union RDMA_Request_Content {
   uint32_t target_id_pair;
   Invalid_Message inv_message;
   CreateDS create_ds;
+  PullDS pull_ds;
   Tuple_info tuple_info;
   Prepare prepare;
   Commit commit;
@@ -518,7 +523,7 @@ class RDMA_Manager {
 
     };
   friend class Memory_Node_Keeper;
-  friend class DBImpl;
+  friend class DeltaSectionWrap;
   RDMA_Manager(config_t config, size_t remote_block_size);
   //  RDMA_Manager(config_t config) : rdma_config(config){
   //    res = new resources();
@@ -552,7 +557,8 @@ class RDMA_Manager {
     void Writer_Inv_Shared_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     void Reader_Inv_Modified_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     void Writer_Inv_Modified_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
-    void Sync_Create_Delta_Section_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
+    void Create_Delta_Section_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
+    void Pull_Delta_Section_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
     static void Write_Invalidation_Message_Handler(void* thread_args);
     static void Read_Invalidation_Message_Handler(void* thread_args);
     void Tuple_read_2pc_handler(RDMA_Request *receive_msg_buf, uint8_t target_node_id);
@@ -584,6 +590,7 @@ class RDMA_Manager {
     void sync_with_computes_Mside();
     // For the non-cached page only.
     ibv_mr* Get_local_read_mr();
+    ibv_mr* Get_local_big_mr();
     ibv_mr* Get_local_send_message_mr();
     ibv_mr* Get_local_receive_message_mr();
     ibv_mr* Get_local_CAS_mr();
@@ -841,6 +848,7 @@ class RDMA_Manager {
   std::map<uint16_t, ThreadLocalPtr*> local_read_qp_info;
     std::map<uint16_t, ThreadLocalPtr*> async_tasks;
     ThreadLocalPtr* read_buffer;
+    ThreadLocalPtr* big_buffer;
   ThreadLocalPtr* send_message_buffer;
   ThreadLocalPtr* receive_message_buffer;
   ThreadLocalPtr* CAS_buffer;

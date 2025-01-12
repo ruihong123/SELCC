@@ -4,7 +4,7 @@
 namespace DSMEngine{
         WritableFile* TransactionManager::log_file = nullptr;
         std::shared_mutex TransactionManager::delta_map_mtx;
-        std::unordered_map<GlobalAddress, DeltaSectionWrap*> TransactionManager::delta_sections;
+        std::map<GlobalAddress, DeltaSectionWrap*, std::greater<GlobalAddress>> TransactionManager::delta_sections;
     //TODO: this CC algirhtm will be blocked at delivery query when there are 64 warehouse, need to understand why.
     // and this problem seems only happen in the release mode.
         bool TransactionManager::AllocateNewRecord(TxnContext *context, size_t table_id, Cache::Handle *&handle,
@@ -160,12 +160,34 @@ namespace DSMEngine{
         record = new Record(schema_ptr);
         record->CopyFrom(access->access_global_record_);
         uint64_t ts = record->GetWTS();
-        if (ts > snapshot_ts){
+        while (ts > snapshot_ts){
             // TODO: ROll back old version of the data.
             MetaColumn meta = record->GetMeta();
+            GlobalAddress prev_delta = meta.prev_delta_;
+            assert(prev_delta != GlobalAddress::Null());
             // implement a mechanism to detect whether the local copy of delta section is up to date.
             // if not, we need to fetch the latest version of the delta section.
 //            record->roll_back()
+            DeltaSectionWrap* delta_section = nullptr;
+            uint64_t largest_ds_timestamp = 0;
+            {
+                std::shared_lock<std::shared_mutex> l(delta_map_mtx);
+                auto iter = delta_sections.lower_bound(prev_delta);
+                delta_section = iter->second;
+                largest_ds_timestamp = delta_section->GetMaxTimestamp();
+                assert(iter != delta_sections.end());
+                assert(iter->first.nodeID == prev_delta.nodeID);
+                assert(iter->first.offset - prev_delta.offset <= ds_for_write->seg_avail_size_);
+            }
+            if (largest_ds_timestamp < meta.prev_delta_wts_){
+                //need sync this delta section.
+
+
+            }
+            std::shared_lock<std::shared_mutex> lck(delta_section->ds_mtx_);
+            DeltaRecord* delta_record = (DeltaRecord*)(delta_section->local_seg_addr_ + prev_delta.offset);
+            record->roll_back(delta_record);
+            ts = record->GetWTS();
         }
         access->txn_local_tuple_ = record;
         access->access_addr_ = tuple_gaddr;
@@ -296,7 +318,7 @@ namespace DSMEngine{
                 ds_for_write->fill_in_delta_record(access->txn_local_tuple_, access->access_global_record_, delta_gadd, delta_size);
                 MetaColumn meta = access->txn_local_tuple_->GetMeta();
                 meta.prev_delta_ = delta_gadd;
-                meta.ov_size_ = delta_size;
+                meta.prev_delta_size_ = delta_size;
                 access->txn_local_tuple_->PutMeta(meta);
                 access->access_global_record_->CopyFrom(access->txn_local_tuple_);
                 access->access_global_record_->PutWTS(commit_ts);

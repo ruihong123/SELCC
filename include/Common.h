@@ -293,6 +293,22 @@ inline bool operator==(const GlobalAddress &lhs, const GlobalAddress &rhs) {
 inline bool operator!=(const GlobalAddress &lhs, const GlobalAddress &rhs) {
     return !(lhs == rhs);
 }
+// redefine other operators
+inline bool operator<(const GlobalAddress &lhs, const GlobalAddress &rhs) {
+    return (lhs.nodeID < rhs.nodeID) || (lhs.nodeID == rhs.nodeID && lhs.offset < rhs.offset);
+}
+
+inline bool operator>(const GlobalAddress &lhs, const GlobalAddress &rhs) {
+    return (lhs.nodeID > rhs.nodeID) || (lhs.nodeID == rhs.nodeID && lhs.offset > rhs.offset);
+}
+
+inline bool operator<=(const GlobalAddress &lhs, const GlobalAddress &rhs) {
+    return !(lhs > rhs);
+}
+
+inline bool operator>=(const GlobalAddress &lhs, const GlobalAddress &rhs) {
+    return !(lhs < rhs);
+}
 
 inline std::ostream &operator<<(std::ostream &os, const GlobalAddress &obj) {
     os << "[" << (int)obj.nodeID << ", " << obj.offset << "]";

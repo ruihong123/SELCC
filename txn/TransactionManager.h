@@ -54,7 +54,7 @@ class TransactionManager {
       if (rdma_mg->message_handling_funcs_map.count("DeltaCreate") == 0){
 //          auto func = std::bind(&TransactionManager::ProcessDeltaCreate,  std::placeholders::_1);
           rdma_mg->Set_message_handling_func(ProcessDeltaCreate, "DeltaCreate");
-
+          rdma_mg->Set_message_handling_func(ProcessDeltaCreate, "DeltaPull");
       }
 
       uint8_t target_node_id = 2*((rdma_mg->node_id/2) % rdma_mg->GetMemoryNodeNum()) +1;
@@ -227,7 +227,7 @@ class TransactionManager {
     static WritableFile* log_file;
 #if defined(MVOCC)
     static std::shared_mutex delta_map_mtx;
-    static std::unordered_map<GlobalAddress, DeltaSectionWrap*> delta_sections;
+    static std::map<GlobalAddress, DeltaSectionWrap*, std::greater<GlobalAddress>> delta_sections;
 //    static std::thread *gc_thread_;
     static void ProcessDeltaCreate(void* args){
 
@@ -246,6 +246,28 @@ class TransactionManager {
         }
         delete receive_msg_buf;
     }
+        static void ProcessDeltaPull(void* args){
+
+            auto* rdma_mg = RDMA_Manager::Get_Instance();
+            auto *receive_msg_buf = (RDMA_Request*)args;
+            GlobalAddress ds_gaddr = receive_msg_buf->content.pull_ds.ds_gaddr;
+            uint32_t old_head_ = receive_msg_buf->content.pull_ds.old_head;
+            uint32_t old_tail_ = receive_msg_buf->content.pull_ds.old_tail;
+            uint32_t old_max_ts = receive_msg_buf->content.pull_ds.old_max_ts;
+
+            {
+                std::unique_lock<std::shared_mutex> map_lck(TransactionManager::delta_map_mtx);
+                auto it = TransactionManager::delta_sections.find(ds_gaddr);
+                DeltaSectionWrap* ds_w = it->second;
+                // RDMA write back the most updated delta section.
+                std::shared_lock<std::shared_mutex> delta_lck(ds_w->ds_mtx_);
+                ibv_mr* local_mr = ds_w->seg_local_mr_;
+                int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
+                rdma_mg->RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey, rdma_mg->delta_section_size,
+                                             ds_w->owner_compute_node_id_, qp_id, false, true);
+            }
+            delete receive_msg_buf;
+        }
 
 #endif
 protected:
