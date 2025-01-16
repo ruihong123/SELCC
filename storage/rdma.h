@@ -182,9 +182,11 @@ struct CreateDS{
 };
 struct PullDS{
     GlobalAddress ds_gaddr;
-    uint32_t old_head;
-    uint32_t old_tail;
+    uint64_t old_head;
+    uint64_t old_tail;
     uint64_t old_max_ts;
+    uint64_t old_epoch;
+
 //    ibv_mr write_back_mr;
 };
 //struct WUnlock_message{
@@ -689,8 +691,7 @@ class RDMA_Manager {
     bool global_Rlock_and_read_page_without_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
                                                     ibv_mr *cas_buffer, int r_time = 0, CoroContext *cxt= nullptr, int coro_id = 0);
 #endif
-    bool
-    global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, bool async = true, Cache_Handle *handle = nullptr);
+    bool global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, bool async = true, Cache_Handle *handle = nullptr);
     //TODO: there is a potential lock upgrade deadlock, how to solve it?
     // potential solution: If not upgrade the lock after sending the message, the node should
     // unlock the read lock and then acquire the write lock by seperated RDMAs.

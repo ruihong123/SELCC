@@ -32,6 +32,7 @@ struct MetaColumn {
 #if defined(MVOCC)
     GlobalAddress prev_delta_;
     uint64_t prev_delta_wts_;
+    uint64_t prev_delta_epoch_;
     uint32_t prev_delta_size_;
 #endif
     bool is_visible_;

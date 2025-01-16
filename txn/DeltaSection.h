@@ -18,6 +18,8 @@ namespace DSMEngine {
     public:
         uint64_t head_;
         uint64_t tail_;
+        uint64_t epoch;
+        uint64_t max_ts;// this may be depracated later
         bool is_empty_;
         char local_seg_addr_[1];
 
@@ -34,10 +36,11 @@ namespace DSMEngine {
         GlobalAddress seg_addr_;
         ibv_mr *seg_local_mr_;
 //        char* local_seg_addr_;
-        size_t seg_avail_size_;
+        size_t seg_real_size_;
         RDMA_Manager *rdma_mg_;
-        std::shared_mutex ds_mtx_;
-        uint64_t max_ts;
+        std::shared_mutex ds_mtx_; // todo: change it into spinlatch.
+        std::condition_variable cv;
+
         DeltaSection* inner_section;
         DeltaSectionWrap(uint8_t compute_node_id, GlobalAddress seg_addr, size_t seg_size, ibv_mr *seg_local_mr) {
             inner_section = (DeltaSection *) seg_local_mr_->addr;
@@ -46,11 +49,12 @@ namespace DSMEngine {
             inner_section->is_empty_ = true;
             owner_compute_node_id_ = compute_node_id;
             seg_addr_ = seg_addr;
-            seg_avail_size_ = seg_size - STRUCT_OFFSET(DeltaSection, local_seg_addr_) - 1; // 1 is for the RDMA write polling.
+            seg_real_size_ = seg_size - STRUCT_OFFSET(DeltaSection, local_seg_addr_) - 1; // 1 is for the RDMA write polling.
             seg_local_mr_ = seg_local_mr;
 
             rdma_mg_ = RDMA_Manager::Get_Instance();
-            max_ts = 0;
+            inner_section->max_ts = 0;
+            inner_section->epoch = 0;
         }
         ~DeltaSectionWrap() {
             //TODO: need to deallocate the remote memory.
@@ -71,22 +75,36 @@ namespace DSMEngine {
                 }
             }
             delta_size = field_size + STRUCT_OFFSET(DeltaRecord, data_);
-
+            size_t delta_size_padding = delta_size;
             std::unique_lock<std::shared_mutex> lck(ds_mtx_);
-
-            while (!inner_section->is_empty_ && (inner_section->head_ + seg_avail_size_ - inner_section->tail_) % seg_avail_size_ <= delta_size) {
+            // The code below could be buggy, take care!
+            if ((seg_real_size_ - inner_section->tail_) < delta_size) {
+                // if the tail is very close to the end of the buffer, we need to wrap the tail to
+                // the beginning of the buffer.
+                delta_size_padding = seg_real_size_ - inner_section->tail_ + delta_size;
+            }
+            uint64_t  old_head = inner_section->head_;
+            // we append new delta record to the tail.
+            while (!inner_section->is_empty_ && (old_head + seg_real_size_ - inner_section->tail_) % seg_real_size_ <= delta_size_padding) {
                 // wait until there is enough space for the new delta record.
                 // if full then we clear the whole delta section. (will be changed later)
-                inner_section->tail_ = inner_section->head_;
-                inner_section->is_empty_ = true;
+                // todo: use condition variable to wait.
+                old_head = inner_section->head_;
+//                inner_section->tail_ = inner_section->head_;
+//                inner_section->is_empty_ = true;
+            }
+            if (delta_size_padding > delta_size){
+                // if the tail is wrapped to the beginning of the buffer, we need to restart the tail to the beginning.
+                inner_section->tail_ = 0;
             }
             MetaColumn meta_col = old_record->GetMeta();
             // update the max time stamp.
-            if (max_ts < meta_col.Wts_){
-                max_ts = meta_col.Wts_;
+            if (inner_section->max_ts < meta_col.Wts_){
+                inner_section->max_ts = meta_col.Wts_;
             }
             DeltaRecord *delta_record = new(inner_section->local_seg_addr_ + inner_section->tail_) DeltaRecord(
-                    meta_col.Wts_, meta_col.prev_delta_, meta_col.prev_delta_wts_, meta_col.prev_delta_size_, delta_size);
+                    meta_col.Wts_, delta_size, meta_col.prev_delta_, meta_col.prev_delta_wts_,
+                    meta_col.prev_delta_epoch_, meta_col.prev_delta_size_ );
             char *start = delta_record->data_;
             for (auto col_id: new_record->dirty_col_ids) {
                 size_t column_size = new_record->schema_ptr_->GetColumnSize(col_id);
@@ -97,6 +115,7 @@ namespace DSMEngine {
                 start += sizeof(size_t);
                 memcpy(start, new_record->data_ptr_ + column_offset, column_size);
                 start += column_size;
+                assert(start <= (char*)seg_local_mr_->addr + seg_local_mr_->length);
             }
             delta_gadd = seg_addr_;
             delta_gadd.offset += inner_section->tail_ + STRUCT_OFFSET(DeltaSection, local_seg_addr_);
@@ -106,7 +125,35 @@ namespace DSMEngine {
             }
         }
         uint64_t GetMaxTimestamp(){
-            return max_ts;
+            return inner_section->max_ts;
+        }
+        uint64_t GetEpoch(){
+            return inner_section->epoch;
+        }
+        uint64_t GetHead(){
+            return inner_section->head_;
+        }
+        uint64_t GetTail(){
+            return inner_section->tail_;
+        }
+        bool isOffsetInValidRing(GlobalAddress gaddr)
+        {
+            uint64_t & head = inner_section->head_;
+            uint64_t & tail = inner_section->tail_;
+            long offset = gaddr.offset - seg_addr_.offset - STRUCT_OFFSET(DeltaSection, local_seg_addr_);
+            assert(offset >= 0);
+            // Case 1: The buffer is not wrapped
+            // Occupied region is [head, tail)
+            if (tail >= head) {
+                return (offset >= head && offset < tail);
+            }
+            // Case 2: The buffer is wrapped
+            // Occupied region is [head, capacity) U [0, tail)
+            else {
+                // offset is valid if it is in [head, capacity) OR [0, tail)
+                return ((offset >= head && offset < seg_real_size_) ||
+                        (offset >= 0    && offset < tail));
+            }
         }
         void PullUpdates(){
             RDMA_Manager *rdma_mg = RDMA_Manager::Get_Instance();
@@ -118,9 +165,10 @@ namespace DSMEngine {
             send_pointer = (RDMA_Request*)send_mr->addr;
             send_pointer->command = pull_delta_section;
             send_pointer->content.pull_ds.ds_gaddr = seg_addr_;
-            send_pointer->content.pull_ds.old_head = seg_addr_;
-            send_pointer->content.pull_ds.old_tail = seg_addr_;
-            send_pointer->content.pull_ds.old_max_ts = seg_addr_;
+            send_pointer->content.pull_ds.old_head = inner_section->head_;
+            send_pointer->content.pull_ds.old_tail = inner_section->tail_;
+            send_pointer->content.pull_ds.old_max_ts = inner_section->max_ts;
+            send_pointer->content.pull_ds.old_epoch = inner_section->epoch;
             send_pointer->buffer = recv_mr->addr;
             send_pointer->rkey = recv_mr->rkey;
 

@@ -61,7 +61,7 @@ namespace DSMEngine{
 
 		public:
             static RDMA_Manager* rdma_mg;
-			static std::atomic<uint64_t> monotone_timestamp_;
+//			static std::atomic<uint64_t> monotone_timestamp_;
             static GlobalAddress time_stamp_gaddr;
 //			static std::atomic<uint64_t> *thread_timestamp_[kMaxThreadNum];
 			static size_t thread_count_;
