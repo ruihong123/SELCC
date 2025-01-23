@@ -392,7 +392,7 @@ namespace DSMEngine {
         memcached_return rc;
         // Need to change this hardcoded file location.
 //        std::ifstream conf("../memcached_ip.conf");
-        std::ifstream conf("../memcached_db_servers.conf");
+        std::ifstream conf("../memcached_ip.conf");
         if (!conf) {
             fprintf(stderr, "can't open memcached_ip.conf\n");
             return false;
