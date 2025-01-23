@@ -34,10 +34,10 @@
 //TODO: shall be adjusted according to the no_thread and
 //#define NUMOFBLOCKS (2516582ull) //around 48GB totally, local cache is 8GB per node. (25165824ull)
 //#define SYNC_KEY NUMOFBLOCKS
-#define CMU_ZIPF
 #define FULLY_SHARED_WITHIN_NODE
 //2516582ull =  48*1024*1024*1024/(2*1024)
 #define MEMSET_GRANULARITY (64*1024)
+//#define CMU_ZIPF
 //#define EXCLUSIVE_HOTSPOT // exclusive hotspot per compute. workload == 1.
 
 uint64_t NUMOFBLOCKS = 0;
