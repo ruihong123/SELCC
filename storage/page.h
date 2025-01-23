@@ -17,7 +17,7 @@ namespace DSMEngine{
     //TODO: merge Page type and index type.
     enum Page_Type { P_Plain = 0, P_Internal_P = 1, P_Internal_S = 2, P_Leaf_P = 3, P_Leaf_S = 4, P_Data = 5};
 //    enum Index_Type { Primary_Idx = 0, Secondary_Idx = 1};
-    template<class Key, class Value>
+    template<class Key>
     struct SearchResult {
         bool is_leaf;
         uint8_t level;
@@ -33,7 +33,7 @@ namespace DSMEngine{
         char key_padding[KEY_PADDING];
 #endif
 //        Value val;
-        Slice val;
+        Slice val{};
 //        char* val[kMaxAttributeLength];
 //        size_t val_size;
 //        char value_padding[VALUE_PADDING];
@@ -74,11 +74,11 @@ namespace DSMEngine{
         template<class K> friend class InternalPage;
         friend class RDMA_Manager;
 
-        template<class K, class V> friend class LeafPage;
+        template<class K> friend class LeafPage;
 
-        template<class K, class V> friend class Btr;
+        template<class K> friend class Btr;
 //        friend class IndexCache;
-        uint16_t LeafRecordSize;
+//        uint16_t LeafRecordSize;
         uint16_t kLeafCardinality;
         //        T* try_var{};
         T lowest{};
@@ -131,24 +131,24 @@ namespace DSMEngine{
     } __attribute__((packed));
 #ifdef CACHECOHERENCEPROTOCOL
 
-    template<class Key, class Value>
-    class LeafEntry {
-    public:
-//        uint8_t f_version : 4;
-        Key key{};
-//        char key_padding[KEY_PADDING] = "";
-        Value value{};
-//        char value_padding[VALUE_PADDING] = "";
-//        uint8_t r_version : 4;
-
-        LeafEntry() {
-//            f_version = 0;
-//            r_version = 0;
-            value = kValueNull<Key>;
-            key = 0;
-//      key = {};
-        }
-    } __attribute__((packed));
+//    template<class Key, class Value>
+//    class LeafEntry {
+//    public:
+////        uint8_t f_version : 4;
+//        Key key{};
+////        char key_padding[KEY_PADDING] = "";
+//        Value value{};
+////        char value_padding[VALUE_PADDING] = "";
+////        uint8_t r_version : 4;
+//
+//        LeafEntry() {
+////            f_version = 0;
+////            r_version = 0;
+//            value = kValueNull<Key>;
+//            key = 0;
+////      key = {};
+//        }
+//    } __attribute__((packed));
 #else
     class LeafEntry {
     public:
@@ -205,16 +205,21 @@ namespace DSMEngine{
 //  uint8_t padding[InternalPagePadding];
 //        alignas(8) uint8_t rear_version;
 
-        template<class K, class V> friend class Btr;
+        template<class K> friend class Btr;
         friend class Cache;
 
     public:
         // this is called when tree grows, The page initialization will not reset the global lock byte.
-        InternalPage(GlobalAddress left, const Key &key, GlobalAddress right, GlobalAddress this_page_g_ptr,
+        InternalPage(GlobalAddress left, const Key &key, GlobalAddress right, GlobalAddress this_page_g_ptr, bool secondary = false,
                      uint32_t level = 0) {
             assert(level> 0);
 //            assert(STRUCT_OFFSET(InternalPage<Key>, local_lock_meta) == 0);
-            hdr.p_type = P_Internal_P;
+            if (secondary){
+                hdr.p_type = P_Internal_P;
+
+            }else{
+                hdr.p_type = P_Internal_S;
+            }
             hdr.leftmost_ptr = left;
             hdr.level = level;
 //            hdr.p_version = 0;
@@ -229,8 +234,13 @@ namespace DSMEngine{
             hdr.this_page_g_ptr = this_page_g_ptr;
         }
 
-        explicit InternalPage(GlobalAddress this_page_g_ptr, uint32_t level = 0) {
+        explicit InternalPage(GlobalAddress this_page_g_ptr, bool secondary = false, uint32_t level = 0) {
             assert(level > 0);
+            if (secondary){
+                hdr.p_type = P_Internal_S;
+            }else{
+                hdr.p_type = P_Internal_P;
+            }
             hdr.level = level;
 //            global_lock = 0;
             records[0].ptr = GlobalAddress::Null();
@@ -250,7 +260,7 @@ namespace DSMEngine{
                             int coro_id);
     };
 #ifdef CACHECOHERENCEPROTOCOL
-    template<typename TKey, typename Value>
+    template<typename TKey>
     class LeafPage {
     public:
 //        constexpr static int kLeafCardinality = (kLeafPageSize - sizeof(Header<TKey>) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) / sizeof(LeafEntry<TKey, Value>);
@@ -268,12 +278,17 @@ namespace DSMEngine{
 //  uint8_t padding[LeafPagePadding];
 //        uint8_t rear_version;
 
-        template<class K, class V> friend class Btr;
+        template<class K> friend class Btr;
     public:
-        LeafPage(GlobalAddress this_page_g_ptr, uint16_t leaf_cardinality, uint16_t leaf_recordsize,
+        LeafPage(GlobalAddress this_page_g_ptr, uint16_t leaf_cardinality, uint16_t leaf_recordsize, bool secondary = false,
                  uint32_t level = 0) {
             assert(level == 0);
-            hdr.p_type = P_Leaf_P;
+            if(!secondary){
+                hdr.p_type = P_Leaf_P;
+
+            }else{
+                hdr.p_type = P_Leaf_S;
+            }
             hdr.level = level;
             hdr.this_page_g_ptr = this_page_g_ptr;
             hdr.kLeafCardinality = leaf_cardinality;
@@ -292,17 +307,19 @@ namespace DSMEngine{
 //            embedding_lock = 1;
         }
         static uint64_t calculate_cardinality(uint64_t page_size, uint64_t record_size) {
-            return (page_size - STRUCT_OFFSET(LeafPage<TKey COMMA Value>, data_[0]) - sizeof(uint8_t)) / record_size;
+            return (page_size - STRUCT_OFFSET(LeafPage<TKey>, data_[0]) - sizeof(uint8_t)) / record_size;
         }
 
-        void leaf_page_search(const TKey &k, SearchResult<TKey, Value> &result, GlobalAddress g_page_ptr,
+        void leaf_page_search(const TKey &k, SearchResult<TKey> &result, GlobalAddress g_page_ptr,
                               RecordSchema *record_scheme);
         //search by lowerbound (include the target key).
         int leaf_page_pos_lb(const TKey &k, GlobalAddress g_page_ptr, RecordSchema *record_scheme);
-        int leaf_page_find_pos_ub(const TKey &k, SearchResult<TKey, Value> &result, RecordSchema *record_scheme);
-        void GetByPosition(int pos, RecordSchema *schema_ptr, TKey &key, Value &value);
+        int leaf_page_find_pos_ub(const TKey &k, SearchResult<TKey> &result, RecordSchema *record_scheme);
+        void GetByPosition(int pos, RecordSchema *schema_ptr, TKey &key, void* buff);
+        // if node is full return true, if not full return false.
         bool leaf_page_store(const TKey &k, const Slice &v, int &cnt, RecordSchema *record_scheme);
-
+        // if need merge return true, if not needed return false.
+        bool leaf_page_delete(const TKey &k, int &cnt, SearchResult<TKey> &result, RecordSchema *record_scheme);
     };
     class Header {
     public:
@@ -357,7 +374,7 @@ namespace DSMEngine{
 //  uint8_t padding[LeafPagePadding];
 //        uint8_t rear_version;
 
-        template<class K, class V> friend class Btr;
+        template<class K> friend class Btr;
 
     public:
         DataPage(GlobalAddress this_page_g_ptr, uint32_t data_cardinality, uint32_t id) {
