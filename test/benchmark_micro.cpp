@@ -96,7 +96,7 @@ std::atomic<long> time_local_access(0);
 std::atomic<long> read_access(0);
 
 std::atomic<long> total_throughput(0);
-std::atomic<long> avg_latency(0);
+std::atomic<uint64_t > avg_latency(0);
 
 bool reset = false;
 
@@ -1069,7 +1069,7 @@ int main(int argc, char* argv[]) {
     long t_thr = total_throughput;
     long a_thr = total_throughput;
     a_thr /= no_thread;
-    long a_lat = avg_latency;
+    uint64_t a_lat = avg_latency;
     a_lat /= no_thread;
     uint64_t invalidation_num = 0;
     uint64_t hit_valid_num = 0;
@@ -1080,7 +1080,7 @@ int main(int argc, char* argv[]) {
         hit_valid_num = cache_hit_valid[i][0] + hit_valid_num;
     }
     printf(
-            "results for  node_id %d: workload: %d, zipfian_alpha: %f total_throughput: %ld, avg_throuhgput:%ld, avg_latency:%ld， operation need cache invalidation %lu, operation cache hit and valid is %lu,  total operation executed %ld\n\n",
+            "results for  node_id %d: workload: %d, zipfian_alpha: %f total_throughput: %ld, avg_throuhgput: %ld, avg_latency: %lu， operation need cache invalidation %lu, operation cache hit and valid is %lu,  total operation executed %ld\n\n",
             node_id, workload, zipfian_param, t_thr, a_thr, a_lat, invalidation_num, hit_valid_num, ITERATION_TOTAL);
 
     //sync with all the other workers
