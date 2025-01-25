@@ -164,320 +164,69 @@ run() {
 }
 
 
-run_thread_test() {
-# thread test
-echo "*********************run thread test**********************"
-result_file=$bin/results/thread
-node_range="8"
-thread_range="1 2 3 4 5 6 7 8"
-remote_range="0 50 100"
-shared_range="0" #"0 10 20 30 40 50 60 70 80 90 100"
-read_range="0 50 100"
-space_range="0" #"0 10 20 30 40 50 60 70 80 90 100"
-time_range="0" #"0 10 20 30 40 50 60 70 80 90 100"
-op_range="0 1 2 3"
-cache_th=0.15
-
-for remote_ratio in $remote_range
-do
-for op_type in $op_range
-do
-for read_ratio in $read_range
-do
-for shared_ratio in $shared_range
-do
-for space_locality in $space_range
-do
-for time_locality in $time_range
-do
-for node in $node_range
-do
-for thread in $thread_range
-do
-	if [[ $remote_ratio -gt 0 && $node = 1 ]]; then
-		continue;
-	fi
-    run
-done
-done
-done
-done
-done
-done
-done
-done
-}
-
-
-run_remote_test() {
-# remote test
-echo "**************************run remote test****************************"
-result_file=$bin/results/remote_ratio
-node_range="8"
-thread_range="1"
-remote_range="0 10 20 30 40 50 60 70 80 90 100"
-shared_range="0" #"0 10 20 30 40 50 60 70 80 90 100"
-read_range="0 100" #"0 50 100"
-space_range="0" #"0 10 20 30 40 50 60 70 80 90 100"
-time_range="0" #"0 10 20 30 40 50 60 70 80 90 100"
-op_range="0 1 2 3"
-cache_th=0.15
-
-for op_type in $op_range
-do
-for read_ratio in $read_range
-do
-for shared_ratio in $shared_range
-do
-for space_locality in $space_range
-do
-for time_locality in $time_range
-do
-for node in $node_range
-do
-for thread in $thread_range
-do
-for remote_ratio in $remote_range
-do
-	if [[ $remote_ratio -gt 0 && $node = 1 ]]; then
-		continue;
-	fi
-    run
-done
-done
-done
-done
-done
-done
-done
-done
-}
-
-
-run_shared_test() {
-# shared test
-echo "**************************run shared test****************************"
-result_file=$bin/results/shared_ratio
-node_range="8"
-thread_range="1"
-remote_range="88"
-shared_range="0 10 20 30 40 50 60 70 80 90 100"
-read_range="50" #"0 50 70 80 90 100"
-space_range="0" #"0 10 20 30 40 50 60 70 80 90 100"
-time_range="0" #"0 10 20 30 40 50 60 70 80 90 100"
-op_range="0 1 2 3"
-cache_th=0.15
-
-for op_type in $op_range
-do
-for read_ratio in $read_range
-do
-for space_locality in $space_range
-do
-for time_locality in $time_range
-do
-for node in $node_range
-do
-for thread in $thread_range
-do
-for remote_ratio in $remote_range
-do
-for shared_ratio in $shared_range
-do
-	if [[ $remote_ratio -gt 0 && $node = 1 ]]; then
-		continue;
-	fi
-    run
-done
-done
-done
-done
-done
-done
-done
-done
-}
-
-run_shared_test_noeviction() {
-# shared test
-echo "**************************run shared test****************************"
-result_file=$bin/results/shared_ratio-noeviction
-node_range="8"
-thread_range="1"
-remote_range="88"
-shared_range="0 10 20 30 40 50 60 70 80 90 100"
-read_range="50 100" #"0 50 70 80 90 100"
-space_range="0" #"0 10 20 30 40 50 60 70 80 90 100"
-time_range="0" #"0 10 20 30 40 50 60 70 80 90 100"
-op_range="0 1 2 3"
-cache_th=0.5
-
-for op_type in $op_range
-do
-for read_ratio in $read_range
-do
-for space_locality in $space_range
-do
-for time_locality in $time_range
-do
-for node in $node_range
-do
-for thread in $thread_range
-do
-for remote_ratio in $remote_range
-do
-for shared_ratio in $shared_range
-do
-	if [[ $remote_ratio -gt 0 && $node = 1 ]]; then
-		continue;
-	fi
-    run
-done
-done
-done
-done
-done
-done
-done
-done
-}
-
-
-run_read_test() {
-# read ratio test
-echo "**************************run read ratio test****************************"
-result_file=$bin/results/read_ratio
-node_range="8"
-thread_range="1"
-remote_range="0 50 100"
-shared_range="0"
-read_range="0 10 20 30 40 50 60 70 80 90 100"
-space_range="0" #"0 10 20 30 40 50 60 70 80 90 100"
-time_range="0" #"0 10 20 30 40 50 60 70 80 90 100"
-op_range="0 1 2 3"
-cache_th=0.15
-
-for remote_ratio in $remote_range
-do
-for op_type in $op_range
-do
-for space_locality in $space_range
-do
-for time_locality in $time_range
-do
-for node in $node_range
-do
-for thread in $thread_range
-do
-for shared_ratio in $shared_range
-do
-for read_ratio in $read_range
-do
-	if [[ $remote_ratio -gt 0 && $node = 1 ]]; then
-		continue;
-	fi
-    run
-done
-done
-done
-done
-done
-done
-done
-done
-}
-
-run_space_test() {
-# space locality test
-echo "**************************run space locality test****************************"
-result_file=$bin/results/space_locality
-node_range="8"
-thread_range="1"
-remote_range="100"
-shared_range="0"
-read_range="0 50 100"
-space_range="0 10 20 30 40 50 60 70 80 90 100"
-time_range="0" #"0 10 20 30 40 50 60 70 80 90 100"
-op_range="0 1 2 3"
-cache_th=0.15
-
-for remote_ratio in $remote_range
-do
-for op_type in $op_range
-do
-for read_ratio in $read_range
-do
-for space_locality in $space_range
-do
-for time_locality in $time_range
-do
-for node in $node_range
-do
-for thread in $thread_range
-do
-for shared_ratio in $shared_range
-do
-	if [[ $remote_ratio -gt 0 && $node = 1 ]]; then
-		continue;
-	fi
-    run
-done
-done
-done
-done
-done
-done
-done
-done
-}
-
-
-run_time_test() {
-# time locality test
-echo "**************************run time locality test****************************"
-result_file=$bin/results/time_locality
-node_range="8"
-thread_range="1"
-remote_range="100"
-shared_range="0"
-read_range="0 50 100"
-space_range="0"
-time_range="0 10 20 30 40 50 60 70 80 90 100"
-op_range="0 1 2 3"
-cache_th=0.15
-
-for remote_ratio in $remote_range
-do
-for op_type in $op_range
-do
-for read_ratio in $read_range
-do
-for space_locality in $space_range
-do
-for time_locality in $time_range
-do
-for node in $node_range
-do
-for thread in $thread_range
-do
-for shared_ratio in $shared_range
-do
-	if [[ $remote_ratio -gt 0 && $node = 1 ]]; then
-		continue;
-	fi
-    run
-done
-done
-done
-done
-done
-done
-done
-done
-}
 
 
 run_node_test() {
+# node test
+echo "**************************run node test****************************"
+result_file=$bin/results/node
+node_range="16"
+thread_range="8"
+remote_range="100"
+shared_range="0 30 60 100"
+size_grow=0 # 0 not grow, 1 grow with node number
+read_range="0 50 95"
+space_range="0"
+time_range="0"
+workload_range="0" # 0 uniform, 1 single zipfian, n >1 multispot zipfian.
+zipfian_alpha_range="1" #make sure workload = 1 if we want to test zipfian.
+#
+op_range="1" # use 1
+#cache_th=0.5
+for workload in $workload_range
+do
+for zipfian_alpha in $zipfian_alpha_range
+do
+for remote_ratio in $remote_range
+do
+for shared_ratio in $shared_range
+do
+  if [ $shared_ratio != 100 && $size_grow=1]; then
+      exit
+  fi
+for op_type in $op_range
+do
+for read_ratio in $read_range
+do
+for space_locality in $space_range
+do
+for time_locality in $time_range
+do
+
+for thread in $thread_range
+do
+for node in $node_range
+do
+  echo $node
+#    remote_ratio=`echo "($node-1)*100/$node" | bc`
+#    echo $remote_ratio
+#    if [[ $node = 1 ]]; then
+#        continue;
+#    fi
+  run
+done
+done
+done
+done
+done
+done
+done
+done
+done
+done
+}
+
+run_skewed_test() {
 # node test
 echo "**************************run node test****************************"
 result_file=$bin/results/node
