@@ -1080,8 +1080,8 @@ int main(int argc, char* argv[]) {
         hit_valid_num = cache_hit_valid[i][0] + hit_valid_num;
     }
     printf(
-            "results for  node_id %d: workload: %d, zipfian_alpha: %f total_throughput: %ld, avg_throuhgput: %ld, avg_latency: %lu， operation need cache invalidation %lu, operation cache hit and valid is %lu,  total operation executed %ld\n\n",
-            node_id, workload, zipfian_param, t_thr, a_thr, a_lat, invalidation_num, hit_valid_num, ITERATION_TOTAL);
+            "results for  node_id %d: workload: %d, no_thread: %d, zipfian_alpha: %f total_throughput: %ld, avg_throuhgput: %ld, avg_latency: %lu， operation need cache invalidation %lu, operation cache hit and valid is %lu,  total operation executed %ld\n\n",
+            node_id, workload, no_thread, zipfian_param, t_thr, a_thr, a_lat, invalidation_num, hit_valid_num, ITERATION_TOTAL);
 
     //sync with all the other workers
     //check all the benchmark are completed
