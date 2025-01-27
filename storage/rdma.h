@@ -140,7 +140,7 @@ struct Abort{
 enum RDMA_Command_Type {
   invalid_command_ = 0,
   create_qp_,
-  create_mr_1GB_,
+  create_mr_128MB_,
   create_mr_any_,
   near_data_compaction,
   install_version_edit,

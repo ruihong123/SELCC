@@ -6287,7 +6287,7 @@ bool RDMA_Manager::Remote_Memory_Register(size_t size, uint16_t target_node_id, 
   Allocate_Local_RDMA_Slot(send_mr, Message);
   Allocate_Local_RDMA_Slot(receive_mr, Message);
   send_pointer = (RDMA_Request*)send_mr.addr;
-  send_pointer->command = create_mr_1GB_;
+  send_pointer->command = create_mr_128MB_;
   send_pointer->content.mem_size = size;
   send_pointer->buffer = receive_mr.addr;
   send_pointer->rkey = receive_mr.rkey;
