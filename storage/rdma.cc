@@ -6931,7 +6931,7 @@ void RDMA_Manager::Allocate_Remote_RDMA_Slot(ibv_mr &remote_mr, Chunk_type pool_
             // begginning.
             std::unique_lock<std::shared_mutex> mem_write_lock(remote_mem_mutex);
             if (Remote_Leaf_Node_Bitmap.at(target_node_id)->empty()) {
-                Remote_Memory_Register(1 * 1024 * 1024 * 1024, target_node_id, FlushBuffer);
+                Remote_Memory_Register(128 * 1024 * 1024, target_node_id, FlushBuffer);
             }
             mem_write_lock.unlock();
         }
@@ -6961,7 +6961,7 @@ void RDMA_Manager::Allocate_Remote_RDMA_Slot(ibv_mr &remote_mr, Chunk_type pool_
         mem_read_lock.unlock();
         // If not find remote buffers are all used, allocate another remote memory region.
         std::unique_lock<std::shared_mutex> mem_write_lock(remote_mem_mutex);
-        Remote_Memory_Register(1 * 1024 * 1024 * 1024, target_node_id, FlushBuffer);
+        Remote_Memory_Register(128 * 1024 * 1024, target_node_id, FlushBuffer);
         //  fs_meta_save();
         ibv_mr* mr_last;
         mr_last = remote_mem_pool.at(target_node_id)->back();
@@ -6984,7 +6984,7 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
     // begginning.
     std::unique_lock<std::shared_mutex> mem_write_lock(remote_mem_mutex);
     if (Remote_Leaf_Node_Bitmap.at(target_node_id)->empty()) {
-        Remote_Memory_Register(1 * 1024 * 1024 * 1024ull, target_node_id, Regular_Page);
+        Remote_Memory_Register(128 * 1024 * 1024ull, target_node_id, Regular_Page);
       //      fs_meta_save();
     }
     mem_write_lock.unlock();
@@ -7032,7 +7032,7 @@ GlobalAddress RDMA_Manager::Allocate_Remote_RDMA_Slot(Chunk_type pool_name, uint
         assert(ret.offset<69055800320ull);
         return ret;
     }else{
-        Remote_Memory_Register(1 * 1024 * 1024 * 1024ull, target_node_id, pool_name);
+        Remote_Memory_Register(128 * 1024 * 1024ull, target_node_id, pool_name);
         //  fs_meta_save();
         //  ibv_mr* mr_last;
         mr_last = remote_mem_pool.at(target_node_id)->back();
