@@ -232,7 +232,7 @@ DSMEngine::Memory_Node_Keeper::Memory_Node_Keeper(bool use_sub_compaction, uint3
 
       // copy the pointer of receive buf to a new place because
       // it is the same with send buff pointer.
-      if (receive_msg_buf->command == create_mr_1GB_) {
+      if (receive_msg_buf->command == create_mr_128MB_) {
         rdma_mg->post_receive<RDMA_Request>(&recv_mr[buffer_position],
                                             compute_node_id,
                                             client_ip);
@@ -421,7 +421,7 @@ int Memory_Node_Keeper::server_sock_connect(const char* servername, int port) {
   char* buff;
   {
     std::unique_lock<std::shared_mutex> lck(rdma_mg->local_mem_mutex);
-    assert(request->content.mem_size == 1024*1024*1024); // Preallocation requrie memory is 1GB
+    assert(request->content.mem_size == 128*1024*1024); // Preallocation requrie memory is in chunk of 128MB
       if (!rdma_mg->Local_Memory_Register(&buff, &mr, request->content.mem_size,
                                           Regular_Page)) {
         fprintf(stderr, "memory registering failed by size of 0x%x\n",
