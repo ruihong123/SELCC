@@ -302,4 +302,5 @@ done
 #run_remote_test
 #run_space_test
 #run_shared_test_noeviction
-run_node_test
+#run_node_test
+run_skewed_test
