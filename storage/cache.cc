@@ -20,7 +20,7 @@
 // DO not enable the two at the same time otherwise there will be a bug.
 
 #define PARALLEL_DEGREE 8
-#define STARVATION_THRESHOLD 1 // todo: we can try 1, 8 64 and UINT64_MAX
+#define STARVATION_THRESHOLD 0 // todo: we can try 1, 8 64 and UINT64_MAX
 #define STARV_SPIN_BASE 8
 uint64_t cache_miss[MAX_APP_THREAD][8];
 uint64_t cache_hit_valid[MAX_APP_THREAD][8];
@@ -1593,8 +1593,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //            || timer_alarmed.load()
             if ( handover_degree > STARVATION_THRESHOLD ){ //|| lock_pending_num.load()==0
 //                if (handover_degree > STARVATION_THRESHOLD){
-//                    printf("Node %u Process the cached invalidation message over %p from node %u due to hitting the thredhold.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
-//                    fflush(stdout);
+                    printf("Node %u Process the cached invalidation message over %p from node %u due to hitting the thredhold.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
+                    fflush(stdout);
 //                } else{
 //                    printf("Node %u Process the cached invalidation message over %p from node %u due to no pending waiter.\n", RDMA_Manager::node_id, page_addr, buffer_inv_message.next_holder_id.load());
 //                    fflush(stdout);
