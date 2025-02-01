@@ -86,13 +86,13 @@ public:
     void lock(size_t thread_ID = 128) {
         while (write_now.exchange(true, std::memory_order_acquire)){
             port::AsmVolatilePause();
-            std::this_thread::yield();
+//            std::this_thread::yield();
         }
 
         // wait for readers to exit
         while (readers_count != 0 ){
             port::AsmVolatilePause();
-            std::this_thread::yield();
+//            std::this_thread::yield();
         }
         thread_id = thread_ID + 1;
     }
@@ -102,7 +102,7 @@ public:
         while(true) {
             while (write_now) {     // wait for unlock
                 port::AsmVolatilePause();
-                std::this_thread::yield();
+//                std::this_thread::yield();
             }
 
             readers_count.fetch_add(1, std::memory_order_acquire);
