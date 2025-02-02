@@ -81,10 +81,12 @@ class SpinMutex {
 class RWSpinLock{
     std::atomic<int> readers_count{0};
     std::atomic<bool> write_now{false};
+//    std::atomic<int> waiting_t{0};
     size_t thread_id = 0;
 public:
     void lock(size_t thread_ID = 128) {
         uint64_t counter = 0;
+//        waiting_t.fetch_add(1, std::memory_order_acquire);
         while (write_now.exchange(true, std::memory_order_acquire)){
             port::AsmVolatilePause();
 //            if (counter++ > 10000){
