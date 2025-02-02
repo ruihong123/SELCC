@@ -20,7 +20,7 @@
 // DO not enable the two at the same time otherwise there will be a bug.
 
 #define PARALLEL_DEGREE 8
-#define STARVATION_THRESHOLD UINT64_MAX // todo: we can try 1, 8 64 and UINT64_MAX
+#define STARVATION_THRESHOLD 0 // todo: we can try 1, 8 64 and UINT64_MAX
 #define STARV_SPIN_BASE 8
 uint64_t cache_miss[MAX_APP_THREAD][8];
 uint64_t cache_hit_valid[MAX_APP_THREAD][8];
