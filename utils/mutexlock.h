@@ -81,12 +81,12 @@ class SpinMutex {
 class RWSpinLock{
     std::atomic<int> readers_count{0};
     std::atomic<bool> write_now{false};
-//    std::atomic<int> waiting_t{0};
+    std::atomic<int> waiting_t{0};
     size_t thread_id = 0;
 public:
     void lock(size_t thread_ID = 128) {
         uint64_t counter = 0;
-//        waiting_t.fetch_add(1, std::memory_order_acquire);
+        waiting_t.fetch_add(1, std::memory_order_acquire);
         while (write_now.exchange(true, std::memory_order_acquire)){
             port::AsmVolatilePause();
 //            if (counter++ > 10000){
@@ -106,11 +106,13 @@ public:
             std::this_thread::yield();
         }
         thread_id = thread_ID + 1;
+        waiting_t.fetch_sub(1, std::memory_order_release);
     }
 
     void lock_shared() {
         // unique_lock have priority
         uint64_t counter = 0;
+        waiting_t.fetch_add(1, std::memory_order_acquire);
         while(true) {
             while (write_now) {     // wait for unlock
                 port::AsmVolatilePause();
@@ -128,6 +130,7 @@ public:
                 readers_count.fetch_sub(1, std::memory_order_release);
             } else {
                 // all ok
+                waiting_t.fetch_sub(1, std::memory_order_release);
                 return;
             }
         }
@@ -155,6 +158,9 @@ public:
     }
     bool try_lock(size_t thread_ID = 128) {
         auto currently_locked = false;
+        if (waiting_t.load() > 0){
+            return false;
+        }
 
 //        auto currently_locked = write_now.load(std::memory_order_relaxed);
 //        auto currently_readers = readers_count.load(std::memory_order_relaxed);
