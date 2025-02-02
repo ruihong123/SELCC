@@ -617,6 +617,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     Cache::Handle* handle;
                     memset(buf, i, item_size);
                     GlobalAddress target_cache_line = TOPAGE(to_access);
+
                     uint64_t cache_line_offset = to_access.offset - target_cache_line.offset;
                     if (UNLIKELY(cache_line_offset <= STRUCT_OFFSET(LeafPage<uint64_t>, data_[0]))){
                         cache_line_offset += STRUCT_OFFSET(LeafPage<uint64_t>, data_[0]);
