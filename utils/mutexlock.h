@@ -84,14 +84,23 @@ class RWSpinLock{
     size_t thread_id = 0;
 public:
     void lock(size_t thread_ID = 128) {
+        uint64_t counter = 0;
         while (write_now.exchange(true, std::memory_order_acquire)){
             port::AsmVolatilePause();
+            if (counter++ > 10000){
+                std::this_thread::yield();
+                counter = 0;
+            }
 //            std::this_thread::yield();
         }
-
+        counter = 0;
         // wait for readers to exit
         while (readers_count != 0 ){
             port::AsmVolatilePause();
+            if (counter++ > 10000){
+                std::this_thread::yield();
+                counter = 0;
+            }
 //            std::this_thread::yield();
         }
         thread_id = thread_ID + 1;
@@ -99,9 +108,14 @@ public:
 
     void lock_shared() {
         // unique_lock have priority
+        uint64_t counter = 0;
         while(true) {
             while (write_now) {     // wait for unlock
                 port::AsmVolatilePause();
+                if (counter++ > 10000){
+                    std::this_thread::yield();
+                    counter = 0;
+                }
 //                std::this_thread::yield();
             }
 
