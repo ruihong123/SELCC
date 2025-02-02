@@ -1863,7 +1863,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
         rdma_mg->RDMA_Write_xcompute(local_mr, buffer, buffer_inv_message.next_receive_rkey,
                                      sizeof(Page_Forward_Reply_Type),
                                      buffer_inv_message.next_holder_id, qp_id, true, true);
-        clear_pending_inv_states();
+//        clear_pending_inv_states();
+        buffer_inv_message.ClearStates();
     }
 
 }  // namespace DSMEngine

@@ -7856,7 +7856,7 @@ void RDMA_Manager::fs_deserilization(
         header = (Header_Index<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
         assert(STRUCT_OFFSET(LeafPage<uint64_t>, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
         assert(STRUCT_OFFSET(DataPage, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
-        if (handle->lock_pending_num.load() > 0 || !handle->rw_mtx.try_lock(48)){
+        if ( !handle->rw_mtx.try_lock(48)){
             // (Solved) problem 1. There is a potential bug that the message is cached locally, but never get processed. If one front-end thread just
             // finished the code from cache.cc:1063-1071. Then the message is pushed and will never get processed.
 
@@ -8057,7 +8057,7 @@ void RDMA_Manager::fs_deserilization(
         header = (Header_Index<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
         assert(STRUCT_OFFSET(LeafPage<uint64_t>, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
         assert(STRUCT_OFFSET(DataPage, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
-        if (handle->lock_pending_num.load() >0 || !handle->rw_mtx.try_lock(32)){
+        if ( !handle->rw_mtx.try_lock(32)){
             // (Solved) problem 1. There is a potential bug that the message is cached locally, but never get processed. If one front-end thread just
             // finished the code from cache.cc:1063-1071. Then the message is pushed and will never get processed.
             if(handle->remote_lock_status.load() == 2) {
