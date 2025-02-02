@@ -77,7 +77,7 @@ int space_locality = 10;  //0..100
 int time_locality = 10;  //0..100 (how probable it is to re-visit the current position_idx)
 int read_ratio = 10;  //0..100
 int op_type = 1;  //0: read/write; 1: rlock/wlock; 2: rlock+read/wlock+write
-int workload = 0;  //0: random; 1: zipfian 2: multi-hotspot
+int workload = 0;  //0: random; 1: zipfian 2: multi-hotspot -1: single cache line
 double zipfian_param = 1;
 //int total_spot_num = 0; // used when workload == 2
 
@@ -464,6 +464,10 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 //                    n = data[pos];
 //                }
                 next = GADD(n, rand.Uniform(items_per_block) * item_size);
+            }else{
+                assert(workload = -1);
+                GlobalAddress n = data[0];
+                next = GADD(n, rand.Uniform(items_per_block) * item_size);
             }
 
 
@@ -648,6 +652,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                     Cache::Handle* handle;
                     GlobalAddress target_cache_line = TOPAGE(to_access);
                     alloc->SELCC_Shared_Lock(page_buffer, target_cache_line, handle);
+                    spin_wait_us(10);
                     memcpy(buf, (char*)page_buffer + (to_access.offset - target_cache_line.offset), item_size);
                     alloc->SELCC_Shared_UnLock(target_cache_line, handle);
                 } else {
@@ -660,6 +665,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
                         cache_line_offset += STRUCT_OFFSET(LeafPage<uint64_t>, data_[0]);
                     }
                     alloc->SELCC_Exclusive_Lock(page_buffer, target_cache_line, handle);
+                    spin_wait_us(10);
                     auto page = (LeafPage<uint64_t>*)page_buffer;
                     page->hdr.merge_dirty_bounds(cache_line_offset, cache_line_offset+item_size);
                     // Can not write to random place because we can not hurt the metadata in the page.

@@ -87,21 +87,21 @@ public:
         uint64_t counter = 0;
         while (write_now.exchange(true, std::memory_order_acquire)){
             port::AsmVolatilePause();
-            if (counter++ > 10000){
-                std::this_thread::yield();
-                counter = 0;
-            }
-//            std::this_thread::yield();
+//            if (counter++ > 10000){
+//                std::this_thread::yield();
+//                counter = 0;
+//            }
+            std::this_thread::yield();
         }
         counter = 0;
         // wait for readers to exit
         while (readers_count != 0 ){
             port::AsmVolatilePause();
-            if (counter++ > 10000){
-                std::this_thread::yield();
-                counter = 0;
-            }
-//            std::this_thread::yield();
+//            if (counter++ > 10000){
+//                std::this_thread::yield();
+//                counter = 0;
+//            }
+            std::this_thread::yield();
         }
         thread_id = thread_ID + 1;
     }
@@ -112,11 +112,11 @@ public:
         while(true) {
             while (write_now) {     // wait for unlock
                 port::AsmVolatilePause();
-                if (counter++ > 10000){
-                    std::this_thread::yield();
-                    counter = 0;
-                }
-//                std::this_thread::yield();
+//                if (counter++ > 10000){
+//                    std::this_thread::yield();
+//                    counter = 0;
+//                }
+                std::this_thread::yield();
             }
 
             readers_count.fetch_add(1, std::memory_order_acquire);
