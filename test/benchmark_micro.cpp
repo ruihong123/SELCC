@@ -468,7 +468,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                 assert(workload = -1);
                 GlobalAddress n = data[0];
                 next = GADD(n, rand.Uniform(items_per_block) * item_size);
-                assert(TOPAGE(next) == TOPAGE(access[0]));
+                assert(TOPAGE(next) == data[0]);
             }
 
 
