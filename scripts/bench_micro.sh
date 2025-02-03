@@ -239,7 +239,7 @@ run_skewed_test() {
 echo "**************************run node test****************************"
 result_file=$bin/results/node
 node_range="8"
-thread_range="2 4 8 16"
+thread_range="8 16"
 remote_range="100"
 shared_range="100"
 size_grow=0 # 0 not grow, 1 grow with node number
@@ -247,7 +247,7 @@ single_writer=0
 read_range="0"
 space_range="0"
 time_range="0"
-workload_range="-1" # 0 uniform, 1 single zipfian, n >1 multispot zipfian. -1 accesss only single cache line
+workload_range="1" # 0 uniform, 1 single zipfian, n >1 multispot zipfian. -1 accesss only single cache line
 zipfian_alpha_range="10" #make sure workload = 1 if we want to test zipfian.
 #
 op_range="2" # use 1, 2 for operation with spinning
