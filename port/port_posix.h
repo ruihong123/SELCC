@@ -127,6 +127,11 @@ extern bool Show_Me_The_Print;
 #define FREELIST_THREAD_NUM 1
 #define DIRTY_ONLY_FLUSH
 #define ASYNC_PLAN 1
+
+#define PARALLEL_DEGREE 8
+#define STARVATION_THRESHOLD 0 // todo: we can try 1, 8 64 and UINT64_MAX
+//#define STARV_SPIN_BASE 8
+//#define STARV_BACKOFF
 //#define OPS_TIMER
 #include "port/thread_annotations.h"
 

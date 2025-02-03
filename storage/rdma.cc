@@ -3699,6 +3699,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 //        retry_cnt++;
         if (retry_cnt++ % INVALIDATION_INTERVAL ==  1) {
 //            assert(compare%2 == 0);
+#ifdef STARV_BACKOFF
             if(retry_cnt < 20){
 //                port::AsmVolatilePause();
                 //do nothing
@@ -3717,6 +3718,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             } else{
                 starvation_level = 255 > 5+ retry_cnt/1000? 5+ retry_cnt/1000: 255;
             }
+#endif
 //            assert(target_compute_node_id != (RDMA_Manager::node_id));
             if (target_compute_node_id != (RDMA_Manager::node_id) && target_compute_node_id < compute_nodes.size()*2){
 #ifdef INVALIDATION_STATISTICS

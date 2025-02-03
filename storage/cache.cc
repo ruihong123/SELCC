@@ -19,9 +19,7 @@
 
 // DO not enable the two at the same time otherwise there will be a bug.
 
-#define PARALLEL_DEGREE 8
-#define STARVATION_THRESHOLD UINT64_MAX // todo: we can try 1, 8 64 and UINT64_MAX
-#define STARV_SPIN_BASE 8
+
 uint64_t cache_miss[MAX_APP_THREAD][8];
 uint64_t cache_hit_valid[MAX_APP_THREAD][8];
 uint64_t invalid_counter[MAX_APP_THREAD][8];
@@ -1769,9 +1767,12 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //            RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey,
 //                                sizeof(Page_Forward_Reply_Type),
 //                                target_node_id, qp_id, true, true);
+#ifdef STARV_SPIN_BASE
             if (need_spin){
+                // TOCONTROL:
                 spin_wait_us(STARV_SPIN_BASE* (1 + buffer_inv_message.starvation_priority.load()));
             }
+#endif
 //                    }
         }else if (this->remote_lock_status == 2){
             if (remote_urging_type == 1 && buffer_inv_message.next_inv_message_type == reader_invalidate_modified){
