@@ -730,7 +730,9 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
             //epicAssert(buf == to_access || addr_to_pos.count(buf) == 0);
         }
         if (i%100000 == 0 && id == 0){
-            printf("Node %d finish %d ops \n", node_id, i);
+            auto current = get_time()/1000/1000;
+            long elapse =  (current - start);
+            printf("Node %d finish %d ops, time elapse is ms \n", node_id, i);
             fflush(stdout);
         }
 #ifdef GETANALYSIS
@@ -1100,14 +1102,14 @@ int main(int argc, char* argv[]) {
     res[3] = invalidation_num;  //avg invalidated message number
     res[4] = hit_valid_num;  //avg latency for the current node
     int temp = SYNC_KEY + Memcache_offset + node_id;
-    printf("memset temp key %d\n", temp);
+    DEBUG_PRINT_arg("memset temp key %d\n", temp);
     ddsm.memSet((char*)&temp, sizeof(int), (char*)res, sizeof(long) * 5);
     t_thr = a_thr = a_lat = invalidation_num = hit_valid_num = 0;
     for (int i = 0; i < compute_num; i++) {
         memset(res, 0, sizeof(long) * 5);
         temp = SYNC_KEY + Memcache_offset + i * 2;
         size_t len;
-        printf("memGet temp key %d\n", temp);
+        DEBUG_PRINT_arg("memGet temp key %d\n", temp);
         long* ret = (long*)ddsm.memGet((char*)&temp , sizeof(int), &len);
         assert(len == sizeof(long) * 5);
         t_thr += ret[0];
