@@ -730,8 +730,8 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
             //epicAssert(buf == to_access || addr_to_pos.count(buf) == 0);
         }
         if (i%100000 == 0 && id == 0){
-            auto current = get_time()/1000/1000;
-            long elapse =  (current - start);
+            auto current = get_time();
+            long elapse =  (current - start)/1000/1000;
             printf("Node %d finish %d ops, time elapse is %ld ms \n", node_id, i, elapse);
             fflush(stdout);
         }
