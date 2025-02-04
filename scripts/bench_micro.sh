@@ -145,9 +145,9 @@ run() {
 
         if [ $single_writer = 1  ]; then
             if [ $i = 0 ]; then
-              $read_ratio="0"
+              read_ratio="0"
             else
-              $read_ratio="100"
+              read_ratio="100"
             fi
         fi
 #        if [ $port == $ip ]; then
