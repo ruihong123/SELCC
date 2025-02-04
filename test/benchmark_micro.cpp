@@ -37,7 +37,7 @@
 #define FULLY_SHARED_WITHIN_NODE
 //2516582ull =  48*1024*1024*1024/(2*1024)
 #define MEMSET_GRANULARITY (64*1024)
-//#define CMU_ZIPF
+#define CMU_ZIPF
 //#define EXCLUSIVE_HOTSPOT // exclusive hotspot per compute. workload == 1.
 
 uint64_t NUMOFBLOCKS = 0;
