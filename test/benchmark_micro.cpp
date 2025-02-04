@@ -732,7 +732,7 @@ void Run(DDSM* alloc, GlobalAddress data[], GlobalAddress access[],
         if (i%100000 == 0 && id == 0){
             auto current = get_time()/1000/1000;
             long elapse =  (current - start);
-            printf("Node %d finish %d ops, time elapse is ms \n", node_id, i);
+            printf("Node %d finish %d ops, time elapse is ms \n", node_id, i, elapse);
             fflush(stdout);
         }
 #ifdef GETANALYSIS
