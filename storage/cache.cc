@@ -888,6 +888,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 handover_degree = write_lock_counter.load() + read_lock_counter.load()/PARALLEL_DEGREE;
                 asm volatile("pause\n": : :"memory");
             }
+
             rw_mtx.lock_shared();
             lock_pending_num.fetch_sub(1);
 //            read_lock_holder_num.fetch_add(1);
@@ -933,6 +934,10 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 }
 #endif
                 if (remote_lock_status.load() == 0){
+                    if (reader_spin_time.load() >0){
+                        spin_wait_us(reader_spin_time.load());
+                        reader_spin_time.store(0);
+                    }
                     cache_miss[RDMA_Manager::thread_id][0]++;
                     if(value) {
                         mr = (ibv_mr*)value;
@@ -1771,6 +1776,8 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             if (need_spin){
                 // TOCONTROL:
                 spin_wait_us(STARV_SPIN_BASE* (1 + buffer_inv_message.starvation_priority.load()));
+            }else{
+                reader_spin_time.store(STARV_SPIN_BASE* (1 + buffer_inv_message.starvation_priority.load()));
             }
 #endif
 //                    }
