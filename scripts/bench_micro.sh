@@ -297,7 +297,7 @@ done
 
 
 
-run_thread_test() {
+run_test() {
 # node test
 echo "**************************run node test****************************"
 result_file=$bin/results/node
@@ -357,7 +357,7 @@ done
 done
 done
 }
-#run_thread_test
+
 #run_read_test
 #run_time_test
 #run_shared_test
@@ -365,4 +365,5 @@ done
 #run_space_test
 #run_shared_test_noeviction
 #run_node_test
-run_skewed_test
+run_test
+#run_skewed_test
