@@ -295,6 +295,68 @@ done
 done
 }
 
+
+
+run_thread_test() {
+# node test
+echo "**************************run node test****************************"
+result_file=$bin/results/node
+node_range="8"
+thread_range="8"
+remote_range="100"
+shared_range="100"
+size_grow=0 # 0 not grow, 1 grow with node number
+single_writer=0
+read_range="0 50 95 100"
+space_range="0"
+time_range="0"
+workload_range="0" # 0 uniform, 1 single zipfian, n >1 multispot zipfian. -1 accesss only single cache line
+zipfian_alpha_range="0.99" #make sure workload = 1 if we want to test zipfian.
+#
+op_range="1" # use 1, 2 for operation with spinning
+#cache_th=0.5
+for workload in $workload_range
+do
+for zipfian_alpha in $zipfian_alpha_range
+do
+for remote_ratio in $remote_range
+do
+for shared_ratio in $shared_range
+do
+  if [ $shared_ratio != 100 && $size_grow=1]; then
+      exit
+  fi
+for op_type in $op_range
+do
+for read_ratio in $read_range
+do
+for space_locality in $space_range
+do
+for time_locality in $time_range
+do
+
+for thread in $thread_range
+do
+for node in $node_range
+do
+  echo $node
+#    remote_ratio=`echo "($node-1)*100/$node" | bc`
+#    echo $remote_ratio
+#    if [[ $node = 1 ]]; then
+#        continue;
+#    fi
+  run
+done
+done
+done
+done
+done
+done
+done
+done
+done
+done
+}
 #run_thread_test
 #run_read_test
 #run_time_test
