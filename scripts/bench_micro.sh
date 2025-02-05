@@ -308,7 +308,7 @@ shared_range="100"
 size_grow=0 # 0 not grow, 1 grow with node number
 single_writer=0
 read_range="0 50 95 100"
-space_range="0"
+space_range="50"
 time_range="0"
 workload_range="0" # 0 uniform, 1 single zipfian, n >1 multispot zipfian. -1 accesss only single cache line
 zipfian_alpha_range="0.99" #make sure workload = 1 if we want to test zipfian.
