@@ -4456,7 +4456,8 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }
             assert(false);
         }
-        if (starvation_level > 0 && invalidation_RPC_type == 1){
+        if (starv_level && starvation_level > 0 && invalidation_RPC_type == 1){
+            assert(*starv_level == 0);
             //
             *starv_level = starvation_level;
         }
