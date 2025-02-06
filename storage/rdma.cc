@@ -7867,12 +7867,8 @@ void RDMA_Manager::fs_deserilization(
         }
 #ifdef WRITER_STARV_SPIN_BASE
         if (handle->last_writer_starvation_priority > starv_level){
-            if (pending_reminder){
-                reply_type = dropped_without_reply;
+            reply_type = dropped;
 
-            }else{
-                reply_type = dropped;
-            }
             page_cache_->Release(handle);
             goto message_reply;
         }
