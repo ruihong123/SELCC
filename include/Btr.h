@@ -250,35 +250,7 @@ namespace DSMEngine {
         bool insert_internal(Key &k, GlobalAddress &v, CoroContext *cxt,
                              int coro_id, int target_level);
 
-        bool try_lock_addr(GlobalAddress lock_addr, uint64_t tag, ibv_mr *buf,
-                           CoroContext *cxt, int coro_id);
 
-        void unlock_addr(GlobalAddress lock_addr, CoroContext *cxt, int coro_id, bool async);
-        void global_Rlock_and_read_page(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size, GlobalAddress lock_addr,
-                                   ibv_mr *cas_buffer, uint64_t tag, CoroContext *cxt, int coro_id,
-                                   Cache::Handle *handle);
-
-        bool global_Rlock_update(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
-                                 Cache::Handle *handle);
-
-        void global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, int page_size,
-                                                     GlobalAddress lock_addr, ibv_mr *cas_buffer, uint64_t tag,
-                                                     CoroContext *cxt, int coro_id, Cache::Handle *handle);
-
-        void global_RUnlock(GlobalAddress lock_addr, ibv_mr *cas_buffer, CoroContext *cxt, int coro_id,
-                            Cache::Handle *handle);
-
-// Write unlock can share the function for the global_write_page_and_unlock.
-        void global_write_page_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
-                                           GlobalAddress lock_addr,
-                                           CoroContext *cxt, int coro_id, Cache::Handle *handle, bool async);
-
-        void global_write_tuple_and_Wunlock(ibv_mr *page_buffer, GlobalAddress page_addr, int size,
-                                            GlobalAddress lock_addr,
-                                            CoroContext *cxt, int coro_id, Cache::Handle *handle, bool async);
-
-        void global_unlock_addr(GlobalAddress remote_lock_add, Cache::Handle *handle, CoroContext *cxt, int coro_id,
-                                bool async = false);
 
         // Node ID in GLobalAddress for a tree pointer should be the id in the Memory pool
         // THis funciton will get the page by the page addr and search the pointer for the

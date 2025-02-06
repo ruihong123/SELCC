@@ -3737,7 +3737,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
                 if (ret == processed){
                     return true;
                 }
-                assert(ret == dropped);
+                assert(ret == dropped_with_reply);
 
             }else{
                 // THis could happen when one compute node (reader) is fowarded and suddenly release its shared latch due to the
@@ -4242,7 +4242,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 #endif
 
     bool RDMA_Manager::global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size,
-                                                               GlobalAddress lock_addr, ibv_mr *cas_buffer, int r_times, CoroContext *cxt,
+                                                               GlobalAddress lock_addr, ibv_mr *cas_buffer, int r_times, uint8_t *starv_level,
                                                                int coro_id) {
         uint64_t retry_cnt = 0;
         uint64_t pre_tag = 0;
@@ -4381,7 +4381,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
         Batch_Submit_WRs(sr, 1, page_addr.nodeID);
 //        printf("READ page %p from remote memory to local mr %p 2 thread_id is %d\n", page_addr, page_buffer->addr, thread_id);
 
-        invalidation_RPC_type = 0;
+//        invalidation_RPC_type = 0;
         //When the program fail at the code below the remote buffer content (this_page_g_ptr) has already  be incosistent
 #ifndef NDEBUG
         auto page = (LeafPage<uint64_t>*)(page_buffer->addr);
@@ -4389,6 +4389,7 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
 #endif
         // Rethink the logic of this part. Can it result in false lock acquire?
         if ((*(uint64_t*) cas_buffer->addr) != compare){
+            invalidation_RPC_type = 0;
 //            assert(page_addr == (((LeafPage<uint64_t,uint64_t>*)(page_buffer->addr))->hdr.this_page_g_ptr));
             if ((*(uint64_t*) cas_buffer->addr) >> 56 == swap >> 56){
                 spin_wait_us(100);
@@ -4455,6 +4456,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             }
             assert(false);
         }
+        if (starvation_level > 0 && invalidation_RPC_type == 1){
+            //
+            *starv_level = starvation_level;
+        }
+        //TODO: remember the starvation level in the cache handle. THis can be used for priority revenge to improve the access fairness.
         ((LeafPage<uint64_t>*)(page_buffer->addr))->global_lock = swap;
         return true;
 //        printf("Acquire Write Lock at %lu\n", page_addr);
@@ -6448,14 +6454,14 @@ inv_resend:
             }
         }
     }
-    if (was_pending && *receive_pointer == dropped){
+    if (was_pending && *receive_pointer == dropped_with_reply){
         auto page = (LeafPage<uint64_t>*)(page_buffer->addr);
-//        printf("Inv message send from NOde %u to Node %u over data %p was pending and then get dropped\n", node_id, target_node_id, global_ptr);
+//        printf("Inv message send from NOde %u to Node %u over data %p was pending and then get dropped_with_reply\n", node_id, target_node_id, global_ptr);
 //        fflush(stdout);
         assert(page->hdr.this_page_g_ptr == GlobalAddress::Null());
         assert(page->hdr.p_type == P_Plain);
     }
-    assert(*receive_pointer == processed || *receive_pointer == dropped);
+    assert(*receive_pointer == processed || *receive_pointer == dropped_with_reply);
     return *receive_pointer;
 
 }
@@ -6568,7 +6574,7 @@ inv_resend:
             }
         }
 
-        assert(*receive_pointer == processed || *receive_pointer == dropped);
+        assert(*receive_pointer == processed || *receive_pointer == dropped_with_reply);
         return *receive_pointer;
     }
 
@@ -7695,7 +7701,7 @@ void RDMA_Manager::fs_deserilization(
 //        }
 //message_reply:
 //        if (reply_type == waiting){
-//            reply_type = dropped;
+//            reply_type = dropped_with_reply;
 //        }
 //        switch (reply_type) {
 //            case processed:
@@ -7705,8 +7711,8 @@ void RDMA_Manager::fs_deserilization(
 //            case pending:
 //                printf("Node %u pending the writer invalidate shared message from node %u over data %p, message pending, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
 //                break;
-//            case dropped:
-//                printf("Node %u dropped the writer invalidate shared message from node %u over data %p, message dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+//            case dropped_with_reply:
+//                printf("Node %u dropped_with_reply the writer invalidate shared message from node %u over data %p, message dropped_with_reply, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
 //                break;
 //            default:
 //                assert(false);
@@ -7734,7 +7740,7 @@ void RDMA_Manager::fs_deserilization(
         GlobalAddress lock_gptr = g_ptr;
         Header_Index<uint64_t>* header = nullptr;
         if (!handle) {
-            reply_type = dropped;  // Handle not found
+            reply_type = dropped_with_reply;  // Handle not found
             goto message_reply;
         }
 
@@ -7763,7 +7769,7 @@ void RDMA_Manager::fs_deserilization(
                 }
                 handle->buffered_inv_mtx.unlock();
             }
-            reply_type = dropped;
+            reply_type = dropped_with_reply;
             page_cache_->Release(handle);
             goto message_reply;
         }else{
@@ -7788,7 +7794,7 @@ void RDMA_Manager::fs_deserilization(
 
             handle->buffered_inv_mtx.unlock();
             handle->rw_mtx.unlock();
-            reply_type = dropped;
+            reply_type = dropped_with_reply;
             page_cache_->Release(handle);
             goto message_reply;
 
@@ -7821,13 +7827,13 @@ void RDMA_Manager::fs_deserilization(
             case waiting:
                 assert(false);
                 break;
-            case dropped:
+            case dropped_with_reply:
                 local_mr = Get_local_send_message_mr();
                 *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
                 RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey,
                                     sizeof(Page_Forward_Reply_Type),
                                     target_node_id, qp_id, true, true);
-//                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+//                printf("Node %u receive writer invalidate shared invalidation message from node %u over data %p get dropped_with_reply, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
 //                fflush(stdout);
                 break;
             default:
@@ -7853,10 +7859,16 @@ void RDMA_Manager::fs_deserilization(
         GlobalAddress lock_gptr = g_ptr;
         Header_Index<uint64_t>* header = nullptr;
         if (!handle) {
-            reply_type = dropped;  // Handle not found
+            reply_type = dropped_with_reply;  // Handle not found
             goto message_reply;
         }
-
+#ifdef WRITER_STARV_SPIN_BASE
+        if (handle->last_writer_starvation_priority > starv_level){
+            reply_type = dropped_with_reply;
+            page_cache_->Release(handle);
+            goto message_reply;
+        }
+#endif
         page_mr = (ibv_mr*)handle->value;
         header = (Header_Index<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
         assert(STRUCT_OFFSET(LeafPage<uint64_t>, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
@@ -7883,7 +7895,7 @@ void RDMA_Manager::fs_deserilization(
 
                         }
                         handle->buffered_inv_mtx.unlock();
-                        reply_type = dropped;
+                        reply_type = dropped_without_reply;
                         page_cache_->Release(handle);
                         goto message_reply;
                     }
@@ -7910,7 +7922,7 @@ void RDMA_Manager::fs_deserilization(
                 }
                 handle->buffered_inv_mtx.unlock();
             }
-            reply_type = dropped;
+            reply_type = dropped_with_reply;
             page_cache_->Release(handle);
             goto message_reply;
         }else{
@@ -7920,7 +7932,7 @@ void RDMA_Manager::fs_deserilization(
                     page_cache_->Release(handle);
                     goto message_reply;
                 }else{
-                    reply_type = dropped;
+                    reply_type = dropped_without_reply;
                     handle->rw_mtx.unlock();
                     page_cache_->Release(handle);
                     goto message_reply;
@@ -7964,7 +7976,7 @@ void RDMA_Manager::fs_deserilization(
             }
             handle->buffered_inv_mtx.unlock();
             handle->rw_mtx.unlock();
-            reply_type = dropped;
+            reply_type = dropped_with_reply;
             page_cache_->Release(handle);
             goto message_reply;
 
@@ -8019,17 +8031,20 @@ void RDMA_Manager::fs_deserilization(
             case waiting:
                 assert(false);
                 break;
-            case dropped:
-                if (!pending_reminder){
-                    local_mr = Get_local_send_message_mr();
-                    *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
-                    RDMA_Write_xcompute(local_mr,
-                                        (char *) receive_msg_buf->buffer + kLeafPageSize - sizeof(Page_Forward_Reply_Type),
-                                        receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
-                                        target_node_id, qp_id, true);
-                }
-//                printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+            case dropped_with_reply:
+                assert(!pending_reminder);
+                local_mr = Get_local_send_message_mr();
+                *((Page_Forward_Reply_Type* )local_mr->addr) = reply_type;
+                RDMA_Write_xcompute(local_mr,
+                                    (char *) receive_msg_buf->buffer + kLeafPageSize - sizeof(Page_Forward_Reply_Type),
+                                    receive_msg_buf->rkey, sizeof(Page_Forward_Reply_Type),
+                                    target_node_id, qp_id, true);
+
+//                printf("Node %u receive reader invalidate modified invalidation message from node %u over data %p get dropped_with_reply, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
 //                fflush(stdout);
+                break;
+            case dropped_without_reply:
+                assert(pending_reminder);
                 break;
             default:
                 assert(false);
@@ -8054,7 +8069,7 @@ void RDMA_Manager::fs_deserilization(
         GlobalAddress lock_gptr = g_ptr;
         Header_Index<uint64_t>* header = nullptr;
         if (!handle) {
-            reply_type = dropped;  // Handle not found
+            reply_type = dropped_with_reply;  // Handle not found
             goto message_reply;
         }
 
@@ -8108,7 +8123,7 @@ void RDMA_Manager::fs_deserilization(
                 }
                 handle->buffered_inv_mtx.unlock();
             }
-            reply_type = dropped;
+            reply_type = dropped_with_reply;
 //            page_cache_->Release(handle);
             goto message_reply;
         }else{
@@ -8161,7 +8176,7 @@ void RDMA_Manager::fs_deserilization(
             }
             handle->buffered_inv_mtx.unlock();
             handle->rw_mtx.unlock();
-            reply_type = dropped;
+            reply_type = dropped_with_reply;
 //            page_cache_->Release(handle);
             goto message_reply;
 
@@ -8216,7 +8231,7 @@ void RDMA_Manager::fs_deserilization(
                 break;
             case ignored:
                 break;
-            case dropped:
+            case dropped_with_reply:
 //                assert(!pending_reminder);
                 if (!pending_reminder){
                     local_mr = Get_local_send_message_mr();
@@ -8227,7 +8242,7 @@ void RDMA_Manager::fs_deserilization(
                                         target_node_id, qp_id, true);
                 }
 
-//                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get dropped, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
+//                printf("Node %u receive writer invalidate modified invalidation message from node %u over data %p get dropped_with_reply, starv level is %u\n", node_id, target_node_id, g_ptr, starv_level);
 //                fflush(stdout);
                 break;
             default:

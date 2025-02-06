@@ -934,10 +934,12 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 }
 #endif
                 if (remote_lock_status.load() == 0){
+#ifdef WRITER_STARV_SPIN_BASE
                     if (reader_spin_time.load() >0){
                         spin_wait_us(reader_spin_time.load());
                         reader_spin_time.store(0);
                     }
+#endif
                     cache_miss[RDMA_Manager::thread_id][0]++;
                     if(value) {
                         mr = (ibv_mr*)value;
@@ -1238,27 +1240,29 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             // If the remote read lock is not on, lock it
             if (remote_lock_status == 0){
                 cache_miss[RDMA_Manager::thread_id][0]++;
-                rdma_mg->global_Wlock_and_read_page_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr);
+                uint8_t starv_priority = 0;
+                rdma_mg->global_Wlock_and_read_page_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr, -1, &starv_priority);
                 remote_lock_status.store(2);
+#ifdef WRITER_STARV_SPIN_BASE
+                last_writer_starvation_priority = starv_priority;
+#endif
+
 //                handle->remote_lock_status.store(2);
 
             }else if (remote_lock_status == 1){
                 cache_miss[RDMA_Manager::thread_id][0]++;
 //                cache_hit_valid[RDMA_Manager::thread_id][0]++;
                 if (!global_Rlock_update(mr, lock_addr, cas_mr)){
+                    // can not update atomically, need to unlock the write lock and then lock the write lock. Unlock has been done already.
                     assert(remote_lock_status.load() == 0);
                     buffered_inv_mtx.lock();
-                    //TODO: try to clear the outdated buffered inv message. as the latch state has been changed.
+                    //clear the outdated buffered inv message. as the latch state has been changed.
                     if (buffer_inv_message.next_holder_id != Invalid_Node_ID){
 //                        printf("Node %u Upgrade lock from shared to modified, clear the buffered inv message on cache line %p\n", RDMA_Manager::node_id, page_addr);
                         assert(buffer_inv_message.next_inv_message_type == writer_invalidate_shared);
                         clear_pending_inv_states();
                     }
                     buffered_inv_mtx.unlock();
-
-                    //TODO: first unlock the read lock and then acquire the write lock is not atomic. this
-                    // is problematice if we want to upgrade the lock during a transaction.
-                    // May be we can take advantage of the lock starvation bit to solve this problem.
                     //the Read lock has been released, we can directly acquire the write lock
                     rdma_mg->global_Wlock_and_read_page_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr);
                     remote_lock_status.store(2);
@@ -1772,12 +1776,12 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //            RDMA_Write_xcompute(local_mr, receive_msg_buf->buffer, receive_msg_buf->rkey,
 //                                sizeof(Page_Forward_Reply_Type),
 //                                target_node_id, qp_id, true, true);
-#ifdef STARV_SPIN_BASE
+#ifdef WRITER_STARV_SPIN_BASE
             if (need_spin){
                 // TOCONTROL:
-                spin_wait_us(STARV_SPIN_BASE* (1 + buffer_inv_message.starvation_priority.load()));
+                spin_wait_us(WRITER_STARV_SPIN_BASE* (1 + buffer_inv_message.starvation_priority.load()));
             }else{
-                reader_spin_time.store(STARV_SPIN_BASE* (1 + buffer_inv_message.starvation_priority.load()));
+                reader_spin_time.store(WRITER_STARV_SPIN_BASE* (1 + buffer_inv_message.starvation_priority.load()));
             }
 #endif
 //                    }
@@ -1838,9 +1842,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //#else
 //                    rdma_mg->global_write_page_and_Wunlock(mr, page_addr, page_size, lock_addr);
 //                            remote_lock_status.store(0);
-//                            spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
+//                            spin_wait_us(WRITER_STARV_SPIN_BASE* (1 + starvation_priority.load()));
 //#endif
-//                            spin_wait_us(STARV_SPIN_BASE* (1 + starvation_priority.load()));
+//                            spin_wait_us(WRITER_STARV_SPIN_BASE* (1 + starvation_priority.load()));
 //                }
 
             }else{
@@ -1859,7 +1863,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
     void Cache_Handle::drop_buffered_inv_message(ibv_mr *local_mr, RDMA_Manager *rdma_mg) {
         assert(buffer_inv_message.next_inv_message_type != writer_invalidate_shared);
 
-        *((Page_Forward_Reply_Type*)local_mr->addr) = dropped;
+        *((Page_Forward_Reply_Type*)local_mr->addr) = dropped_with_reply;
 
         int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
 //        printf("Node %u Drop the buffered invalidation message over data %p, target %u, buffer addr %p, rkey %u\n",

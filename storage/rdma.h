@@ -214,7 +214,8 @@ struct RDMA_Request {
   uint32_t imm_num; // 0 for Compaction threads signal, 1 for Flushing threads signal.
 //  Options opt;
 } __attribute__((packed));
-enum Page_Forward_Reply_Type: uint8_t  {waiting = 0, processed = 1, dropped = 2, pending = 3, ignored = 4};
+//todo: split dropped_with_reply into dropped_with_reply and dropped_without_reply
+enum Page_Forward_Reply_Type: uint8_t  {waiting = 0, processed = 1, dropped_with_reply = 2, pending = 3, ignored = 4, dropped_without_reply = 5};
 struct RDMA_ReplyXCompute {
     Page_Forward_Reply_Type inv_reply_type; // 0 not received, 1 message processed at the scene, 2 the target handle is not found or found invalidated, 3 message was pushed in the handle.
     uint8_t toPC_reply_type; // 0 not received, 1 commit, 2 abort.
@@ -687,7 +688,7 @@ class RDMA_Manager {
         *p = waiting;
     }
     bool global_Wlock_and_read_page_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
-                                                 ibv_mr *cas_buffer, int r_times = -1, CoroContext *cxt= nullptr, int coro_id = 0);
+                                                 ibv_mr *cas_buffer, int r_times = -1, uint8_t *starv_level= nullptr, int coro_id = 0);
     void global_Wlock_with_INVALID(ibv_mr *page_buffer, GlobalAddress page_addr, size_t page_size, GlobalAddress lock_addr,
                                                  ibv_mr *cas_buffer, uint64_t tag = 0, CoroContext *cxt= nullptr, int coro_id = 0);
 #if ACCESS_MODE == 0

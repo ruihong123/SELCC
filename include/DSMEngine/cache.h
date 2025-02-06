@@ -118,7 +118,10 @@ constexpr uint8_t Invalid_Node_ID = 255;
         GlobalAddress gptr = GlobalAddress::Null();
         // TODO: the variable below can be removed.
         std::atomic<int> lock_pending_num = 0;
+#ifdef WRITER_STARV_SPIN_BASE
         std::atomic<int> reader_spin_time = 0;
+        uint8_t last_writer_starvation_priority = 0;
+#endif
 //        std::chrono::time_point<std::chrono::high_resolution_clock> timer_begin;
         RWSpinLock rw_mtx; // low overhead rw spin lock and write have higher priority than read.
         SpinMutex buffered_inv_mtx; // clear state mutex
@@ -166,6 +169,9 @@ constexpr uint8_t Invalid_Node_ID = 255;
             read_lock_counter.store(0);
             write_lock_counter.store(0);
             remote_urging_type.store(0);
+#ifdef WRITER_STARV_SPIN_BASE
+            last_writer_starvation_priority = 0;
+#endif
             buffer_inv_message.ClearStates();
 
 //#ifdef EARLY_LOCK_RELEASE
