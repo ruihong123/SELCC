@@ -214,8 +214,8 @@ struct RDMA_Request {
   uint32_t imm_num; // 0 for Compaction threads signal, 1 for Flushing threads signal.
 //  Options opt;
 } __attribute__((packed));
-//todo: split dropped_with_reply into dropped_with_reply and dropped_without_reply
-enum Page_Forward_Reply_Type: uint8_t  {waiting = 0, processed = 1, dropped_with_reply = 2, pending = 3, ignored = 4, dropped_without_reply = 5};
+//todo: split dropped into dropped and dropped_without_reply
+enum Page_Forward_Reply_Type: uint8_t  {waiting = 0, processed = 1, dropped = 2, pending = 3, ignored = 4};
 struct RDMA_ReplyXCompute {
     Page_Forward_Reply_Type inv_reply_type; // 0 not received, 1 message processed at the scene, 2 the target handle is not found or found invalidated, 3 message was pushed in the handle.
     uint8_t toPC_reply_type; // 0 not received, 1 commit, 2 abort.

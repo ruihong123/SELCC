@@ -1863,7 +1863,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
     void Cache_Handle::drop_buffered_inv_message(ibv_mr *local_mr, RDMA_Manager *rdma_mg) {
         assert(buffer_inv_message.next_inv_message_type != writer_invalidate_shared);
 
-        *((Page_Forward_Reply_Type*)local_mr->addr) = dropped_with_reply;
+        *((Page_Forward_Reply_Type*)local_mr->addr) = dropped;
 
         int qp_id = rdma_mg->qp_inc_ticket++ % NUM_QP_ACCROSS_COMPUTE;
 //        printf("Node %u Drop the buffered invalidation message over data %p, target %u, buffer addr %p, rkey %u\n",

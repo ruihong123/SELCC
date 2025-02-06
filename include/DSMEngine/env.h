@@ -118,7 +118,7 @@ class DSMEngine_EXPORT Env {
 
   // Store in *result the names of the children of the specified directory.
   // The names are relative to "dir".
-  // Original contents of *results are dropped_with_reply.
+  // Original contents of *results are dropped.
   virtual Status GetChildren(const std::string& dir,
                              std::vector<std::string>* result) = 0;
   // Delete the named file.
