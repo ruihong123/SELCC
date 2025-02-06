@@ -7751,7 +7751,7 @@ void RDMA_Manager::fs_deserilization(
         header = (Header_Index<uint64_t>*) ((char *) ((ibv_mr*)handle->value)->addr + (STRUCT_OFFSET(InternalPage<uint64_t>, hdr)));
         assert(STRUCT_OFFSET(LeafPage<uint64_t>, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
         assert(STRUCT_OFFSET(DataPage, global_lock) == STRUCT_OFFSET(InternalPage<uint64_t>, global_lock));
-        if (handle->lock_pending_num.load() >0 || !handle->rw_mtx.try_lock(48)){
+        if ( !handle->rw_mtx.try_lock(48)){
             //double check locking to reduce the lock conflict on buffered_inv_mtx
             if(handle->remote_lock_status.load() == 1) {
                 handle->buffered_inv_mtx.lock();
