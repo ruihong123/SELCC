@@ -7869,7 +7869,7 @@ void RDMA_Manager::fs_deserilization(
             goto message_reply;
         }
 #ifdef STARV_REVENGE
-        priority_to_meet = ((uint64_t)handle->last_writer_starvation_priority+3) <= 255 ? handle->last_writer_starvation_priority + 3 : 255;
+        priority_to_meet = ((uint64_t)handle->last_writer_starvation_priority+0) <= 255 ? handle->last_writer_starvation_priority + 0 : 255;
         if (handle->last_writer_starvation_priority && priority_to_meet > starv_level){
 //            printf("STARV_REVENGE triggered\n");
             reply_type = dropped;
