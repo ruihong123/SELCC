@@ -1242,12 +1242,12 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 cache_miss[RDMA_Manager::thread_id][0]++;
                 uint8_t starv_priority = 0;
                 rdma_mg->global_Wlock_and_read_page_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr, -1, &starv_priority);
-                remote_lock_status.store(2);
 #ifdef WRITER_STARV_SPIN_BASE
                 last_writer_starvation_priority = starv_priority;
 #endif
+                remote_lock_status.store(2);
 
-//                handle->remote_lock_status.store(2);
+
 
             }else if (remote_lock_status == 1){
                 cache_miss[RDMA_Manager::thread_id][0]++;
@@ -1263,8 +1263,12 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                         clear_pending_inv_states();
                     }
                     buffered_inv_mtx.unlock();
+                    uint8_t starv_priority = 0;
                     //the Read lock has been released, we can directly acquire the write lock
-                    rdma_mg->global_Wlock_and_read_page_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr);
+                    rdma_mg->global_Wlock_and_read_page_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr, -1, &starv_priority);
+#ifdef WRITER_STARV_SPIN_BASE
+                    last_writer_starvation_priority = starv_priority;
+#endif
                     remote_lock_status.store(2);
                 }else{
                     assert( remote_lock_status.load() == 2);
