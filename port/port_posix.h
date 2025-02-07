@@ -130,7 +130,7 @@ extern bool Show_Me_The_Print;
 
 #define PARALLEL_DEGREE 8
 #define STARVATION_THRESHOLD 256 // todo: we can try 1, 8 64 and UINT64_MAX
-#define WRITER_STARV_SPIN_BASE 8
+//#define WRITER_STARV_SPIN_BASE 8
 //#define STARV_REVENGE
 #define STARV_BACKOFF
 
