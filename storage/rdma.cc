@@ -7861,12 +7861,16 @@ void RDMA_Manager::fs_deserilization(
         ibv_mr* page_mr = nullptr;
         GlobalAddress lock_gptr = g_ptr;
         Header_Index<uint64_t>* header = nullptr;
+#ifdef WRITER_STARV_SPIN_BASE
+        uint8_t priority_to_meet = 0;
+#endif
         if (!handle) {
             reply_type = dropped;  // Handle not found
             goto message_reply;
         }
 #ifdef WRITER_STARV_SPIN_BASE
-        if (handle->last_writer_starvation_priority > starv_level){
+        priority_to_meet = handle->last_writer_starvation_priority < 255 ? handle->last_writer_starvation_priority + 1 : 255;
+        if (handle->last_writer_starvation_priority && priority_to_meet > starv_level){
             reply_type = dropped;
 
             page_cache_->Release(handle);
