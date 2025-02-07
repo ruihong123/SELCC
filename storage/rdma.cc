@@ -7869,7 +7869,7 @@ void RDMA_Manager::fs_deserilization(
             goto message_reply;
         }
 #ifdef WRITER_STARV_SPIN_BASE
-        priority_to_meet = handle->last_writer_starvation_priority < 255 ? handle->last_writer_starvation_priority + 1 : 255;
+        priority_to_meet = ((uint64_t)handle->last_writer_starvation_priority+3) <= 255 ? handle->last_writer_starvation_priority + 3 : 255;
         if (handle->last_writer_starvation_priority && priority_to_meet > starv_level){
             reply_type = dropped;
 
