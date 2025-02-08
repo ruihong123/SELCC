@@ -1243,7 +1243,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                 uint8_t starv_priority = 0;
                 rdma_mg->global_Wlock_and_read_page_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr, -1, &starv_priority);
 #ifdef WRITER_STARV_SPIN_BASE
-                last_writer_starvation_priority = starv_priority;
+//                last_writer_starvation_priority = starv_priority;
 #endif
                 remote_lock_status.store(2);
 
@@ -1267,7 +1267,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
                     //the Read lock has been released, we can directly acquire the write lock
                     rdma_mg->global_Wlock_and_read_page_with_INVALID(mr, page_addr, page_size, lock_addr, cas_mr, -1, &starv_priority);
 #ifdef WRITER_STARV_SPIN_BASE
-                    last_writer_starvation_priority = starv_priority;
+//                    last_writer_starvation_priority = starv_priority;
 #endif
                     remote_lock_status.store(2);
                 }else{
@@ -1782,12 +1782,12 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //                                target_node_id, qp_id, true, true);
 #ifdef WRITER_STARV_SPIN_BASE
             // todo: there is no need to spin inside this function, and the spin time should be zero if there is no starvation detected.
-//            if (need_spin){
-//                // TOCONTROL:
-//                spin_wait_us(WRITER_STARV_SPIN_BASE* ( buffer_inv_message.starvation_priority.load()));
-//            }else if(buffer_inv_message.starvation_priority > 1){
-//                reader_spin_time.store(WRITER_STARV_SPIN_BASE* (buffer_inv_message.starvation_priority.load()));
-//            }
+            if (need_spin){
+                // TOCONTROL:
+                spin_wait_us(WRITER_STARV_SPIN_BASE* ( buffer_inv_message.starvation_priority.load()));
+            }else if(buffer_inv_message.starvation_priority > 1){
+                reader_spin_time.store(WRITER_STARV_SPIN_BASE* (buffer_inv_message.starvation_priority.load()));
+            }
 #endif
 //                    }
         }else if (this->remote_lock_status == 2){
