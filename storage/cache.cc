@@ -1786,7 +1786,7 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //                // TOCONTROL:
 //                spin_wait_us(WRITER_STARV_SPIN_BASE* ( buffer_inv_message.starvation_priority.load()));
 //            }else{
-                reader_spin_time.store(WRITER_STARV_SPIN_BASE* (buffer_inv_message.starvation_priority.load()));
+                reader_spin_time.store(1+ WRITER_STARV_SPIN_BASE* (buffer_inv_message.starvation_priority.load()));
 //            }
 #endif
 //                    }
