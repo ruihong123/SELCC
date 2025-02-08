@@ -935,10 +935,10 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 #endif
                 if (remote_lock_status.load() == 0){
 #ifdef WRITER_STARV_SPIN_BASE
-//                    if (reader_spin_time.load() >0){
-//                        spin_wait_us(reader_spin_time.load());
-//                        reader_spin_time.store(0);
-//                    }
+                    if (reader_spin_time.load() >0){
+                        spin_wait_us(reader_spin_time.load());
+                        reader_spin_time.store(0);
+                    }
 #endif
                     cache_miss[RDMA_Manager::thread_id][0]++;
                     if(value) {
