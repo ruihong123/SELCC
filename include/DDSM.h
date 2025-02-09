@@ -61,11 +61,7 @@ namespace DSMEngine {
             }
 
         handle->clear_pending_inv_states();
-//        }else{
-//            //TODO: delete the  asserts below when you implement the strategy 2.
-//
-//            assert(false);
-//        }
+        handle->reader_spin_time.store(0);
 #ifndef PAGE_FREE_LIST
         if (!handle->keep_the_mr){
             rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Regular_Page);
