@@ -935,10 +935,10 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 #endif
                 if (remote_lock_status.load() == 0){
 #ifdef WRITER_STARV_SPIN_BASE
-                    if (reader_spin_time.load() >0){
-                        spin_wait_us(reader_spin_time.load());
-                        reader_spin_time.store(0);
-                    }
+//                    if (reader_spin_time.load() >0){
+//                        spin_wait_us(reader_spin_time.load());
+//                        reader_spin_time.store(0);
+//                    }
 #endif
                     cache_miss[RDMA_Manager::thread_id][0]++;
                     if(value) {
@@ -1782,12 +1782,12 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //                                target_node_id, qp_id, true, true);
 #ifdef WRITER_STARV_SPIN_BASE
             // todo: there is no need to spin inside this function, and the spin time should be zero if there is no starvation detected.
-            if (need_spin){
-                // TOCONTROL:
-                spin_wait_us(WRITER_STARV_SPIN_BASE* ( buffer_inv_message.starvation_priority.load()));
-            }else if(buffer_inv_message.starvation_priority > 1){
-                reader_spin_time.store(WRITER_STARV_SPIN_BASE* (buffer_inv_message.starvation_priority.load()));
-            }
+//            if (need_spin){
+//                // TOCONTROL:
+//                spin_wait_us(WRITER_STARV_SPIN_BASE* ( buffer_inv_message.starvation_priority.load()));
+//            }else if(buffer_inv_message.starvation_priority > 1){
+//                reader_spin_time.store(WRITER_STARV_SPIN_BASE* (buffer_inv_message.starvation_priority.load()));
+//            }
 #endif
 //                    }
         }else if (this->remote_lock_status == 2){
