@@ -172,7 +172,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
             write_lock_counter.store(0);
             remote_urging_type.store(0);
 #ifdef WRITER_STARV_SPIN_BASE
-//            last_writer_starvation_priority = 0;
+            last_writer_starvation_priority = 0;
 #endif
             buffer_inv_message.ClearStates();
 

@@ -4457,11 +4457,11 @@ int RDMA_Manager::RDMA_CAS(ibv_mr *remote_mr, ibv_mr *local_mr, uint64_t compare
             assert(false);
         }
 #ifdef WRITER_STARV_SPIN_BASE
-//        if (starv_level && starvation_level > 0 && invalidation_RPC_type == 1){
-//            assert(*starv_level == 0);
-//            //
-//            *starv_level = starvation_level;
-//        }
+        if (starv_level && starvation_level > 0 && invalidation_RPC_type == 1){
+            assert(*starv_level == 0);
+            //
+            *starv_level = starvation_level;
+        }
 #endif
         //TODO: remember the starvation level in the cache handle. THis can be used for priority revenge to improve the access fairness.
         ((LeafPage<uint64_t>*)(page_buffer->addr))->global_lock = swap;
