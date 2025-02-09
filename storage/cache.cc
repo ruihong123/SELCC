@@ -1785,9 +1785,9 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
             if(buffer_inv_message.starvation_priority.load()> 0){
                 if (need_spin){
                     // TOCONTROL:
-                    spin_wait_us(WRITER_STARV_SPIN_BASE* ( 1+ buffer_inv_message.starvation_priority.load()));
+                    spin_wait_us(WRITER_STARV_SPIN_BASE* ( buffer_inv_message.starvation_priority.load()));
                 }else{
-                    reader_spin_time.store(WRITER_STARV_SPIN_BASE* (1+buffer_inv_message.starvation_priority.load()));
+                    reader_spin_time.store(WRITER_STARV_SPIN_BASE* (buffer_inv_message.starvation_priority.load()));
                 }
             }
 
