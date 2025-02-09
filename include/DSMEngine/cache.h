@@ -119,8 +119,8 @@ constexpr uint8_t Invalid_Node_ID = 255;
         // TODO: the variable below can be removed.
         std::atomic<int> lock_pending_num = 0;
 #ifdef WRITER_STARV_SPIN_BASE
-//        std::atomic<int> reader_spin_time = 0;
-//        uint8_t last_writer_starvation_priority = 0;
+        std::atomic<int> reader_spin_time = 0;
+        uint8_t last_writer_starvation_priority = 0;
 #endif
 //        std::chrono::time_point<std::chrono::high_resolution_clock> timer_begin;
         RWSpinLock rw_mtx; // low overhead rw spin lock and write have higher priority than read.
