@@ -144,7 +144,9 @@ constexpr uint8_t Invalid_Node_ID = 255;
 //#endif
 //        std::atomic<uint8_t > remote_xlock_next = 0;
 //        std::atomic<uint8_t> strategy = 1; // strategy 1 normal read write locking without releasing, strategy 2. Write lock with release, optimistic latch free read.
+#ifndef PAGE_FREE_LIST
         bool keep_the_mr = false;
+#endif
 #ifndef NDEBUG
 //        uint16_t last_modifier_thread_id = 0;
 #endif
