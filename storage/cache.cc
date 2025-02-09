@@ -1782,12 +1782,15 @@ LocalBuffer::LocalBuffer(const CacheConfig &cache_config) {
 //                                target_node_id, qp_id, true, true);
 #ifdef WRITER_STARV_SPIN_BASE
             // todo: there is no need to spin inside this function, and the spin time should be zero if there is no starvation detected.
-            if (need_spin){
-                // TOCONTROL:
-                spin_wait_us(WRITER_STARV_SPIN_BASE* ( buffer_inv_message.starvation_priority.load()));
-            }else if(buffer_inv_message.starvation_priority >= 1){
-                reader_spin_time.store(WRITER_STARV_SPIN_BASE* (buffer_inv_message.starvation_priority.load()));
+            if(buffer_inv_message.starvation_priority.load()> 0){
+                if (need_spin){
+                    // TOCONTROL:
+                    spin_wait_us(WRITER_STARV_SPIN_BASE* ( 1+ buffer_inv_message.starvation_priority.load()));
+                }else{
+                    reader_spin_time.store(WRITER_STARV_SPIN_BASE* (1+buffer_inv_message.starvation_priority.load()));
+                }
             }
+
 #endif
 //                    }
         }else if (this->remote_lock_status == 2){
