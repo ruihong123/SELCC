@@ -61,7 +61,9 @@ namespace DSMEngine {
             }
 
         handle->clear_pending_inv_states();
+#ifdef WRITER_STARV_SPIN_BASE
         handle->reader_spin_time.store(0);
+#endif
 #ifndef PAGE_FREE_LIST
         if (!handle->keep_the_mr){
             rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Regular_Page);
