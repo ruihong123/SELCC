@@ -6,6 +6,9 @@
 #include "DDSM.h"
 extern uint64_t cache_lookup_total[MAX_APP_THREAD];
 extern uint64_t cache_lookup_times[MAX_APP_THREAD];
+
+uint16_t implicit_ThisNodeID = 0;
+uint16_t implicit_tcp_port=19843;
 namespace DSMEngine {
     std::string trim(const std::string &s) {
         std::string res = s;
@@ -510,7 +513,36 @@ namespace DSMEngine {
         return ret;
     }
 
+    DDSM* DDSM::Get_Instance() {
+        struct DSMEngine::config_t config = {
+                NULL,  /* dev_name */
+                NULL,  /* server_name */
+                implicit_tcp_port, /* tcp_port */
+                1,	 /* ib_port */ //physical
+                1, /* gid_idx */
+                4*10*1024*1024, /*initial local buffer size*/
+                implicit_ThisNodeID
+        };
+//    DSMEngine::RDMA_Manager::node_id = ThisNodeID;
+        static DDSM * ddsm = nullptr;
+        static std::mutex lock;
+        if (ddsm) {
+            return ddsm;
+        }else{
+            lock.lock();
+            if (!ddsm) {
+                auto rdma_mg = RDMA_Manager::Get_Instance(&config);
+                DSMEngine::Cache* cache_ptr = NewLRUCache(define::kIndexCacheSize*define::MB);
+                rdma_mg->set_page_cache(cache_ptr);
+                ddsm = new DDSM(cache_ptr, rdma_mg);
+            }
 
+            lock.unlock();
+
+            return ddsm;
+        }
+
+    }
 
 
 }

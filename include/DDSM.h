@@ -91,6 +91,8 @@ namespace DSMEngine {
         ~DDSM(){
             disconnectMemcached();
         }
+        static DDSM *Get_Instance();
+        //todo: do we need destroy instance?
         void SELCC_Shared_Lock(void*& page_buffer, GlobalAddress page_addr, Cache::Handle*& handle);
         bool TrySELCC_Shared_Lock(void*& page_buffer, GlobalAddress page_addr, Cache::Handle*& handle);
         void SELCC_Shared_UnLock(GlobalAddress page_addr, Cache::Handle *&handle);

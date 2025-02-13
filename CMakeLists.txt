@@ -137,5 +137,5 @@ target_link_libraries(second_btree_bench DSMEngine)
 target_link_libraries(micro_bench DSMEngine)
 target_link_libraries(cpu_scale_test -lnuma)
 
-
+add_subdirectory(Rtree)
 

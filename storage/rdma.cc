@@ -277,7 +277,7 @@ RDMA_Manager::~RDMA_Manager() {
             rdma_mg = new RDMA_Manager(*config, kLeafPageSize);
             rdma_mg->Client_Set_Up_Resources();
         } else {
-
+            return rdma_mg;
         }
         lock.unlock();
         while(rdma_mg->main_comm_thread_ready_num.load() != rdma_mg->memory_nodes.size());
