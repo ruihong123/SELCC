@@ -73,6 +73,7 @@ namespace DSMEngine {
         assert(handle->refs.load() == 0);
     }
 
+
     class DDSM {
     public:
         Cache *page_cache;
@@ -115,7 +116,8 @@ namespace DSMEngine {
         char *memGet(const char *key, uint32_t klen, size_t *v_size = nullptr);
         uint64_t ClusterSum(const std::string &sum_key, uint64_t value);
         uint64_t memFetchAndAdd(const char *key, uint32_t klen);
-        GlobalAddress Allocate_Remote(Chunk_type pool_name);
+        GlobalAddress Allocate_Remote(Chunk_type pool_name); // allocate
+        void Deallocate_Remote(Chunk_type pool_name, GlobalAddress gaddr){}; // free
         uint16_t GetID(){
             return rdma_mg->node_id;
         }
@@ -126,6 +128,37 @@ namespace DSMEngine {
     private:
         std::atomic<uint64_t > target_node_counter = {0};
     };
+    class Exclusive_Guard{
+    public:
+        GlobalAddress page_addr_;
+        Cache::Handle* handle_;
+        Exclusive_Guard(void* &page_buffer, GlobalAddress page_addr, Cache::Handle* & handle){
+            DDSM::Get_Instance()->SELCC_Exclusive_Lock(page_buffer, page_addr, handle);
+            handle_ = handle;
+            page_addr_ = page_addr;
+
+        }
+        ~Exclusive_Guard(){
+            DDSM::Get_Instance()->SELCC_Exclusive_UnLock(page_addr_, handle_);
+
+        }
+    };
+    class Shared_Guard{
+    public:
+        GlobalAddress page_addr_;
+        Cache::Handle* handle_;
+        Shared_Guard(void* &page_buffer, GlobalAddress page_addr, Cache::Handle* & handle){
+            DDSM::Get_Instance()->SELCC_Shared_Lock(page_buffer, page_addr, handle);
+            handle_ = handle;
+            page_addr_ = page_addr;
+
+        }
+        ~Shared_Guard(){
+            DDSM::Get_Instance()->SELCC_Shared_UnLock(page_addr_, handle_);
+
+        }
+    };
+
 }
 
 
