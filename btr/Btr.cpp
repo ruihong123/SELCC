@@ -75,15 +75,6 @@ namespace DSMEngine {
         if (rdma_mg == nullptr){
             rdma_mg = ddms_->rdma_mg;
         }
-        for (size_t i = 0; i < rdma_mg->GetMemoryNodeNum(); ++i) {
-            local_locks.push_back(new LocalLockNode[define::kNumOfLock]);
-            for (size_t k = 0; k < define::kNumOfLock; ++k) {
-                auto &n = local_locks[i][k];
-                n.ticket_lock.store(0);
-                n.hand_over = false;
-                n.hand_time = 0;
-            }
-        }
         assert(sizeof(InternalPage<Key>) <= kInternalPageSize);
 //        leaf_cardinality_ = (kLeafPageSize - STRUCT_OFFSET(LeafPage<Key COMMA Value>, data_[0])) / scheme_ptr->GetSchemaSize();
         leaf_cardinality_ = LeafPage<Key>::calculate_cardinality(kLeafPageSize, scheme_ptr->GetSchemaSize());
@@ -103,26 +94,13 @@ namespace DSMEngine {
         if (rdma_mg == nullptr){
             rdma_mg = ddms_->rdma_mg;
         }
-        for (size_t i = 0; i < rdma_mg->GetMemoryNodeNum(); ++i) {
-            local_locks.push_back(new LocalLockNode[define::kNumOfLock]);
-            for (size_t k = 0; k < define::kNumOfLock; ++k) {
-                auto &n = local_locks[i][k];
-                n.ticket_lock.store(0);
-                n.hand_over = false;
-                n.hand_time = 0;
-            }
-        }
         assert(sizeof(InternalPage<Key>) <= kInternalPageSize);
         // The end of page is the page forward check pointer.
 //        leaf_cardinality_ = (kLeafPageSize - STRUCT_OFFSET(LeafPage<Key COMMA Value>, data_[0]) - sizeof(uint8_t)) / scheme_ptr->GetSchemaSize();
         leaf_cardinality_ = LeafPage<Key>::calculate_cardinality(kLeafPageSize, scheme_ptr->GetSchemaSize());
         print_verbose();
         assert(g_root_ptr.is_lock_free());
-//    page_cache = NewLRUCache(define::kIndexCacheSize);
-
-//  root_ptr_ptr = get_root_ptr_ptr();
-//        cached_root_page_handle = new Cache::Handle();
-//        Cache::Handle* handle = cached_root_page_handle.load();
+        //TODO: simplify the code below by SELCC APIs.
         if (DSMEngine::RDMA_Manager::node_id == 0){
             // only the first compute node create the root node for index
             g_root_ptr = rdma_mg->Allocate_Remote_RDMA_Slot(Regular_Page, 2 * round_robin_cur + 1); // remote allocation.
@@ -153,7 +131,6 @@ namespace DSMEngine {
 //            root_page->front_version++;
 //            root_page->rear_version = root_page->front_version;
             rdma_mg->RDMA_Write(g_root_ptr, (ibv_mr*)cached_root_page_handle.load()->value, kLeafPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
-            // TODO: create a special region to store the root_ptr for every tree id.
             auto local_mr = rdma_mg->Get_local_CAS_mr(); // remote allocation.
             ibv_mr remote_mr{};
             remote_mr = *rdma_mg->global_index_table;
@@ -2336,6 +2313,8 @@ namespace DSMEngine {
                     auto cas_buffer = rdma_mg->Get_local_CAS_mr();
                     //aquire the global lock
                 acquire_global_lock:
+                    // TODO: Modify the code below based on SELCC rather than a seperate lock table. we need to create a catalog
+                    // page and then whenever there is a root node change, we need to update the catalog page.
                     *(uint64_t*)cas_buffer->addr = 0;
                     rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 0, 1, IBV_SEND_SIGNALED,1, LockTable);
                     if ((*(uint64_t*) cas_buffer->addr) != 0){
@@ -2348,7 +2327,6 @@ namespace DSMEngine {
                         update_new_root(path_stack[coro_id][level], split_key, sibling_addr, level + 1,
                                         path_stack[coro_id][level], cxt, coro_id);
                         *(uint64_t *) cas_buffer->addr = 0;
-                        //TODO: USE RDMA cas TO release lock
 //                        rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
                         rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 1, 0, IBV_SEND_SIGNALED,1, LockTable);
                         assert((*(uint64_t*) cas_buffer->addr) == 1);
@@ -2499,43 +2477,7 @@ namespace DSMEngine {
 //    }
 
 // Local Locks
-/**
- * THere is a potenttial bug if the lock is overflow and one thread will wrongly acquire the lock. need to develop a new
- * way for local lock
- * @param lock_addr
- * @param cxt
- * @param coro_id
- * @return
- */
-    template <typename Key>
-    inline bool Btr<Key>::acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
-                                                   int coro_id) {
-        auto &node = local_locks[(lock_addr.nodeID -1)/2][lock_addr.offset / 8];
-        bool is_local_locked = false;
 
-        uint64_t lock_val = node.ticket_lock.fetch_add(1);
-        //TOTHINK(potential bug): what if the ticket out of buffer.
-
-        uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
-        uint32_t current = lock_val >> 32;// current is the former 32 bit in ticket lock
-//        assert(ticket - current <=4);
-//    printf("lock offest %lu's ticket %x current %x, thread %u\n", lock_addr.offset, ticket, current, thread_id);
-//   printf("", );
-        assert((lock_val +1) <<32 != 0);
-        while (ticket != current) { // lock failed
-            is_local_locked = true;
-
-            current = node.ticket_lock.load(std::memory_order_seq_cst) >> 32;
-        }
-
-        if (is_local_locked) {
-//    hierarchy_lock[rdma_mg->getMyThreadID()][0]++;
-        }
-
-        node.hand_time++;
-
-        return node.hand_over;
-    }
 //    = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
     template <typename Key>
     inline bool Btr<Key>::try_lock(Local_Meta *local_lock_meta) {
@@ -2603,30 +2545,7 @@ namespace DSMEngine {
         return local_lock_meta->hand_over;
 
     }
-    template <typename Key>
-    inline bool Btr<Key>::can_hand_over(GlobalAddress lock_addr) {
 
-        auto &node = local_locks[(lock_addr.nodeID-1)/2][lock_addr.offset / 8];
-        uint64_t lock_val = node.ticket_lock.load(std::memory_order_relaxed);
-// only when unlocking, it need to check whether it can handover to the next, so that it do not need to UNLOCK the global lock.
-// It is possible that the handover is set as false but this server is still holding the lock.
-        uint32_t ticket = lock_val << 32 >> 32;//
-        uint32_t current = lock_val >> 32;
-// if the handover in node is true, then the other thread can get the lock without any RDMAcas
-// if the handover in node is false, then the other thread will acquire the lock from by RDMA cas AGAIN
-        if (ticket <= current + 1) { // no pending locks
-            node.hand_over = false;// if no pending thread, then it will release the remote lock and next aquir need RDMA CAS again
-        } else {
-            node.hand_over = node.hand_time < define::kMaxHandOverTime; // check the limit
-        }
-        if (!node.hand_over) {
-            node.hand_time = 0;// clear the handtime.
-        } else {
-//    handover_count[rdma_mg->getMyThreadID()][0]++;
-        }
-
-        return node.hand_over;
-    }
     //Call before release the global lock
     template <class Key>
     inline bool Btr<Key>::can_hand_over(Local_Meta * local_lock_meta) {
@@ -2650,13 +2569,6 @@ namespace DSMEngine {
         }
 
         return local_lock_meta->hand_over;
-    }
-    template <typename Key>
-    inline void Btr<Key>::releases_local_lock(GlobalAddress lock_addr) {
-
-        auto &node = local_locks[(lock_addr.nodeID-1)/2][lock_addr.offset / 8];
-
-        node.ticket_lock.fetch_add((1ull << 32));
     }
     template <class Key>
     inline void Btr<Key>::releases_local_optimistic_lock(Local_Meta * local_lock_meta) {

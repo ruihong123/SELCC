@@ -75,9 +75,7 @@ class SpinMutex {
   // private:
   std::atomic<bool> locked_;
 };
-// TODO: This read-write implementation may not 100% guarantee the atomicity, is it?
-//  If it is not, we can follow the RDMA shared exclusive latch to implement an local atomic read-write lock.
-// Implement a shared-exclusive spin lock with lock, try_lock, unlock, lock_shared, try_lock_shared, and unlock_shared.
+// TODO: how to config the RW spinlock to prioritize the writer or prioritize the reader.
 class RWSpinLock{
     std::atomic<int> readers_count{0};
     std::atomic<bool> write_now{false};

@@ -368,9 +368,9 @@ int main(int argc, char *argv[]) {
     size_t column_ids[1] = {0};
     schema_ptr->SetPrimaryColumns(column_ids,1);
     DSMEngine::DDSM ddsm = DSMEngine::DDSM(cache_ptr, rdma_mg);
-//    tree = new Btr<Secondary_Key<uint64_t,uint64_t>>(&ddsm, cache_ptr, schema_ptr, 0);
+//    tree = new Btr<Secondary_Key<uint64_t,uint64_t>>(&ddsm_, cache_ptr, schema_ptr, 0);
     tree = new Btr<uint64_t>(&ddsm, cache_ptr, schema_ptr, 0);
-//    tree = new DSMEngine::Btr<uint64_t, uint64_t>(&ddsm, cache_ptr, schema_ptr, 0, true);
+//    tree = new DSMEngine::Btr<uint64_t, uint64_t>(&ddsm_, cache_ptr, schema_ptr, 0, true);
 
 
 

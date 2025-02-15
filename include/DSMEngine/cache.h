@@ -111,7 +111,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
             }
         };
     public:
-        void* value = nullptr; // NOTE: the value is the pointer to ibv_mr not the buffer!!!! Carefule.
+        void* value = nullptr; // NOTE: the value is the pointer to ibv_mr not the buffer!!!! be careful.
         std::atomic<uint32_t> refs;     // References, if zero this cache is in the free list.
         //TODO: the internal node may not need the rw_mtx below, maybe we can delete them.
         std::atomic<int> remote_lock_status = 0; // 0 unlocked, 1 read locked, 2 write lock
@@ -519,7 +519,7 @@ private:
     void Unref_Inv(LRUHandle *e);
 //    void Unref_WithoutLock(LRUHandle* e);
     bool FinishErase(LRUHandle *e) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
-
+    // todo: make the mutex_ a shared mutex. and hence reduce the bottle neck in the cache table.
     mutable SpinMutex mutex_;
 
     // Initialized before use.

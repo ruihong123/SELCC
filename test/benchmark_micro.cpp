@@ -369,7 +369,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                 }
                 size_t v_size;
                 int key =  STEPS - 1;
-                memget_buffer = (GlobalAddress*)ddsm->memGet((const char*)&key, sizeof(key),  &v_size);
+                memget_buffer = (GlobalAddress*)ddsm_->memGet((const char*)&key, sizeof(key),  &v_size);
                 assert(v_size == sizeof(GlobalAddress) * MEMSET_GRANULARITY);
             }else if (UNLIKELY(shared_ratio > 0 && i%MEMSET_GRANULARITY == 0 )) {
                 if (memget_buffer){
@@ -377,7 +377,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                 }
                 size_t v_size;
                 int key =  i + MEMSET_GRANULARITY - 1;
-                memget_buffer = (GlobalAddress*)ddsm->memGet((const char*)&key, sizeof(key),  &v_size);
+                memget_buffer = (GlobalAddress*)ddsm_->memGet((const char*)&key, sizeof(key),  &v_size);
                 assert(v_size == sizeof(GlobalAddress) * MEMSET_GRANULARITY);
             }
 
@@ -392,7 +392,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
                 shared[i] = true;
             } else {
 
-                data[i] = ddsm->Allocate_Remote(Regular_Page);
+                data[i] = ddsm_->Allocate_Remote(Regular_Page);
                 assert(data[i].offset <= 64ull*1024ull*1024*1024);
 
 
@@ -418,7 +418,7 @@ void Init(DDSM* ddsm, GlobalAddress data[], GlobalAddress access[], bool shared[
 
     if (workload == 1){
 #ifdef EXCLUSIVE_HOTSPOT
-        workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_param, *seedp, ddsm->GetID()/2, compute_num);
+        workload_gen = new ZipfianDistributionGenerator(STEPS, zipfian_param, *seedp, ddsm_->GetID()/2, compute_num);
 #else
 
 #ifdef CMU_ZIPF
@@ -1072,7 +1072,7 @@ int main(int argc, char* argv[]) {
     }
 
     // print cache statistics
-//    ddsm->ReportCacheStatistics();
+//    ddsm_->ReportCacheStatistics();
 #ifdef TIMEPRINT
     printf("The average cache look up time elapse is %lu\n", Calculate_cache_counters());
 #endif

@@ -219,7 +219,7 @@ namespace DSMEngine {
         static thread_local size_t round_robin_cur;
         static thread_local std::shared_mutex *lock_coupling_memo[define::kMaxLevelOfTree];
         static thread_local SearchResult<Key> *search_result_memo;
-        std::vector<LocalLockNode *> local_locks;
+//        std::vector<LocalLockNode *> local_locks;
         Cache *page_cache;
         DDSM* ddms_ = nullptr;
         RDMA_Manager *rdma_mg = nullptr;

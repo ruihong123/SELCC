@@ -128,32 +128,51 @@ namespace DSMEngine {
     private:
         std::atomic<uint64_t > target_node_counter = {0};
     };
-    class Exclusive_Guard{
+    class SELCC_Guard{
     public:
+        enum LockType{
+            Shared,
+            Exclusive
+        };
         GlobalAddress page_addr_;
         Cache::Handle* handle_;
+        LockType lock_type_;
+//        SELCC_Guard(void* &page_buffer, GlobalAddress page_addr, Cache::Handle* & handle){} = default;
+        // TODO: make the destructor a virtual function
+        virtual ~SELCC_Guard(){
+            if(lock_type_ == Shared){
+                DDSM::Get_Instance()->SELCC_Shared_UnLock(page_addr_, handle_);
+            }else {
+                DDSM::Get_Instance()->SELCC_Exclusive_UnLock(page_addr_, handle_);
+            }
+        }
+    };
+    class Exclusive_Guard : public SELCC_Guard{
+    public:
+//        GlobalAddress page_addr_;
+//        Cache::Handle* handle_;
         Exclusive_Guard(void* &page_buffer, GlobalAddress page_addr, Cache::Handle* & handle){
             DDSM::Get_Instance()->SELCC_Exclusive_Lock(page_buffer, page_addr, handle);
             handle_ = handle;
             page_addr_ = page_addr;
 
         }
-        ~Exclusive_Guard(){
+        ~Exclusive_Guard() override {
             DDSM::Get_Instance()->SELCC_Exclusive_UnLock(page_addr_, handle_);
 
         }
     };
-    class Shared_Guard{
+    class Shared_Guard: public SELCC_Guard{
     public:
-        GlobalAddress page_addr_;
-        Cache::Handle* handle_;
+//        GlobalAddress page_addr_;
+//        Cache::Handle* handle_;
         Shared_Guard(void* &page_buffer, GlobalAddress page_addr, Cache::Handle* & handle){
             DDSM::Get_Instance()->SELCC_Shared_Lock(page_buffer, page_addr, handle);
             handle_ = handle;
             page_addr_ = page_addr;
 
         }
-        ~Shared_Guard(){
+        ~Shared_Guard() override{
             DDSM::Get_Instance()->SELCC_Shared_UnLock(page_addr_, handle_);
 
         }
