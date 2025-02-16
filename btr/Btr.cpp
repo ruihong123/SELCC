@@ -405,17 +405,9 @@ namespace DSMEngine {
         ibv_mr remote_mr = *rdma_mg->global_index_table;
         // find the table enty according to the id
         remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*tree_id);
-        //TODO: The new root seems not be updated by the CAS, the old root and new_root addr are the same
         if (!rdma_mg->RDMA_CAS(&remote_mr, cas_buffer, old_root, new_root_addr, IBV_SEND_SIGNALED, 1, 1)) {
             assert(*(uint64_t*)cas_buffer->addr == (uint64_t)old_root);
-            printf("Update the root global buffer %p successfully new root node is %d, offset is %llu, level is %u tree id is %llu, this node id is %lu\n",remote_mr.addr, new_root_addr.nodeID, new_root_addr.offset , level, tree_id, rdma_mg->node_id);
-            broadcast_new_root(new_root_addr, level);
-//#ifndef NDEBUG
-//            usleep(10);
-//            ibv_wc wc[2];
-//            auto qp_type = std::string("default");
-//            assert(rdma_mg->try_poll_completions(wc, 1, qp_type, true, 1) == 0);
-//#endif
+//            broadcast_new_root(new_root_addr, level);
             return true;
         } else {
             std::cout << "cas root fail " << std::endl;

@@ -186,6 +186,12 @@ namespace DSMEngine{
 //
 //    constexpr int kLeafCardinality =
 //            (kLeafPageSize - sizeof(Header) - sizeof(uint8_t) * 2 - 8 - sizeof(uint64_t) - RDMA_OFFSET) / sizeof(LeafEntry);
+    class CatalogPage {
+        alignas(8) uint64_t global_lock;
+    public:
+        GlobalAddress root_gptrs[(kInternalPageSize -8) / sizeof(GlobalAddress)] = {};
+    };
+
     template<class Key>
     class InternalPage {
         // private:

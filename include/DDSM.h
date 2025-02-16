@@ -81,6 +81,7 @@ namespace DSMEngine {
         //TODO: implement a thread local cache line hold memo.
         memcached_st *memc;
         std::mutex memc_mutex;
+        GlobalAddress catalog_ptr = GlobalAddress::Null();
         DDSM(Cache *page_cache, RDMA_Manager *rdma_mg = nullptr) : page_cache(page_cache), rdma_mg(rdma_mg) {
             if (!connectMemcached()) {
                 printf("Failed to connect to memcached\n");
@@ -88,9 +89,54 @@ namespace DSMEngine {
             }
             char temp[100] = "Try me ahahahahaha! kkk";
             memSet(reinterpret_cast<const char *>(&temp), 100, reinterpret_cast<const char *>(&temp), 100);
+            if (rdma_mg->node_id == 0){
+                catalog_ptr = Allocate_Remote(Regular_Page);
+                //we get the GCL addr of catalog from the global index table.
+                ibv_mr remote_mr = *rdma_mg->global_index_table;
+                remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*0);
+                auto cas_buffer = rdma_mg->Get_local_CAS_mr();
+                // not necessary to use RDMA cas, use RDMA write instead.
+                rdma_mg->RDMA_CAS(&remote_mr, cas_buffer, 0, catalog_ptr, IBV_SEND_SIGNALED, 1, 1);
+            }
         };
         ~DDSM(){
             disconnectMemcached();
+        }
+        void Update_Root_GCL(uint16_t tree_id, GlobalAddress new_root_gptr){
+            if (catalog_ptr == GlobalAddress::Null()){
+                // Allocate one remote GCL.
+                auto read_mr = rdma_mg->Get_local_read_mr();
+                ibv_mr remote_mr = *rdma_mg->global_index_table;
+                remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*0);
+                rdma_mg->RDMA_Read(&remote_mr, read_mr, sizeof(GlobalAddress), IBV_SEND_SIGNALED, 1, 1);
+                assert(*((GlobalAddress*)read_mr->addr) != GlobalAddress::Null());
+                catalog_ptr = *((GlobalAddress*)read_mr->addr);
+            }
+            void* catlog_buf = nullptr;
+            Cache_Handle* catlog_h;
+            SELCC_Exclusive_Lock(catlog_buf, catalog_ptr, catlog_h );
+            auto catlog = (CatalogPage*) catlog_buf;
+            catlog->root_gptrs[tree_id] = new_root_gptr;
+            SELCC_Exclusive_UnLock(catalog_ptr, catlog_h);
+        }
+        GlobalAddress Get_Root_GCL(uint16_t tree_id){
+            if (catalog_ptr == GlobalAddress::Null()){
+                // Allocate one remote GCL.
+                auto read_mr = rdma_mg->Get_local_read_mr();
+                ibv_mr remote_mr = *rdma_mg->global_index_table;
+                remote_mr.addr = (void*) ((char*)remote_mr.addr + 8*0);
+                rdma_mg->RDMA_Read(&remote_mr, read_mr, sizeof(GlobalAddress), IBV_SEND_SIGNALED, 1, 1);
+                assert(*((GlobalAddress*)read_mr->addr) != GlobalAddress::Null());
+                catalog_ptr = *((GlobalAddress*)read_mr->addr);
+            }
+            GlobalAddress ret ;
+            void* catlog_buf = nullptr;
+            Cache_Handle* catlog_h;
+            SELCC_Shared_Lock(catlog_buf, catalog_ptr, catlog_h );
+            auto catlog = (CatalogPage*) catlog_buf;
+            ret = catlog->root_gptrs[tree_id];
+            SELCC_Shared_UnLock(catalog_ptr, catlog_h);
+            return ret;
         }
         static DDSM *Get_Instance();
         //todo: do we need destroy instance?
@@ -134,17 +180,31 @@ namespace DSMEngine {
             Shared,
             Exclusive
         };
-        GlobalAddress page_addr_;
-        Cache::Handle* handle_;
+        GlobalAddress page_addr_ = GlobalAddress::Null();
+        Cache::Handle* handle_ = nullptr;
         LockType lock_type_;
-//        SELCC_Guard(void* &page_buffer, GlobalAddress page_addr, Cache::Handle* & handle){} = default;
+        SELCC_Guard(){};
+        SELCC_Guard(const SELCC_Guard&) = delete;
+        SELCC_Guard(SELCC_Guard&) = delete;
+        SELCC_Guard(SELCC_Guard&& other) noexcept {
+            other.page_addr_ = GlobalAddress::Null();
+            other.handle_ = nullptr;
+            page_addr_ = other.page_addr_;
+            handle_ = other.handle_;
+            lock_type_ = other.lock_type_;
+
+        }
+        //        SELCC_Guard(void* &page_buffer, GlobalAddress page_addr, Cache::Handle* & handle){} = default;
         // TODO: make the destructor a virtual function
         virtual ~SELCC_Guard(){
-            if(lock_type_ == Shared){
-                DDSM::Get_Instance()->SELCC_Shared_UnLock(page_addr_, handle_);
-            }else {
-                DDSM::Get_Instance()->SELCC_Exclusive_UnLock(page_addr_, handle_);
+            if (handle_){
+                if(lock_type_ == Shared){
+                    DDSM::Get_Instance()->SELCC_Shared_UnLock(page_addr_, handle_);
+                }else {
+                    DDSM::Get_Instance()->SELCC_Exclusive_UnLock(page_addr_, handle_);
+                }
             }
+
         }
     };
     class Exclusive_Guard : public SELCC_Guard{
@@ -157,6 +217,7 @@ namespace DSMEngine {
             page_addr_ = page_addr;
 
         }
+        Exclusive_Guard(const Exclusive_Guard&) = delete;
         ~Exclusive_Guard() override {
             DDSM::Get_Instance()->SELCC_Exclusive_UnLock(page_addr_, handle_);
 

@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.14)
 
 project(RTree)
 
-add_library(RTree RTree.h
-        RTree.cpp)
-target_include_directories(RTree PUBLIC RTree.h)
+add_library(RTree
+        RTree.tpp)
+target_include_directories(RTree PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(RTree PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(RTree DSMEngine)
 option(ENABLE_TESTING ON)

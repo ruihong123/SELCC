@@ -229,7 +229,10 @@ inline void compiler_barrier() { asm volatile("" ::: "memory"); }
 
 class GlobalAddress {
 public:
-
+//    GlobalAddress& operator=(const GlobalAddress& other) {
+//        val = other.val;
+//        return *this;
+//    };
     union {
         struct {
             uint64_t nodeID: 16;

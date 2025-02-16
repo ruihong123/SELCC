@@ -9,7 +9,7 @@
 
 using namespace ::testing;
 
-typedef int ValueType;
+typedef int TestValueType;
 
 typedef RectTemplate<int> Rect;
 
@@ -20,7 +20,7 @@ const std::vector<Rect> rects = {
     Rect(7, 1, 9, 2),
 };
 
-const std::vector<ValueType> values = {0, 2, 3, 5};
+const std::vector<TestValueType> values = {0, 2, 3, 5};
 
 int nrects = rects.size();
 
@@ -28,8 +28,8 @@ Rect search_rect(6, 4, 10,
                  6); // search will find above rects that this one overlaps
 
 TEST(BasicTests, BasicTests) {
-  typedef RTree<ValueType, int, 2, float> MyTree;
-  MyTree tree;
+  typedef RTree<TestValueType, int, 2, float> MyTree;
+  MyTree tree(1, nullptr);
 
   int i, nhits;
 
@@ -39,7 +39,7 @@ TEST(BasicTests, BasicTests) {
         values[i]); // Note, all values including zero are fine in this version
   }
 
-  MockFunction<bool(ValueType)> mock_function;
+  MockFunction<bool(TestValueType)> mock_function;
   ON_CALL(mock_function, Call).WillByDefault(Return(true));
   EXPECT_CALL(mock_function, Call(_)).Times(2);
 
@@ -49,7 +49,7 @@ TEST(BasicTests, BasicTests) {
   ASSERT_EQ(nhits, 2);
 
   std::vector<Rect> collectedRects = std::vector<Rect>();
-  std::vector<ValueType> collectedValues = std::vector<ValueType>();
+  std::vector<TestValueType> collectedValues = std::vector<TestValueType>();
 
   // Iterator test
   MyTree::Iterator it;
@@ -115,10 +115,10 @@ TEST(BasicTests, BasicTests) {
 
 
 TEST(BasicTests, RemoveTests) {
-  typedef RTree<ValueType, int, 2, float> MyTree;
+  typedef RTree<TestValueType, int, 2, float> MyTree;
   MyTree tree;
 
-  std::vector<ValueType> v;
+  std::vector<TestValueType> v;
 
   for (size_t i = 0; i < 1000; i++) {
     const Rect rect(i, i, i, i);
@@ -129,7 +129,7 @@ TEST(BasicTests, RemoveTests) {
   for (size_t i = 0; i < v.size(); i++) {
     tree.Remove(v.back());
 
-    std::vector<ValueType> collectedValues = std::vector<ValueType>();
+    std::vector<TestValueType> collectedValues = std::vector<TestValueType>();
     MyTree::Iterator it;
     tree.GetFirst(it);
 
