@@ -78,7 +78,7 @@ public:
 
 public:
 
-  RTree();
+  RTree(uint16_t Btr_id,DDSM* ddsm);
   RTree(const RTree& other);
   virtual ~RTree();
 
@@ -309,7 +309,7 @@ protected:
   {
     Rect m_rect;                                  ///< Bounds
 //    Node* m_child = NULL;                         ///< Child node
-    GlobalAddress* m_child = NULL;                ///< Global Address of Child node
+    GlobalAddress m_child = GlobalAddress::Null();                ///< Global Address of Child node
     DATATYPE m_data;                              ///< Data Id
   };
 
@@ -329,6 +329,7 @@ protected:
   {
     ListNode* m_next;                             ///< Next in list
     Node* m_node;                                 ///< Node
+    SELCC_Guard* m_guard;
   };
 
   /// Variables for finding a split partition
@@ -349,18 +350,21 @@ protected:
     ELEMTYPEREAL m_coverSplitArea;
   };
 
-  Node* AllocNode();
-  void FreeNode(Node* a_node);
+  Cache_Handle * AllocNode(int level = INT_MAX);
+  void FreeNode(Cache_Handle* node_h);
   void InitNode(Node* a_node);
   void InitRect(Rect* a_rect);
-  bool InsertRectRec(const Branch& a_branch, GlobalAddress a_gptr, Node** a_newNode, int a_level);
-  bool InsertRect(const Branch& a_branch, Node** a_root, int a_level);
+  bool InsertRectRec(const Branch& a_branch, GlobalAddress a_node_gptr, Cache_Handle*& newnode_h_this, int a_level);
+  bool InsertRect(const Branch& a_branch, int a_level);
+//  void LockCoupleFillMap(GlobalAddress node_gptr, Node** node);
+  void LockCoupleFillMap(GlobalAddress node_gptr, Node** node);
+  void LockCoupleCleanMap(Node* node);
   Rect NodeCover(Node* a_node);
-  bool AddBranch(const Branch* a_branch, Node* a_node, Node** a_newNode);
+  bool AddBranch(const Branch* a_branch, Node* a_node, Cache_Handle* & a_newNode_h);
   void DisconnectBranch(Node* a_node, int a_index);
   int PickBranch(const Rect* a_rect, Node* a_node);
   Rect CombineRect(const Rect* a_rectA, const Rect* a_rectB);
-  void SplitNode(Node* a_node, const Branch* a_branch, Node** a_newNode);
+  void SplitNode(Node* a_node, const Branch* a_branch, Cache_Handle* & a_newNode_h);
   ELEMTYPEREAL RectSphericalVolume(Rect* a_rect);
   ELEMTYPEREAL RectVolume(Rect* a_rect);
   ELEMTYPEREAL CalcRectVolume(Rect* a_rect);
@@ -370,14 +374,14 @@ protected:
   void InitParVars(PartitionVars* a_parVars, int a_maxRects, int a_minFill);
   void PickSeeds(PartitionVars* a_parVars);
   void Classify(int a_index, int a_group, PartitionVars* a_parVars);
-  bool RemoveRect(Rect* a_rect, const DATATYPE& a_id, Node** a_root);
-  bool RemoveRectRec(Rect* a_rect, const DATATYPE& a_id, Node* a_node, ListNode** a_listNode);
+  bool RemoveRect(Rect* a_rect, const DATATYPE& a_id);
+  bool RemoveRectRec(Rect* a_rect, const DATATYPE& a_id, GlobalAddress gptr, ListNode** a_listNode, Rect& new_rect, bool& need_merge);
   ListNode* AllocListNode();
   void FreeListNode(ListNode* a_listNode);
   bool Overlap(Rect* a_rectA, Rect* a_rectB) const;
   ELEMTYPE SquareDistance(Rect const& a_rectA, Rect const& a_rectB) const;
   void ReInsert(Node* a_node, ListNode** a_listNode);
-  bool Search(Node* a_node, Rect* a_rect, int& a_foundCount, std::function<bool (const DATATYPE&)> callback) const;
+  bool SearchRect(GlobalAddress a_node_h, Rect* a_rect, int& a_foundCount, std::function<bool (const DATATYPE&)> callback) const;
   void RemoveAllRec(Node* a_node);
   void Reset();
   void CountRec(Node* a_node, int& a_count);
@@ -385,12 +389,14 @@ protected:
   bool SaveRec(Node* a_node, RTFileStream& a_stream);
   bool LoadRec(Node* a_node, RTFileStream& a_stream);
   void CopyRec(Node* current, Node* other);
+  uint16_t m_tree_id;
   Cache_Handle* root_handle;                                    ///< Root of tree
+  GlobalAddress root_gptr;                                    ///< Root of tree
   Node* m_root;                                    ///< Root of tree
   std::mutex root_mtx;
   ELEMTYPEREAL m_unitSphereVolume;                 ///< Unit sphere constant for required number of dimensions
-  DSMEngine::DDSM* ddsm;
-  static thread_local std::vector<GlobalAddress> gptrs;
+  DSMEngine::DDSM* ddsm_;
+  static thread_local std::map<int, SELCC_Guard>* gptrs_mp;
 public:
   // return all the AABBs that form the RTree
   std::vector<Rect> ListTree() const;
@@ -475,7 +481,7 @@ public:
 };
 
 
-
+#include "RTree.tpp"
 //#undef RTREE_TEMPLATE
 //#undef RTREE_QUAL
 
