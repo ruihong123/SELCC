@@ -119,7 +119,7 @@ int RTREE_QUAL::Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDI
 }
 
 RTREE_TEMPLATE
-        size_t RTREE_QUAL::NNSearch(
+size_t RTREE_QUAL::NNSearch(
         const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS],
         std::function<bool(const DATATYPE&, ELEMTYPE)> callback
 ) const
@@ -502,11 +502,7 @@ typename RTREE_QUAL::Node* RTREE_QUAL::AllocNode()
 {
     Node* newNode;
 #ifdef RTREE_DONT_USE_MEMPOOLS
-    GlobalAddress gptr = ddsm->Allocate_Remote(Regular_Page);
-    void* local_buff;
-    Cache_Handle* handle;
-    Exclusive_Guard guard(local_buff, gptr, handle);
-    newNode = new(local_buff) Node;
+    newNode = new Node;
 #else // RTREE_DONT_USE_MEMPOOLS
     // EXAMPLE
 #endif // RTREE_DONT_USE_MEMPOOLS
@@ -579,15 +575,11 @@ void RTREE_QUAL::InitRect(Rect* a_rect)
 // The level argument specifies the number of steps up from the leaf
 // level to insert; e.g. a data rectangle goes in at level = 0.
 RTREE_TEMPLATE
-bool RTREE_QUAL::InsertRectRec(const Branch& a_branch, GlobalAddress a_gptr, Node** a_newNode, int a_level)
+bool RTREE_QUAL::InsertRectRec(const Branch& a_branch, Node* a_node, Node** a_newNode, int a_level)
 {
-    Cache_Handle* a_handle = nullptr;
-    void* local_buff;
-    Exclusive_Guard a_guard(local_buff, a_gptr, a_handle);
-    Node* a_node = (Node*)local_buff;
             RTREE_ASSERT(a_node && a_newNode);
             RTREE_ASSERT(a_level >= 0 && a_level <= a_node->m_level);
-    // todo: need a lock coupling algorithm to guarantee the concurrency.
+
     // recurse until we reach the correct level for the new record. data records
     // will always be called with a_level == 0 (leaf)
     if(a_node->m_level > a_level)
@@ -689,15 +681,15 @@ bool RTREE_QUAL::InsertRect(const Branch& a_branch, Node** a_root, int a_level)
 RTREE_TEMPLATE
 typename RTREE_QUAL::Rect RTREE_QUAL::NodeCover(Node* a_node)
 {
-RTREE_ASSERT(a_node);
+            RTREE_ASSERT(a_node);
 
-Rect rect = a_node->m_branch[0].m_rect;
-for(int index = 1; index < a_node->m_count; ++index)
-{
-rect = CombineRect(&rect, &(a_node->m_branch[index].m_rect));
-}
+    Rect rect = a_node->m_branch[0].m_rect;
+    for(int index = 1; index < a_node->m_count; ++index)
+    {
+        rect = CombineRect(&rect, &(a_node->m_branch[index].m_rect));
+    }
 
-return rect;
+    return rect;
 }
 
 
@@ -733,13 +725,13 @@ bool RTREE_QUAL::AddBranch(const Branch* a_branch, Node* a_node, Node** a_newNod
 RTREE_TEMPLATE
 void RTREE_QUAL::DisconnectBranch(Node* a_node, int a_index)
 {
-RTREE_ASSERT(a_node && (a_index >= 0) && (a_index < MAXNODES));
-RTREE_ASSERT(a_node->m_count > 0);
+            RTREE_ASSERT(a_node && (a_index >= 0) && (a_index < MAXNODES));
+            RTREE_ASSERT(a_node->m_count > 0);
 
-// Remove element by swapping with the last element to prevent gaps in array
-a_node->m_branch[a_index] = a_node->m_branch[a_node->m_count - 1];
+    // Remove element by swapping with the last element to prevent gaps in array
+    a_node->m_branch[a_index] = a_node->m_branch[a_node->m_count - 1];
 
---a_node->m_count;
+    --a_node->m_count;
 }
 
 
@@ -811,91 +803,91 @@ typename RTREE_QUAL::Rect RTREE_QUAL::CombineRect(const Rect* a_rectA, const Rec
 RTREE_TEMPLATE
 void RTREE_QUAL::SplitNode(Node* a_node, const Branch* a_branch, Node** a_newNode)
 {
-RTREE_ASSERT(a_node);
-RTREE_ASSERT(a_branch);
+            RTREE_ASSERT(a_node);
+            RTREE_ASSERT(a_branch);
 
-// Could just use local here, but member or external is faster since it is reused
-PartitionVars localVars;
-PartitionVars* parVars = &localVars;
+    // Could just use local here, but member or external is faster since it is reused
+    PartitionVars localVars;
+    PartitionVars* parVars = &localVars;
 
-// Load all the branches into a buffer, initialize old node
-GetBranches(a_node, a_branch, parVars);
+    // Load all the branches into a buffer, initialize old node
+    GetBranches(a_node, a_branch, parVars);
 
-// Find partition
-ChoosePartition(parVars, MINNODES);
+    // Find partition
+    ChoosePartition(parVars, MINNODES);
 
-// Create a new node to hold (about) half of the branches
-*a_newNode = AllocNode();
-(*a_newNode)->m_level = a_node->m_level;
+    // Create a new node to hold (about) half of the branches
+    *a_newNode = AllocNode();
+    (*a_newNode)->m_level = a_node->m_level;
 
-// Put branches from buffer into 2 nodes according to the chosen partition
-a_node->m_count = 0;
-LoadNodes(a_node, *a_newNode, parVars);
+    // Put branches from buffer into 2 nodes according to the chosen partition
+    a_node->m_count = 0;
+    LoadNodes(a_node, *a_newNode, parVars);
 
-RTREE_ASSERT((a_node->m_count + (*a_newNode)->m_count) == parVars->m_total);
+            RTREE_ASSERT((a_node->m_count + (*a_newNode)->m_count) == parVars->m_total);
 }
 
 
 // Calculate the n-dimensional volume of a rectangle
 RTREE_TEMPLATE
-        ELEMTYPEREAL RTREE_QUAL::RectVolume(Rect* a_rect)
+ELEMTYPEREAL RTREE_QUAL::RectVolume(Rect* a_rect)
 {
-RTREE_ASSERT(a_rect);
+            RTREE_ASSERT(a_rect);
 
-ELEMTYPEREAL volume = (ELEMTYPEREAL)1;
+    ELEMTYPEREAL volume = (ELEMTYPEREAL)1;
 
-for(int index=0; index<NUMDIMS; ++index)
-{
-volume *= a_rect->m_max[index] - a_rect->m_min[index];
-}
+    for(int index=0; index<NUMDIMS; ++index)
+    {
+        volume *= a_rect->m_max[index] - a_rect->m_min[index];
+    }
 
-RTREE_ASSERT(volume >= (ELEMTYPEREAL)0);
+            RTREE_ASSERT(volume >= (ELEMTYPEREAL)0);
 
-return volume;
+    return volume;
 }
 
 
 // The exact volume of the bounding sphere for the given Rect
 RTREE_TEMPLATE
-        ELEMTYPEREAL RTREE_QUAL::RectSphericalVolume(Rect* a_rect)
+ELEMTYPEREAL RTREE_QUAL::RectSphericalVolume(Rect* a_rect)
 {
-RTREE_ASSERT(a_rect);
+            RTREE_ASSERT(a_rect);
 
-ELEMTYPEREAL sumOfSquares = (ELEMTYPEREAL)0;
-ELEMTYPEREAL radius;
+    ELEMTYPEREAL sumOfSquares = (ELEMTYPEREAL)0;
+    ELEMTYPEREAL radius;
 
-for(int index=0; index < NUMDIMS; ++index)
-{
-ELEMTYPEREAL halfExtent = ((ELEMTYPEREAL)a_rect->m_max[index] - (ELEMTYPEREAL)a_rect->m_min[index]) * (ELEMTYPEREAL)0.5;
-sumOfSquares += halfExtent * halfExtent;
-}
+    for(int index=0; index < NUMDIMS; ++index)
+    {
+        ELEMTYPEREAL halfExtent = ((ELEMTYPEREAL)a_rect->m_max[index] - (ELEMTYPEREAL)a_rect->m_min[index]) * (ELEMTYPEREAL)0.5;
+        sumOfSquares += halfExtent * halfExtent;
+    }
 
-radius = (ELEMTYPEREAL)sqrt(sumOfSquares);
+    radius = (ELEMTYPEREAL)sqrt(sumOfSquares);
 
-// Pow maybe slow, so test for common dims like 2,3 and just use x*x, x*x*x.
-if(NUMDIMS == 3)
-{
-return (radius * radius * radius * m_unitSphereVolume);
-}
-else if(NUMDIMS == 2)
-{
-return (radius * radius * m_unitSphereVolume);
-}
-else
-{
-return (ELEMTYPEREAL)(pow(radius, NUMDIMS) * m_unitSphereVolume);
-}
+    // Pow maybe slow, so test for common dims like 2,3 and just use x*x, x*x*x.
+    if(NUMDIMS == 3)
+    {
+        return (radius * radius * radius * m_unitSphereVolume);
+    }
+    else if(NUMDIMS == 2)
+    {
+        return (radius * radius * m_unitSphereVolume);
+    }
+    else
+    {
+        return (ELEMTYPEREAL)(pow(radius, NUMDIMS) * m_unitSphereVolume);
+    }
 }
 
 
 // Use one of the methods to calculate retangle volume
 RTREE_TEMPLATE
-        ELEMTYPEREAL RTREE_QUAL::CalcRectVolume(Rect* a_rect)
+ELEMTYPEREAL RTREE_QUAL::CalcRectVolume(Rect* a_rect)
 {
 #ifdef RTREE_USE_SPHERICAL_VOLUME
-return RectSphericalVolume(a_rect); // Slower but helps certain merge cases
+    return RectSphericalVolume(a_rect); // Slower but helps certain merge cases
 #else // RTREE_USE_SPHERICAL_VOLUME
-return RectVolume(a_rect); // Faster but can cause poor merges
+    return RectVolume(a_rect); // Faster but can cause poor merges
 #endif // RTREE_USE_SPHERICAL_VOLUME
 }
 
@@ -904,26 +896,26 @@ return RectVolume(a_rect); // Faster but can cause poor merges
 RTREE_TEMPLATE
 void RTREE_QUAL::GetBranches(Node* a_node, const Branch* a_branch, PartitionVars* a_parVars)
 {
-RTREE_ASSERT(a_node);
-RTREE_ASSERT(a_branch);
+            RTREE_ASSERT(a_node);
+            RTREE_ASSERT(a_branch);
 
-RTREE_ASSERT(a_node->m_count == MAXNODES);
+            RTREE_ASSERT(a_node->m_count == MAXNODES);
 
-// Load the branch buffer
-for(int index=0; index < MAXNODES; ++index)
-{
-a_parVars->m_branchBuf[index] = a_node->m_branch[index];
-}
-a_parVars->m_branchBuf[MAXNODES] = *a_branch;
-a_parVars->m_branchCount = MAXNODES + 1;
+    // Load the branch buffer
+    for(int index=0; index < MAXNODES; ++index)
+    {
+        a_parVars->m_branchBuf[index] = a_node->m_branch[index];
+    }
+    a_parVars->m_branchBuf[MAXNODES] = *a_branch;
+    a_parVars->m_branchCount = MAXNODES + 1;
 
-// Calculate rect containing all in the set
-a_parVars->m_coverSplit = a_parVars->m_branchBuf[0].m_rect;
-for(int index=1; index < MAXNODES+1; ++index)
-{
-a_parVars->m_coverSplit = CombineRect(&a_parVars->m_coverSplit, &a_parVars->m_branchBuf[index].m_rect);
-}
-a_parVars->m_coverSplitArea = CalcRectVolume(&a_parVars->m_coverSplit);
+    // Calculate rect containing all in the set
+    a_parVars->m_coverSplit = a_parVars->m_branchBuf[0].m_rect;
+    for(int index=1; index < MAXNODES+1; ++index)
+    {
+        a_parVars->m_coverSplit = CombineRect(&a_parVars->m_coverSplit, &a_parVars->m_branchBuf[index].m_rect);
+    }
+    a_parVars->m_coverSplitArea = CalcRectVolume(&a_parVars->m_coverSplit);
 }
 
 
@@ -941,81 +933,81 @@ a_parVars->m_coverSplitArea = CalcRectVolume(&a_parVars->m_coverSplit);
 RTREE_TEMPLATE
 void RTREE_QUAL::ChoosePartition(PartitionVars* a_parVars, int a_minFill)
 {
-RTREE_ASSERT(a_parVars);
+            RTREE_ASSERT(a_parVars);
 
-bool firstTime;
-ELEMTYPEREAL biggestDiff;
-int group, chosen = 0, betterGroup = 0;
+    bool firstTime;
+    ELEMTYPEREAL biggestDiff;
+    int group, chosen = 0, betterGroup = 0;
 
-InitParVars(a_parVars, a_parVars->m_branchCount, a_minFill);
-PickSeeds(a_parVars);
+    InitParVars(a_parVars, a_parVars->m_branchCount, a_minFill);
+    PickSeeds(a_parVars);
 
-while (((a_parVars->m_count[0] + a_parVars->m_count[1]) < a_parVars->m_total)
-&& (a_parVars->m_count[0] < (a_parVars->m_total - a_parVars->m_minFill))
-&& (a_parVars->m_count[1] < (a_parVars->m_total - a_parVars->m_minFill)))
-{
-firstTime = true;
-for(int index=0; index<a_parVars->m_total; ++index)
-{
-if(PartitionVars::NOT_TAKEN == a_parVars->m_partition[index])
-{
-Rect* curRect = &a_parVars->m_branchBuf[index].m_rect;
-Rect rect0 = CombineRect(curRect, &a_parVars->m_cover[0]);
-Rect rect1 = CombineRect(curRect, &a_parVars->m_cover[1]);
-ELEMTYPEREAL growth0 = CalcRectVolume(&rect0) - a_parVars->m_area[0];
-ELEMTYPEREAL growth1 = CalcRectVolume(&rect1) - a_parVars->m_area[1];
-ELEMTYPEREAL diff = growth1 - growth0;
-if(diff >= 0)
-{
-group = 0;
-}
-else
-{
-group = 1;
-diff = -diff;
-}
+    while (((a_parVars->m_count[0] + a_parVars->m_count[1]) < a_parVars->m_total)
+           && (a_parVars->m_count[0] < (a_parVars->m_total - a_parVars->m_minFill))
+           && (a_parVars->m_count[1] < (a_parVars->m_total - a_parVars->m_minFill)))
+    {
+        firstTime = true;
+        for(int index=0; index<a_parVars->m_total; ++index)
+        {
+            if(PartitionVars::NOT_TAKEN == a_parVars->m_partition[index])
+            {
+                Rect* curRect = &a_parVars->m_branchBuf[index].m_rect;
+                Rect rect0 = CombineRect(curRect, &a_parVars->m_cover[0]);
+                Rect rect1 = CombineRect(curRect, &a_parVars->m_cover[1]);
+                ELEMTYPEREAL growth0 = CalcRectVolume(&rect0) - a_parVars->m_area[0];
+                ELEMTYPEREAL growth1 = CalcRectVolume(&rect1) - a_parVars->m_area[1];
+                ELEMTYPEREAL diff = growth1 - growth0;
+                if(diff >= 0)
+                {
+                    group = 0;
+                }
+                else
+                {
+                    group = 1;
+                    diff = -diff;
+                }
 
-if(firstTime || diff > biggestDiff)
-{
-firstTime = false;
-biggestDiff = diff;
-chosen = index;
-betterGroup = group;
-}
-else if((diff == biggestDiff) && (a_parVars->m_count[group] < a_parVars->m_count[betterGroup]))
-{
-chosen = index;
-betterGroup = group;
-}
-}
-}
-RTREE_ASSERT(!firstTime);
-Classify(chosen, betterGroup, a_parVars);
-}
+                if(firstTime || diff > biggestDiff)
+                {
+                    firstTime = false;
+                    biggestDiff = diff;
+                    chosen = index;
+                    betterGroup = group;
+                }
+                else if((diff == biggestDiff) && (a_parVars->m_count[group] < a_parVars->m_count[betterGroup]))
+                {
+                    chosen = index;
+                    betterGroup = group;
+                }
+            }
+        }
+                RTREE_ASSERT(!firstTime);
+        Classify(chosen, betterGroup, a_parVars);
+    }
 
-// If one group too full, put remaining rects in the other
-if((a_parVars->m_count[0] + a_parVars->m_count[1]) < a_parVars->m_total)
-{
-if(a_parVars->m_count[0] >= a_parVars->m_total - a_parVars->m_minFill)
-{
-group = 1;
-}
-else
-{
-group = 0;
-}
-for(int index=0; index<a_parVars->m_total; ++index)
-{
-if(PartitionVars::NOT_TAKEN == a_parVars->m_partition[index])
-{
-Classify(index, group, a_parVars);
-}
-}
-}
+    // If one group too full, put remaining rects in the other
+    if((a_parVars->m_count[0] + a_parVars->m_count[1]) < a_parVars->m_total)
+    {
+        if(a_parVars->m_count[0] >= a_parVars->m_total - a_parVars->m_minFill)
+        {
+            group = 1;
+        }
+        else
+        {
+            group = 0;
+        }
+        for(int index=0; index<a_parVars->m_total; ++index)
+        {
+            if(PartitionVars::NOT_TAKEN == a_parVars->m_partition[index])
+            {
+                Classify(index, group, a_parVars);
+            }
+        }
+    }
 
-RTREE_ASSERT((a_parVars->m_count[0] + a_parVars->m_count[1]) == a_parVars->m_total);
-RTREE_ASSERT((a_parVars->m_count[0] >= a_parVars->m_minFill) &&
-             (a_parVars->m_count[1] >= a_parVars->m_minFill));
+            RTREE_ASSERT((a_parVars->m_count[0] + a_parVars->m_count[1]) == a_parVars->m_total);
+            RTREE_ASSERT((a_parVars->m_count[0] >= a_parVars->m_minFill) &&
+                         (a_parVars->m_count[1] >= a_parVars->m_minFill));
 }
 
 
@@ -1045,16 +1037,16 @@ void RTREE_QUAL::LoadNodes(Node* a_nodeA, Node* a_nodeB, PartitionVars* a_parVar
 RTREE_TEMPLATE
 void RTREE_QUAL::InitParVars(PartitionVars* a_parVars, int a_maxRects, int a_minFill)
 {
-RTREE_ASSERT(a_parVars);
+            RTREE_ASSERT(a_parVars);
 
-a_parVars->m_count[0] = a_parVars->m_count[1] = 0;
-a_parVars->m_area[0] = a_parVars->m_area[1] = (ELEMTYPEREAL)0;
-a_parVars->m_total = a_maxRects;
-a_parVars->m_minFill = a_minFill;
-for(int index=0; index < a_maxRects; ++index)
-{
-a_parVars->m_partition[index] = PartitionVars::NOT_TAKEN;
-}
+    a_parVars->m_count[0] = a_parVars->m_count[1] = 0;
+    a_parVars->m_area[0] = a_parVars->m_area[1] = (ELEMTYPEREAL)0;
+    a_parVars->m_total = a_maxRects;
+    a_parVars->m_minFill = a_minFill;
+    for(int index=0; index < a_maxRects; ++index)
+    {
+        a_parVars->m_partition[index] = PartitionVars::NOT_TAKEN;
+    }
 }
 
 
@@ -1127,50 +1119,50 @@ void RTREE_QUAL::Classify(int a_index, int a_group, PartitionVars* a_parVars)
 RTREE_TEMPLATE
 bool RTREE_QUAL::RemoveRect(Rect* a_rect, const DATATYPE& a_id, Node** a_root)
 {
-RTREE_ASSERT(a_root);
-RTREE_ASSERT(*a_root);
+            RTREE_ASSERT(a_root);
+            RTREE_ASSERT(*a_root);
 
-ListNode* reInsertList = NULL;
+    ListNode* reInsertList = NULL;
 
-if(!RemoveRectRec(a_rect, a_id, *a_root, &reInsertList))
-{
-// Found and deleted a data item
-// Reinsert any branches from eliminated nodes
-while(reInsertList)
-{
-Node* tempNode = reInsertList->m_node;
+    if(!RemoveRectRec(a_rect, a_id, *a_root, &reInsertList))
+    {
+        // Found and deleted a data item
+        // Reinsert any branches from eliminated nodes
+        while(reInsertList)
+        {
+            Node* tempNode = reInsertList->m_node;
 
-for(int index = 0; index < tempNode->m_count; ++index)
-{
-// TODO go over this code. should I use (tempNode->m_level - 1)?
-InsertRect(tempNode->m_branch[index],
-a_root,
-tempNode->m_level);
-}
+            for(int index = 0; index < tempNode->m_count; ++index)
+            {
+                // TODO go over this code. should I use (tempNode->m_level - 1)?
+                InsertRect(tempNode->m_branch[index],
+                           a_root,
+                           tempNode->m_level);
+            }
 
-ListNode* remLNode = reInsertList;
-reInsertList = reInsertList->m_next;
+            ListNode* remLNode = reInsertList;
+            reInsertList = reInsertList->m_next;
 
-FreeNode(remLNode->m_node);
-FreeListNode(remLNode);
-}
+            FreeNode(remLNode->m_node);
+            FreeListNode(remLNode);
+        }
 
-// Check for redundant root (not leaf, 1 child) and eliminate TODO replace
-// if with while? In case there is a whole branch of redundant roots...
-if((*a_root)->m_count == 1 && (*a_root)->IsInternalNode())
-{
-Node* tempNode = (*a_root)->m_branch[0].m_child;
+        // Check for redundant root (not leaf, 1 child) and eliminate TODO replace
+        // if with while? In case there is a whole branch of redundant roots...
+        if((*a_root)->m_count == 1 && (*a_root)->IsInternalNode())
+        {
+            Node* tempNode = (*a_root)->m_branch[0].m_child;
 
-RTREE_ASSERT(tempNode);
-FreeNode(*a_root);
-*a_root = tempNode;
-}
-return false;
-}
-else
-{
-return true;
-}
+                    RTREE_ASSERT(tempNode);
+            FreeNode(*a_root);
+            *a_root = tempNode;
+        }
+        return false;
+    }
+    else
+    {
+        return true;
+    }
 }
 
 
@@ -1181,46 +1173,46 @@ return true;
 RTREE_TEMPLATE
 bool RTREE_QUAL::RemoveRectRec(Rect* a_rect, const DATATYPE& a_id, Node* a_node, ListNode** a_listNode)
 {
-RTREE_ASSERT(a_node && a_listNode);
-RTREE_ASSERT(a_node->m_level >= 0);
+            RTREE_ASSERT(a_node && a_listNode);
+            RTREE_ASSERT(a_node->m_level >= 0);
 
-if(a_node->IsInternalNode())  // not a leaf node
-{
-for(int index = 0; index < a_node->m_count; ++index)
-{
-if(a_rect == NULL || Overlap(a_rect, &(a_node->m_branch[index].m_rect)))
-{
-if(!RemoveRectRec(a_rect, a_id, a_node->m_branch[index].m_child, a_listNode))
-{
-if(a_node->m_branch[index].m_child->m_count >= MINNODES)
-{
-// child removed, just resize parent rect
-a_node->m_branch[index].m_rect = NodeCover(a_node->m_branch[index].m_child);
-}
-else
-{
-// child removed, not enough entries in node, eliminate node
-ReInsert(a_node->m_branch[index].m_child, a_listNode);
-DisconnectBranch(a_node, index); // Must return after this call as count has changed
-}
-return false;
-}
-}
-}
-return true;
-}
-else // A leaf node
-{
-for(int index = 0; index < a_node->m_count; ++index)
-{
-if(a_node->m_branch[index].m_data == a_id)
-{
-DisconnectBranch(a_node, index); // Must return after this call as count has changed
-return false;
-}
-}
-return true;
-}
+    if(a_node->IsInternalNode())  // not a leaf node
+    {
+        for(int index = 0; index < a_node->m_count; ++index)
+        {
+            if(a_rect == NULL || Overlap(a_rect, &(a_node->m_branch[index].m_rect)))
+            {
+                if(!RemoveRectRec(a_rect, a_id, a_node->m_branch[index].m_child, a_listNode))
+                {
+                    if(a_node->m_branch[index].m_child->m_count >= MINNODES)
+                    {
+                        // child removed, just resize parent rect
+                        a_node->m_branch[index].m_rect = NodeCover(a_node->m_branch[index].m_child);
+                    }
+                    else
+                    {
+                        // child removed, not enough entries in node, eliminate node
+                        ReInsert(a_node->m_branch[index].m_child, a_listNode);
+                        DisconnectBranch(a_node, index); // Must return after this call as count has changed
+                    }
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    else // A leaf node
+    {
+        for(int index = 0; index < a_node->m_count; ++index)
+        {
+            if(a_node->m_branch[index].m_data == a_id)
+            {
+                DisconnectBranch(a_node, index); // Must return after this call as count has changed
+                return false;
+            }
+        }
+        return true;
+    }
 }
 
 
@@ -1228,34 +1220,34 @@ return true;
 RTREE_TEMPLATE
 bool RTREE_QUAL::Overlap(Rect* a_rectA, Rect* a_rectB) const
 {
-RTREE_ASSERT(a_rectA && a_rectB);
+            RTREE_ASSERT(a_rectA && a_rectB);
 
-for(int index=0; index < NUMDIMS; ++index)
-{
-if (a_rectA->m_min[index] > a_rectB->m_max[index] ||
-a_rectB->m_min[index] > a_rectA->m_max[index])
-{
-return false;
-}
-}
-return true;
+    for(int index=0; index < NUMDIMS; ++index)
+    {
+        if (a_rectA->m_min[index] > a_rectB->m_max[index] ||
+            a_rectB->m_min[index] > a_rectA->m_max[index])
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 // Decide whether two rectangles overlap.
 RTREE_TEMPLATE
-        ELEMTYPE RTREE_QUAL::SquareDistance(Rect const& a_rectA, Rect const& a_rectB) const
+ELEMTYPE RTREE_QUAL::SquareDistance(Rect const& a_rectA, Rect const& a_rectB) const
 {
-ELEMTYPE dist{};
+    ELEMTYPE dist{};
 
-for (int index = 0; index < NUMDIMS; ++index)
-{
-auto diff1 = a_rectA.m_min[index] - a_rectB.m_max[index];
-auto diff2 = a_rectA.m_max[index] - a_rectB.m_min[index];
+    for (int index = 0; index < NUMDIMS; ++index)
+    {
+        auto diff1 = a_rectA.m_min[index] - a_rectB.m_max[index];
+        auto diff2 = a_rectA.m_max[index] - a_rectB.m_min[index];
 
-dist += diff1 * diff2 < 0 ? 0 : std::min(diff1 * diff1, diff2 * diff2);
+        dist += diff1 * diff2 < 0 ? 0 : std::min(diff1 * diff1, diff2 * diff2);
 
-}
-return dist;
+    }
+    return dist;
 }
 
 // Add a node to the reinsertion list.  All its branches will later
@@ -1276,49 +1268,49 @@ void RTREE_QUAL::ReInsert(Node* a_node, ListNode** a_listNode)
 RTREE_TEMPLATE
 bool RTREE_QUAL::Search(Node* a_node, Rect* a_rect, int& a_foundCount, std::function<bool (const DATATYPE&)> callback) const
 {
-RTREE_ASSERT(a_node);
-RTREE_ASSERT(a_node->m_level >= 0);
-RTREE_ASSERT(a_rect);
+            RTREE_ASSERT(a_node);
+            RTREE_ASSERT(a_node->m_level >= 0);
+            RTREE_ASSERT(a_rect);
 
-if(a_node->IsInternalNode())
-{
-// This is an internal node in the tree
-for(int index=0; index < a_node->m_count; ++index)
-{
-if(Overlap(a_rect, &a_node->m_branch[index].m_rect))
-{
-if(!Search(a_node->m_branch[index].m_child, a_rect, a_foundCount, callback))
-{
-// The callback indicated to stop searching
-return false;
-}
-}
-}
-}
-else
-{
-// This is a leaf node
-for(int index=0; index < a_node->m_count; ++index)
-{
-if(Overlap(a_rect, &a_node->m_branch[index].m_rect))
-{
-DATATYPE& id = a_node->m_branch[index].m_data;
-++a_foundCount;
+    if(a_node->IsInternalNode())
+    {
+        // This is an internal node in the tree
+        for(int index=0; index < a_node->m_count; ++index)
+        {
+            if(Overlap(a_rect, &a_node->m_branch[index].m_rect))
+            {
+                if(!Search(a_node->m_branch[index].m_child, a_rect, a_foundCount, callback))
+                {
+                    // The callback indicated to stop searching
+                    return false;
+                }
+            }
+        }
+    }
+    else
+    {
+        // This is a leaf node
+        for(int index=0; index < a_node->m_count; ++index)
+        {
+            if(Overlap(a_rect, &a_node->m_branch[index].m_rect))
+            {
+                DATATYPE& id = a_node->m_branch[index].m_data;
+                ++a_foundCount;
 
-if(callback && !callback(id))
-{
-return false; // Don't continue searching
-}
-}
-}
-}
+                if(callback && !callback(id))
+                {
+                    return false; // Don't continue searching
+                }
+            }
+        }
+    }
 
-return true; // Continue searching
+    return true; // Continue searching
 }
 
 
 RTREE_TEMPLATE
-        std::vector<typename RTREE_QUAL::Rect> RTREE_QUAL::ListTree() const
+std::vector<typename RTREE_QUAL::Rect> RTREE_QUAL::ListTree() const
 {
             RTREE_ASSERT(m_root);
             RTREE_ASSERT(m_root->m_level >= 0);
