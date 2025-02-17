@@ -237,7 +237,7 @@ run_node_test() {
 # node test
 echo "**************************run node test****************************"
 result_file=$bin/results/node
-node_range="1 2 4 8"
+node_range="16"
 thread_range="8"
 remote_range="100"
 shared_range="0 30 60 100"
@@ -364,6 +364,6 @@ done
 #run_remote_test
 #run_space_test
 #run_shared_test_noeviction
-#run_node_test
-run_test
+run_node_test
+#run_test
 #run_skewed_test
