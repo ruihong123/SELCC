@@ -1,9 +1,9 @@
 #!/bin/bash
 home_dir="/users/Ruihong/SELCC"
-nmemory="10"
-ncompute="10"
-nmachines="20"
-nshard="10"
+nmemory="16"
+ncompute="16"
+nmachines="32"
+nshard="16"
 numa_node=("0" "1")
 port=$((10000+RANDOM%1000))
 github_repo="https://github.com/ruihong123/SELCC"
