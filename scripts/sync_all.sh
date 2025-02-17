@@ -1,9 +1,9 @@
 #!/bin/bash
 home_dir="/users/Ruihong/SELCC/"
-nmemory="10"
-ncompute="10"
-nmachines="20"
-nshard="10"
+nmemory="17"
+ncompute="17"
+nmachines="34"
+nshard="17"
 numa_node=("0" "1")
 port=$((10000+RANDOM%1000))
 bin=`dirname "$0"`
