@@ -1192,6 +1192,7 @@ void RTREE_QUAL::Classify(int a_index, int a_group, PartitionVars* a_parVars)
 }
 
 
+
 // Delete a data rectangle from an index structure.
 // Pass in a pointer to a Rect, the tid of the record, ptr to ptr to root node.
 // Returns 1 if record not found, 0 if success.
