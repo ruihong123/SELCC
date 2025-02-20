@@ -135,9 +135,7 @@ namespace DSMEngine {
 
 
     template<class Key>
-    bool InternalPage<Key>::internal_page_store(GlobalAddress page_addr, const Key &k, GlobalAddress value, int level,
-                                                CoroContext *cxt,
-                                                int coro_id) {
+    bool InternalPage<Key>::internal_page_store(GlobalAddress page_addr, const Key &k, GlobalAddress value, int level) {
         auto cnt = hdr.last_index + 1;
         assert(records[hdr.last_index].ptr != GlobalAddress::Null());
         assert(records[hdr.last_index].key != 0);

@@ -383,7 +383,7 @@ int main(int argc, char *argv[]) {
 //        printf("insert key %d", i);
         key = i;
         value = 2*i;
-      tree->insert(key, tuple_slice);
+        tree->insert(key, tuple_slice);
 //        tree->insert(i, i * 2);
     }
   }

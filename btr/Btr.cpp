@@ -32,7 +32,7 @@ namespace DSMEngine {
 //                                     [define::kMaxLevelOfTree];
     template <typename Key>
     thread_local SearchResult<Key>* Btr<Key>::search_result_memo = nullptr;
-    extern thread_local GlobalAddress path_stack[define::kMaxCoro][define::kMaxLevelOfTree];
+    extern thread_local GlobalAddress path_stack[define::kMaxLevelOfTree];
     template <typename Key>
 //RDMA_Manager * Btr<Key,Value>::rdma_mg = nullptr;
 // for coroutine schedule
@@ -155,9 +155,9 @@ namespace DSMEngine {
         }
     }
     template <typename Key>
-    inline void Btr<Key>::before_operation(CoroContext *cxt, int coro_id) {
+    inline void Btr<Key>::before_operation() {
         for (size_t i = 0; i < define::kMaxLevelOfTree; ++i) {
-            path_stack[coro_id][i] = GlobalAddress::Null();
+            path_stack[i] = GlobalAddress::Null();
         }
     }
     template <typename Key>
@@ -325,10 +325,8 @@ namespace DSMEngine {
         }
     }
     template <typename Key>
-    bool Btr<Key>::update_new_root(GlobalAddress left, const Key &k,
-                                         GlobalAddress right, int level,
-                                         GlobalAddress old_root, CoroContext *cxt,
-                                         int coro_id) {
+    bool Btr<Key>::update_new_root(GlobalAddress left, const Key &k, GlobalAddress right, int level,
+                                   GlobalAddress old_root) {
 
         assert(level > 0);
         auto cas_buffer = rdma_mg->Get_local_CAS_mr();
@@ -387,8 +385,7 @@ namespace DSMEngine {
 
 //Note: this function will make sure the insert will definitely success. it willkeep retrying/
     template<typename Key>
-    bool Btr<Key>::insert_internal(Key &k, GlobalAddress &v, CoroContext *cxt,
-                                         int coro_id, int target_level) {
+    bool Btr<Key>::insert_internal(Key &k, GlobalAddress &v, int target_level) {
 
         //TODO: You need to acquire a lock when you write a page
         Cache::Handle* page_hint = nullptr;
@@ -410,14 +407,14 @@ namespace DSMEngine {
         next: // Internal_and_Leaf page search
         //TODO: What if the target_level is equal to the root level.
         assert(target_level <= tree_height.load());
-        if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
-            if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
+        if (!internal_page_search(p, k, result, level, isroot, page_hint)) {
+            if (isroot || path_stack[result.level +1] == GlobalAddress::Null()){
                 p = get_root_ptr_protected(page_hint);
                 level = -1;
             }else{
                 // fall back to upper level
                 assert(level == result.level|| level == -1);
-                p = path_stack[coro_id][result.level +1];
+                p = path_stack[result.level +1];
                 page_hint = nullptr;
                 level = result.level +1;
             }
@@ -465,11 +462,11 @@ namespace DSMEngine {
         Key split_key;
         GlobalAddress sibling_prt;
         assert(p != GlobalAddress::Null());
-        bool store_success = internal_page_store(p, k, v, level, cxt, coro_id);
+        bool store_success = internal_page_store(p, k, v, level);
         if (!store_success){
             //TODO: need to understand why the result is always false.
-            if (path_stack[coro_id][level + 1] != GlobalAddress::Null()){
-                p = path_stack[coro_id][level + 1];
+            if (path_stack[level + 1] != GlobalAddress::Null()){
+                p = path_stack[level + 1];
                 level = level + 1;
             }
             else{
@@ -482,7 +479,7 @@ namespace DSMEngine {
         return true;
     }
     template<typename Key>
-    void Btr<Key>::insert(const Key &k, const Slice &v, CoroContext *cxt, int coro_id) {
+    void Btr<Key>::insert(const Key &k, const Slice &v) {
 //  assert(rdma_mg->is_register());
 #ifndef NDEBUG
         //check whether the primary key equal to the k.
@@ -492,7 +489,7 @@ namespace DSMEngine {
         record.GetPrimaryKey(&pri_k);
         assert(pri_k == k);
 #endif
-        before_operation(cxt, coro_id);
+        before_operation();
 
 
         Cache::Handle* page_hint = nullptr;
@@ -538,8 +535,8 @@ namespace DSMEngine {
 //            assert(p != root);
         }
         assert(level <= tree_height.load());
-        if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
-            if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
+        if (!internal_page_search(p, k, result, level, isroot, page_hint)) {
+            if (isroot || path_stack[result.level +1] == GlobalAddress::Null()){
                 isroot = true;
                 p = get_root_ptr_protected(page_hint);
                 printf("revisit the root, this nodeid is %lu\n", RDMA_Manager::node_id);
@@ -549,10 +546,10 @@ namespace DSMEngine {
                 // fall back to upper level
                 assert(level == result.level || level == -1);
 #ifndef NDEBUG
-                printf("fall back to the upper level, this nodeid is %lu, this thread is %d, This gptr %p, upper gptr is %p\n", RDMA_Manager::node_id, RDMA_Manager::thread_id, p, path_stack[coro_id][result.level +1]);
+                printf("fall back to the upper level, this nodeid is %lu, this thread is %d, This gptr %p, upper gptr is %p\n", RDMA_Manager::node_id, RDMA_Manager::thread_id, p, path_stack[result.level +1]);
                 fflush(stdout);
 #endif
-                p = path_stack[coro_id][result.level +1];
+                p = path_stack[result.level +1];
                 if (p == root){
                     isroot = true;
                 }
@@ -618,10 +615,10 @@ namespace DSMEngine {
 //#ifdef PROCESSANALYSIS
 //    start = std::chrono::high_resolution_clock::now();
 //#endif
-        if (!leaf_page_store(p, k, v, split_key, sibling_prt, 0, cxt, coro_id)){
-            if (path_stack[coro_id][1] != GlobalAddress::Null()){
+        if (!leaf_page_store(p, k, v, split_key, sibling_prt, 0)){
+            if (path_stack[1] != GlobalAddress::Null()){
 
-                p = path_stack[coro_id][1];
+                p = path_stack[1];
                 if (p == root){
                     isroot = true;
                 }
@@ -655,7 +652,7 @@ namespace DSMEngine {
     }
 
     template <typename Key>
-    bool Btr<Key>::search(const Key &k, const Slice &value_buff, CoroContext *cxt, int coro_id) {
+    bool Btr<Key>::search(const Key &k, const Slice &value_buff) {
 //  assert(rdma_mg->is_register());
         Cache::Handle* page_hint = nullptr;
         auto root = get_root_ptr_protected(page_hint);
@@ -685,15 +682,15 @@ namespace DSMEngine {
         }
 //#endif
 
-        if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
+        if (!internal_page_search(p, k, result, level, isroot, page_hint)) {
             //The traverser failed to move to the next level
-            if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
+            if (isroot || path_stack[result.level +1] == GlobalAddress::Null()){
                 p = get_root_ptr_protected(page_hint);
                 level = -1;
             }else{
                 // fall back to upper level
                 assert(level == result.level|| level == -1);
-                p = path_stack[coro_id][result.level +1];
+                p = path_stack[result.level +1];
                 page_hint = nullptr;
                 level = result.level + 1;
             }
@@ -737,9 +734,9 @@ namespace DSMEngine {
         leaf_next:// Leaf page search
 
         assert(result.val.data()!= nullptr);
-        if (!leaf_page_search(p, k, result, level, cxt, coro_id)){
-            if (path_stack[coro_id][1] != GlobalAddress::Null()){
-                p = path_stack[coro_id][1];
+        if (!leaf_page_search(p, k, result, level)){
+            if (path_stack[1] != GlobalAddress::Null()){
+                p = path_stack[1];
                 level = 1;
 
             }
@@ -788,7 +785,7 @@ namespace DSMEngine {
         }
     }
     template <typename Key>
-    bool Btr<Key>::remove(const Key &k, CoroContext *cxt, int coro_id) {
+    bool Btr<Key>::remove(const Key &k) {
 //  assert(rdma_mg->is_register());
         Cache::Handle* page_hint = nullptr;
         auto root = get_root_ptr_protected(page_hint);
@@ -813,15 +810,15 @@ namespace DSMEngine {
         }
 //#endif
 
-        if (!internal_page_search(p, k, result, level, isroot, page_hint, cxt, coro_id)) {
+        if (!internal_page_search(p, k, result, level, isroot, page_hint)) {
             //The traverser failed to move to the next level
-            if (isroot || path_stack[coro_id][result.level +1] == GlobalAddress::Null()){
+            if (isroot || path_stack[result.level +1] == GlobalAddress::Null()){
                 p = get_root_ptr_protected(page_hint);
                 level = -1;
             }else{
                 // fall back to upper level
                 assert(level == result.level|| level == -1);
-                p = path_stack[coro_id][result.level +1];
+                p = path_stack[result.level +1];
                 page_hint = nullptr;
                 level = result.level + 1;
             }
@@ -865,8 +862,8 @@ namespace DSMEngine {
 #endif
         leaf_next:// Leaf page search
         if (!leaf_page_delete(p, k, result, level)){
-            if (path_stack[coro_id][1] != GlobalAddress::Null()){
-                p = path_stack[coro_id][1];
+            if (path_stack[1] != GlobalAddress::Null()){
+                p = path_stack[1];
                 level = 1;
 
             }
@@ -949,13 +946,13 @@ namespace DSMEngine {
 
         if (!internal_page_search(p, key, result, level, isroot, page_hint)) {
             //The traverser failed to move to the next level
-            if (isroot || path_stack[0][result.level + 1] == GlobalAddress::Null()) {
+            if (isroot || path_stack[result.level + 1] == GlobalAddress::Null()) {
                 p = get_root_ptr_protected(page_hint);
                 level = -1;
             } else {
                 // fall back to upper level
                 assert(level == result.level || level == -1);
-                p = path_stack[0][result.level + 1];
+                p = path_stack[result.level + 1];
                 page_hint = nullptr;
                 level = result.level + 1;
             }
@@ -999,8 +996,8 @@ namespace DSMEngine {
         Btr<Key>::iterator iter;
     leaf_next:// Leaf page search
         if (!leaf_page_find(p, key, result, iter, level)) {
-            if (path_stack[0][1] != GlobalAddress::Null()) {
-                p = path_stack[0][1];
+            if (path_stack[1] != GlobalAddress::Null()) {
+                p = path_stack[1];
                 level = 1;
 
             } else {
@@ -1040,8 +1037,8 @@ namespace DSMEngine {
  * @return
  */
     template <typename Key>
-    bool Btr<Key>::internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int &level, bool isroot,
-                                              Cache::Handle *handle, CoroContext *cxt, int coro_id) {
+    bool Btr<Key>::internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int &level,
+                                        bool isroot, Cache::Handle *handle) {
 
 // tothink: How could I know whether this level before I actually access this page.
 
@@ -1098,7 +1095,7 @@ namespace DSMEngine {
 #endif
                 level = result.level;
                 assert(result.is_leaf == (level == 0));
-                path_stack[coro_id][result.level] = page_addr;
+                path_stack[result.level] = page_addr;
                 //If this is the leaf node, directly return let leaf page search to handle it.
                 if (result.level == 0){
 #ifndef NDEBUG
@@ -1162,7 +1159,7 @@ namespace DSMEngine {
 
             level = result.level;
             assert(result.is_leaf == (level == 0));
-            path_stack[coro_id][result.level] = page_addr;
+            path_stack[result.level] = page_addr;
             //If this is the leaf node, directly return let leaf page search to handle it.
             if (result.level == 0){
                 //THis path shall not happen
@@ -1207,7 +1204,7 @@ namespace DSMEngine {
                     handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
                     root_mtx.unlock_shared();
                 }
-                if (isroot || path_stack[coro_id][result.level + 1] == GlobalAddress::Null()) {
+                if (isroot || path_stack[result.level + 1] == GlobalAddress::Null()) {
                     // only invalidate the upper layer if we did not acquire shared root_mtx.
                     //since the mtx below is just to avoid muliptle refreshes.
 
@@ -1242,7 +1239,7 @@ namespace DSMEngine {
                     isroot = false;
                     handle = nullptr;
 //                printf("Right turn from Page nodeid %lu, offset %lu\n", page_addr.nodeID, page_addr.offset);
-                    return internal_page_search(sib_ptr, k, result, level, isroot, handle, cxt, coro_id);
+                    return internal_page_search(sib_ptr, k, result, level, isroot, handle);
                 } else {
                     nested_retry_counter = 0;
 #ifndef NDEBUG
@@ -1263,7 +1260,7 @@ namespace DSMEngine {
                 handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
                 root_mtx.unlock_shared();
             }
-            if (isroot || path_stack[coro_id][result.level + 1] == GlobalAddress::Null()){
+            if (isroot || path_stack[result.level + 1] == GlobalAddress::Null()){
                 if (!skip_cache){
                     // invalidate the root.
                     std::unique_lock<RWSpinLock> l(root_mtx);
@@ -1315,8 +1312,7 @@ namespace DSMEngine {
 
 
     template <typename Key>
-    bool Btr<Key>::leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int level, CoroContext *cxt,
-                                          int coro_id) {
+    bool Btr<Key>::leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int level) {
         assert(result.val.data()!= nullptr);
 #ifdef PROCESSANALYSIS
         auto start = std::chrono::high_resolution_clock::now();
@@ -1355,7 +1351,7 @@ namespace DSMEngine {
         result.is_leaf = header->level == 0;
         result.level = header->level;
         level = result.level;
-        path_stack[coro_id][result.level] = page_addr;
+        path_stack[result.level] = page_addr;
         assert(result.is_leaf );
         assert(result.level == 0 );
         assert(page->hdr.level < 100);
@@ -1368,7 +1364,7 @@ namespace DSMEngine {
             if (k >= page->hdr.highest) { // should turn right, the highest is not included
                 // erase the upper level from the cache
                 int last_level = 1;
-                if (path_stack[coro_id][last_level] == GlobalAddress::Null()){
+                if (path_stack[last_level] == GlobalAddress::Null()){
                     // If this node do not have upper level, then the root node must be invalidated
                     std::unique_lock<RWSpinLock> l(root_mtx);
                     if (page_addr == g_root_ptr.load()){
@@ -1394,7 +1390,7 @@ namespace DSMEngine {
             assert(false);
             // erase the upper node from the cache and refetch the upper node to continue.
             int last_level = 1;
-            if (path_stack[coro_id][last_level] != GlobalAddress::Null()){
+            if (path_stack[last_level] != GlobalAddress::Null()){
             }else{
                 std::unique_lock<RWSpinLock> l(root_mtx);
                 if (page_addr == g_root_ptr.load()){
@@ -1464,7 +1460,7 @@ namespace DSMEngine {
         result.is_leaf = header->level == 0;
         result.level = header->level;
         level = result.level;
-        path_stack[0][result.level] = page_addr;
+        path_stack[result.level] = page_addr;
         assert(result.is_leaf );
         assert(result.level == 0 );
         assert(page->hdr.level < 100);
@@ -1477,7 +1473,7 @@ namespace DSMEngine {
             if (k >= page->hdr.highest) { // should turn right, the highest is not included
                 // erase the upper level from the cache
                 int last_level = 1;
-                if (path_stack[0][last_level] == GlobalAddress::Null()){
+                if (path_stack[last_level] == GlobalAddress::Null()){
                     // If this node do not have upper level, then the root node must be invalidated
                     std::unique_lock<RWSpinLock> l(root_mtx);
                     if (page_addr == g_root_ptr.load()){
@@ -1503,7 +1499,7 @@ namespace DSMEngine {
             assert(false);
             // erase the upper node from the cache and refetch the upper node to continue.
             int last_level = 1;
-            if (path_stack[0][last_level] != GlobalAddress::Null()){
+            if (path_stack[last_level] != GlobalAddress::Null()){
             }else{
                 std::unique_lock<RWSpinLock> l(root_mtx);
                 if (page_addr == g_root_ptr.load()){
@@ -1550,7 +1546,7 @@ namespace DSMEngine {
         result.is_leaf = header->level == 0;
         result.level = header->level;
         level = result.level;
-        path_stack[0][result.level] = page_addr;
+        path_stack[result.level] = page_addr;
         assert(result.is_leaf );
         assert(result.level == 0 );
         assert(page->hdr.level < 100);
@@ -1564,7 +1560,7 @@ namespace DSMEngine {
             if (k >= page->hdr.highest) { // should turn right, the highest is not included
                 // erase the upper level from the cache
                 int last_level = 1;
-                if (path_stack[0][last_level] == GlobalAddress::Null()) {
+                if (path_stack[last_level] == GlobalAddress::Null()) {
                     // If this node do not have upper level, then the root node must be invalidated
                     std::unique_lock<RWSpinLock> l(root_mtx);
                     if (page_addr == g_root_ptr.load()) {
@@ -1587,7 +1583,7 @@ namespace DSMEngine {
         if ((k < page->hdr.lowest)) { // cache is stale
             // erase the upper node from the cache and refetch the upper node to continue.
             int last_level = 1;
-            if (path_stack[0][last_level] != GlobalAddress::Null()){
+            if (path_stack[last_level] != GlobalAddress::Null()){
             }else{
                 std::unique_lock<RWSpinLock> l(root_mtx);
                 if (page_addr == g_root_ptr.load()){
@@ -1631,7 +1627,7 @@ namespace DSMEngine {
 // When this function return false the upper layer should backoff in the tree.
 
     template <typename Key>
-    bool Btr<Key>::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int level, CoroContext *cxt, int coro_id) {
+    bool Btr<Key>::internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int level) {
         assert(page_addr != GlobalAddress::Null());
         assert(v != GlobalAddress::Null());
         uint64_t lock_index =
@@ -1663,7 +1659,7 @@ namespace DSMEngine {
         assert(((char*)&page->global_lock - (char*)page) == RDMA_OFFSET);
         assert(page->hdr.level == level);
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
-        path_stack[coro_id][page->hdr.level] = page_addr;
+        path_stack[page->hdr.level] = page_addr;
         // This is the result that we do not lock the btree when search for the key.
         // Not sure whether this will still work if we have node merge
         // Why this node can not be the right most node
@@ -1678,7 +1674,7 @@ namespace DSMEngine {
                     assert(false);
                 }
                 // TODO: No need for node invalidation when inserting things because the tree tranversing is enough for invalidation (Erase)
-                if (UNLIKELY(level == tree_height.load()) || path_stack[coro_id][level + 1] == GlobalAddress::Null()) {
+                if (UNLIKELY(level == tree_height.load()) || path_stack[level + 1] == GlobalAddress::Null()) {
                     std::unique_lock<RWSpinLock> l(root_mtx);
                     if (page_addr == g_root_ptr.load()) {
                         g_root_ptr.store(GlobalAddress::Null());
@@ -1686,7 +1682,7 @@ namespace DSMEngine {
                 }
                 if (nested_retry_counter <= 4) {
                     nested_retry_counter++;
-                    insert_success = this->internal_page_store(sib_ptr, k, v, level, cxt, coro_id);
+                    insert_success = this->internal_page_store(sib_ptr, k, v, level);
                 } else {
                     nested_retry_counter = 0;
                     insert_success = false;
@@ -1704,7 +1700,7 @@ namespace DSMEngine {
             }
             // if key is smaller than the lower bound, the insert has to be restart from the
             // upper level. because the sibling pointer only points to larger one.
-            if(UNLIKELY(level == tree_height.load()) || path_stack[coro_id][level+1]== GlobalAddress::Null()){
+            if(UNLIKELY(level == tree_height.load()) || path_stack[level+1]== GlobalAddress::Null()){
                 std::unique_lock<RWSpinLock> l(root_mtx);
                 if (page_addr == g_root_ptr.load()){
                     g_root_ptr.store(GlobalAddress::Null());
@@ -1718,7 +1714,7 @@ namespace DSMEngine {
         Key split_key;
         GlobalAddress sibling_addr = GlobalAddress::Null();
 //  assert(k >= page->hdr.lowest);
-        need_split = page->internal_page_store(page_addr, k, v, level, cxt, coro_id);
+        need_split = page->internal_page_store(page_addr, k, v, level);
         auto cnt = page->hdr.last_index + 1;
         InternalPage<Key>* sibling = nullptr;
         if (need_split) { // need split
@@ -1814,7 +1810,7 @@ namespace DSMEngine {
         // We can also say if need_split
         if (sibling_addr != GlobalAddress::Null()){
             Cache::Handle* page_hint = nullptr;
-            auto p = path_stack[coro_id][level+1];
+            auto p = path_stack[level+1];
             //check whether the node split is for a root node.
             if (UNLIKELY(p == GlobalAddress::Null() )){
                 // First acquire local lock
@@ -1823,7 +1819,7 @@ namespace DSMEngine {
                 p = get_root_ptr(dummy_mr);
                 uint8_t height = tree_height.load();
                 uint8_t old_height = tree_height.load();
-                if (path_stack[coro_id][level] == p && (int)height == level){
+                if (path_stack[level] == p && (int)height == level){
                     //Acquire global lock for the root update.
                     GlobalAddress lock_addr = {};
                     // root node lock addr. but this could result in a deadlock for transaction cc.
@@ -1841,9 +1837,9 @@ namespace DSMEngine {
                     refetch_rootnode();
                     p = g_root_ptr.load();
                     height = tree_height.load();
-                    if (path_stack[coro_id][level] == p && (int)height == level) {
-                        update_new_root(path_stack[coro_id][level], split_key, sibling_addr, level + 1,
-                                        path_stack[coro_id][level], cxt, coro_id);
+                    if (path_stack[level] == p && (int)height == level) {
+                        update_new_root(path_stack[level], split_key, sibling_addr, level + 1,
+                                        path_stack[level]);
                         *(uint64_t *) cas_buffer->addr = 0;
                         //TODO: USE RDMA cas TO release lock
                         rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 1, 0, IBV_SEND_SIGNALED,1, LockTable);
@@ -1872,7 +1868,7 @@ namespace DSMEngine {
                     //TODO: shall I implement a function that search a ptr at particular level.
                     printf(" rare case the tranverse during the root update\n");
 //                    assert(tree_height.load() != level && path_stack[coro_id][level] != p);
-                    return insert_internal(split_key, sibling_addr,  cxt, coro_id, level+1);
+                    return insert_internal(split_key, sibling_addr, level + 1);
                 }
 
 
@@ -1884,21 +1880,21 @@ namespace DSMEngine {
             memset(&result, 0, sizeof(SearchResult<Key>));
             int fall_back_level = 0;
             re_insert:
-            if (UNLIKELY(!internal_page_store(p, split_key, sibling_addr, level, cxt, coro_id))){
+            if (UNLIKELY(!internal_page_store(p, split_key, sibling_addr, level))){
                 //this path should be a rare case.
 
                 // fall back to upper level in the cache to search for the right node at this level
                 fall_back_level = level + 1;
 
-                p = path_stack[coro_id][fall_back_level];
+                p = path_stack[fall_back_level];
                 page_hint = nullptr;
                 if ( p == GlobalAddress::Null()){
                     // insert it top-down. this function will keep searching until it is found
-                    insert_internal(split_key,sibling_addr, cxt, coro_id, level);
+                    insert_internal(split_key, sibling_addr, level);
                 }else{
-                    if(!internal_page_search(p, k, result, fall_back_level, false, page_hint, cxt, coro_id)){
+                    if(!internal_page_search(p, k, result, fall_back_level, false, page_hint)){
                         // if the upper level is still a stale node, just insert the node by top down method.
-                        insert_internal(split_key,sibling_addr, cxt, coro_id, level);
+                        insert_internal(split_key, sibling_addr, level);
 //                        level = level + 1; // move to upper level
 //                        p = path_stack[coro_id][level];// move the pointer to upper level
                     }else{
@@ -1924,7 +1920,7 @@ namespace DSMEngine {
     }
     template <class Key>
     bool Btr<Key>::leaf_page_store(GlobalAddress page_addr, const Key &k, const Slice &v, Key &split_key,
-                                         GlobalAddress &sibling_addr, int level, CoroContext *cxt, int coro_id) {
+                                   GlobalAddress &sibling_addr, int level) {
 #ifdef PROCESSANALYSIS
         auto start = std::chrono::high_resolution_clock::now();
 #endif
@@ -1949,7 +1945,7 @@ namespace DSMEngine {
         page = (LeafPage<Key> *)page_buffer;
         //TODO: Create an assert to check the page is not an empty page, except root page.
         assert(page->hdr.level == level);
-        path_stack[coro_id][page->hdr.level] = page_addr;
+        path_stack[page->hdr.level] = page_addr;
         // It is possible that the key is larger than the highest key
         // The range of a page is [lowest,largest).
         // TODO: find out why sometimes the node is far from the target node that it need multiple times of
@@ -1964,7 +1960,7 @@ namespace DSMEngine {
             if (k >= page->hdr.highest) {
                 if (page->hdr.sibling_ptr != GlobalAddress::Null()) {
 //                this->unlock_addr(lock_addr, cxt, coro_id, false);
-                    if (path_stack[coro_id][level + 1] == GlobalAddress::Null()) {
+                    if (path_stack[level + 1] == GlobalAddress::Null()) {
                         std::unique_lock<RWSpinLock> lck(root_mtx);
                         if (page_addr == g_root_ptr.load()) {
                             g_root_ptr.store(GlobalAddress::Null());
@@ -1974,7 +1970,7 @@ namespace DSMEngine {
                         nested_retry_counter++;
                         auto sibling_ptr = page->hdr.sibling_ptr;
                         ddms_->SELCC_Exclusive_UnLock(page_addr, handle);
-                        return this->leaf_page_store(sibling_ptr, k, v, split_key, sibling_addr, level, cxt, coro_id);
+                        return this->leaf_page_store(sibling_ptr, k, v, split_key, sibling_addr, level);
                     } else {
                         DEBUG_PRINT_CONDITION("retry place 7");
                         nested_retry_counter = 0;
@@ -1992,7 +1988,7 @@ namespace DSMEngine {
             // if key is smaller than the lower bound, the insert has to be restart from the
             // upper level. because the sibling pointer only points to larger one.
 
-            if (path_stack[coro_id][level+1] == GlobalAddress::Null()){
+            if (path_stack[level+1] == GlobalAddress::Null()){
                 std::unique_lock<RWSpinLock> lck(root_mtx);
                 if (page_addr == g_root_ptr.load()){
                     g_root_ptr.store(GlobalAddress::Null());
@@ -2134,7 +2130,7 @@ namespace DSMEngine {
 
         if (sibling_addr != GlobalAddress::Null()){
             int upper_level = level + 1;
-            auto p = path_stack[coro_id][upper_level];
+            auto p = path_stack[upper_level];
             ibv_mr* page_hint = nullptr;
             //check whether the node split is for a root node.
             if (UNLIKELY(p == GlobalAddress::Null() )){
@@ -2150,7 +2146,7 @@ namespace DSMEngine {
                 // Note path_stack is a global variable, be careful when debugging
 
                 //If current store node is still the leaf (NO other thread create new root.), then we need to create a new page.
-                if (path_stack[coro_id][level] == p && height == level){
+                if (path_stack[level] == p && height == level){
                     //aquire the global lock to avoid mulitple node creating the new  root node
                     GlobalAddress lock_addr = {};
                     // root node lock addr. but this could result in a deadlock for transaction cc.
@@ -2169,9 +2165,9 @@ namespace DSMEngine {
                     refetch_rootnode();
                     p = g_root_ptr.load();
                     height = tree_height;
-                    if (path_stack[coro_id][level] == p && height == level) {
-                        update_new_root(path_stack[coro_id][level], split_key, sibling_addr, level + 1,
-                                        path_stack[coro_id][level], cxt, coro_id);
+                    if (path_stack[level] == p && height == level) {
+                        update_new_root(path_stack[level], split_key, sibling_addr, level + 1,
+                                        path_stack[level]);
                         *(uint64_t *) cas_buffer->addr = 0;
 //                        rdma_mg->RDMA_Write(lock_addr, cas_buffer, sizeof(uint64_t), IBV_SEND_SIGNALED, 1, LockTable);
                         rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 1, 0, IBV_SEND_SIGNALED,1, LockTable);
@@ -2197,7 +2193,7 @@ namespace DSMEngine {
                     //TODO: shall I implement a function that search a ptr at particular level.
                     printf(" rare case the tranverse during the root update\n");
                     // It is impossinle to insert the internal in level 0.
-                    return insert_internal(split_key, sibling_addr,  cxt, coro_id, level+1);
+                    return insert_internal(split_key, sibling_addr, level + 1);
                 }
 
 
@@ -2212,21 +2208,21 @@ namespace DSMEngine {
             int fall_back_level = 0;
             re_insert:
 
-            if (UNLIKELY(!internal_page_store(p, split_key, sibling_addr, level, cxt, coro_id))){
+            if (UNLIKELY(!internal_page_store(p, split_key, sibling_addr, level))){
                 //this path should be a rare case.
 
                 // fall back to upper level in the cache to search for the right node at this level
                 fall_back_level = level + 1;
 
-                p = path_stack[coro_id][fall_back_level];
+                p = path_stack[fall_back_level];
                 if ( p == GlobalAddress::Null()){
                     // insert it top-down. this function will keep searching until it is found
-                    insert_internal(split_key,sibling_addr, cxt, coro_id, level);
+                    insert_internal(split_key, sibling_addr, level);
                 }else{
                     //fall back one step.
-                    if(!internal_page_search(p, k, result, fall_back_level, false, nullptr, cxt, coro_id)){
+                    if(!internal_page_search(p, k, result, fall_back_level, false, nullptr)){
                         // if the upper level is still a stale node, just insert the node by top down method.
-                        insert_internal(split_key,sibling_addr, cxt, coro_id, level);
+                        insert_internal(split_key, sibling_addr, level);
 //                        level = level + 1; // move to upper level
 //                        p = path_stack[coro_id][level];// move the pointer to upper level
                     }else{
@@ -2249,103 +2245,6 @@ namespace DSMEngine {
 
 
         return true;
-    }
-
-//    = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
-    template <typename Key>
-    inline bool Btr<Key>::try_lock(Local_Meta *local_lock_meta) {
-        auto currently_locked = __atomic_load_n(&local_lock_meta->local_lock_byte, __ATOMIC_SEQ_CST);
-//        uint8_t currently_locked = 0;
-        return !currently_locked &&
-               __atomic_compare_exchange_n(&local_lock_meta->local_lock_byte, &currently_locked, 1, true, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
-    }
-    template <typename Key >
-    inline void Btr<Key>::unlock_lock(Local_Meta *local_lock_meta) {
-        __atomic_store_n(&local_lock_meta->local_lock_byte, 0, mem_cst_seq);
-    }
-
-    template <class Key>
-    bool Btr<Key>::acquire_local_optimistic_lock(Local_Meta *local_lock_meta, CoroContext *cxt, int coro_id) {
-        assert((uint64_t)local_lock_meta % 8 == 0);
-        //TODO: local lock implementation over InternalPage::Local_Meta.
-
-
-        __atomic_fetch_add(&local_lock_meta->issued_ticket, 1, mem_cst_seq);
-
-//    assert(local_lock_meta->issued_ticket - local_lock_meta->current_ticket <= 16 );
-        //TOTHINK(potential bug): what if the ticket out of buffer.
-        uint8_t expected = 0;
-#ifndef NDEBUG
-        uint64_t spin_counter = 0;
-        uint64_t global_static_var;
-
-#endif
-//    uint8_t lock_status =
-        size_t tries = 0;
-        while(1){
-
-            if(try_lock(local_lock_meta)){
-                break;
-            }
-            assert(local_lock_meta);
-            port::AsmVolatilePause();
-            if (tries++ > 100) {
-                //        printf("I tried so many time I got yield\n");
-                std::this_thread::yield();
-            }
-        }
-#ifndef NDEBUG
-        global_static_var = __atomic_load_n((uint64_t*)local_lock_meta, (int)std::memory_order_seq_cst);
-        if(((Local_Meta*)&global_static_var)->issued_ticket - ((Local_Meta*)&global_static_var)->current_ticket == 2){
-//        printf("mark here");
-        }
-//    printf("Acquire lock for %p, the current ticks is %d, issued ticket is%d, spin %lu times, thread %d\n", local_lock_meta,
-//           ((Local_Meta*)&global_static_var)->current_ticket, ((Local_Meta*)&global_static_var)->issued_ticket, spin_counter, rdma_mg->thread_id);
-#endif
-        assert(local_lock_meta->local_lock_byte == 1);
-        return local_lock_meta->hand_over;
-
-    }
-
-    //Call before release the global lock
-    template <class Key>
-    inline bool Btr<Key>::can_hand_over(Local_Meta * local_lock_meta) {
-
-        uint8_t issued_ticket = __atomic_load_n(&local_lock_meta->current_ticket, mem_cst_seq);
-        uint8_t current_ticket = local_lock_meta->current_ticket;// current is the former 32 bit in ticket lock
-
-// if the handover in node is true, then the other thread can get the lock without any RDMAcas
-// if the handover in node is false, then the other thread will acquire the lock from by RDMA cas AGAIN
-        if (issued_ticket <= current_ticket + 1) { // no pending locks
-            local_lock_meta->hand_over = false;// if no pending thread, then it will release the remote lock and next aquir need RDMA CAS again
-        } else {
-            local_lock_meta->hand_over = local_lock_meta->hand_time < define::kMaxHandOverTime; // check the limit
-        }
-        if (!local_lock_meta->hand_over) {
-            local_lock_meta->hand_time = 0;// clear the handtime.
-        } else {
-            local_lock_meta->hand_time++;
-
-//    handover_count[rdma_mg->getMyThreadID()][0]++;
-        }
-
-        return local_lock_meta->hand_over;
-    }
-    template <class Key>
-    inline void Btr<Key>::releases_local_optimistic_lock(Local_Meta * local_lock_meta) {
-
-//        auto &node = local_locks[(lock_addr.nodeID-1)/2][lock_addr.offset / 8];
-
-        local_lock_meta->current_ticket++;
-        assert(local_lock_meta->local_lock_byte == 1);
-//    assert((uint64_t)&local_lock_meta->local_lock_byte % 8 == 0);
-        unlock_lock(local_lock_meta);
-//        node.ticket_lock.fetch_add((1ull << 32));
-    }
-    template <class Key>
-    void Btr<Key>::Initialize_page_invalidation(InternalPage<Key> *upper_page) {
-        // TODO: cache invalidation RPC.
-
     }
     template <class Key>
     void Btr<Key>::clear_statistics() {

@@ -144,14 +144,11 @@ namespace DSMEngine {
         //Btree waiting for serialization. get the root node from memcached
         Btr(DDSM *dsm, Cache *cache_ptr, RecordSchema *record_scheme_ptr);
 
-        void insert(const Key &k, const Slice &v, CoroContext *cxt = nullptr,
-                    int coro_id = 0);
+        void insert(const Key &k, const Slice &v);
 
-        bool remove(const Key &k, CoroContext *cxt = nullptr,
-                    int coro_id = 0);
+        bool remove(const Key &k);
 
-        bool search(const Key &k, const Slice &v, CoroContext *cxt = nullptr,
-                    int coro_id = 0);
+        bool search(const Key &k, const Slice &v);
         //Remember to destroy the iterator after use.
         iterator begin();
         // Finds the first element whose key is not less than key. the iterator always move forward.
@@ -227,7 +224,7 @@ namespace DSMEngine {
 #endif
         void print_verbose();
 
-        void before_operation(CoroContext *cxt, int coro_id);
+        void before_operation();
 
         GlobalAddress get_root_ptr_ptr();
 
@@ -242,13 +239,10 @@ namespace DSMEngine {
         // when we seperate the compute from the memory, the memroy node will not get notified.
         void broadcast_new_root(GlobalAddress new_root_addr, int root_level);
 
-        bool update_new_root(GlobalAddress left, const Key &k, GlobalAddress right,
-                             int level, GlobalAddress old_root, CoroContext *cxt,
-                             int coro_id);
+        bool update_new_root(GlobalAddress left, const Key &k, GlobalAddress right, int level, GlobalAddress old_root);
 
         // Insert a key and a point at a particular level (level != 0), the node is unknown
-        bool insert_internal(Key &k, GlobalAddress &v, CoroContext *cxt,
-                             int coro_id, int target_level);
+        bool insert_internal(Key &k, GlobalAddress &v, int target_level);
 
 
 
@@ -257,13 +251,10 @@ namespace DSMEngine {
         // next level if it is not leaf page. If it is a leaf page, just put the value in the
         // result. this funciton = fetch the page + internal page serach + leafpage search + re-read
         bool internal_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int &level,
-                                  bool isroot,
-                                  Cache::Handle *handle = nullptr, CoroContext *cxt = nullptr, int coro_id = 0);
+                                  bool isroot, Cache::Handle *handle);
 
 
-        bool leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int level,
-                              CoroContext *cxt,
-                              int coro_id);
+        bool leaf_page_search(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int level);
         bool leaf_page_delete(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, int level);
         // create a iterator for the range query.
         bool leaf_page_find(GlobalAddress page_addr, const Key &k, SearchResult<Key> &result, iterator &iter, int level);
@@ -272,42 +263,17 @@ namespace DSMEngine {
 //    void leaf_page_search(LeafPage *page, const Key &k, SearchResult &result);
         // store a key and a pointer to an known internal node.
         // Note: node range [barrer1, barrer2)
-        bool internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int level, CoroContext *cxt,
-                                 int coro_id);
+        bool internal_page_store(GlobalAddress page_addr, Key &k, GlobalAddress &v, int level);
 
         //store a key and value to a leaf page [lowest, highest). If it is secondary index, then range could be [lowest, highest], where lowest == highest.
         // Our code logic make it impossible to have duplicated key like this [a,b,c,d,d,d,d] [d,e,e,e,e,f], where dupilated keys covers last few records in one node and
         // spill to the next node for a few records. We make sure this never happen by our code logics in split.
         bool leaf_page_store(GlobalAddress page_addr, const Key &k, const Slice &v, Key &split_key,
-                             GlobalAddress &sibling_addr, int level, CoroContext *cxt, int coro_id);
+                             GlobalAddress &sibling_addr, int level);
 
 //        bool leaf_page_del(GlobalAddress page_addr, const Key &k, int level,
 //                           CoroContext *cxt, int coro_id);
 
-        bool acquire_local_lock(GlobalAddress lock_addr, CoroContext *cxt,
-                                int coro_id);
-
-        bool try_lock(Local_Meta *local_lock_meta);
-
-        void unlock_lock(Local_Meta *local_lock_meta);
-
-        bool acquire_local_optimistic_lock(Local_Meta *local_lock_meta, CoroContext *cxt,
-                                           int coro_id);
-
-        bool can_hand_over(GlobalAddress lock_addr);
-
-        bool can_hand_over(Local_Meta *local_lock_meta);
-
-        void releases_local_lock(GlobalAddress lock_addr);
-
-        void releases_local_optimistic_lock(Local_Meta *local_lock_meta);
-
-        // should be executed with in a local page lock.
-        void Initialize_page_invalidation(InternalPage<Key> *upper_page);
-//        void invalid_root_prt(){
-//            std::unique_lock<std::shared_mutex> lck(root_mtx);
-//            g_root_ptr.store(GlobalAddress::Null());
-//        }
     };
 
 }

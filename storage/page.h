@@ -262,8 +262,7 @@ namespace DSMEngine{
 //                      << "]" << std::endl;
         }
         bool internal_page_search(const Key &k, void *result_ptr);
-        bool internal_page_store(GlobalAddress page_addr, const Key &k, GlobalAddress value, int level, CoroContext *cxt,
-                            int coro_id);
+        bool internal_page_store(GlobalAddress page_addr, const Key &k, GlobalAddress value, int level);
     };
 #ifdef CACHECOHERENCEPROTOCOL
     template<typename TKey>
