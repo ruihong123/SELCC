@@ -9,7 +9,7 @@ conf_file=$bin/../connection.conf
 #compute_nodes=$bin/compute_nodes
 #memory_nodes=$bin/memory_nodes
 log_file=$bin/log
-cache_mem_size=16 # 8 gb Local memory size
+cache_mem_size=8 # 8 gb Local memory size
 remote_mem_size_base=48 # 48 gb Remote memory size totally
 #master_ip=db3.cs.purdue.edu # make sure this is in accordance with the server whose is_master=1
 master_port=12311
@@ -303,7 +303,7 @@ remote_range="100"
 shared_range="100"
 size_grow=0 # 0 not grow, 1 grow with node number
 single_writer=1
-read_range="0"
+read_range="0 50 95 100"
 space_range="0"
 time_range="0"
 workload_range="1" # 0 uniform, 1 single zipfian, n >1 multispot zipfian. -1 accesss only single cache line
@@ -364,6 +364,6 @@ done
 #run_remote_test
 #run_space_test
 #run_shared_test_noeviction
-run_node_test
-#run_test
+#run_node_test
+run_test
 #run_skewed_test

@@ -49,21 +49,6 @@ namespace DSMEngine {
         return Hash(s.data(), s.size(), 0);
     }
 
-//thread_local Timer timer;
-//    thread_local std::queue<uint16_t> hot_wait_queue;
-//thread_local std::priority_queue<CoroDeadline> deadline_queue;
-//    static void Deallocate_MR(Cache::Handle *handle) {
-//        assert(handle->refs.load() == 0);
-//        auto rdma_mg = RDMA_Manager::Get_Instance(nullptr);
-//        auto mr = (ibv_mr*) handle->value;
-//        if (!handle->keep_the_mr){
-//            rdma_mg->Deallocate_Local_RDMA_Slot(mr->addr, Regular_Page);
-//            delete mr;
-//        }
-//        assert(handle->refs.load() == 0);
-//
-//
-//    }
 //TODO: make the function set cache handle as an argument, and we need to modify the remote lock status
 // when unlocking the remote lock.
     template <typename Key>
@@ -146,14 +131,6 @@ namespace DSMEngine {
             Cache::Handle* dummy_hd;
             get_root_ptr_protected(dummy_hd);
         }
-
-//  auto cas_buffer = (rdma_mg->get_rbuf(0)).get_cas_buffer();
-//  bool res = rdma_mg->cas_sync(root_ptr_ptr, 0, root_addr.val, cas_buffer);
-//  if (res) {
-//    std::cout << "Tree root pointer value " << root_addr << std::endl;
-//  } else {
-//     std::cout << "fail\n";
-//  }
 
     }
     template <typename Key>
@@ -341,14 +318,6 @@ namespace DSMEngine {
 
         rdma_mg->post_send<RDMA_Request>(&send_mr, 1, std::string("main"));
         ibv_wc wc[2] = {};
-        //  while(wc.opcode != IBV_WC_RECV){
-        //    poll_completion(&wc);
-        //    if (wc.status != 0){
-        //      fprintf(stderr, "Work completion status is %d \n", wc.status);
-        //    }
-        //
-        //  }
-        //  assert(wc.opcode == IBV_WC_RECV);
         if (rdma_mg->poll_completion(wc, 1, std::string("main"),
                                      true, 1)){
 //    assert(try_poll_completions(wc, 1, std::string("main"),true) == 0);
@@ -415,61 +384,6 @@ namespace DSMEngine {
 
         return false;
     }
-//    template <typename Key, typename Value>
-//    void Btr<Key,Value>::print_and_check_tree(CoroContext *cxt, int coro_id) {
-////  assert(rdma_mg->is_register());
-//        ibv_mr* page_hint;
-//        auto root = get_root_ptr_protected(page_hint);
-//        // SearchResult result;
-//
-//        GlobalAddress p = root;
-//        GlobalAddress levels[define::kMaxLevelOfTree];
-//        int level_cnt = 0;
-//        auto page_buffer = rdma_mg->Get_local_read_mr();
-//        GlobalAddress leaf_head;
-//
-//        next_level:
-//
-//        rdma_mg->RDMA_Read(p, page_buffer, kInternalPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-//        auto header = (Header<Key> *)((char*)page_buffer->addr + (STRUCT_OFFSET(LeafPage<Key COMMA Value>, hdr)));
-//        levels[level_cnt++] = p;
-//        if (header->level != 0) {
-//            p = header->leftmost_ptr;
-//            goto next_level;
-//        } else {
-//            leaf_head = p;
-//        }
-//
-//        next:
-//        rdma_mg->RDMA_Read(leaf_head, page_buffer, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-////  rdma_mg->read_sync(page_buffer, , kLeafPageSize);
-//        auto page = (LeafPage<Key,Value> *)page_buffer;
-//        for (int i = 0; i < LeafPage<Key, Value>::kLeafCardinality; ++i) {
-//            if (page->records[i].value != kValueNull<Key>) {
-//            }
-//        }
-//        while (page->hdr.sibling_ptr != GlobalAddress::Null()) {
-//            leaf_head = page->hdr.sibling_ptr;
-//            goto next;
-//        }
-//
-//        // for (int i = 0; i < level_cnt; ++i) {
-//        //   rdma_mg->read_sync(page_buffer, levels[i], kLeafPageSize);
-//        //   auto header = (Header *)(page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
-//        //   // std::cout << "addr: " << levels[i] << " ";
-//        //   // header->debug();
-//        //   // std::cout << " | ";
-//        //   while (header->sibling_ptr != GlobalAddress::Null()) {
-//        //     rdma_mg->read_sync(page_buffer, header->sibling_ptr, kLeafPageSize);
-//        //     header = (Header *)(page_buffer + (STRUCT_OFFSET(LeafPage, hdr)));
-//        //     // std::cout << "addr: " << header->sibling_ptr << " ";
-//        //     // header->debug();
-//        //     // std::cout << " | ";
-//        //   }
-//        //   // std::cout << "\n------------------------------------" << std::endl;
-//        //   // std::cout << "------------------------------------" << std::endl;
-//        // }
-//    }
 
 //Note: this function will make sure the insert will definitely success. it willkeep retrying/
     template<typename Key>
@@ -566,7 +480,6 @@ namespace DSMEngine {
             goto next;
         }
         return true;
-//    internal_page_store(p, k, v, level, cxt, coro_id);
     }
     template<typename Key>
     void Btr<Key>::insert(const Key &k, const Slice &v, CoroContext *cxt, int coro_id) {
@@ -736,18 +649,6 @@ namespace DSMEngine {
             }
             goto next;
         }
-//#ifdef PROCESSANALYSIS
-//    if (TimePrintCounter[RDMA_Manager::thread_id]>=TIMEPRINTGAP){
-//        auto stop = std::chrono::high_resolution_clock::now();
-//        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-////#ifndef NDEBUG
-//        printf("leaf node store uses (%ld) ns\n", duration.count());
-//        TimePrintCounter[RDMA_Manager::thread_id] = 0;
-//    }else{
-//        TimePrintCounter[RDMA_Manager::thread_id]++;
-//    }
-////#endif
-//#endif
         //======================== below is about nested node split ============================//
         assert(level == 0);
 
@@ -768,19 +669,6 @@ namespace DSMEngine {
         GlobalAddress p = root;
         bool isroot = true;
         bool from_cache = false;
-//  const CacheEntry *entry = nullptr;
-//  if (enable_cache) {
-//    GlobalAddress cache_addr;
-//    entry = page_cache->search_from_cache(k, &cache_addr);
-//    if (entry) { // cache hit
-////      cache_hit_valid[rdma_mg->getMyThreadID()][0]++;
-//      from_cache = true;
-//      p = cache_addr;
-//      isroot = false;
-//    } else {
-////      cache_miss[rdma_mg->getMyThreadID()][0]++;
-//    }
-//  }
         int level = -1;
 //TODO: What if we ustilize the cache tree height for the root level?
 //TODO: Change it into while style code.
@@ -819,7 +707,6 @@ namespace DSMEngine {
             // Do not need to
             if (result.slibing != GlobalAddress::Null()) { // turn right
                 p = result.slibing;
-
             }else if (result.next_level != GlobalAddress::Null()){
                 assert(result.next_level != GlobalAddress::Null());
                 p = result.next_level;
@@ -907,11 +794,6 @@ namespace DSMEngine {
         auto root = get_root_ptr_protected(page_hint);
         SearchResult<Key> result;
         memset(&result, 0, sizeof(SearchResult<Key>));
-//        if(!search_result_memo){
-//            search_result_memo = new SearchResult<Key,Value>();
-//        }
-//        result.val = value_buff;
-
         GlobalAddress p = root;
         bool isroot = true;
         bool from_cache = false;
@@ -1641,9 +1523,6 @@ namespace DSMEngine {
         assert(handle);
         ddms_->SELCC_Shared_UnLock(page_addr, handle);
         return false;
-
-
-
     }
 
     template <typename Key>
@@ -1853,8 +1732,6 @@ namespace DSMEngine {
 //          printf("Allocate slot for page 3 %p\n", sibling_addr);
 
             rdma_mg->Allocate_Local_RDMA_Slot(*sibling_mr, Regular_Page);
-//            memset(sibling_mr->addr, 0, rdma_mg->name_to_chunksize.at(Regular_Page));
-
             assert(page->hdr.level >0);
             sibling = new(sibling_mr->addr) InternalPage<Key>(sibling_addr, secondary_, page->hdr.level);
             //clear the global lock state. The page initialization will not reset the global lock byte.
@@ -1910,26 +1787,13 @@ namespace DSMEngine {
             // link
             sibling->hdr.sibling_ptr = page->hdr.sibling_ptr;
             page->hdr.sibling_ptr = sibling_addr;
-//    sibling->set_consistent();
-            //the code below is just for debugging.
-//    sibling_addr.mark = 2;
-
             rdma_mg->RDMA_Write(sibling_addr, sibling_mr, kInternalPageSize, IBV_SEND_SIGNALED, 1, Regular_Page);
             assert(sibling->records[sibling->hdr.last_index].ptr != GlobalAddress::Null());
             assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
             k = split_key;
             v = sibling_addr;
-//          printf("Create new node %p\n", v);
             // TODO (opt): we can directly add the sibling block into the cache here.
 
-
-//      printf("page splitted last_index of page offset %lu is %hd, page level is %d\n", page_addr.offset,  page->hdr.last_index, page->hdr.level);
-
-            //The code below is optional.
-//            Slice sibling_page_id((char*)&sibling_addr, sizeof(GlobalAddress));
-//            assert(page_mr!= nullptr);
-//            auto sib_handle = page_cache->Insert(sibling_page_id, sibling_mr, kInternalPageSize, Deallocate_MR_WITH_CCP);
-//            page_cache->Release(sib_handle);
           rdma_mg->Deallocate_Local_RDMA_Slot(sibling_mr->addr, Regular_Page);
           delete sibling_mr;
         } else {
@@ -1959,7 +1823,6 @@ namespace DSMEngine {
                 p = get_root_ptr(dummy_mr);
                 uint8_t height = tree_height.load();
                 uint8_t old_height = tree_height.load();
-
                 if (path_stack[coro_id][level] == p && (int)height == level){
                     //Acquire global lock for the root update.
                     GlobalAddress lock_addr = {};
@@ -2082,19 +1945,10 @@ namespace DSMEngine {
         assert(page_buffer != nullptr);
 //        ibv_mr* local_mr;
         assert(level == 0);
-//        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
-//        handle = page_cache->LookupInsert(page_id, nullptr, kLeafPageSize, Deallocate_MR_WITH_CCP);
-//        assert(handle!= nullptr);
-//        handle->updater_pre_access(page_addr, kLeafPageSize, lock_addr, local_mr);
-
         // TODO: under some situation the lock is not released
-//        page_buffer = local_mr->addr;
         page = (LeafPage<Key> *)page_buffer;
-//        assert(page->hdr.last_index == level);
         //TODO: Create an assert to check the page is not an empty page, except root page.
-//        assert(scheme_ptr->GetPrimary(page->data_));
         assert(page->hdr.level == level);
-//        assert(page->check_consistent());
         path_stack[coro_id][page->hdr.level] = page_addr;
         // It is possible that the key is larger than the highest key
         // The range of a page is [lowest,largest).
@@ -2397,79 +2251,6 @@ namespace DSMEngine {
         return true;
     }
 
-
-
-// Need BIG FIX
-
-//    template <typename Key, typename Value>
-//    bool Btr<Key,Value>::leaf_page_del(GlobalAddress page_addr, const Key &k, int level,
-//                                       CoroContext *cxt, int coro_id) {
-//        uint64_t lock_index =
-//                CityHash64((char *)&page_addr, sizeof(page_addr)) % define::kNumOfLock;
-//
-//        GlobalAddress lock_addr;
-//        lock_addr.nodeID = page_addr.nodeID;
-//        lock_addr.offset = lock_index * sizeof(uint64_t);
-//
-//        auto rbuf = rdma_mg->Get_local_read_mr();
-//        ibv_mr* cas_mr = rdma_mg->Get_local_CAS_mr();
-//        auto page_buffer = rbuf->addr;
-//        //        auto cas_buffer
-//        bool insert_success;
-//
-//        auto tag = 1;
-//        try_lock_addr(lock_addr, tag, cas_mr, cxt, coro_id);
-//
-//        //  auto page_buffer = rdma_mg->get_rbuf(coro_id).get_page_buffer();
-//        rdma_mg->RDMA_Read(page_addr, rbuf, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-//        auto page = (LeafPage<Key,Value> *)page_buffer;
-//
-//        assert(page->hdr.level == level);
-////    assert(page->check_consistent());
-//        path_stack[coro_id][page->hdr.level] = page_addr;
-//        if (k >= page->hdr.highest) {
-//            this->unlock_addr(lock_addr, cxt, coro_id, false);
-//
-//            assert(page->hdr.sibling_ptr != GlobalAddress::Null());
-//
-//            return this->leaf_page_del(page->hdr.sibling_ptr, k, level, cxt, coro_id);
-//        }
-//        if (k < page->hdr.lowest) {
-//            this->unlock_addr(lock_addr, cxt, coro_id, false);
-//
-//            assert(page->hdr.sibling_ptr != GlobalAddress::Null());
-//            DEBUG_PRINT_CONDITION("retry place 9\n");
-//            return false;
-//        }
-//        page->front_version++;
-//        auto cnt = page->hdr.last_index + 1;
-//
-//        int del_index = -1;
-//        for (int i = 0; i < cnt; ++i) {
-//            if (page->records[i].key == k) { // find and update
-//                del_index = i;
-//                break;
-//            }
-//        }
-//
-//        if (del_index != -1) { // remove and shift
-//            for (int i = del_index + 1; i < cnt; ++i) {
-//                page->records[i - 1].key = page->records[i].key;
-//                page->records[i - 1].value = page->records[i].value;
-//            }
-//
-//            page->hdr.last_index--;
-////            page->rear_version = page->front_version;
-////        page->set_consistent();
-//            rdma_mg->RDMA_Write(page_addr, rbuf, kLeafPageSize, IBV_SEND_SIGNALED, 1, Internal_and_Leaf);
-//        }
-//        this->unlock_addr(lock_addr, cxt, coro_id, false);
-//        return true;
-//        // TODO: Merge page after the node is too small.
-//    }
-
-// Local Locks
-
 //    = __atomic_load_n((uint64_t*)&page->local_lock_meta, (int)std::memory_order_seq_cst);
     template <typename Key>
     inline bool Btr<Key>::try_lock(Local_Meta *local_lock_meta) {
@@ -2521,18 +2302,6 @@ namespace DSMEngine {
 //    printf("Acquire lock for %p, the current ticks is %d, issued ticket is%d, spin %lu times, thread %d\n", local_lock_meta,
 //           ((Local_Meta*)&global_static_var)->current_ticket, ((Local_Meta*)&global_static_var)->issued_ticket, spin_counter, rdma_mg->thread_id);
 #endif
-        //    uint32_t ticket = lock_val << 32 >> 32;//clear the former 32 bit
-//    uint8_t current = __atomic_load_n(&local_lock_addr->current_ticket, mem_cst_seq);// current is the former 32 bit in ticket lock
-//    uint8_t current = local_lock_meta->current_ticket;
-//        assert(ticket - current <=4);
-//    printf("lock offest %lu's ticket %x current %x, thread %u\n", lock_addr.offset, ticket, current, thread_id);
-//   printf("", );
-//    if (current%define::kMaxHandOverTime == 0){
-//        return false;
-//    }else{
-//        return true;
-//    }
-//    if (local_lock_meta->handover_times < define::kMaxHandOverTime &&)
         assert(local_lock_meta->local_lock_byte == 1);
         return local_lock_meta->hand_over;
 
@@ -2573,26 +2342,6 @@ namespace DSMEngine {
         unlock_lock(local_lock_meta);
 //        node.ticket_lock.fetch_add((1ull << 32));
     }
-//    template <class Key, class Value>
-//    void Btr<Key,Value>::make_page_invalidated(InternalPage<Key> *upper_page) {
-//        //TODO invalidate page with version, may be reuse the current and issue version?
-//        uint8_t expected = 0;
-//        if(try_lock(&upper_page->local_lock_meta)){
-//            // if the local CAS succeed, then we set the invalidation, if not we just ignore that because,
-//            // either another thread is writing (so a new read is coming) or other thread has detect the invalidation and
-//            // already set it.
-//            assert(expected == 0);
-//            __atomic_fetch_add(&upper_page->local_lock_meta.issued_ticket,1, mem_cst_seq);
-//            if (upper_page->hdr.valid_page){
-//                upper_page->hdr.valid_page = false;
-////            printf("Page invalidation %p\n", upper_page);
-//            }
-//
-//            // keep the operation on the version.
-//            upper_page->local_lock_meta.current_ticket++;
-//            unlock_lock(&upper_page->local_lock_meta);
-//        }
-//    }
     template <class Key>
     void Btr<Key>::Initialize_page_invalidation(InternalPage<Key> *upper_page) {
         // TODO: cache invalidation RPC.
