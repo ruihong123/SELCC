@@ -365,5 +365,5 @@ done
 #run_space_test
 #run_shared_test_noeviction
 #run_node_test
-run_test
-#run_skewed_test
+#run_test
+run_skewed_test
