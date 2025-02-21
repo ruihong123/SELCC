@@ -234,13 +234,13 @@ namespace DSMEngine {
 
         void refetch_rootnode();
 
-        // broadcast the new root to all other memroy servers, if memory server and compute
-        // servers are the same then the new root is know by all the compute nodes, However,
-        // when we seperate the compute from the memory, the memroy node will not get notified.
-        void broadcast_new_root(GlobalAddress new_root_addr, int root_level);
-
         bool update_new_root(GlobalAddress left, const Key &k, GlobalAddress right, int level, GlobalAddress old_root);
-
+        void invalidate_root(GlobalAddress gptr){
+            std::unique_lock<RWSpinLock> l(root_mtx);
+            if (gptr == g_root_ptr.load()) {
+                g_root_ptr.store(GlobalAddress::Null());
+            }
+        };
         // Insert a key and a point at a particular level (level != 0), the node is unknown
         bool insert_internal(Key &k, GlobalAddress &v, int target_level);
 

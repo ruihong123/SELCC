@@ -303,28 +303,6 @@ namespace DSMEngine {
 //        root_hint = temp_mr;
     }
     template <typename Key>
-    void Btr<Key>::broadcast_new_root(GlobalAddress new_root_addr, int root_level) {
-        RDMA_Request* send_pointer;
-        ibv_mr send_mr = {};
-//    ibv_mr receive_mr = {};
-        rdma_mg->Allocate_Local_RDMA_Slot(send_mr, Message);
-        send_pointer = (RDMA_Request*)send_mr.addr;
-        send_pointer->command = broadcast_root;
-        send_pointer->content.root_broadcast.new_ptr = new_root_addr;
-        send_pointer->content.root_broadcast.level = root_level;
-
-        //TODO: When we seperate the compute from the memory, how can we broad cast the new root
-        // or can we wait until the compute node detect an inconsistent.
-
-        rdma_mg->post_send<RDMA_Request>(&send_mr, 1, std::string("main"));
-        ibv_wc wc[2] = {};
-        if (rdma_mg->poll_completion(wc, 1, std::string("main"),
-                                     true, 1)){
-//    assert(try_poll_completions(wc, 1, std::string("main"),true) == 0);
-            fprintf(stderr, "failed to poll send for remote memory register\n");
-        }
-    }
-    template <typename Key>
     bool Btr<Key>::update_new_root(GlobalAddress left, const Key &k, GlobalAddress right, int level,
                                    GlobalAddress old_root) {
 
@@ -1107,11 +1085,7 @@ namespace DSMEngine {
                     if (k >= page->hdr.highest){
                         root_mtx.unlock_shared();
                         handle->reader_post_access(page_addr, kInternalPageSize, lock_addr, mr);
-                        std::unique_lock<RWSpinLock> l(root_mtx);
-                        if (page_addr == g_root_ptr.load()){
-                            g_root_ptr.store(GlobalAddress::Null());
-                        }
-//                        root_mtx.unlock_shared();
+                        invalidate_root(page_addr);
                         return false;
                     }
 
@@ -1173,10 +1147,7 @@ namespace DSMEngine {
 //                    assert(page->check_whether_globallock_is_unlocked());
                 if (k >= page->hdr.highest){
                     ddms_->SELCC_Shared_UnLock(page_addr, handle);
-                    std::unique_lock<RWSpinLock> l(root_mtx);
-                    if (page_addr == g_root_ptr.load()){
-                        g_root_ptr.store(GlobalAddress::Null());
-                    }
+                    invalidate_root(page_addr);
                     return false;
                 }
                 ddms_->SELCC_Shared_UnLock(page_addr, handle);
@@ -1210,11 +1181,7 @@ namespace DSMEngine {
 
 
                     if (!skip_cache) {
-                        // invalidate the root. Maybe we can omit the mtx here?
-                        std::unique_lock<RWSpinLock> l(root_mtx);
-                        if (page_addr == g_root_ptr.load()) {
-                            g_root_ptr.store(GlobalAddress::Null());
-                        }
+                        invalidate_root(page_addr);
                     } else {
                         g_root_ptr.store(GlobalAddress::Null());
                     }
@@ -1262,11 +1229,7 @@ namespace DSMEngine {
             }
             if (isroot || path_stack[result.level + 1] == GlobalAddress::Null()){
                 if (!skip_cache){
-                    // invalidate the root.
-                    std::unique_lock<RWSpinLock> l(root_mtx);
-                    if (page_addr == g_root_ptr.load()){
-                        g_root_ptr.store(GlobalAddress::Null());
-                    }
+                    invalidate_root(page_addr);
                 }else{
                     g_root_ptr.store(GlobalAddress::Null());
                 }
@@ -1365,11 +1328,7 @@ namespace DSMEngine {
                 // erase the upper level from the cache
                 int last_level = 1;
                 if (path_stack[last_level] == GlobalAddress::Null()){
-                    // If this node do not have upper level, then the root node must be invalidated
-                    std::unique_lock<RWSpinLock> l(root_mtx);
-                    if (page_addr == g_root_ptr.load()){
-                        g_root_ptr.store(GlobalAddress::Null());
-                    }
+                    invalidate_root(page_addr);
                 }
                 // In case that there is a long distance(num. of sibiling pointers) between current node and the target node
                 if (nested_retry_counter <= 4){
@@ -1392,10 +1351,7 @@ namespace DSMEngine {
             int last_level = 1;
             if (path_stack[last_level] != GlobalAddress::Null()){
             }else{
-                std::unique_lock<RWSpinLock> l(root_mtx);
-                if (page_addr == g_root_ptr.load()){
-                    g_root_ptr.store(GlobalAddress::Null());
-                }
+                invalidate_root(page_addr);
             }
             DEBUG_PRINT_CONDITION("retry place 4\n");
             goto returnfalse;
@@ -1475,10 +1431,7 @@ namespace DSMEngine {
                 int last_level = 1;
                 if (path_stack[last_level] == GlobalAddress::Null()){
                     // If this node do not have upper level, then the root node must be invalidated
-                    std::unique_lock<RWSpinLock> l(root_mtx);
-                    if (page_addr == g_root_ptr.load()){
-                        g_root_ptr.store(GlobalAddress::Null());
-                    }
+                    invalidate_root(page_addr);
                 }
                 // In case that there is a long distance(num. of sibiling pointers) between current node and the target node
                 if (nested_retry_counter <= 4){
@@ -1501,10 +1454,7 @@ namespace DSMEngine {
             int last_level = 1;
             if (path_stack[last_level] != GlobalAddress::Null()){
             }else{
-                std::unique_lock<RWSpinLock> l(root_mtx);
-                if (page_addr == g_root_ptr.load()){
-                    g_root_ptr.store(GlobalAddress::Null());
-                }
+                invalidate_root(page_addr);
             }
             DEBUG_PRINT_CONDITION("retry place 4\n");
             goto returnfalse;
@@ -1562,10 +1512,7 @@ namespace DSMEngine {
                 int last_level = 1;
                 if (path_stack[last_level] == GlobalAddress::Null()) {
                     // If this node do not have upper level, then the root node must be invalidated
-                    std::unique_lock<RWSpinLock> l(root_mtx);
-                    if (page_addr == g_root_ptr.load()) {
-                        g_root_ptr.store(GlobalAddress::Null());
-                    }
+                    invalidate_root(page_addr);
                 }
                 // In case that there is a long distance(num. of sibiling pointers) between current node and the target node
                 if (nested_retry_counter <= 4) {
@@ -1641,21 +1588,17 @@ namespace DSMEngine {
         ibv_mr* page_mr;
         void * page_buffer;
         InternalPage<Key>* page;
-        bool skip_cache = false;
         Cache::Handle* handle = nullptr;
-        ibv_mr * cas_mr = rdma_mg->Get_local_CAS_mr();
-        if(!skip_cache) {
-            ddms_->SELCC_Exclusive_Lock(page_buffer, page_addr, handle);
-            assert(handle != nullptr);
+        ddms_->SELCC_Exclusive_Lock(page_buffer, page_addr, handle);
+        assert(handle != nullptr);
 #if ACCESS_MODE == 1
-            assert(((ibv_mr *) handle->value)->addr == page_buffer);
+        assert(((ibv_mr *) handle->value)->addr == page_buffer);
 #elif ACCESS_MODE == 0
             assert((ibv_mr *) handle->value== page_buffer);
 #endif
-            page = (InternalPage<Key> *) page_buffer;
-            page_mr = (ibv_mr *) page_cache->Value(handle);
+        page = (InternalPage<Key> *) page_buffer;
+        page_mr = (ibv_mr *) page_cache->Value(handle);
 
-        }
         assert(((char*)&page->global_lock - (char*)page) == RDMA_OFFSET);
         assert(page->hdr.level == level);
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
@@ -1668,17 +1611,11 @@ namespace DSMEngine {
         }else {
             if (k >= page->hdr.highest) {
                 GlobalAddress sib_ptr = page->hdr.sibling_ptr;
-                if (!skip_cache) {
-                    ddms_->SELCC_Exclusive_UnLock(page_addr, handle);
-                } else {
-                    assert(false);
-                }
+                ddms_->SELCC_Exclusive_UnLock(page_addr, handle);
+
                 // TODO: No need for node invalidation when inserting things because the tree tranversing is enough for invalidation (Erase)
                 if (UNLIKELY(level == tree_height.load()) || path_stack[level + 1] == GlobalAddress::Null()) {
-                    std::unique_lock<RWSpinLock> l(root_mtx);
-                    if (page_addr == g_root_ptr.load()) {
-                        g_root_ptr.store(GlobalAddress::Null());
-                    }
+                    invalidate_root(page_addr);
                 }
                 if (nested_retry_counter <= 4) {
                     nested_retry_counter++;
@@ -1693,18 +1630,13 @@ namespace DSMEngine {
         }
         nested_retry_counter = 0;
         if (k < page->hdr.lowest ) {
-            if (!skip_cache){
-                ddms_->SELCC_Exclusive_UnLock(page_addr, handle);
-            }else{
-                assert(false);
-            }
+
+            ddms_->SELCC_Exclusive_UnLock(page_addr, handle);
+
             // if key is smaller than the lower bound, the insert has to be restart from the
             // upper level. because the sibling pointer only points to larger one.
             if(UNLIKELY(level == tree_height.load()) || path_stack[level+1]== GlobalAddress::Null()){
-                std::unique_lock<RWSpinLock> l(root_mtx);
-                if (page_addr == g_root_ptr.load()){
-                    g_root_ptr.store(GlobalAddress::Null());
-                }
+                invalidate_root(page_addr);
             }
             insert_success = false;
             DEBUG_PRINT_CONDITION("retry place 6\n");
@@ -1800,11 +1732,8 @@ namespace DSMEngine {
 
         assert(page->records[page->hdr.last_index].ptr != GlobalAddress::Null());
 
-        if (!skip_cache){
-            ddms_->SELCC_Exclusive_UnLock(page_addr, handle);
-        }else{
-            assert(false);
-        }
+
+        ddms_->SELCC_Exclusive_UnLock(page_addr, handle);
 
 
         // We can also say if need_split
@@ -1818,7 +1747,6 @@ namespace DSMEngine {
                 Cache::Handle* dummy_mr;
                 p = get_root_ptr(dummy_mr);
                 uint8_t height = tree_height.load();
-                uint8_t old_height = tree_height.load();
                 if (path_stack[level] == p && (int)height == level){
                     //Acquire global lock for the root update.
                     GlobalAddress lock_addr = {};
@@ -1838,8 +1766,7 @@ namespace DSMEngine {
                     p = g_root_ptr.load();
                     height = tree_height.load();
                     if (path_stack[level] == p && (int)height == level) {
-                        update_new_root(path_stack[level], split_key, sibling_addr, level + 1,
-                                        path_stack[level]);
+                        update_new_root(path_stack[level], split_key, sibling_addr, level + 1,path_stack[level]);
                         *(uint64_t *) cas_buffer->addr = 0;
                         //TODO: USE RDMA cas TO release lock
                         rdma_mg->RDMA_CAS(lock_addr, cas_buffer, 1, 0, IBV_SEND_SIGNALED,1, LockTable);
