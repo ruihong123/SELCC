@@ -44,9 +44,9 @@
 #include <memory>
 #include <cstddef>
 #include <assert.h>
-
+#include "DDSM.h"
 // *** Debugging Macros
-
+using namespace DSMEngine;
 #ifdef BTREE_DEBUG
 
 #include <iostream>
@@ -77,7 +77,7 @@
 #define BTREE_FRIENDS           friend class btree_friend;
 #endif
 
-#define BTREE_NODE_SIZE  256
+#define BTREE_NODE_SIZE  kLeafPageSize
 
 /// STX - Some Template Extensions namespace
 namespace stx {
@@ -256,6 +256,7 @@ namespace stx {
         /// by inner_node or leaf_node.
         struct node
         {
+            alignas(8) uint64_t global_lock;
             /// Level in the b-tree, if level == 0 -> leaf node
             unsigned short  level;
 
@@ -288,7 +289,7 @@ namespace stx {
             key_type        slotkey[innerslotmax];
 
             /// Pointers to children
-            node*           childid[innerslotmax+1];
+            GlobalAddress*           childid[innerslotmax+1];
 
             /// Set variables to initial values
             inline void initialize(const unsigned short l)
@@ -324,10 +325,12 @@ namespace stx {
             typedef typename _Alloc::template rebind<leaf_node>::other alloc_type;
 
             /// Double linked list pointers to traverse the leaves
-            leaf_node       *prevleaf;
+            GlobalAddress       prevleaf;
 
             /// Double linked list pointers to traverse the leaves
-            leaf_node       *nextleaf;
+            GlobalAddress       nextleaf;
+
+            GlobalAddress       this_gptr;
 
             /// Keys of children or data pointers
             key_type        slotkey[leafslotmax];
@@ -336,10 +339,11 @@ namespace stx {
             data_type       slotdata[used_as_set ? 1 : leafslotmax];
 
             /// Set variables to initial values
-            inline void initialize()
+            inline void initialize(GlobalAddress gptr)
             {
                 node::initialize(0);
-                prevleaf = nextleaf = NULL;
+                prevleaf = nextleaf = GlobalAddress::Null();
+                this_gptr = gptr;
             }
 
             /// True if the node's slots are full
@@ -463,7 +467,7 @@ namespace stx {
 
             /// The currently referenced leaf node of the tree
             typename btree::leaf_node*      currnode;
-
+            SELCC_Guard* guard = nullptr;
             /// Current key/data slot referenced
             unsigned short          currslot;
 
@@ -502,13 +506,24 @@ namespace stx {
             { }
 
             /// Initializing-Constructor of a mutable iterator
-            inline iterator(typename btree::leaf_node *l, unsigned short s)
-                    : currnode(l), currslot(s)
+            inline iterator(typename btree::leaf_node *l, unsigned short s, SELCC_Guard* g)
+                    : currnode(l), currslot(s), guard(g)
             { }
+            inline iterator(GlobalAddress gptr, bool start)
+            {
+                Cache_Handle* h = nullptr;
+                guard = new Exclusive_Guard(currnode, gptr, h);
+                if(start){
+                    currslot = 0;
+                }else{
+                    currslot = currnode->slotuse;
+                }
+
+            }
 
             /// Copy-constructor from a reverse iterator
             inline iterator(const reverse_iterator &it)
-                    : currnode(it.currnode), currslot(it.currslot)
+                    : currnode(it.currnode), currslot(it.currslot), guard(it.guard)
             { }
 
             /// Dereference the iterator, this is not a value_type& because key and
@@ -547,7 +562,10 @@ namespace stx {
                     ++currslot;
                 }
                 else if (currnode->nextleaf != NULL) {
-                    currnode = currnode->nextleaf;
+                    GlobalAddress next_gptr = currnode->nextleaf;
+                    delete guard;
+                    Cache_Handle* h = nullptr;
+                    guard = new Exclusive_Guard(currnode, next_gptr, h);
                     currslot = 0;
                 }
                 else {
@@ -567,7 +585,10 @@ namespace stx {
                     ++currslot;
                 }
                 else if (currnode->nextleaf != NULL) {
-                    currnode = currnode->nextleaf;
+                    GlobalAddress next_gptr = currnode->nextleaf;
+                    delete guard;
+                    Cache_Handle* h = nullptr;
+                    guard = new Exclusive_Guard(currnode, next_gptr, h);
                     currslot = 0;
                 }
                 else {
@@ -585,8 +606,11 @@ namespace stx {
                     --currslot;
                 }
                 else if (currnode->prevleaf != NULL) {
-                    currnode = currnode->prevleaf;
-                    currslot = currnode->slotuse - 1;
+                    GlobalAddress prev_gptr = currnode->prevleaf;
+                    delete guard;
+                    Cache_Handle* h = nullptr;
+                    guard = new Exclusive_Guard(currnode, prev_gptr, h);
+                    currslot = 0;
                 }
                 else {
                     // this is begin()
@@ -605,8 +629,11 @@ namespace stx {
                     --currslot;
                 }
                 else if (currnode->prevleaf != NULL) {
-                    currnode = currnode->prevleaf;
-                    currslot = currnode->slotuse - 1;
+                    GlobalAddress prev_gptr = currnode->prevleaf;
+                    delete guard;
+                    Cache_Handle* h = nullptr;
+                    guard = new Exclusive_Guard(currnode, prev_gptr, h);
+                    currslot = 0;
                 }
                 else {
                     // this is begin()
@@ -1287,15 +1314,18 @@ namespace stx {
 
     private:
         // *** Tree Object Data Members
-
+        uint16_t m_tree_id;
+                                          ///< Root gptr
         /// Pointer to the B+ tree's root node, either leaf or inner node
-        node*       m_root;
+        GlobalAddress root_gptr;
+        Cache_Handle* root_handle;                                    ///< Root cache handle
+//        node*       m_root;
 
         /// Pointer to first leaf in the double linked leaf chain
-        leaf_node   *m_headleaf;
+        GlobalAddress   m_headleaf_gptr;
 
         /// Pointer to last leaf in the double linked leaf chain
-        leaf_node   *m_tailleaf;
+        GlobalAddress   m_tailleaf_gptr;
 
         /// Other small statistics about the B+ tree
         tree_stats  m_stats;
@@ -1304,36 +1334,45 @@ namespace stx {
         /// this < relation.
         key_compare m_key_less;
 
-        /// Memory allocator.
+        /// Local Memory allocator.
         allocator_type m_allocator;
+
+        /// SELCC Memory allocator.
+        DSMEngine::DDSM* ddsm_;
+
+        // data structure for lock coupling.
+        static inline thread_local std::map<int, SELCC_Guard>* gptrs_mp = nullptr;
 
     public:
         // *** Constructors and Destructor
 
         /// Default constructor initializing an empty B+ tree with the standard key
         /// comparison function
-        explicit inline btree(const allocator_type &alloc = allocator_type())
-                : m_root(NULL), m_headleaf(NULL), m_tailleaf(NULL), m_allocator(alloc)
+        explicit inline btree(DDSM* ddsm, uint16_t Btr_id, const allocator_type &alloc = allocator_type() )
+                : m_headleaf_gptr(GlobalAddress::Null()), m_tailleaf_gptr(GlobalAddress::Null()), m_tree_id(Btr_id), m_allocator(alloc), ddsm_(ddsm)
         {
+            initialization();
         }
 
         /// Constructor initializing an empty B+ tree with a special key
         /// comparison object
-        explicit inline btree(const key_compare &kcf,
+        explicit inline btree(const key_compare &kcf, uint16_t Btr_id, DDSM* ddsm,
                               const allocator_type &alloc = allocator_type())
-                : m_root(NULL), m_headleaf(NULL), m_tailleaf(NULL),
-                  m_key_less(kcf), m_allocator(alloc)
+                : m_headleaf_gptr(GlobalAddress::Null()), m_tailleaf_gptr(GlobalAddress::Null()), m_tree_id(Btr_id),
+                  m_key_less(kcf), m_allocator(alloc), ddsm_(ddsm)
         {
+            initialization();
         }
 
         /// Constructor initializing a B+ tree with the range [first,last). The
         /// range need not be sorted. To create a B+ tree from a sorted range, use
         /// bulk_load().
         template <class InputIterator>
-        inline btree(InputIterator first, InputIterator last,
+        inline btree(InputIterator first, InputIterator last, uint16_t Btr_id, DDSM* ddsm,
                      const allocator_type &alloc = allocator_type())
-                : m_root(NULL), m_headleaf(NULL), m_tailleaf(NULL), m_allocator(alloc)
+                : m_headleaf_gptr(GlobalAddress::Null()), m_tailleaf_gptr(GlobalAddress::Null()),  m_tree_id(Btr_id), m_allocator(alloc), ddsm_(ddsm)
         {
+            initialization();
             insert(first, last);
         }
 
@@ -1341,11 +1380,12 @@ namespace stx {
         /// special key comparison object.  The range need not be sorted. To create
         /// a B+ tree from a sorted range, use bulk_load().
         template <class InputIterator>
-        inline btree(InputIterator first, InputIterator last, const key_compare &kcf,
+        inline btree(InputIterator first, InputIterator last, uint16_t Btr_id, DDSM* ddsm, const key_compare &kcf,
                      const allocator_type &alloc = allocator_type())
-                : m_root(NULL), m_headleaf(NULL), m_tailleaf(NULL),
-                  m_key_less(kcf), m_allocator(alloc)
+                : m_headleaf_gptr(GlobalAddress::Null()), m_tailleaf_gptr(GlobalAddress::Null()), m_tree_id(Btr_id),
+                  m_key_less(kcf), m_allocator(alloc), ddsm_(ddsm)
         {
+            initialization();
             insert(first, last);
         }
 
@@ -1354,13 +1394,31 @@ namespace stx {
         {
             clear();
         }
+        void initialization(){
+            if (gptrs_mp == nullptr) {
+                gptrs_mp = new std::map<int, SELCC_Guard>();
+            }
+            if (DSMEngine::RDMA_Manager::node_id == 0){
+                leaf_node* m_root = allocate_leaf();
+                root_gptr = m_root->this_gptr;
+                m_root->m_level = 0;
+                gptrs_mp->erase(0);
+                ddsm_->Update_Root_GCL(m_tree_id, root_gptr);
+            }else{
+                root_gptr  = ddsm_->Get_Root_GCL(m_tree_id);
+                while(ddsm_->Get_Root_GCL(m_tree_id) == GlobalAddress::Null()){
+                    root_gptr  = ddsm_->Get_Root_GCL(m_tree_id);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                }
 
+            }
+        }
         /// Fast swapping of two identical B+ tree objects.
         void swap(btree_self& from)
         {
-            std::swap(m_root, from.m_root);
-            std::swap(m_headleaf, from.m_headleaf);
-            std::swap(m_tailleaf, from.m_tailleaf);
+            std::swap(root_gptr, from.root_gptr);
+            std::swap(m_headleaf_gptr, from.m_headleaf_gptr);
+            std::swap(m_tailleaf_gptr, from.m_tailleaf_gptr);
             std::swap(m_stats, from.m_stats);
             std::swap(m_key_less, from.m_key_less);
             std::swap(m_allocator, from.m_allocator);
@@ -1465,43 +1523,78 @@ namespace stx {
         }
 
         /// Allocate and initialize a leaf node
-        inline leaf_node* allocate_leaf()
+        inline leaf_node* allocate_leaf(unsigned short level = 0, bool destroy_inside = false)
         {
-            leaf_node *n = new (leaf_node_allocator().allocate(1)) leaf_node();
-            n->initialize();
+            GlobalAddress gptr = ddsm_->Allocate_Remote(Regular_Page);
+            void* local_buff;
+            Cache_Handle* handle;
+            Exclusive_Guard guard(local_buff, gptr, handle);
+            leaf_node* newNode = new(local_buff) leaf_node;
+            newNode->initialize(gptr);
             m_stats.leaves++;
-            return n;
+            if (!destroy_inside) {
+                gptrs_mp->insert({level, std::move(guard)});
+            }
+            return newNode;
         }
 
         /// Allocate and initialize an inner node
         inline inner_node* allocate_inner(unsigned short level)
         {
-            inner_node *n = new (inner_node_allocator().allocate(1)) inner_node();
-            n->initialize(level);
-            m_stats.innernodes++;
-            return n;
+            GlobalAddress gptr = ddsm_->Allocate_Remote(Regular_Page);
+            void* local_buff;
+            Cache_Handle* handle;
+            Exclusive_Guard guard(local_buff, gptr, handle);
+            inner_node* newNode = new(local_buff) inner_node;
+            newNode->initialize(level);
+            if (level != INT_MAX) {
+                gptrs_mp->insert({level, std::move(guard)});
+            }
+            return newNode;
         }
 
         /// Correctly free either inner or leaf node, destructs all contained key
         /// and value objects
-        inline void free_node(node *n)
+        inline void free_node(Cache_Handle* node_h)
         {
-            if (n->isleafnode()) {
-                leaf_node *ln = static_cast<leaf_node*>(n);
-                typename leaf_node::alloc_type a(leaf_node_allocator());
-                a.destroy(ln);
-                a.deallocate(ln, 1);
-                m_stats.leaves--;
-            }
-            else {
-                inner_node *in = static_cast<inner_node*>(n);
-                typename inner_node::alloc_type a(inner_node_allocator());
-                a.destroy(in);
-                a.deallocate(in, 1);
-                m_stats.innernodes--;
-            }
+            ddsm_->Deallocate_Remote(Regular_Page, node_h->gptr);
         }
 
+        void LockCoupleFillMap(GlobalAddress node_gptr, node*& n) {
+            Cache_Handle* a_handle = nullptr;
+            void* local_buff;
+            Exclusive_Guard a_guard(local_buff, node_gptr, a_handle);
+            n = (node*)local_buff;
+            gptrs_mp->insert({n->level, std::move(a_guard)});
+        }
+        void LockCoupleCleanMap(node* n) {
+            // It seems lock coupling does not work for Rtree
+            if (n->isleafnode() ){
+                leaf_node* ln = dynamic_cast<leaf_node*>(n);
+                if (ln->isfull() || ln->isfew()){
+                    int level  = ln->level;
+                    while (gptrs_mp->count(level+1) > 0){
+                        gptrs_mp->erase(level+1);
+                        level++;
+                    }
+                    if (gptrs_mp->count(INT_MAX)){
+                        gptrs_mp->erase(INT_MAX); // remove the guard for catalog.
+                    }
+                }
+            }else{
+                inner_node* ln = dynamic_cast<inner_node*>(n);
+                if (ln->isfull() || ln->isfew()){
+                    int level  = ln->level;
+                    while (gptrs_mp->count(level+1) > 0){
+                        gptrs_mp->erase(level+1);
+                        level++;
+                    }
+                    if (gptrs_mp->count(INT_MAX)){
+                        gptrs_mp->erase(INT_MAX); // remove the guard for catalog.
+                    }
+                }
+            }
+        }
         /// Convenient template function for conditional copying of slotdata. This
         /// should be used instead of std::copy for all slotdata manipulations.
         template<class InputIterator, class OutputIterator>
@@ -1528,13 +1621,13 @@ namespace stx {
         /// Frees all key/data pairs and all nodes of the tree
         void clear()
         {
-            if (m_root)
+            if (root_gptr!= GlobalAddress::Null())
             {
-                clear_recursive(m_root);
-                free_node(m_root);
+                clear_recursive(root_gptr);
+                free_node(root_handle);
 
-                m_root = NULL;
-                m_headleaf = m_tailleaf = NULL;
+                root_gptr = GlobalAddress::Null();
+                m_headleaf_gptr = m_tailleaf_gptr = GlobalAddress::Null();
 
                 m_stats = tree_stats();
             }
@@ -1544,8 +1637,10 @@ namespace stx {
 
     private:
         /// Recursively free up nodes
-        void clear_recursive(node *n)
+        void clear_recursive(GlobalAddress *gptr)
         {
+            node n;
+            LockCoupleFillMap(gptr,n);
             if (n->isleafnode())
             {
                 leaf_node *leafnode = static_cast<leaf_node*>(n);
@@ -1565,6 +1660,7 @@ namespace stx {
                     free_node(innernode->childid[slot]);
                 }
             }
+            gptrs_mp->erase(n.level);
         }
 
     public:
@@ -1574,28 +1670,28 @@ namespace stx {
         /// the first leaf of the B+ tree.
         inline iterator begin()
         {
-            return iterator(m_headleaf, 0);
+            return iterator(m_headleaf_gptr, true);
         }
 
         /// Constructs a read/data-write iterator that points to the first invalid
         /// slot in the last leaf of the B+ tree.
         inline iterator end()
         {
-            return iterator(m_tailleaf, m_tailleaf ? m_tailleaf->slotuse : 0);
+            return iterator(m_tailleaf_gptr, false);
         }
 
         /// Constructs a read-only constant iterator that points to the first slot
         /// in the first leaf of the B+ tree.
         inline const_iterator begin() const
         {
-            return const_iterator(m_headleaf, 0);
+            return const_iterator(m_headleaf_gptr, true);
         }
 
         /// Constructs a read-only constant iterator that points to the first
         /// invalid slot in the last leaf of the B+ tree.
         inline const_iterator end() const
         {
-            return const_iterator(m_tailleaf, m_tailleaf ? m_tailleaf->slotuse : 0);
+            return const_iterator(m_tailleaf_gptr, false);
         }
 
         /// Constructs a read/data-write reverse iterator that points to the first
@@ -1756,17 +1852,23 @@ namespace stx {
 
         /// Non-STL function checking whether a key is in the B+ tree. The same as
         /// (find(k) != end()) or (count() != 0).
-        bool exists(const key_type &key) const
+        bool exists(const key_type &key)
         {
-            const node *n = m_root;
-            if (!n) return false;
+            root_gptr =  ddsm_->Get_Root_GCL(m_tree_id);
+            GlobalAddress gptr = root_gptr;
+            Cache_Handle* a_handle = nullptr;
+            const node *n;
 
-            while(!n->isleafnode())
+            while(1)
             {
+                Shared_Guard r_guard(n, gptr, a_handle);
                 const inner_node *inner = static_cast<const inner_node*>(n);
                 int slot = find_lower(inner, key);
-
-                n = inner->childid[slot];
+                if (!n->isleafnode()){
+                    gptr = inner->childid[slot];
+                }else{
+                    break;
+                }
             }
 
             const leaf_node *leaf = static_cast<const leaf_node*>(n);
@@ -1779,15 +1881,21 @@ namespace stx {
         /// key/data slot if found. If unsuccessful it returns end().
         iterator find(const key_type &key)
         {
-            node *n = m_root;
-            if (!n) return end();
+            root_gptr =  ddsm_->Get_Root_GCL(m_tree_id);
+            GlobalAddress gptr = root_gptr;
+            Cache_Handle* a_handle = nullptr;
+            const node *n;
 
-            while(!n->isleafnode())
+            while(1)
             {
+                Shared_Guard r_guard(n, gptr, a_handle);
                 const inner_node *inner = static_cast<const inner_node*>(n);
                 int slot = find_lower(inner, key);
-
-                n = inner->childid[slot];
+                if (!n->isleafnode()){
+                    gptr = inner->childid[slot];
+                }else{
+                    break;
+                }
             }
 
             leaf_node *leaf = static_cast<leaf_node*>(n);
@@ -1801,15 +1909,20 @@ namespace stx {
         /// to the key/data slot if found. If unsuccessful it returns end().
         const_iterator find(const key_type &key) const
         {
-            const node *n = m_root;
-            if (!n) return end();
+            GlobalAddress gptr = ddsm_->Get_Root_GCL(m_tree_id);;
+            Cache_Handle* a_handle = nullptr;
+            const node *n;
 
-            while(!n->isleafnode())
+            while(1)
             {
+                Shared_Guard r_guard(n, gptr, a_handle);
                 const inner_node *inner = static_cast<const inner_node*>(n);
                 int slot = find_lower(inner, key);
-
-                n = inner->childid[slot];
+                if (!n->isleafnode()){
+                    gptr = inner->childid[slot];
+                }else{
+                    break;
+                }
             }
 
             const leaf_node *leaf = static_cast<const leaf_node*>(n);
@@ -1821,19 +1934,24 @@ namespace stx {
 
         /// Tries to locate a key in the B+ tree and returns the number of
         /// identical key entries found.
-        size_type count(const key_type &key) const
+        size_type count(const key_type &key)
         {
-            const node *n = m_root;
-            if (!n) return 0;
+            root_gptr =  ddsm_->Get_Root_GCL(m_tree_id);
+            GlobalAddress gptr = root_gptr;
+            Cache_Handle* a_handle = nullptr;
+            const node *n;
 
-            while(!n->isleafnode())
+            while(1)
             {
+                Shared_Guard r_guard(n, gptr, a_handle);
                 const inner_node *inner = static_cast<const inner_node*>(n);
                 int slot = find_lower(inner, key);
-
-                n = inner->childid[slot];
+                if (!n->isleafnode()){
+                    gptr = inner->childid[slot];
+                }else{
+                    break;
+                }
             }
-
             const leaf_node *leaf = static_cast<const leaf_node*>(n);
 
             int slot = find_lower(leaf, key);
@@ -1856,15 +1974,21 @@ namespace stx {
         /// equal to or greater than key, or end() if all keys are smaller.
         iterator lower_bound(const key_type& key)
         {
-            node *n = m_root;
-            if (!n) return end();
+            root_gptr =  ddsm_->Get_Root_GCL(m_tree_id);
+            GlobalAddress gptr = root_gptr;
+            Cache_Handle* a_handle = nullptr;
+            const node *n;
 
-            while(!n->isleafnode())
+            while(1)
             {
+                Shared_Guard r_guard(n, gptr, a_handle);
                 const inner_node *inner = static_cast<const inner_node*>(n);
                 int slot = find_lower(inner, key);
-
-                n = inner->childid[slot];
+                if (!n->isleafnode()){
+                    gptr = inner->childid[slot];
+                }else{
+                    break;
+                }
             }
 
             leaf_node *leaf = static_cast<leaf_node*>(n);
@@ -1878,15 +2002,20 @@ namespace stx {
         /// are smaller.
         const_iterator lower_bound(const key_type& key) const
         {
-            const node *n = m_root;
-            if (!n) return end();
+            GlobalAddress gptr = ddsm_->Get_Root_GCL(m_tree_id);
+            Cache_Handle* a_handle = nullptr;
+            const node *n;
 
-            while(!n->isleafnode())
+            while(1)
             {
+                Shared_Guard r_guard(n, gptr, a_handle);
                 const inner_node *inner = static_cast<const inner_node*>(n);
                 int slot = find_lower(inner, key);
-
-                n = inner->childid[slot];
+                if (!n->isleafnode()){
+                    gptr = inner->childid[slot];
+                }else{
+                    break;
+                }
             }
 
             const leaf_node *leaf = static_cast<const leaf_node*>(n);
@@ -1899,15 +2028,21 @@ namespace stx {
         /// greater than key, or end() if all keys are smaller or equal.
         iterator upper_bound(const key_type& key)
         {
-            node *n = m_root;
-            if (!n) return end();
+            root_gptr =  ddsm_->Get_Root_GCL(m_tree_id);
+            GlobalAddress gptr = root_gptr;
+            Cache_Handle* a_handle = nullptr;
+            const node *n;
 
-            while(!n->isleafnode())
+            while(1)
             {
+                Shared_Guard r_guard(n, gptr, a_handle);
                 const inner_node *inner = static_cast<const inner_node*>(n);
-                int slot = find_upper(inner, key);
-
-                n = inner->childid[slot];
+                int slot = find_lower(inner, key);
+                if (!n->isleafnode()){
+                    gptr = inner->childid[slot];
+                }else{
+                    break;
+                }
             }
 
             leaf_node *leaf = static_cast<leaf_node*>(n);
@@ -1921,15 +2056,20 @@ namespace stx {
         /// or equal.
         const_iterator upper_bound(const key_type& key) const
         {
-            const node *n = m_root;
-            if (!n) return end();
+            GlobalAddress gptr = ddsm_->Get_Root_GCL(m_tree_id);
+            Cache_Handle* a_handle = nullptr;
+            const node *n;
 
-            while(!n->isleafnode())
+            while(1)
             {
+                Shared_Guard r_guard(n, gptr, a_handle);
                 const inner_node *inner = static_cast<const inner_node*>(n);
-                int slot = find_upper(inner, key);
-
-                n = inner->childid[slot];
+                int slot = find_lower(inner, key);
+                if (!n->isleafnode()){
+                    gptr = inner->childid[slot];
+                }else{
+                    break;
+                }
             }
 
             const leaf_node *leaf = static_cast<const leaf_node*>(n);
@@ -2009,7 +2149,7 @@ namespace stx {
                 {
                     m_stats.leaves = m_stats.innernodes = 0;
                     if (other.m_root) {
-                        m_root = copy_recursive(other.m_root);
+                        root_gptr = copy_recursive(other.m_root);
                     }
                     m_stats = other.m_stats;
                 }
@@ -2022,7 +2162,7 @@ namespace stx {
         /// Copy constructor. The newly initialized B+ tree object will contain a
         /// copy of all key/data pairs.
         inline btree(const btree_self &other)
-                : m_root(NULL), m_headleaf(NULL), m_tailleaf(NULL),
+                : m_headleaf_gptr(GlobalAddress::Null()), m_tailleaf_gptr(GlobalAddress::Null()), m_tree_id(other.m_tree_id), ddsm_(other.ddsm_),
                   m_stats( other.m_stats ),
                   m_key_less( other.key_comp() ),
                   m_allocator( other.get_allocator() )
@@ -2031,7 +2171,7 @@ namespace stx {
             {
                 m_stats.leaves = m_stats.innernodes = 0;
                 if (other.m_root) {
-                    m_root = copy_recursive(other.m_root);
+                    root_gptr = copy_recursive(other.m_root);
                 }
                 if (selfverify) verify();
             }
@@ -2039,8 +2179,11 @@ namespace stx {
 
     private:
         /// Recursively copy nodes from another B+ tree object
-        struct node* copy_recursive(const node *n)
+        GlobalAddress copy_recursive(const GlobalAddress gptr)
         {
+            node* n;
+            LockCoupleFillMap(gptr, n);
+            LockCoupleCleanMap( n);
             if (n->isleafnode())
             {
                 const leaf_node *leaf = static_cast<const leaf_node*>(n);
@@ -2050,18 +2193,21 @@ namespace stx {
                 std::copy(leaf->slotkey, leaf->slotkey + leaf->slotuse, newleaf->slotkey);
                 data_copy(leaf->slotdata, leaf->slotdata + leaf->slotuse, newleaf->slotdata);
 
-                if (m_headleaf == NULL)
+                if (m_headleaf_gptr == NULL)
                 {
-                    m_headleaf = m_tailleaf = newleaf;
+                    m_headleaf_gptr = m_tailleaf_gptr = newleaf;
                     newleaf->prevleaf = newleaf->nextleaf = NULL;
                 }
                 else
                 {
-                    newleaf->prevleaf = m_tailleaf;
-                    m_tailleaf->nextleaf = newleaf;
-                    m_tailleaf = newleaf;
+                    newleaf->prevleaf = m_tailleaf_gptr;
+                    Cache_Handle* h = nullptr;
+                    leaf_node* m_tailleaf;
+                    Exclusive_Guard guard(m_tailleaf, m_tailleaf_gptr, h);
+                    m_tailleaf->nextleaf = newleaf->this_gptr;
+                    m_tailleaf_gptr = newleaf->this_gptr;
                 }
-
+                gptrs_mp->erase(n->level);
                 return newleaf;
             }
             else
@@ -2076,7 +2222,9 @@ namespace stx {
                 {
                     newinner->childid[slot] = copy_recursive(inner->childid[slot]);
                 }
-
+                if (gptrs_mp->count(n->level)){
+                    gptrs_mp->erase(n->level);
+                }
                 return newinner;
             }
         }
@@ -2145,27 +2293,29 @@ namespace stx {
         /// splits. Returns true if the item was inserted
         std::pair<iterator, bool> insert_start(const key_type& key, const data_type& value)
         {
+            Cache_Handle* catal_h = nullptr;
+            CatalogPage* catlog;
+            Exclusive_Guard a_guard(reinterpret_cast<void *&>(catlog), ddsm_->catalog_ptr, catal_h);
+            gptrs_mp->insert({INT_MAX, std::move(a_guard)});
+            root_gptr = catlog->root_gptrs[m_tree_id];
             node *newchild = NULL;
             key_type newkey = key_type();
 
-            if (m_root == NULL) {
-                m_root = m_headleaf = m_tailleaf = allocate_leaf();
-            }
-
-            std::pair<iterator, bool> r = insert_descend(m_root, key, value, &newkey, &newchild);
+            std::pair<iterator, bool> r = insert_descend(root_gptr, key, value, &newkey, &newchild);
 
             if (newchild)
             {
-                inner_node *newroot = allocate_inner(m_root->level + 1);
+                inner_node *newroot = allocate_inner(newchild->level + 1);
                 newroot->slotkey[0] = newkey;
 
-                newroot->childid[0] = m_root;
-                newroot->childid[1] = newchild;
+                newroot->childid[0] = root_gptr;
+                newroot->childid[1] = newchild->this_gptr;
 
                 newroot->slotuse = 1;
 
-                m_root = newroot;
+                root_gptr = newroot->this_gptr;
             }
+            ddsm_->Update_Root_GCL(m_tree_id, root_gptr);
 
             // increment itemcount if the item was inserted
             if (r.second) ++m_stats.itemcount;
@@ -2189,10 +2339,13 @@ namespace stx {
      * slot. If the node overflows, then it must be split and the new split
      * node inserted into the parent. Unroll / this splitting up to the root.
     */
-        std::pair<iterator, bool> insert_descend(node* n,
+        std::pair<iterator, bool> insert_descend(GlobalAddress* n_gptr,
                                                  const key_type& key, const data_type& value,
                                                  key_type* splitkey, node** splitnode)
         {
+            node *n;
+            LockCoupleFillMap(n_gptr, n);
+            LockCoupleCleanMap(n);
             if (!n->isleafnode())
             {
                 inner_node *inner = static_cast<inner_node*>(n);
@@ -2246,7 +2399,8 @@ namespace stx {
                             // set new split key and move corresponding datum into right node
                             splitinner->childid[0] = newchild;
                             *splitkey = newkey;
-
+                            gptrs_mp->erase(n->level);
+                            gptrs_mp->erase(-n->level-1);
                             return r;
                         }
                         else if (slot >= inner->slotuse+1)
@@ -2258,6 +2412,8 @@ namespace stx {
                             inner = static_cast<inner_node*>(*splitnode);
                             BTREE_PRINT("btree::insert_descend switching to splitted node " << inner << " slot " << slot);
                         }
+                        gptrs_mp->erase(-n->level-1);
+
                     }
 
                     // move items and put pointer to child node into correct slot
@@ -2271,6 +2427,8 @@ namespace stx {
                     inner->slotkey[slot] = newkey;
                     inner->childid[slot + 1] = newchild;
                     inner->slotuse++;
+                    gptrs_mp->erase(n->level);
+
                 }
 
                 return r;
@@ -2316,7 +2474,8 @@ namespace stx {
                     // updated.
                     *splitkey = key;
                 }
-
+                gptrs_mp->erase(-1);
+                gptrs_mp->erase(0);
                 return std::pair<iterator, bool>(iterator(leaf, slot), true);
             }
         }
@@ -2331,17 +2490,20 @@ namespace stx {
 
             BTREE_PRINT("btree::split_leaf_node on " << leaf);
 
-            leaf_node *newleaf = allocate_leaf();
+            leaf_node *newleaf = allocate_leaf(-1);
 
             newleaf->slotuse = leaf->slotuse - mid;
 
             newleaf->nextleaf = leaf->nextleaf;
             if (newleaf->nextleaf == NULL) {
                 BTREE_ASSERT(leaf == m_tailleaf);
-                m_tailleaf = newleaf;
+                m_tailleaf_gptr = newleaf->this_gptr;
             }
             else {
-                newleaf->nextleaf->prevleaf = newleaf;
+                leaf_node* next_leaf;
+                Cache_Handle* a_handle = nullptr;
+                Exclusive_Guard Guard(next_leaf, newleaf->nextleaf, a_handle);
+                next_leaf->prevleaf = newleaf->this_gptr;
             }
 
             std::copy(leaf->slotkey + mid, leaf->slotkey + leaf->slotuse,
@@ -2350,7 +2512,7 @@ namespace stx {
                       newleaf->slotdata);
 
             leaf->slotuse = mid;
-            leaf->nextleaf = newleaf;
+            leaf->nextleaf = newleaf->this_gptr;
             newleaf->prevleaf = leaf;
 
             *_newkey = leaf->slotkey[leaf->slotuse-1];
@@ -2378,7 +2540,7 @@ namespace stx {
 
             BTREE_PRINT("btree::split_inner_node on " << inner << " into two nodes " << mid << " and " << inner->slotuse - (mid + 1) << " sized");
 
-            inner_node *newinner = allocate_inner(inner->level);
+            inner_node *newinner = allocate_inner(-inner->level-1);
 
             newinner->slotuse = inner->slotuse - (mid + 1);
 
@@ -2424,14 +2586,17 @@ namespace stx {
                 for (size_t s = 0; s < leaf->slotuse; ++s, ++it)
                     leaf->set_slot(s, *it);
 
-                if (m_tailleaf != NULL) {
+                if (m_tailleaf_gptr != NULL) {
+                    leaf_node* m_tailleaf;
+                    Cache_Handle* a_handle = nullptr;
+                    Exclusive_Guard guard(m_tailleaf, m_tailleaf_gptr, a_handle);
                     m_tailleaf->nextleaf = leaf;
-                    leaf->prevleaf = m_tailleaf;
+                    leaf->prevleaf = m_tailleaf->this_gptr;
                 }
                 else {
-                    m_headleaf = leaf;
+                    m_headleaf_gptr = leaf->this_gptr;
                 }
-                m_tailleaf = leaf;
+                m_tailleaf_gptr = leaf->this_gptr;
 
                 num_items -= leaf->slotuse;
             }
@@ -2439,8 +2604,8 @@ namespace stx {
             BTREE_ASSERT( it == iend && num_items == 0 );
 
             // if the btree is so small to fit into one leaf, then we're done.
-            if (m_headleaf == m_tailleaf) {
-                m_root = m_headleaf;
+            if (m_headleaf_gptr == m_tailleaf_gptr) {
+                root_gptr = m_headleaf_gptr;
                 return;
             }
 
@@ -2452,10 +2617,12 @@ namespace stx {
             BTREE_PRINT("btree::bulk_load, level 1: " << num_leaves << " leaves in " << num_parents << " inner nodes with up to " << ((num_leaves + num_parents-1) / num_parents) << " leaves per inner node.");
 
             // save inner nodes and maxkey for next level.
-            typedef std::pair<inner_node*, const key_type*> nextlevel_type;
+            typedef std::pair<GlobalAddress, const key_type*> nextlevel_type;
             nextlevel_type* nextlevel = new nextlevel_type[num_parents];
 
-            leaf_node* leaf = m_headleaf;
+            leaf_node* leaf;
+            Cache_Handle* leaf_handle = nullptr;
+            GlobalAddress leaf_gptr = m_headleaf_gptr;
             for (size_t i = 0; i < num_parents; ++i)
             {
                 // allocate new inner node at level 1
@@ -2468,17 +2635,19 @@ namespace stx {
                 // copy last key from each leaf and set child
                 for (unsigned short s = 0; s < n->slotuse; ++s)
                 {
+                    Exclusive_Guard leaf_guard(leaf, leaf_gptr, leaf_handle);
+
                     n->slotkey[s] = leaf->slotkey[leaf->slotuse-1];
-                    n->childid[s] = leaf;
-                    leaf = leaf->nextleaf;
+                    n->childid[s] = leaf->this_gptr;
+                    leaf_gptr = leaf->nextleaf;
                 }
                 n->childid[n->slotuse] = leaf;
 
                 // track max key of any descendant.
-                nextlevel[i].first = n;
+                nextlevel[i].first = n->this_gptr;
                 nextlevel[i].second = &leaf->slotkey[leaf->slotuse-1];
 
-                leaf = leaf->nextleaf;
+                leaf_gptr = leaf->nextleaf;
                 num_leaves -= n->slotuse+1;
             }
 
@@ -2495,6 +2664,7 @@ namespace stx {
                 size_t inner_index = 0;
                 for (size_t i = 0; i < num_parents; ++i)
                 {
+
                     // allocate new inner node at level
                     inner_node* n = allocate_inner(level);
 
@@ -2513,17 +2683,18 @@ namespace stx {
 
                     // reuse nextlevel array for parents, because we can overwrite
                     // slots we've already consumed.
-                    nextlevel[i].first = n;
+                    nextlevel[i].first = n->this_gptr;
                     nextlevel[i].second = nextlevel[inner_index].second;
 
                     ++inner_index;
                     num_children -= n->slotuse+1;
+                    gptrs_mp->erase(level);
                 }
 
                 BTREE_ASSERT( num_children == 0 );
             }
+            ddsm_->Update_Root_GCL(m_tree_id, nextlevel[0].first);
 
-            m_root = nextlevel[0].first;
             delete [] nextlevel;
 
             if (selfverify) verify();
@@ -2600,10 +2771,14 @@ namespace stx {
             BTREE_PRINT("btree::erase_one(" << key << ") on btree size " << size());
 
             if (selfverify) verify();
+            Cache_Handle* catal_h = nullptr;
+            CatalogPage* catlog;
+            Exclusive_Guard a_guard(reinterpret_cast<void *&>(catlog), ddsm_->catalog_ptr, catal_h);
+            gptrs_mp->insert({INT_MAX, std::move(a_guard)});
+            root_gptr = catlog->root_gptrs[m_tree_id];
+            if (!root_gptr) return false;
 
-            if (!m_root) return false;
-
-            result_t result = erase_one_descend(key, m_root, NULL, NULL, NULL, NULL, NULL, 0);
+            result_t result = erase_one_descend(key, root_gptr, NULL, NULL, NULL, NULL, NULL, 0);
 
             if (!result.has(btree_not_found))
                 --m_stats.itemcount;
@@ -2637,10 +2812,14 @@ namespace stx {
             BTREE_PRINT("btree::erase_iter(" << iter.currnode << "," << iter.currslot << ") on btree size " << size());
 
             if (selfverify) verify();
+            Cache_Handle* catal_h = nullptr;
+            CatalogPage* catlog;
+            Exclusive_Guard a_guard(reinterpret_cast<void *&>(catlog), ddsm_->catalog_ptr, catal_h);
+            gptrs_mp->insert({INT_MAX, std::move(a_guard)});
+            root_gptr = catlog->root_gptrs[m_tree_id];
+            if (!root_gptr) return;
 
-            if (!m_root) return;
-
-            result_t result = erase_iter_descend(iter, m_root, NULL, NULL, NULL, NULL, NULL, 0);
+            result_t result = erase_iter_descend(iter, root_gptr, GlobalAddress::Null(), GlobalAddress::Null(), NULL, NULL, NULL, 0);
 
             if (!result.has(btree_not_found))
                 --m_stats.itemcount;
@@ -2673,11 +2852,20 @@ namespace stx {
      * merging two sibling nodes or trimming the tree.
      */
         result_t erase_one_descend(const key_type& key,
-                                   node *curr,
-                                   node *left, node *right,
+                                   GlobalAddress curr_ptr,
+                                   GlobalAddress left_ptr, GlobalAddress right_ptr,
                                    inner_node *leftparent, inner_node *rightparent,
                                    inner_node *parent, unsigned int parentslot)
         {
+            node *curr;
+            LockCoupleFillMap(curr_ptr,curr);
+            LockCoupleCleanMap(curr);
+            leaf_node *left = nullptr;
+            Cache_Handle* left_handle = nullptr;
+            leaf_node *right = nullptr;
+            Cache_Handle* right_handle = nullptr;
+            Exclusive_Guard left_guard(left, left_ptr, left_handle);
+            Exclusive_Guard right_guard(right, right_ptr, right_handle);
             if (curr->isleafnode())
             {
                 leaf_node *leaf = static_cast<leaf_node*>(curr);
@@ -2727,7 +2915,7 @@ namespace stx {
                     }
                 }
 
-                if (leaf->isunderflow() && !(leaf == m_root && leaf->slotuse >= 1))
+                if (leaf->isunderflow() && !(leaf->this_gptr == root_gptr && leaf->slotuse >= 1))
                 {
                     // determine what to do about the underflow
 
@@ -2738,10 +2926,10 @@ namespace stx {
                         BTREE_ASSERT(leaf == m_root);
                         BTREE_ASSERT(leaf->slotuse == 0);
 
-                        free_node(m_root);
-
-                        m_root = leaf = NULL;
-                        m_headleaf = m_tailleaf = NULL;
+                        free_node((*gptrs_mp)[0].handle_);
+                        leaf = NULL;
+                        root_gptr = GlobalAddress::Null();
+                        m_headleaf_gptr = m_tailleaf_gptr = GlobalAddress::Null();
 
                         // will be decremented soon by insert_start()
                         BTREE_ASSERT(m_stats.itemcount == 1);
@@ -2802,8 +2990,8 @@ namespace stx {
                 inner_node *leftinner = static_cast<inner_node*>(left);
                 inner_node *rightinner = static_cast<inner_node*>(right);
 
-                node *myleft, *myright;
-                inner_node *myleftparent, *myrightparent;
+                GlobalAddress myleft, myright = GlobalAddress::Null();
+                GlobalAddress myleftparent, myrightparent = GlobalAddress::Null();
 
                 int slot = find_lower(inner, key);
 
@@ -2846,7 +3034,7 @@ namespace stx {
                     {
                         BTREE_PRINT("Fixing lastkeyupdate: key " << result.lastkey << " into parent " << parent << " at parentslot " << parentslot);
 
-                        BTREE_ASSERT(parent->childid[parentslot] == curr);
+                        BTREE_ASSERT(parent->childid[parentslot] == curr->this_gptr);
                         parent->slotkey[parentslot] = result.lastkey;
                     }
                     else
@@ -2858,14 +3046,19 @@ namespace stx {
 
                 if (result.has(btree_fixmerge))
                 {
+                    node * next = nullptr;
+                    Cache_Handle* next_handle = nullptr;
+                    Exclusive_Guard inner_guard(reinterpret_cast<void*&>(next), inner->childid[slot], next_handle);
                     // either the current node or the next is empty and should be removed
-                    if (inner->childid[slot]->slotuse != 0)
+                    if (next->slotuse != 0){
                         slot++;
+                        inner_guard.Reset(reinterpret_cast<void*&>(next), inner->childid[slot], next_handle);
+                    }
 
                     // this is the child slot invalidated by the merge
                     BTREE_ASSERT(inner->childid[slot]->slotuse == 0);
 
-                    free_node(inner->childid[slot]);
+                    free_node(next_handle);
 
                     std::copy(inner->slotkey + slot, inner->slotkey + inner->slotuse,
                               inner->slotkey + slot-1);
@@ -2878,12 +3071,15 @@ namespace stx {
                     {
                         // fix split key for children leaves
                         slot--;
-                        leaf_node *child = static_cast<leaf_node*>(inner->childid[slot]);
+                        GlobalAddress child_ptr = inner->childid[slot];
+                        leaf_node *child;
+                        Cache_Handle* child_handle = nullptr;
+                        Exclusive_Guard child_guard(reinterpret_cast<void*&>(child), child_ptr, child_handle);
                         inner->slotkey[slot] = child->slotkey[ child->slotuse-1 ];
                     }
                 }
 
-                if (inner->isunderflow() && !(inner == m_root && inner->slotuse >= 1))
+                if (inner->isunderflow() && !(inner->this_ptr == root_gptr && inner->slotuse >= 1))
                 {
                     // case: the inner node is the root and has just one child. that child becomes the new root
                     if (leftinner == NULL && rightinner == NULL)
@@ -2891,8 +3087,10 @@ namespace stx {
                         BTREE_ASSERT(inner == m_root);
                         BTREE_ASSERT(inner->slotuse == 0);
 
-                        m_root = inner->childid[0];
-
+                        root_gptr = inner->childid[0];
+                        Cache_Handle* cat_h = (*gptrs_mp)[INT_MAX].handle_;
+                        CatalogPage* catlog = reinterpret_cast<CatalogPage*>(((ibv_mr*)cat_h->value)->addr);
+                        catlog->root_gptrs[m_tree_id] = root_gptr;
                         inner->slotuse = 0;
                         free_node(inner);
 
@@ -2962,11 +3160,20 @@ namespace stx {
      * and the same underflow cases are handled as in erase_one_descend.
      */
         result_t erase_iter_descend(const iterator& iter,
-                                    node *curr,
-                                    node *left, node *right,
+                                    GlobalAddress curr_ptr,
+                                    GlobalAddress left_ptr, GlobalAddress right_ptr,
                                     inner_node *leftparent, inner_node *rightparent,
                                     inner_node *parent, unsigned int parentslot)
         {
+            node *curr;
+            LockCoupleFillMap(curr_ptr,curr);
+            LockCoupleCleanMap(curr);
+            leaf_node *left = nullptr;
+            Cache_Handle* left_handle = nullptr;
+            leaf_node *right = nullptr;
+            Cache_Handle* right_handle = nullptr;
+            Exclusive_Guard left_guard(left, left_ptr, left_handle);
+            Exclusive_Guard right_guard(right, right_ptr, right_handle);
             if (curr->isleafnode())
             {
                 leaf_node *leaf = static_cast<leaf_node*>(curr);
@@ -3023,7 +3230,7 @@ namespace stx {
                     }
                 }
 
-                if (leaf->isunderflow() && !(leaf == m_root && leaf->slotuse >= 1))
+                if (leaf->isunderflow() && !(leaf == root_gptr && leaf->slotuse >= 1))
                 {
                     // determine what to do about the underflow
 
@@ -3034,10 +3241,10 @@ namespace stx {
                         BTREE_ASSERT(leaf == m_root);
                         BTREE_ASSERT(leaf->slotuse == 0);
 
-                        free_node(m_root);
-
-                        m_root = leaf = NULL;
-                        m_headleaf = m_tailleaf = NULL;
+                        free_node((*gptrs_mp)[0].handle_);
+                        leaf = NULL;
+                        root_gptr = GlobalAddress::Null();
+                        m_headleaf_gptr = m_tailleaf_gptr = GlobalAddress::Null();
 
                         // will be decremented soon by insert_start()
                         BTREE_ASSERT(m_stats.itemcount == 1);
@@ -3106,8 +3313,8 @@ namespace stx {
 
                 while (slot <= inner->slotuse)
                 {
-                    node *myleft, *myright;
-                    inner_node *myleftparent, *myrightparent;
+                    GlobalAddress myleft, myright = GlobalAddress::Null();
+                    GlobalAddress myleftparent, myrightparent = GlobalAddress::Null();
 
                     if (slot == 0) {
                         myleft = (left == NULL) ? NULL : (static_cast<inner_node*>(left))->childid[left->slotuse - 1];
@@ -3157,7 +3364,7 @@ namespace stx {
                     {
                         BTREE_PRINT("Fixing lastkeyupdate: key " << result.lastkey << " into parent " << parent << " at parentslot " << parentslot);
 
-                        BTREE_ASSERT(parent->childid[parentslot] == curr);
+                        BTREE_ASSERT(parent->childid[parentslot] == curr->this_gptr);
                         parent->slotkey[parentslot] = result.lastkey;
                     }
                     else
@@ -3169,14 +3376,19 @@ namespace stx {
 
                 if (result.has(btree_fixmerge))
                 {
+                    node * next = nullptr;
+                    Cache_Handle* next_handle = nullptr;
+                    Exclusive_Guard inner_guard(reinterpret_cast<void*&>(next), inner->childid[slot], next_handle);
                     // either the current node or the next is empty and should be removed
-                    if (inner->childid[slot]->slotuse != 0)
+                    if (next->slotuse != 0){
                         slot++;
+                        inner_guard.Reset(reinterpret_cast<void*&>(next), inner->childid[slot], next_handle);
+                    }
 
                     // this is the child slot invalidated by the merge
                     BTREE_ASSERT(inner->childid[slot]->slotuse == 0);
 
-                    free_node(inner->childid[slot]);
+                    free_node(next_handle);
 
                     std::copy(inner->slotkey + slot, inner->slotkey + inner->slotuse,
                               inner->slotkey + slot-1);
@@ -3189,12 +3401,14 @@ namespace stx {
                     {
                         // fix split key for children leaves
                         slot--;
-                        leaf_node *child = static_cast<leaf_node*>(inner->childid[slot]);
-                        inner->slotkey[slot] = child->slotkey[ child->slotuse-1 ];
+                        GlobalAddress child_ptr = inner->childid[slot];
+                        leaf_node *child;
+                        Cache_Handle* child_handle = nullptr;
+                        Exclusive_Guard child_guard(reinterpret_cast<void*&>(child), child_ptr, child_handle);                        inner->slotkey[slot] = child->slotkey[ child->slotuse-1 ];
                     }
                 }
 
-                if (inner->isunderflow() && !(inner == m_root && inner->slotuse >= 1))
+                if (inner->isunderflow() && !(inner == root_gptr && inner->slotuse >= 1))
                 {
                     // case: the inner node is the root and has just one
                     // child. that child becomes the new root
@@ -3203,8 +3417,10 @@ namespace stx {
                         BTREE_ASSERT(inner == m_root);
                         BTREE_ASSERT(inner->slotuse == 0);
 
-                        m_root = inner->childid[0];
-
+                        root_gptr = inner->childid[0];
+                        Cache_Handle* cat_h = (*gptrs_mp)[INT_MAX].handle_;
+                        CatalogPage* catlog = reinterpret_cast<CatalogPage*>(((ibv_mr*)cat_h->value)->addr);
+                        catlog->root_gptrs[m_tree_id] = root_gptr;
                         inner->slotuse = 0;
                         free_node(inner);
 
@@ -3282,7 +3498,7 @@ namespace stx {
             if (left->nextleaf)
                 left->nextleaf->prevleaf = left;
             else
-                m_tailleaf = left;
+                m_tailleaf_gptr = left->this_gptr;
 
             right->slotuse = 0;
 
@@ -3634,9 +3850,9 @@ private:
             key_type minkey, maxkey;
             tree_stats vstats;
 
-            if (m_root)
+            if (root_gptr!= GlobalAddress::Null())
             {
-                verify_node(m_root, &minkey, &maxkey, vstats);
+                verify_node(root_gptr, &minkey, &maxkey, vstats);
 
                 assert( vstats.itemcount == m_stats.itemcount );
                 assert( vstats.leaves == m_stats.leaves );
@@ -3649,15 +3865,17 @@ private:
     private:
 
         /// Recursively descend down the tree and verify each node
-        void verify_node(const node* n, key_type* minkey, key_type* maxkey, tree_stats &vstats) const
+        void verify_node(const GlobalAddress n_ptr, key_type* minkey, key_type* maxkey, tree_stats &vstats) const
         {
             BTREE_PRINT("verifynode " << n);
-
+            node* n;
+            Cache_Handle* n_h;
+            Shared_Guard guard(reinterpret_cast<void*&>(n), n_ptr, n_h);
             if (n->isleafnode())
             {
                 const leaf_node *leaf = static_cast<const leaf_node*>(n);
 
-                assert( leaf == m_root || !leaf->isunderflow() );
+                assert( leaf->this_gptr == root_gptr || !leaf->isunderflow() );
                 assert( leaf->slotuse > 0 );
 
                 for(unsigned short slot = 0; slot < leaf->slotuse - 1; ++slot)
@@ -3676,7 +3894,7 @@ private:
                 const inner_node *inner = static_cast<const inner_node*>(n);
                 vstats.innernodes++;
 
-                assert( inner == m_root || !inner->isunderflow() );
+                assert( inner == root_gptr || !inner->isunderflow() );
                 assert( inner->slotuse > 0 );
 
                 for(unsigned short slot = 0; slot < inner->slotuse - 1; ++slot)
@@ -3736,7 +3954,9 @@ private:
         /// Verify the double linked list of leaves.
         void verify_leaflinks() const
         {
-            const leaf_node *n = m_headleaf;
+            const leaf_node *n;
+            Cache_Handle* n_h;
+            Shared_Guard s_guard(reinterpret_cast<void*&>(n), m_headleaf_gptr, n_h);
 
             assert(n->level == 0);
             assert(!n || n->prevleaf == NULL);
@@ -3763,7 +3983,7 @@ private:
                 }
                 else
                 {
-                    assert(m_tailleaf == n);
+                    assert(m_tailleaf_gptr == n->this_gptr);
                 }
 
                 n = n->nextleaf;
@@ -3850,8 +4070,8 @@ private:
 
             os.write(reinterpret_cast<char*>(&header), sizeof(header));
 
-            if (m_root) {
-                dump_node(os, m_root);
+            if (root_gptr != GlobalAddress::Null()) {
+                dump_node(os, root_gptr);
             }
         }
 
@@ -3879,8 +4099,8 @@ private:
 
             if (fileheader.itemcount > 0)
             {
-                m_root = restore_node(is);
-                if (m_root == NULL) return false;
+                root_gptr = restore_node(is);
+                if (root_gptr == GlobalAddress::Null()) return false;
 
                 m_stats.itemcount = fileheader.itemcount;
             }
@@ -3947,14 +4167,17 @@ private:
                 *newleaf = nu.leaf;
 
                 // reconstruct the linked list from the order in the file
-                if (m_headleaf == NULL) {
+                if (m_headleaf_gptr == GlobalAddress::Null()) {
                     BTREE_ASSERT(newleaf->prevleaf == NULL);
-                    m_headleaf = m_tailleaf = newleaf;
+                    m_headleaf_gptr = m_tailleaf_gptr = newleaf->this_gptr;
                 }
                 else {
-                    newleaf->prevleaf = m_tailleaf;
-                    m_tailleaf->nextleaf = newleaf;
-                    m_tailleaf = newleaf;
+                    leaf_node* newleaf = nullptr;
+                    Cache_Handle* n_h = nullptr;
+                    Exclusive_Guard guard(newleaf, m_tailleaf_gptr, n_h);
+                    newleaf->prevleaf = m_tailleaf_gptr;
+                    newleaf->nextleaf = newleaf;
+                    m_tailleaf_gptr = newleaf->this_gptr;
                 }
 
                 return newleaf;
