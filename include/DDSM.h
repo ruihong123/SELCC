@@ -212,15 +212,35 @@ namespace DSMEngine {
 //        GlobalAddress page_addr_;
 //        Cache::Handle* handle_;
         Exclusive_Guard(void* &page_buffer, GlobalAddress page_addr, Cache::Handle* & handle){
+            if (page_addr == GlobalAddress::Null()){
+                handle = nullptr;
+                return;
+            }
             DDSM::Get_Instance()->SELCC_Exclusive_Lock(page_buffer, page_addr, handle);
             handle_ = handle;
             page_addr_ = page_addr;
 
         }
-        Exclusive_Guard(const Exclusive_Guard&) = delete;
-        ~Exclusive_Guard() override {
+        void Reset(void* &page_buffer, GlobalAddress page_addr, Cache::Handle* & handle){
+            destroy();
+            if (page_addr == GlobalAddress::Null()){
+                handle = nullptr;
+                return;
+            }
+            DDSM::Get_Instance()->SELCC_Exclusive_Lock(page_buffer, page_addr, handle);
+            handle_ = handle;
+            page_addr_ = page_addr;
+        }
+        inline void destroy(){
+            if (page_addr_ == GlobalAddress::Null()){
+                return;
+            }
             DDSM::Get_Instance()->SELCC_Exclusive_UnLock(page_addr_, handle_);
 
+        }
+        Exclusive_Guard(const Exclusive_Guard&) = delete;
+        ~Exclusive_Guard() override {
+            destroy();
         }
     };
     class Shared_Guard: public SELCC_Guard{

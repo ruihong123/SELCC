@@ -22,6 +22,7 @@ include_directories(
         )
 
 add_library(DSMEngine utils/Local_opt_locks.cpp utils/Local_opt_locks.h btr/btr_itr.cpp)
+add_library(stx_btree btr/stx_btree.h)
 target_sources(DSMEngine
         PRIVATE
         "btr/Btr.cpp"
@@ -94,6 +95,7 @@ enable_testing()
 #add_subdirectory("third_party/googletest")
 find_package(ibverbs REQUIRED)
 target_link_libraries(DSMEngine ibverbs::ibverbs -lcityhash -lboost_system -lboost_coroutine -lboost_thread -lmemcached)
+target_link_libraries(stx_btree DSMEngine)
 if(WITH_NUMA)
     find_package(NUMA REQUIRED)
     add_definitions(-DNUMA)

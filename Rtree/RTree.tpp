@@ -1200,8 +1200,8 @@ void RTREE_QUAL::Classify(int a_index, int a_group, PartitionVars* a_parVars)
 RTREE_TEMPLATE
 bool RTREE_QUAL::RemoveRect(Rect* a_rect, const DATATYPE& a_id)
 {
-            RTREE_ASSERT(a_root);
-            RTREE_ASSERT(*a_root);
+//            RTREE_ASSERT(a_root);
+//            RTREE_ASSERT(*a_root);
     Cache_Handle* catal_h = nullptr;
     void* local_buff;
     Exclusive_Guard a_guard(local_buff, ddsm_->catalog_ptr, catal_h);
