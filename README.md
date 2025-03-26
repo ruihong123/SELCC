@@ -109,3 +109,4 @@ Guide to header files:
 * Optimize the synchronization in the hash table of local cache. (SpinMutex -> Spin-Shared-Exclusive Mutex prioritizing writer).
 * RAII SELCC APIs (Done).
 * Add another SELCC API for batch write and batch read. SELCC_Exclusive_Latch_Batch(gptrs[]).
+* Implement three-way replication to enhance the availability.
