@@ -170,7 +170,7 @@ RDMA_Manager::~RDMA_Manager() {
       ibv_dereg_mr(p);
       //       local buffer is registered on this machine need deregistering.
 //      delete (char*)p->addr;
-        hugePageDealloc(p,size);
+        hugePageDealloc(p->addr,size);
     }
     //    local_mem_regions.clear();
   }
