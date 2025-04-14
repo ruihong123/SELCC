@@ -106,7 +106,7 @@ Guide to header files:
 * **/include/DSMEngine/\*.h**: Low-level interfaces for potential developers.
 
 ## TODO list
-* Optimize the synchronization in the hash table of local cache. (SpinMutex -> Spin-Shared-Exclusive Mutex prioritizing writer).
-* RAII SELCC APIs (Done).
+* Optimize the synchronization in the hash table of local cache. (SpinMutex -> Spin-Shared-Exclusive Mutex prioritizing writer). Resolved.
+* RAII SELCC APIs. Resolved.
 * Add another SELCC API for batch write and batch read. SELCC_Exclusive_Latch_Batch(gptrs[]).
 * Implement three-way replication to enhance the availability.
