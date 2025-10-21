@@ -23,10 +23,8 @@
 #include <set>
 #include "DSMEngine/export.h"
 #include "DSMEngine/slice.h"
-//#include <shared_mutex>
 #include <boost/thread.hpp>
 #include <stack>
-
 #include "Config.h"
 #include "storage/rdma.h"
 #ifdef TIMEPRINT
@@ -123,7 +121,7 @@ constexpr uint8_t Invalid_Node_ID = 255;
         uint8_t last_writer_starvation_priority = 0;
 #endif
 //        std::chrono::time_point<std::chrono::high_resolution_clock> timer_begin;
-        RWSpinLock rw_mtx; // low overhead rw spin lock and write have higher priority than read.
+        RWSpinMutex rw_mtx; // low overhead rw spin lock and write have higher priority than read.
         SpinMutex buffered_inv_mtx; // clear state mutex
         std::atomic<uint16_t> read_lock_counter = 0;
         std::atomic<uint16_t> write_lock_counter = 0;
@@ -497,9 +495,9 @@ public:
     void Erase(const Slice& key, uint32_t hash);
     void Prune();
     size_t TotalCharge() const {
-//    MutexLock l(&mutex_);
-//    ReadLock l(&mutex_);
-        SpinLock l(&mutex_);
+//    MutexLock l(&table_mutex_);
+//    ReadLock l(&table_mutex_);
+        std::shared_lock<RWSpinMutex> l(table_mutex_);
         return usage_;
     }
     //support concurrent access.
@@ -518,27 +516,32 @@ private:
         void Unref(LRUHandle *e);
     void Unref_Inv(LRUHandle *e);
 //    void Unref_WithoutLock(LRUHandle* e);
-    bool FinishErase(LRUHandle *e) EXCLUSIVE_LOCKS_REQUIRED(mutex_);
-    // todo: make the mutex_ a shared mutex. and hence reduce the bottle neck in the cache table.
-    mutable SpinMutex mutex_;
-
+    bool FinishErase(LRUHandle *e) EXCLUSIVE_LOCKS_REQUIRED(table_mutex_);
+    // todo: make the table_mutex_ a shared mutex. and hence reduce the bottle neck in the cache table.
+//    mutable SpinMutex table_mutex_;
     // Initialized before use.
     size_t capacity_;
 
-    // mutex_ protects the following state.
-//  mutable port::RWMutex mutex_;
+    // table_mutex_ protects the following state.
+//  mutable port::RWMutex table_mutex_;
     size_t usage_;
+
+    mutable RWSpinMutex table_mutex_;
+    HandleTable table_;
+
 
     // Dummy head of LRU list.
     // lru.prev is newest entry, lru.next is oldest entry.
     // Entries have refs==1 and in_cache==true.
     LRUHandle lru_;
+    size_t lru_size_ = 0;
 
     // Dummy head of in-use list.
     // Entries are in use by clients, and have refs >= 2 and in_cache==true.
     LRUHandle in_use_;
+    mutable SpinMutex list_mutex_;
 
-    HandleTable table_;
+
 #ifdef PAGE_FREE_LIST
     mutable SpinMutex free_list_mtx_;
     LRUHandle free_list_;
