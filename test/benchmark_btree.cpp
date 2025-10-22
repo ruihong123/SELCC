@@ -444,44 +444,6 @@ int main(int argc, char *argv[]) {
         cache_miss[i][0] = 0;
 //      realhit += invalid_counter[i][0];
     }
-
-    uint64_t fail_locks_cnt = 0;
-    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-      fail_locks_cnt += lock_fail[i][0];
-      lock_fail[i][0] = 0;
-    }
-    // if (fail_locks_cnt > 500000) {
-    //   // need_stop = true;
-    // }
-
-    //  pattern
-    uint64_t pp[8];
-    memset(pp, 0, sizeof(pp));
-    for (int i = 0; i < 8; ++i) {
-      for (int t = 0; t < MAX_APP_THREAD; ++t) {
-        pp[i] += pattern[t][i];
-        pattern[t][i] = 0;
-      }
-    }
-
-//    uint64_t hot_count = 0;
-//    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-//      hot_count += hot_filter_count[i][0];
-//      hot_filter_count[i][0] = 0;
-//    }
-//
-//    uint64_t hier_count = 0;
-//    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-//      hier_count += hierarchy_lock[i][0];
-//      hierarchy_lock[i][0] = 0;
-//    }
-//
-//    uint64_t ho_count = 0;
-//    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-//      ho_count += handover_count[i][0];
-//      handover_count[i][0] = 0;
-//    }
-
     clock_gettime(CLOCK_REALTIME, &s);
 
     if (++count % 3 == 0 && DSMEngine::RDMA_Manager::node_id == 0) {
