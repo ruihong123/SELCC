@@ -16,7 +16,7 @@ cmake -DCMAKE_BUILD_TYPE=Release .. && make all -j
 ```
 
 ### How to run
-First, you should config the connection.conf and  memcached_ip.conf under the main directory. The first line of that file represents the compute nodes' IP addresses, and the second line represents the memory nodes' IP addresses. Before run the command below, please install memcached in the machine you set in memcached_ip.conf, set "-m 16384" for more remembered messages and comment "# -l 127.0.0.1" for multi-node accessing in the memcached machine.
+First, you should config the connection.conf and  memcached_ip.conf under the main directory. The first line of that file represents the compute nodes' IP addresses, and the second line represents the memory nodes' IP addresses. Before run the command below, please install memcached in the machine you set in memcached_ip.conf, set "-m 16384" for more remembered messages and comment "# -l 127.0.0.1" for multi-node accessing in /etc/memcached.conf of the memcached machine.
 * Memory node side: 
 ```bash
 ./memory_server PortNum RemoteMemorySize NodeID
